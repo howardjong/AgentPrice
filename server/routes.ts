@@ -15,7 +15,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize services
   const claudeStatus = claudeService.getStatus();
   const perplexityStatus = perplexityService.getStatus();
-  
+
   // Update storage with initial service status
   await storage.updateServiceStatus('claude', claudeStatus);
   await storage.updateServiceStatus('perplexity', perplexityStatus);
@@ -35,7 +35,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/conversation', async (req: Request, res: Response) => {
     try {
       const { message, conversationId, service } = chatMessageSchema.parse(req.body);
-      
+
       // Get or create a conversation
       let conversation;
       if (conversationId) {
@@ -49,10 +49,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           title: message.substring(0, 50) + (message.length > 50 ? '...' : '')
         });
       }
-      
+
       // Get previous messages in this conversation
       const previousMessages = await storage.getMessagesByConversation(conversation.id);
-      
+
       // Create user message
       const userMessage = await storage.createMessage({
         conversationId: conversation.id,
@@ -62,16 +62,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         visualizationData: null,
         citations: null
       });
-      
+
       // Format messages for Claude
       const messageHistory = [
         ...previousMessages.map(m => ({ role: m.role, content: m.content })),
         { role: 'user', content: message }
       ];
-      
+
       // Process the conversation
       const result = await claudeService.processConversation(messageHistory);
-      
+
       // Save the assistant message
       const assistantMessage = await storage.createMessage({
         conversationId: conversation.id,
@@ -81,7 +81,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         visualizationData: result.visualizationData,
         citations: null
       });
-      
+
       res.json({
         message: assistantMessage,
         conversation,
@@ -97,7 +97,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/research', async (req: Request, res: Response) => {
     try {
       const { message, conversationId } = chatMessageSchema.parse(req.body);
-      
+
       // Get or create a conversation
       let conversation;
       if (conversationId) {
@@ -111,10 +111,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           title: message.substring(0, 50) + (message.length > 50 ? '...' : '')
         });
       }
-      
+
       // Get previous messages in this conversation
       const previousMessages = await storage.getMessagesByConversation(conversation.id);
-      
+
       // Create user message
       const userMessage = await storage.createMessage({
         conversationId: conversation.id,
@@ -124,16 +124,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         visualizationData: null,
         citations: null
       });
-      
+
       // Format messages for Perplexity
       const messageHistory = [
         ...previousMessages.map(m => ({ role: m.role, content: m.content })),
         { role: 'user', content: message }
       ];
-      
+
       // Perform research
       const result = await perplexityService.performResearch(messageHistory);
-      
+
       // Save the assistant message
       const assistantMessage = await storage.createMessage({
         conversationId: conversation.id,
@@ -143,7 +143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         visualizationData: null,
         citations: result.citations
       });
-      
+
       res.json({
         message: assistantMessage,
         conversation,
@@ -154,12 +154,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: `Failed to perform research: ${error.message}` });
     }
   });
-  
+
   // Chat Endpoint - Auto-routes between Claude and Perplexity
   app.post('/api/chat', async (req: Request, res: Response) => {
     try {
       const { message, conversationId, service } = chatMessageSchema.parse(req.body);
-      
+
       // Get or create a conversation
       let conversation;
       if (conversationId) {
@@ -173,10 +173,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           title: message.substring(0, 50) + (message.length > 50 ? '...' : '')
         });
       }
-      
+
       // Get previous messages in this conversation
       const previousMessages = await storage.getMessagesByConversation(conversation.id);
-      
+
       // Create user message
       const userMessage = await storage.createMessage({
         conversationId: conversation.id,
@@ -186,16 +186,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         visualizationData: null,
         citations: null
       });
-      
+
       // Format messages for service router
       const messageHistory = [
         ...previousMessages.map(m => ({ role: m.role, content: m.content })),
         { role: 'user', content: message }
       ];
-      
+
       // Route the message to appropriate service
       const result = await serviceRouter.routeMessage(messageHistory, service);
-      
+
       // Save the assistant message
       const assistantMessage = await storage.createMessage({
         conversationId: conversation.id,
@@ -205,7 +205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         visualizationData: result.visualizationData || null,
         citations: result.citations || null
       });
-      
+
       res.json({
         message: assistantMessage,
         conversation,
@@ -218,15 +218,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: `Failed to process chat message: ${error.message}` });
     }
   });
-  
+
   // Visualization Endpoint
   app.post('/api/visualize', async (req: Request, res: Response) => {
     try {
       const { data, type, title, description } = visualizeSchema.parse(req.body);
-      
+
       // Generate visualization using Claude
       const result = await claudeService.generateVisualization(data, type, title, description);
-      
+
       res.json({
         response: result.response,
         visualizationData: result.visualizationData

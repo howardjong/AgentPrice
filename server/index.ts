@@ -42,11 +42,13 @@ app.get('/health', (req, res) => {
     serveStatic(app);
   }
 
-  const port = 5000;
+  const port = process.env.PORT || 5000;
   server.listen({
     port,
     host: "0.0.0.0",
     reusePort: true,
+    keepAliveTimeout: 65000,
+    headersTimeout: 66000,
   }, () => {
     logger.info(`Server running on port ${port}`);
   });
