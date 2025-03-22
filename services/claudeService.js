@@ -11,6 +11,7 @@ class ClaudeService {
     this.isConnected = false;
     this.model = config.apis.claude.model;
     
+    logger.info('Initializing Claude service with trace ID support');
     try {
       if (config.apis.claude.apiKey) {
         this.client = new Anthropic({
