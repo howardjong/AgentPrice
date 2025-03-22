@@ -47,6 +47,7 @@
     "axios": "^1.8.4",
     "bull": "^4.16.5",
     "class-variance-authority": "^0.7.0",
+    "cls-hooked": "^4.2.2",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "connect-pg-simple": "^10.0.0",

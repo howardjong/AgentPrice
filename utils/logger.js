@@ -1,44 +1,54 @@
-/**
- * Logger utility using Winston
- */
 
 import winston from 'winston';
-import config from '../config/config.js';
+import cls from 'cls-hooked';
+const namespace = cls.createNamespace('research-system');
 
-// Define custom log format
-const customFormat = winston.format.combine(
-  winston.format.timestamp(),
-  winston.format.printf(({ timestamp, level, message }) => {
-    return `[${timestamp}] ${level.toUpperCase()}: ${message}`;
-  })
-);
-
-// Create logger instance with configuration
 const logger = winston.createLogger({
-  level: config.logger.level,
-  format: customFormat,
+  level: process.env.LOG_LEVEL || 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  defaultMeta: { service: 'multi-llm-research' },
   transports: [
-    // Console transport
     new winston.transports.Console({
       format: winston.format.combine(
         winston.format.colorize(),
-        customFormat
+        winston.format.simple()
       ),
     }),
-    // File transport for errors
-    new winston.transports.File({ 
-      filename: 'logs/error.log', 
-      level: 'error',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    }),
-    // File transport for all logs
-    new winston.transports.File({ 
-      filename: 'logs/combined.log',
-      maxsize: 5242880, // 5MB
-      maxFiles: 5,
-    }),
-  ],
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' })
+  ]
 });
+
+// Add trace ID to all log messages
+logger.addTraceId = function() {
+  const originalLogMethods = {};
+  const logLevels = Object.keys(this.levels);
+  
+  logLevels.forEach(level => {
+    originalLogMethods[level] = this[level];
+    
+    this[level] = function() {
+      const args = Array.from(arguments);
+      const traceId = namespace.get('traceId') || 'no-trace';
+      
+      // If last argument is object, add traceId to it
+      if (typeof args[args.length - 1] === 'object') {
+        args[args.length - 1].traceId = traceId;
+      } else {
+        args.push({ traceId });
+      }
+      
+      return originalLogMethods[level].apply(this, args);
+    };
+  });
+  
+  return this;
+};
+
+// Apply trace ID enhancement
+logger.addTraceId();
 
 export default logger;
