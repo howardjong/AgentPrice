@@ -1,5 +1,6 @@
-import { jest } from '@jest/globals';
-import logger from '../../utils/logger.js';
+// Using CommonJS for Jest compatibility
+const { jest } = require('@jest/globals');
+const logger = require('../../utils/logger.js');
 
 describe('Logger', () => {
   let consoleOutput = [];

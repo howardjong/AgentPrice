@@ -1,7 +1,8 @@
-import { jest } from '@jest/globals';
-import axios from 'axios';
-import MockAdapter from 'axios-mock-adapter';
-import { RobustAPIClient } from '../../utils/apiClient.js';
+// Using CommonJS for Jest compatibility
+const { jest } = require('@jest/globals');
+const axios = require('axios');
+const MockAdapter = require('axios-mock-adapter');
+const { RobustAPIClient } = require('../../utils/apiClient.js');
 
 describe('RobustAPIClient', () => {
   let mock;

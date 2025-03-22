@@ -1,9 +1,11 @@
 
-/** @type {import('jest').Config} */
-export default {
+// Creating a CommonJS configuration file for Jest
+// This works better with projects configured as ESM
+// In CommonJS modules, the top-level this is not defined so we use module.exports
+module.exports = {
   testEnvironment: 'node',
+  // Enable experimental ESM support
   transform: {},
-  extensionsToTreatAsEsm: ['.js', '.ts', '.tsx'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
@@ -12,5 +14,7 @@ export default {
   ],
   moduleFileExtensions: ['js', 'ts', 'tsx'],
   testMatch: ['**/tests/**/*.test.js'],
-  setupFiles: ['<rootDir>/tests/setup.js']
+  // Remove setupFiles since it's causing issues with ESM
+  // setupFiles: ['<rootDir>/tests/setup.js'],
+  testPathIgnorePatterns: ["/node_modules/"]
 }

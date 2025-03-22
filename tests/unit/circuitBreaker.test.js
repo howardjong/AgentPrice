@@ -1,6 +1,7 @@
 
-import { jest } from '@jest/globals';
-import { CircuitBreaker } from '../../utils/monitoring.js';
+// Using CommonJS for Jest compatibility
+const { jest } = require('@jest/globals');
+const { CircuitBreaker } = require('../../utils/monitoring.js');
 
 describe('CircuitBreaker', () => {
   let circuitBreaker;
