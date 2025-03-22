@@ -1,4 +1,4 @@
 
-// Using CommonJS for Jest compatibility
-const { jest } = require('@jest/globals');
+// Using ES modules for Jest
+import { jest } from '@jest/globals';
 global.jest = jest;
