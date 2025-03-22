@@ -1,4 +1,5 @@
 
+// Using ES modules as specified in package.json "type": "module"
 import logger from './logger.js';
 
 export class CircuitBreaker {

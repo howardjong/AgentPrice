@@ -1,4 +1,5 @@
 
+// Using ES modules as specified in package.json "type": "module"
 import winston from 'winston';
 import cls from 'cls-hooked';
 const namespace = cls.createNamespace('research-system');
@@ -51,4 +52,5 @@ logger.addTraceId = function() {
 // Apply trace ID enhancement
 logger.addTraceId();
 
+// Export using ES modules
 export default logger;

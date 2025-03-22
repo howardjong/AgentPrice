@@ -1,29 +1,36 @@
 /**
  * Claude Service for conversation processing and visualization generation
  */
-import Anthropic from '@anthropic-ai/sdk';
-import logger from '../utils/logger.js';
-import config from '../config/config.js';
+const Anthropic = require('@anthropic-ai/sdk');
+const logger = require('../utils/logger.js');
 
 class ClaudeService {
   constructor() {
-    this.client = null;
+    this.apiKey = process.env.ANTHROPIC_API_KEY;
+    this.model = "claude-3-7-sonnet-20250219"; // the newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
     this.isConnected = false;
-    this.model = config.apis.claude.model;
+    this.lastUsed = null;
+    this.client = null;
     
-    logger.info('Initializing Claude service with trace ID support');
+    this.initialize();
+  }
+  
+  initialize() {
     try {
-      if (config.apis.claude.apiKey) {
-        this.client = new Anthropic({
-          apiKey: config.apis.claude.apiKey,
-        });
-        this.isConnected = true;
-        logger.info('Claude service initialized successfully');
-      } else {
-        logger.warn('ANTHROPIC_API_KEY is not set. Claude service will not work properly.');
+      if (!this.apiKey) {
+        logger.warn('Claude API key not found in environment variables');
+        return;
       }
+      
+      this.client = new Anthropic({
+        apiKey: this.apiKey,
+      });
+      
+      this.isConnected = true;
+      logger.info('Claude service initialized successfully');
     } catch (error) {
-      logger.error(`Failed to initialize Claude service: ${error.message}`);
+      logger.error('Failed to initialize Claude service', { error: error.message });
+      this.isConnected = false;
     }
   }
 
@@ -33,11 +40,11 @@ class ClaudeService {
    */
   getStatus() {
     return {
-      service: "Claude API",
+      service: 'claude',
       status: this.isConnected ? 'connected' : 'disconnected',
-      lastUsed: this.lastUsed || null,
-      version: "claude-3-7-sonnet-20250219", // the newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
-      error: this.isConnected ? undefined : 'API key not configured'
+      lastUsed: this.lastUsed ? this.lastUsed.toISOString() : null,
+      version: this.model,
+      error: !this.isConnected ? 'API key not configured or service unavailable' : undefined
     };
   }
 
@@ -47,36 +54,36 @@ class ClaudeService {
    * @returns {Promise<Object>} Claude's response
    */
   async processConversation(messages) {
+    if (!this.isConnected || !this.client) {
+      throw new Error('Claude service is not connected');
+    }
+    
     try {
-      if (!this.isConnected) {
-        throw new Error("Claude service is not properly configured");
-      }
-
-      logger.info(`Processing conversation with Claude using model: ${this.model}`);
-      this.lastUsed = new Date().toISOString();
-
+      // Transform messages format from our app to Claude's expected format
+      const claudeMessages = messages.map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content
+      }));
+      
       const response = await this.client.messages.create({
         model: this.model,
-        max_tokens: config.apis.claude.maxTokens,
-        messages: messages,
+        max_tokens: 2000,
+        messages: claudeMessages,
       });
-
-      logger.info('Claude conversation processed successfully');
+      
+      this.lastUsed = new Date();
+      
       return {
-        status: 'success',
-        message: response.content[0].text,
-        usage: {
-          prompt_tokens: response.usage?.input_tokens || 0,
-          completion_tokens: response.usage?.output_tokens || 0,
+        response: response.content[0].text,
+        modelUsed: this.model,
+        tokens: {
+          input: response.usage?.input_tokens || 0,
+          output: response.usage?.output_tokens || 0
         }
       };
     } catch (error) {
-      logger.error(`Claude conversation error: ${error.message}`);
-      return {
-        status: 'error',
-        message: `Error processing conversation: ${error.message}`,
-        error: error.message
-      };
+      logger.error('Error in Claude conversation processing', { error: error.message });
+      throw new Error(`Claude API error: ${error.message}`);
     }
   }
 
@@ -89,79 +96,52 @@ class ClaudeService {
    * @returns {Promise<Object>} Generated visualization data
    */
   async generateVisualization(data, type, title, description) {
+    if (!this.isConnected || !this.client) {
+      throw new Error('Claude service is not connected');
+    }
+    
     try {
-      if (!this.isConnected) {
-        throw new Error("Claude service is not properly configured");
-      }
-
-      logger.info(`Generating ${type} visualization with Claude`);
-      this.lastUsed = new Date().toISOString();
-
-      // Create a prompt for Claude to generate the visualization
       const prompt = `
-      Generate a ${type} visualization based on the following data:
-      
-      Data: ${JSON.stringify(data)}
-      ${title ? `Title: ${title}` : ''}
-      ${description ? `Description: ${description}` : ''}
-      
-      Please respond with clean, valid JSON that can be used with a charting library.
-      The JSON should have a structure like this:
-      {
-        "type": "${type}",
-        "data": [ ... ],
-        "labels": [ ... ],
-        "title": "${title || 'Chart Title'}",
-        "description": "${description || 'Chart Description'}"
-      }
-      
-      Only respond with the JSON. No explanations or other text.
+        Generate a ${type} visualization using the following data:
+        ${JSON.stringify(data, null, 2)}
+        ${title ? `The title should be: ${title}` : ''}
+        ${description ? `Additional context: ${description}` : ''}
+        
+        Please provide a visualization in SVG format that best represents this data.
+        The SVG should be complete and valid, with appropriate dimensions, styling, and responsive design.
+        Include clear labels, a legend if appropriate, and ensure all data points are accurately represented.
+        
+        Return ONLY the SVG code without any additional explanation.
       `;
-
+      
       const response = await this.client.messages.create({
         model: this.model,
-        max_tokens: config.apis.claude.maxTokens,
+        max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }],
       });
-
-      const content = response.content[0].text;
       
-      // Parse the JSON response
-      // Use a try/catch to handle potential JSON parsing issues
-      try {
-        // Extract JSON from the response if it's wrapped in backticks or other text
-        const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
-                         content.match(/```([\s\S]*?)```/) || 
-                         [null, content];
-        
-        const jsonString = jsonMatch[1].trim();
-        const visualizationData = JSON.parse(jsonString);
-        
-        logger.info('Visualization generated successfully');
-        return {
-          status: 'success',
-          visualizationData
-        };
-      } catch (jsonError) {
-        logger.error(`Failed to parse visualization JSON: ${jsonError.message}`);
-        return {
-          status: 'error',
-          message: 'Failed to parse visualization data',
-          content,
-          error: jsonError.message
-        };
+      this.lastUsed = new Date();
+      
+      // Extract SVG code from the response
+      const svgContent = response.content[0].text;
+      
+      // Basic validation that we got valid SVG
+      if (!svgContent.includes('<svg') || !svgContent.includes('</svg>')) {
+        throw new Error('Claude did not generate valid SVG visualization');
       }
-    } catch (error) {
-      logger.error(`Visualization generation error: ${error.message}`);
+      
       return {
-        status: 'error',
-        message: `Error generating visualization: ${error.message}`,
-        error: error.message
+        visualizationType: type,
+        svg: svgContent,
+        title: title || 'Data Visualization',
+        description: description || '',
+        rawData: data
       };
+    } catch (error) {
+      logger.error('Error in Claude visualization generation', { error: error.message });
+      throw new Error(`Claude visualization error: ${error.message}`);
     }
   }
 }
 
-// Create and export a singleton instance
-const claudeService = new ClaudeService();
-export default claudeService;
+module.exports = new ClaudeService();

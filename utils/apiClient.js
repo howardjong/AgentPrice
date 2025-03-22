@@ -1,4 +1,5 @@
 
+// Using ES modules as specified in package.json "type": "module"
 import axios from 'axios';
 import logger from './logger.js';
 import { CircuitBreaker } from './monitoring.js';

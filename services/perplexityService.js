@@ -1,21 +1,33 @@
 /**
  * Perplexity Service for web research and information retrieval
  */
-import axios from 'axios';
-import logger from '../utils/logger.js';
-import config from '../config/config.js';
+const axios = require('axios');
+const logger = require('../utils/logger.js');
+const { RobustAPIClient } = require('../utils/apiClient.js');
 
 class PerplexityService {
   constructor() {
-    this.apiKey = config.apis.perplexity.apiKey;
-    this.model = config.apis.perplexity.model;
-    this.isConnected = !!this.apiKey;
-    this.baseUrl = 'https://api.perplexity.ai/chat/completions';
+    this.apiKey = process.env.PERPLEXITY_API_KEY;
+    this.model = 'llama-3.1-sonar-small-128k-online';
+    this.isConnected = false;
+    this.lastUsed = null;
+    this.apiClient = new RobustAPIClient();
     
-    if (!this.apiKey) {
-      logger.warn('PERPLEXITY_API_KEY is not set. Perplexity service will not work properly.');
-    } else {
+    this.initialize();
+  }
+  
+  initialize() {
+    try {
+      if (!this.apiKey) {
+        logger.warn('Perplexity API key not found in environment variables');
+        return;
+      }
+      
+      this.isConnected = true;
       logger.info('Perplexity service initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize Perplexity service', { error: error.message });
+      this.isConnected = false;
     }
   }
 
@@ -25,11 +37,11 @@ class PerplexityService {
    */
   getStatus() {
     return {
-      service: "Perplexity API",
+      service: 'perplexity',
       status: this.isConnected ? 'connected' : 'disconnected',
-      lastUsed: this.lastUsed || null,
+      lastUsed: this.lastUsed ? this.lastUsed.toISOString() : null,
       version: this.model,
-      error: this.isConnected ? undefined : 'API key not configured'
+      error: !this.isConnected ? 'API key not configured or service unavailable' : undefined
     };
   }
 
@@ -40,62 +52,45 @@ class PerplexityService {
    * @returns {Promise<Object>} Research results
    */
   async performResearch(messages, options = {}) {
+    if (!this.isConnected) {
+      throw new Error('Perplexity service is not connected');
+    }
+    
     try {
-      if (!this.isConnected) {
-        throw new Error("Perplexity service is not properly configured");
-      }
-
-      logger.info(`Performing research with Perplexity using model: ${this.model}`);
-      this.lastUsed = new Date().toISOString();
-
-      // Ensure we have proper message structure
+      // Validate and prepare messages for the Perplexity API
       const validatedMessages = this.validateMessages(messages);
       
-      // Prepare the request payload
-      const payload = {
-        model: this.model,
-        messages: validatedMessages,
-        max_tokens: options.max_tokens || config.apis.perplexity.maxTokens,
-        temperature: options.temperature || 0.2,
-        top_p: options.top_p || 0.9,
-        search_domain_filter: options.search_domain_filter,
-        stream: false,
-        return_images: false,
-        return_related_questions: false,
-        search_recency_filter: options.search_recency_filter || "month",
-        frequency_penalty: options.frequency_penalty || 1
-      };
-
-      const response = await axios.post(this.baseUrl, payload, {
+      const requestOptions = {
+        method: 'POST',
+        url: 'https://api.perplexity.ai/chat/completions',
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        data: {
+          model: this.model,
+          messages: validatedMessages,
+          temperature: options.temperature || 0.2,
+          max_tokens: options.maxTokens || 1024,
+          top_p: options.topP || 0.9,
+          search_domain_filter: options.domainFilter || [],
+          search_recency_filter: options.recencyFilter || "month",
+          return_citations: true
         }
-      });
-
-      logger.info('Perplexity research completed successfully');
+      };
+      
+      const response = await this.apiClient.request(requestOptions);
+      this.lastUsed = new Date();
       
       return {
-        status: 'success',
-        message: response.data.choices[0].message.content,
+        response: response.data.choices[0].message.content,
         citations: response.data.citations || [],
-        usage: {
-          prompt_tokens: response.data.usage.prompt_tokens,
-          completion_tokens: response.data.usage.completion_tokens,
-          total_tokens: response.data.usage.total_tokens
-        }
+        modelUsed: this.model,
+        usage: response.data.usage || { total_tokens: 0 }
       };
     } catch (error) {
-      logger.error(`Perplexity research error: ${error.message}`);
-      
-      // Extract more detailed error information if available
-      const errorDetails = error.response?.data?.error || error.message;
-      
-      return {
-        status: 'error',
-        message: `Error performing research: ${errorDetails}`,
-        error: errorDetails
-      };
+      logger.error('Error in Perplexity research', { error: error.message });
+      throw new Error(`Perplexity API error: ${error.message}`);
     }
   }
 
@@ -107,50 +102,46 @@ class PerplexityService {
    */
   validateMessages(messages) {
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      // Default to a simple message if none provided
-      return [{ role: 'user', content: 'Please research this topic' }];
-    }
-
-    // Ensure first message is system or user
-    const validatedMessages = [...messages];
-    
-    if (validatedMessages[0].role !== 'system' && validatedMessages[0].role !== 'user') {
-      validatedMessages[0].role = 'user';
+      return [{ role: 'user', content: 'Provide information on this topic.' }];
     }
     
-    // If first message is system, ensure second message is user
-    if (validatedMessages[0].role === 'system' && validatedMessages.length > 1) {
-      if (validatedMessages[1].role !== 'user') {
-        validatedMessages[1].role = 'user';
-      }
+    const validMessages = messages.map(msg => ({
+      role: msg.role === 'user' ? 'user' : 'assistant',
+      content: msg.content
+    }));
+    
+    // Add a system message at the beginning if not present
+    if (validMessages[0].role !== 'system') {
+      validMessages.unshift({
+        role: 'system',
+        content: 'You are a helpful research assistant. Provide factual, well-sourced information.'
+      });
     }
-
-    // Ensure messages alternate properly and end with user
-    for (let i = 1; i < validatedMessages.length; i++) {
-      if (validatedMessages[i-1].role === validatedMessages[i].role) {
-        // If same role appears twice, change the role of the current message
-        validatedMessages[i].role = validatedMessages[i-1].role === 'user' ? 'assistant' : 'user';
+    
+    // Ensure the sequence alternates properly and ends with a user message
+    const fixedMessages = [];
+    let lastRole = null;
+    
+    for (const msg of validMessages) {
+      // Skip consecutive messages with the same role (except system messages)
+      if (msg.role === lastRole && msg.role !== 'system') {
+        continue;
       }
+      
+      fixedMessages.push(msg);
+      lastRole = msg.role;
     }
-
-    // Ensure last message is from user
-    if (validatedMessages[validatedMessages.length - 1].role !== 'user') {
-      // Either change the last message or add a new user message
-      if (validatedMessages.length > 1 && 
-          validatedMessages[validatedMessages.length - 2].role === 'user') {
-        // Last two messages are user and non-user, combine them
-        const lastMsg = validatedMessages.pop();
-        validatedMessages[validatedMessages.length - 1].content += `\n\nAdditional information:\n${lastMsg.content}`;
-      } else {
-        // Change the last message to user
-        validatedMessages[validatedMessages.length - 1].role = 'user';
-      }
+    
+    // If the last message is not from the user, add a user message
+    if (fixedMessages[fixedMessages.length - 1].role !== 'user') {
+      fixedMessages.push({
+        role: 'user',
+        content: 'Please provide information on this topic based on our conversation.'
+      });
     }
-
-    return validatedMessages;
+    
+    return fixedMessages;
   }
 }
 
-// Create and export a singleton instance
-const perplexityService = new PerplexityService();
-export default perplexityService;
+module.exports = new PerplexityService();
