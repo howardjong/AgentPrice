@@ -1,0 +1,105 @@
+// services/redisClient.js
+const Redis = require('ioredis');
+const logger = require('../utils/logger');
+
+class RedisClient {
+  constructor() {
+    this.client = null;
+    this.healthCheckInterval = null;
+  }
+  
+  connect() {
+    try {
+      const client = new Redis(process.env.REDIS_URL, {
+        maxRetriesPerRequest: 3,
+        enableOfflineQueue: false
+      });
+      
+      // Add connection monitoring
+      client.on('connect', () => {
+        logger.info('Redis client connected');
+      });
+      
+      client.on('error', (error) => {
+        logger.error('Redis client error', { error: error.message });
+      });
+      
+      client.on('close', () => {
+        logger.warn('Redis connection closed');
+      });
+      
+      this.client = client;
+      this.startHealthCheck();
+      return client;
+    } catch (error) {
+      logger.error('Failed to initialize Redis client', { error: error.message });
+      throw error;
+    }
+  }
+  
+  getClient() {
+    if (!this.client) {
+      this.connect();
+    }
+    return this.client;
+  }
+  
+  async ping() {
+    try {
+      await this.getClient().ping();
+      return true;
+    } catch (error) {
+      logger.error('Redis ping failed', { error: error.message });
+      return false;
+    }
+  }
+  
+  startHealthCheck() {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+    }
+    
+    this.healthCheckInterval = setInterval(async () => {
+      const isHealthy = await this.ping();
+      
+      if (!isHealthy) {
+        logger.warn('Redis health check failed, attempting reconnection');
+        this.reconnect();
+      }
+    }, 30000); // Check every 30 seconds
+  }
+  
+  async reconnect() {
+    if (this.client) {
+      try {
+        await this.client.quit();
+      } catch (error) {
+        logger.error('Error closing Redis connection', { error: error.message });
+      }
+      this.client = null;
+    }
+    
+    try {
+      this.connect();
+      logger.info('Redis reconnection successful');
+    } catch (error) {
+      logger.error('Redis reconnection failed', { error: error.message });
+    }
+  }
+  
+  stop() {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = null;
+    }
+    
+    if (this.client) {
+      this.client.quit().catch(error => {
+        logger.error('Error closing Redis connection', { error: error.message });
+      });
+      this.client = null;
+    }
+  }
+}
+
+module.exports = new RedisClient();
