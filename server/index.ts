@@ -5,7 +5,7 @@ import logger from "../utils/logger.js";
 
 const app = express();
 app.use(express.json());
-import requestTracer from '../middlewares/requestTracer.js';
+import requestTracer = require('../middlewares/requestTracer');
 app.use(requestTracer);
 app.use(express.urlencoded({ extended: false }));
 
