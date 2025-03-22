@@ -3,6 +3,13 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import logger from '../utils/logger.js';
+import { CircuitBreaker } from '../utils/monitoring.js';
+import { RobustAPIClient } from '../utils/apiClient.js';
+
+const apiClient = new RobustAPIClient({
+  maxRetries: 3,
+  timeout: 60000
+});
 
 class ClaudeService {
   constructor() {
@@ -24,6 +31,11 @@ class ClaudeService {
       
       this.client = new Anthropic({
         apiKey: this.apiKey,
+      });
+      
+      this.circuitBreaker = new CircuitBreaker({
+        failureThreshold: 3,
+        resetTimeout: 60000
       });
       
       this.isConnected = true;
@@ -135,6 +147,69 @@ class ClaudeService {
         svg: svgContent,
         title: title || 'Data Visualization',
         description: description || '',
+
+  async generateClarifyingQuestions(query) {
+    return this.circuitBreaker.executeRequest('claude-questions', async () => {
+      const response = await this.client.messages.create({
+        model: this.model,
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: `Generate 5 clarifying questions for deep research on: "${query}"`
+        }]
+      });
+
+      try {
+        const content = response.content[0].text;
+        const jsonMatch = content.match(/\[[\s\S]*\]/);
+        return jsonMatch ? JSON.parse(jsonMatch[0]) : this.extractQuestionsFromText(content);
+      } catch (error) {
+        logger.error('Failed to parse questions', { error: error.message });
+        return this.generateDefaultQuestions(query);
+      }
+    });
+  }
+
+  async generateChartData(researchResults, chartType) {
+    return this.circuitBreaker.executeRequest('claude-chart', async () => {
+      const response = await this.client.messages.create({
+        model: this.model,
+        max_tokens: 2000,
+        messages: [{
+          role: 'user',
+          content: `Generate the appropriate data structure for ${chartType} based on these research results: ${researchResults.substring(0, 8000)}`
+        }]
+      });
+
+      const content = response.content[0].text;
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+      throw new Error('Failed to generate chart data');
+    });
+  }
+
+  extractQuestionsFromText(text) {
+    const lines = text.split('\n').filter(line => 
+      line.trim().length > 0 && 
+      (line.includes('?') || /^\d+\./.test(line))
+    );
+    return lines.slice(0, 5).map(line => 
+      line.replace(/^\d+[\.\)]?\s*/, '').trim()
+    );
+  }
+
+  generateDefaultQuestions(query) {
+    return [
+      `What specific aspects of "${query}" are you most interested in?`,
+      `What is your current understanding of this topic?`,
+      `Are there particular sources or perspectives you want included?`,
+      `What timeframe or geographical scope should the research focus on?`,
+      `How will you be using this research information?`
+    ];
+  }
+
         rawData: data
       };
     } catch (error) {
