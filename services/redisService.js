@@ -2,7 +2,7 @@ import { createClient } from 'redis';
 import logger from '../utils/logger.js';
 
 // In-memory store for fallback mode
-class InMemoryStore {
+export class InMemoryStore {
   constructor() {
     this.store = new Map();
     this.pubsub = new Map();

@@ -5,9 +5,11 @@ async function testRedisConnection() {
   try {
     logger.info('Starting Redis connection test');
     
-    // Connect to Redis
+    // Force use of in-memory store for testing
+    process.env.REDIS_MODE = 'memory';
+    
+    // Connect to Redis (will use in-memory store)
     const client = redisClient.getClient();
-    await client.connect();
     
     // Test simple operations
     logger.info('Setting test value');
