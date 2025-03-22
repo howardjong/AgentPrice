@@ -1,11 +1,11 @@
-import express from "express";
+import express from 'express';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
-import logger from "../utils/logger.js";
+import logger from '../utils/logger.js';
+import requestTracer from '../middlewares/requestTracer.js';
 
 const app = express();
 app.use(express.json());
-import requestTracer from '../middlewares/requestTracer.js';
 app.use(requestTracer);
 app.use(express.urlencoded({ extended: false }));
 
@@ -50,3 +50,5 @@ app.get('/health', (req, res) => {
     logger.info(`Server running on port ${port}`);
   });
 })();
+
+export default app;
