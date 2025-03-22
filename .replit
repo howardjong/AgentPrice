@@ -48,4 +48,4 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm test"
+args = "NODE_OPTIONS=--experimental-vm-modules npm test"
