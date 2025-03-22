@@ -5,6 +5,7 @@ import logger from "../utils/logger.js";
 
 const app = express();
 app.use(express.json());
+app.use(require('../middlewares/requestTracer'));
 app.use(express.urlencoded({ extended: false }));
 
 // Add request logging middleware
