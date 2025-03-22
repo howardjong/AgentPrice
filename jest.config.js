@@ -16,6 +16,6 @@ export default {
   // Setup files for ESM
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
   testPathIgnorePatterns: ["/node_modules/"],
-  // Explicitly tell Jest to use ESM
-  extensionsToTreatAsEsm: ['.js', '.ts', '.tsx']
+  // Explicitly tell Jest to use ESM for TS files
+  extensionsToTreatAsEsm: ['.ts', '.tsx']
 }
