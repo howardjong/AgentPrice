@@ -1,8 +1,8 @@
 /**
  * Claude Service for conversation processing and visualization generation
  */
-const Anthropic = require('@anthropic-ai/sdk');
-const logger = require('../utils/logger.js');
+import Anthropic from '@anthropic-ai/sdk';
+import logger from '../utils/logger.js';
 
 class ClaudeService {
   constructor() {
@@ -144,4 +144,5 @@ class ClaudeService {
   }
 }
 
-module.exports = new ClaudeService();
+const claudeService = new ClaudeService();
+export default claudeService;

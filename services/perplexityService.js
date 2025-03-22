@@ -1,9 +1,9 @@
 /**
  * Perplexity Service for web research and information retrieval
  */
-const axios = require('axios');
-const logger = require('../utils/logger.js');
-const { RobustAPIClient } = require('../utils/apiClient.js');
+import axios from 'axios';
+import logger from '../utils/logger.js';
+import { RobustAPIClient } from '../utils/apiClient.js';
 
 class PerplexityService {
   constructor() {
@@ -144,4 +144,5 @@ class PerplexityService {
   }
 }
 
-module.exports = new PerplexityService();
+const perplexityService = new PerplexityService();
+export default perplexityService;

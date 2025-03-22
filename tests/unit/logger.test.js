@@ -1,6 +1,7 @@
-// Using CommonJS for Jest compatibility
-const { jest } = require('@jest/globals');
-const logger = require('../../utils/logger.js');
+// Using ES modules for Jest
+import { jest } from '@jest/globals';
+import logger from '../../utils/logger.js';
+import { createNamespace } from 'cls-hooked';
 
 describe('Logger', () => {
   let consoleOutput = [];
@@ -34,7 +35,7 @@ describe('Logger', () => {
     const testMessage = 'Test with trace';
     const testTraceId = '123-test-trace';
 
-    const namespace = require('cls-hooked').createNamespace('research-system');
+    const namespace = createNamespace('research-system');
     namespace.run(() => {
       namespace.set('traceId', testTraceId);
       logger.info(testMessage);
