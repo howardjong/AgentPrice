@@ -1,7 +1,8 @@
-const { v4: uuidv4 } = require('uuid');
-const cls = require('cls-hooked');
+import { v4 as uuidv4 } from 'uuid';
+import cls from 'cls-hooked';
+import logger from '../utils/logger.js';
+
 const namespace = cls.createNamespace('research-system');
-const logger = require('../utils/logger');
 
 const requestTracer = (req, res, next) => {
   namespace.run(() => {
@@ -39,4 +40,4 @@ const requestTracer = (req, res, next) => {
   });
 };
 
-module.exports = requestTracer;
+export default requestTracer;
