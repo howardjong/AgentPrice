@@ -1,6 +1,4 @@
-
 import { jest } from '@jest/globals';
-import winston from 'winston';
 import logger from '../../utils/logger.js';
 
 describe('Logger', () => {
@@ -21,7 +19,7 @@ describe('Logger', () => {
   test('logs messages with correct level and format', () => {
     const testMessage = 'Test log message';
     logger.info(testMessage);
-    
+
     expect(consoleOutput.length).toBe(1);
     const logOutput = JSON.parse(consoleOutput[0]);
     expect(logOutput).toMatchObject({
@@ -34,7 +32,7 @@ describe('Logger', () => {
   test('adds trace ID to log messages', () => {
     const testMessage = 'Test with trace';
     const testTraceId = '123-test-trace';
-    
+
     const namespace = require('cls-hooked').createNamespace('research-system');
     namespace.run(() => {
       namespace.set('traceId', testTraceId);
@@ -43,5 +41,16 @@ describe('Logger', () => {
 
     const logOutput = JSON.parse(consoleOutput[0]);
     expect(logOutput.traceId).toBe(testTraceId);
+  });
+
+  test('logs messages with trace ID', () => {
+    const mockInfo = jest.spyOn(logger, 'info');
+
+    logger.info('Test message', { data: 'test' });
+
+    expect(mockInfo).toHaveBeenCalledWith('Test message', {
+      data: 'test',
+      traceId: 'no-trace'
+    });
   });
 });
