@@ -1,0 +1,130 @@
+To address the issue with Jest having problems tearing down modules for ES modules in your test, consider the following steps:
+
+## 1. **Dynamic Imports and Mocking**
+
+You are already using dynamic imports to prevent teardown issues, which is a good practice. Ensure that all modules are properly mocked to prevent real service calls:
+
+```javascript
+jest.mock('../../../services/jobManager.js');
+jest.mock('../../../services/contextManager.js');
+jest.mock('../../../utils/logger.js');
+jest.mock('../../../services/anthropicService.js');
+jest.mock('../../../services/perplexityService.js');
+```
+
+## 2. **Proper Teardown**
+
+In your `afterAll` block, you're restoring the module cache to its original state. However, ensure that all asynchronous operations are awaited and completed before Jest tears down the environment. This can prevent errors like "You are trying to `import` a file after the Jest environment has been torn down."
+
+```javascript
+afterAll(async () => {
+  // Ensure any async operations are awaited here
+  module.children = originalModules.moduleChildren;
+});
+```
+
+## 3. **Avoiding Circular Dependencies**
+
+Circular dependencies can cause issues with module initialization and teardown. Use tools like `madge` to detect circular dependencies in your codebase:
+
+```bash
+"scripts": {
+  "check:circular": "madge --circular ./src"
+}
+```
+
+## 4. **Mocking and Cleanup**
+
+Ensure that all mocks are properly cleaned up after each test using `beforeEach` and `afterEach` hooks:
+
+```javascript
+beforeEach(() => {
+  jest.clearAllMocks();
+  // Setup mock behaviors here
+});
+
+afterEach(() => {
+  // Any additional cleanup needed here
+});
+```
+
+## 5. **Fake Timers**
+
+If your tests involve timers or asynchronous operations that might run after Jest has finished, consider using fake timers:
+
+```javascript
+jest.useFakeTimers();
+```
+
+## 6. **Awaiting Asynchronous Operations**
+
+Make sure all asynchronous operations are awaited in your tests to prevent them from running after Jest has completed:
+
+```javascript
+test('test case', async () => {
+  await someAsyncFunction();
+});
+```
+
+## 7. **Jest Configuration**
+
+Review your Jest configuration to ensure it's set up correctly for ES modules. You might need to specify the `testEnvironment` or use a custom `transform` for ES modules.
+
+By addressing these areas, you should be able to resolve the teardown issues with Jest and ES modules in your test suite.
+
+Citations:
+[1] https://jestjs.io/docs/next/configuration
+[2] https://stackoverflow.com/questions/60781238/referenceerror-you-are-trying-to-import-a-file-after-the-jest-environment-has/64567257
+[3] https://app.studyraid.com/en/read/12375/399601/circular-dependencies
+[4] https://jestjs.io/docs/setup-teardown
+[5] https://www.repeato.app/resolving-the-referenceerror-you-are-trying-to-import-a-file-after-the-jest-environment-has-been-torn-down-error/
+[6] https://www.emgoto.com/mocking-with-jest/
+[7] https://dev.to/lucas1004jx/mocking-modules-in-jest-three-powerful-techniques-4ol6
+[8] https://jestjs.io/docs/configuration
+[9] https://stackoverflow.com/questions/50793885/referenceerror-you-are-trying-to-import-a-file-after-the-jest-environment-has
+[10] https://dev.to/mattiz/mock-modules-properly-with-jest-and-typescript-3nao
+[11] https://dev.to/alexpladev/js-tests-mocking-best-practices-10kp
+[12] https://stackoverflow.com/questions/66997288/jest-tests-leaking-due-to-improper-teardown
+[13] https://www.bitovi.com/blog/mocking-modules-in-jest-tests
+[14] https://www.reddit.com/r/typescript/comments/1ei9f4a/is_it_me_or_mocking_everything_everywhere_in/
+[15] https://stackoverflow.com/questions/67513666/all-imports-are-undefined-for-one-module-during-jest-test-run
+[16] https://stackoverflow.com/questions/61781271/jest-wont-transform-the-module-syntaxerror-cannot-use-import-statement-outsi
+[17] https://www.reddit.com/r/typescript/comments/ra4wah/psa_dont_make_the_same_mistake_i_did_avoid/
+[18] https://github.com/jupyterlab/jupyterlab/issues/5751
+[19] https://github.com/react-navigation/react-navigation/issues/9727
+[20] https://github.com/vercel/next.js/issues/46734
+[21] https://github.com/jestjs/jest/issues/9430
+[22] https://github.com/facebook/jest/issues/6434
+[23] https://github.com/facebook/jest/issues/10422
+[24] https://www.browserstack.com/guide/fixing-cannot-use-import-statement-outside-module-jest
+[25] https://paolochang.github.io/posts/bugfix-unittest-import_after_jest_environment/
+[26] https://www.strv.com/blog/quickest-simplest-way-mocking-module-dependencies-jest-engineering
+[27] https://jestjs.io/docs/ecmascript-modules
+[28] https://www.youtube.com/watch?v=HfDokHQ4grk
+[29] https://github.com/jestjs/jest/issues/11438
+[30] https://tillitsdone.com/blogs/jest-global-setup-and-teardown/
+[31] https://jestjs.io/docs/asynchronous
+[32] https://blog.herodevs.com/finding-and-fixing-jest-phantom-failures-5f6d0daa1fde
+[33] https://www.reddit.com/r/nestjs/comments/1f4p2cw/trouble_accessing_providers_globally_in_jest_with/
+[34] https://archive.jestjs.io/docs/en/22.x/troubleshooting
+[35] https://developer.genesys.cloud/forum/t/referenceerror-running-jest-testing/20336
+[36] https://community.temporal.io/t/error-when-running-worker-instance-in-e2e-jest-test-with-yarn-pnp/10538
+[37] https://github.com/facebook/jest/issues/10539
+[38] https://devblogs.microsoft.com/ise/jest-mocking-best-practices/
+[39] https://jestjs.io/docs/manual-mocks
+[40] https://jestjs.io/docs/mock-functions
+[41] https://www.salto.io/blog-posts/typescript-unit-testing-pitfalls-with-jest-and-how-to-work-around-them
+[42] https://www.dhiwise.com/post/overcoming-jest-mock-access-errors-a-comprehensive-guide
+[43] https://stackoverflow.com/questions/40465047/how-can-i-mock-an-es6-module-import-using-jest
+[44] https://www.reddit.com/r/typescript/comments/xs9i0r/with_test_frameworks_like_jest_we_can_mock/
+[45] https://github.com/mswjs/msw/issues/1952
+[46] https://jestjs.io/docs/es6-class-mocks
+[47] https://dev.to/dvddpl/jest-testing-like-a-pro-tips-and-tricks-4o6f
+[48] https://www.reddit.com/r/reactjs/comments/st1c7c/should_we_be_worried_about_jest/
+[49] https://forum.codewithmosh.com/t/throwing-you-are-importing-a-file-after-the-jest-environment-has-been-torn-down/3733
+[50] https://github.com/facebook/jest/issues/14068
+[51] https://stackoverflow.com/questions/73266086/how-to-use-async-in-global-teardown-in-jest-with-typescript
+[52] https://archive.jestjs.io/docs/en/22.x/setup-teardown
+
+---
+Answer from Perplexity: pplx.ai/share
