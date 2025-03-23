@@ -1,4 +1,3 @@
-
 /**
  * Manual test for Perplexity research functionality
  * Tests both quick research and deep research modes
@@ -14,9 +13,70 @@ const REQUESTS_PER_MINUTE = 5;
 const MINUTE_IN_MS = 60 * 1000;
 const DELAY_BETWEEN_REQUESTS = Math.ceil(MINUTE_IN_MS / REQUESTS_PER_MINUTE);
 
-async function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+async function testDeepResearch() {
+  try {
+    console.log('=== Starting Deep Research Model Verification Test ===\n');
+
+    const testCases = [
+      {
+        query: 'What are the latest developments in quantum computing in 2025?',
+        wantsDeepResearch: true
+      },
+      {
+        query: 'Analyze the current state of renewable energy adoption globally',
+        wantsDeepResearch: false
+      },
+      {
+        query: 'What are the emerging trends in artificial intelligence and machine learning?',
+        wantsDeepResearch: true
+      }
+    ];
+
+    for (const testCase of testCases) {
+      const jobId = uuidv4();
+      console.log('\nTesting query:', testCase.query);
+      console.log('Job ID:', jobId);
+      console.log('Expects deep research:', testCase.wantsDeepResearch);
+
+      const startTime = Date.now();
+
+      try {
+        const results = await perplexityService.performDeepResearch(testCase.query, jobId);
+        const duration = Date.now() - startTime;
+
+        console.log(`\nResearch completed in ${(duration / 1000).toFixed(3)} seconds`);
+        console.log('Model verification:');
+        console.log(`- Requested model: ${results.requestedModel}`);
+        console.log(`- Actually used model: ${results.modelUsed}`);
+        console.log(`- Model match: ${results.requestedModel === results.modelUsed ? '✓' : '❌'}`);
+        console.log(`Content length: ${results.content.length}`);
+        console.log(`Number of sources: ${results.sources.length}\n`);
+
+        if (results.requestedModel !== results.modelUsed) {
+          console.error('WARNING: Model mismatch detected!');
+          console.error(`Expected ${results.requestedModel} but got ${results.modelUsed}`);
+        }
+
+        // Add delay between requests to respect rate limit
+        if (testCase.wantsDeepResearch) {
+          console.log(`\nWaiting ${DELAY_BETWEEN_REQUESTS}ms before next request to respect rate limit...`);
+          await delay(DELAY_BETWEEN_REQUESTS);
+        }
+      } catch (error) {
+        console.error(`Error in test:`, error.message);
+      }
+    }
+
+    console.log('\n=== Deep Research Model Verification Test Completed ===\n');
+
+  } catch (error) {
+    console.error('Test script error:', error);
+    process.exit(1);
+  }
 }
+
 
 async function testResearchModes() {
   try {
@@ -110,13 +170,11 @@ async function testResearchModes() {
 }
 
 // Run test when executed directly
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  testResearchModes()
-    .then(() => process.exit(0))
-    .catch(error => {
-      console.error('Test failed:', error);
-      process.exit(1);
-    });
+if (process.argv[1] === import.meta.url) {
+  Promise.all([testResearchModes(), testDeepResearch()]).then(()=>process.exit(0)).catch(error => {
+    console.error('Test failed:', error);
+    process.exit(1);
+  });
 }
 
-export { testResearchModes };
+export { testResearchModes, testDeepResearch };
