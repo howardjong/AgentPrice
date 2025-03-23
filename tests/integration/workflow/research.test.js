@@ -43,6 +43,14 @@ describe('Research Workflow Integration', () => {
     let attempts = 0;
     const maxAttempts = 10;
 
+    expect(status.returnvalue.content).toBe('Test research results');
+    expect(status.returnvalue.sources).toEqual(['source1', 'source2']);
+
+    // Test follow-up question
+    const followUpResponse = await answerWithContext(sessionId, 'Tell me more about that');
+    expect(followUpResponse).toHaveProperty('response');
+    expect(followUpResponse).toHaveProperty('sources');
+
     while (attempts < maxAttempts) {
       status = await getResearchStatus(jobId);
       if (status.status === 'completed') break;

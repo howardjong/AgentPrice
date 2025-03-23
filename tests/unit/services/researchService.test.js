@@ -11,7 +11,8 @@ import logger from '../../../utils/logger.js';
 jest.mock('../../../services/anthropicService.js', () => ({
   default: {
     generateClarifyingQuestions: jest.fn(),
-    generateChartData: jest.fn()
+    generateChartData: jest.fn(),
+    generateResponse: jest.fn()
   }
 }));
 jest.mock('../../../services/perplexityService.js', () => ({
