@@ -8,23 +8,61 @@ async function checkModel() {
       apiKey: process.env.ANTHROPIC_API_KEY
     });
     
-    const response = await anthropic.messages.create({
+    // Test 1: Basic model check
+    const modelResponse = await anthropic.messages.create({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 100,
       messages: [{
         role: 'user',
-        content: 'What model are you? Please respond with only the model name.'
+        content: 'What model are you? Please respond with only your model name.'
       }]
     });
     
+    console.log('\n=== Model Identity Test ===');
     console.log('Configured model:', 'claude-3-7-sonnet-20250219');
-    console.log('Actual model response:', response.content[0].text);
-    console.log('Message metadata:', {
-      model: response.model,
-      usage: response.usage
+    console.log('Model self-identification:', modelResponse.content[0].text);
+    console.log('Response metadata:', {
+      model: modelResponse.model,
+      usage: modelResponse.usage
     });
+
+    // Test 2: Version check
+    const versionResponse = await anthropic.messages.create({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 100,
+      messages: [{
+        role: 'user',
+        content: 'What version number are you? Please provide only the version number.'
+      }]
+    });
+
+    console.log('\n=== Version Test ===');
+    console.log('Version response:', versionResponse.content[0].text);
+    console.log('Version metadata:', {
+      model: versionResponse.model,
+      usage: versionResponse.usage
+    });
+
+    // Test 3: Capabilities check
+    const capabilitiesResponse = await anthropic.messages.create({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 150,
+      messages: [{
+        role: 'user',
+        content: 'What are your core capabilities? List only the key features.'
+      }]
+    });
+
+    console.log('\n=== Capabilities Test ===');
+    console.log('Capabilities response:', capabilitiesResponse.content[0].text);
+    console.log('Capabilities metadata:', {
+      model: capabilitiesResponse.model,
+      usage: capabilitiesResponse.usage
+    });
+
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error('Error checking Claude model:', error);
+    process.exit(1);
   }
 }
 
