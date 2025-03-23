@@ -45,7 +45,7 @@ jest.mock('uuid', () => ({
 }));
 
 jest.mock('../../../services/claudeService.js', () => ({
-  default: createMockAnthropicService()
+  default: createMockClaudeService()
 }));
 
 jest.mock('../../../services/perplexityService.js', () => ({
@@ -73,7 +73,7 @@ beforeAll(async () => {
   answerWithContext = researchModule.answerWithContext;
 
   // Get references to mocks for direct access in tests
-  mockAnthropicService = (await import('../../../services/claudeService.js')).default;
+  mockClaudeService = (await import('../../../services/claudeService.js')).default;
   mockPerplexityService = (await import('../../../services/perplexityService.js')).default;
   mockContextManager = (await import('../../../services/contextManager.js')).default;
   mockJobManager = (await import('../../../services/jobManager.js')).default;
@@ -145,7 +145,7 @@ describe('ResearchService', () => {
         status: 'completed',
         returnvalue: mockJobResults
       });
-      mockAnthropicService.generateResponse.mockResolvedValue(mockResponse);
+      mockClaudeService.generateResponse.mockResolvedValue(mockResponse);
 
       const result = await answerWithContext(sessionId, query);
 
