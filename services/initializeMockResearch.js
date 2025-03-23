@@ -6,7 +6,12 @@
  */
 
 import { initiateResearch } from './researchService.js';
+import mockJobManager from './mockJobManager.js';
+import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger.js';
+
+// Flag to indicate if we're using direct mock approach
+const USE_DIRECT_MOCK = process.env.NODE_ENV === 'development' || process.env.REDIS_MODE === 'memory';
 
 // Mock product questions for business research
 const MOCK_PRODUCT_QUESTIONS = [
@@ -23,22 +28,46 @@ const MOCK_RESEARCH_TOPICS = [
 ];
 
 /**
- * Initialize mock product research questions in the research queue
+ * Initialize mock product research questions directly in the mock job manager
  */
 async function initializeMockProductQuestions() {
   try {
     logger.info('Initializing mock product questions');
     
     const results = [];
-    for (const question of MOCK_PRODUCT_QUESTIONS) {
-      const result = await initiateResearch(question, {
-        generateClarifyingQuestions: true,
-        origin: 'mock-initialization',
-        priority: 'low' // Lower priority for mock questions
-      });
-      
-      results.push({ question, jobId: result.jobId, sessionId: result.sessionId });
-      logger.info(`Enqueued mock product question`, { question: question.substring(0, 50), jobId: result.jobId });
+    
+    if (USE_DIRECT_MOCK) {
+      // Direct mock approach that doesn't rely on the Redis-based job queue
+      for (const question of MOCK_PRODUCT_QUESTIONS) {
+        const jobId = uuidv4();
+        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+        
+        // Add job directly to mock job manager
+        await mockJobManager.enqueueJob('research-jobs', {
+          query: question,
+          options: {
+            generateClarifyingQuestions: true,
+            origin: 'mock-initialization',
+            priority: 'low'
+          },
+          sessionId
+        }, { jobId });
+        
+        results.push({ question, jobId, sessionId });
+        logger.info(`Directly enqueued mock product question`, { question: question.substring(0, 50), jobId });
+      }
+    } else {
+      // Standard approach using initiateResearch which will use the job system
+      for (const question of MOCK_PRODUCT_QUESTIONS) {
+        const result = await initiateResearch(question, {
+          generateClarifyingQuestions: true,
+          origin: 'mock-initialization',
+          priority: 'low' // Lower priority for mock questions
+        });
+        
+        results.push({ question, jobId: result.jobId, sessionId: result.sessionId });
+        logger.info(`Enqueued mock product question`, { question: question.substring(0, 50), jobId: result.jobId });
+      }
     }
     
     return results;
@@ -49,23 +78,48 @@ async function initializeMockProductQuestions() {
 }
 
 /**
- * Initialize mock research topics in the research queue
+ * Initialize mock research topics in the mock job manager
  */
 async function initializeMockResearchTopics() {
   try {
     logger.info('Initializing mock research topics');
     
     const results = [];
-    for (const topic of MOCK_RESEARCH_TOPICS) {
-      const result = await initiateResearch(topic, {
-        generateClarifyingQuestions: true,
-        generateCharts: ['bar', 'pie'],
-        origin: 'mock-initialization',
-        priority: 'low' // Lower priority for mock research
-      });
-      
-      results.push({ topic, jobId: result.jobId, sessionId: result.sessionId });
-      logger.info(`Enqueued mock research topic`, { topic: topic.substring(0, 50), jobId: result.jobId });
+    
+    if (USE_DIRECT_MOCK) {
+      // Direct mock approach that doesn't rely on the Redis-based job queue
+      for (const topic of MOCK_RESEARCH_TOPICS) {
+        const jobId = uuidv4();
+        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+        
+        // Add job directly to mock job manager
+        await mockJobManager.enqueueJob('research-jobs', {
+          query: topic,
+          options: {
+            generateClarifyingQuestions: true,
+            generateCharts: ['bar', 'pie'],
+            origin: 'mock-initialization',
+            priority: 'low'
+          },
+          sessionId
+        }, { jobId });
+        
+        results.push({ topic, jobId, sessionId });
+        logger.info(`Directly enqueued mock research topic`, { topic: topic.substring(0, 50), jobId });
+      }
+    } else {
+      // Standard approach
+      for (const topic of MOCK_RESEARCH_TOPICS) {
+        const result = await initiateResearch(topic, {
+          generateClarifyingQuestions: true,
+          generateCharts: ['bar', 'pie'],
+          origin: 'mock-initialization',
+          priority: 'low' // Lower priority for mock research
+        });
+        
+        results.push({ topic, jobId: result.jobId, sessionId: result.sessionId });
+        logger.info(`Enqueued mock research topic`, { topic: topic.substring(0, 50), jobId: result.jobId });
+      }
     }
     
     return results;

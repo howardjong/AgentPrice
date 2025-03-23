@@ -4,10 +4,27 @@ import logger from '../utils/logger.js';
 import { performance } from 'perf_hooks';
 
 const CONTEXT_EXPIRY = 60 * 60 * 24; // 24 hours in seconds
+const USE_MEMORY_STORE = process.env.REDIS_MODE === 'memory';
 
 class ContextManager {
   constructor() {
     this.prefix = 'context:';
+    this.memoryStore = new Map();
+    
+    if (USE_MEMORY_STORE) {
+      logger.info('Using in-memory store for context manager');
+      
+      // Set up expiry for memory store
+      this.cleanupInterval = setInterval(() => {
+        const now = Date.now();
+        for (const [key, value] of this.memoryStore.entries()) {
+          if (value.expiry < now) {
+            this.memoryStore.delete(key);
+            logger.debug(`Expired context removed: ${key}`);
+          }
+        }
+      }, 60000); // Clean up every minute
+    }
   }
   
   async storeContext(sessionId, context) {
@@ -16,18 +33,29 @@ class ContextManager {
       const serialized = JSON.stringify(context);
       const key = `${this.prefix}${sessionId}`;
       
-      await redisClient.getClient().set(
-        key,
-        serialized,
-        'EX',
-        CONTEXT_EXPIRY
-      );
+      if (USE_MEMORY_STORE) {
+        // Store in memory with expiry
+        const expiry = Date.now() + (CONTEXT_EXPIRY * 1000);
+        this.memoryStore.set(key, {
+          data: serialized,
+          expiry
+        });
+      } else {
+        // Store in Redis
+        await redisClient.getClient().set(
+          key,
+          serialized,
+          'EX',
+          CONTEXT_EXPIRY
+        );
+      }
       
       const duration = performance.now() - start;
       logger.debug(`Stored context for ${sessionId}`, { 
         sessionId, 
         contextSize: serialized.length,
-        duration: `${duration.toFixed(2)}ms`
+        duration: `${duration.toFixed(2)}ms`,
+        storage: USE_MEMORY_STORE ? 'memory' : 'redis'
       });
       
       return true;
@@ -44,13 +72,24 @@ class ContextManager {
     try {
       const start = performance.now();
       const key = `${this.prefix}${sessionId}`;
-      const data = await redisClient.getClient().get(key);
+      
+      let data;
+      if (USE_MEMORY_STORE) {
+        // Get from memory store
+        const entry = this.memoryStore.get(key);
+        data = entry ? entry.data : null;
+      } else {
+        // Get from Redis
+        data = await redisClient.getClient().get(key);
+      }
+      
       const duration = performance.now() - start;
       
       if (duration > 100) {
         logger.warn('Slow context retrieval', { 
           sessionId, 
-          duration: `${duration.toFixed(2)}ms` 
+          duration: `${duration.toFixed(2)}ms`,
+          storage: USE_MEMORY_STORE ? 'memory' : 'redis'
         });
       }
       
@@ -62,7 +101,8 @@ class ContextManager {
       logger.debug('Retrieved context', { 
         sessionId, 
         contextSize: data.length,
-        duration: `${duration.toFixed(2)}ms`
+        duration: `${duration.toFixed(2)}ms`,
+        storage: USE_MEMORY_STORE ? 'memory' : 'redis'
       });
       
       return JSON.parse(data);
@@ -99,8 +139,18 @@ class ContextManager {
   async deleteContext(sessionId) {
     try {
       const key = `${this.prefix}${sessionId}`;
-      await redisClient.getClient().del(key);
-      logger.debug(`Deleted context for ${sessionId}`);
+      
+      if (USE_MEMORY_STORE) {
+        // Delete from memory store
+        this.memoryStore.delete(key);
+      } else {
+        // Delete from Redis
+        await redisClient.getClient().del(key);
+      }
+      
+      logger.debug(`Deleted context for ${sessionId}`, {
+        storage: USE_MEMORY_STORE ? 'memory' : 'redis'
+      });
       return true;
     } catch (error) {
       logger.error('Error deleting context', { 
@@ -113,7 +163,16 @@ class ContextManager {
   
   async listSessions(limit = 100, offset = 0) {
     try {
-      const keys = await redisClient.getClient().keys(`${this.prefix}*`);
+      let keys;
+      
+      if (USE_MEMORY_STORE) {
+        // Get keys from memory store
+        keys = Array.from(this.memoryStore.keys());
+      } else {
+        // Get keys from Redis
+        keys = await redisClient.getClient().keys(`${this.prefix}*`);
+      }
+      
       const sessions = keys
         .map(key => key.substring(this.prefix.length))
         .slice(offset, offset + limit);

@@ -3,21 +3,29 @@ import Bull from 'bull';
 import logger from '../utils/logger.js';
 import { performance } from 'perf_hooks';
 import redisClient from './redisService.js';
+import mockJobManager from './mockJobManager.js';
+
+// Flag to indicate if we're using the mock job manager
+const USE_MOCK_JOB_MANAGER = process.env.REDIS_MODE === 'memory';
 
 class JobManager {
   constructor() {
     this.queues = {};
     this.monitorInterval = null;
+    
+    if (USE_MOCK_JOB_MANAGER) {
+      logger.info('Using mock job manager for Bull queues due to REDIS_MODE=memory');
+    }
   }
   
   createQueue(name, options = {}) {
-    if (this.queues[name]) {
-      return this.queues[name];
+    // If using mock job manager, delegate to it
+    if (USE_MOCK_JOB_MANAGER) {
+      return mockJobManager.createQueue(name, options);
     }
     
-    // Set Redis mode to memory by default for this deployment environment
-    if (process.env.REDIS_MODE !== 'real') {
-      process.env.REDIS_MODE = 'memory';
+    if (this.queues[name]) {
+      return this.queues[name];
     }
     
     const defaultOptions = {
@@ -65,6 +73,11 @@ class JobManager {
   }
   
   async enqueueJob(queueName, data, options = {}) {
+    // If using mock job manager, delegate to it
+    if (USE_MOCK_JOB_MANAGER) {
+      return mockJobManager.enqueueJob(queueName, data, options);
+    }
+    
     const queue = this.createQueue(queueName);
     logger.debug(`Enqueueing job in ${queueName}`, { data });
     
@@ -73,6 +86,11 @@ class JobManager {
   }
   
   async getJobStatus(queueName, jobId) {
+    // If using mock job manager, delegate to it
+    if (USE_MOCK_JOB_MANAGER) {
+      return mockJobManager.getJobStatus(queueName, jobId);
+    }
+    
     const queue = this.createQueue(queueName);
     const job = await queue.getJob(jobId);
     
@@ -96,6 +114,11 @@ class JobManager {
   }
   
   registerProcessor(queueName, processor, concurrency = 1) {
+    // If using mock job manager, delegate to it
+    if (USE_MOCK_JOB_MANAGER) {
+      return mockJobManager.registerProcessor(queueName, processor, concurrency);
+    }
+    
     const queue = this.createQueue(queueName);
     
     queue.process(concurrency, async (job, done) => {
@@ -131,6 +154,11 @@ class JobManager {
   }
   
   startMonitoring() {
+    // If using mock job manager, delegate to it
+    if (USE_MOCK_JOB_MANAGER) {
+      return mockJobManager.startMonitoring();
+    }
+    
     if (this.monitorInterval) {
       clearInterval(this.monitorInterval);
     }
@@ -156,6 +184,11 @@ class JobManager {
   }
   
   stop() {
+    // If using mock job manager, delegate to it
+    if (USE_MOCK_JOB_MANAGER) {
+      return mockJobManager.stop();
+    }
+    
     if (this.monitorInterval) {
       clearInterval(this.monitorInterval);
       this.monitorInterval = null;

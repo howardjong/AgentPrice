@@ -6,6 +6,9 @@ import logger from '../utils/logger.js';
 import requestTracer from '../middlewares/requestTracer.js';
 import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
 
+// Force use of in-memory store for Redis operations
+process.env.REDIS_MODE = 'memory';
+
 const app = express();
 app.use(express.json());
 app.use(requestTracer);
