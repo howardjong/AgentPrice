@@ -62,22 +62,62 @@ class ClaudeService {
     }
 
     return await this.circuitBreaker.executeRequest('claude-conversation', async () => {
+      // Check if it's a new conversation (just one user message)
+      const isNewConversation = messages.length <= 1 && messages.some(m => m.role === 'user');
+      
+      // Process messages for Claude API format
       const claudeMessages = messages.map(msg => ({
         role: msg.role === 'user' ? 'user' : 'assistant',
         content: msg.content
       }));
-
+      
+      // For first messages in conversations, add system message to verify model
+      let systemPrompt = null;
+      if (isNewConversation) {
+        systemPrompt = "You are a helpful assistant. At the very end of your response, please include your actual model name (e.g., claude-3-opus-20240229) within double brackets like this: [[model-name]]. This is for verification purposes only.";
+      }
+      
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: 2000,
         messages: claudeMessages,
+        system: systemPrompt
       });
 
+      // Track the last time this service was used
       this.lastUsed = new Date();
+      
+      // Get the response content
+      let responseContent = response.content[0].text;
+      
+      // Extract the actual model if it was included in the response
+      let actualModel = this.model;
+      
+      if (isNewConversation) {
+        const modelMatch = responseContent.match(/\[\[(.*?)\]\]/);
+        if (modelMatch && modelMatch[1]) {
+          actualModel = modelMatch[1].trim();
+          // Remove the model identification from the response
+          responseContent = responseContent.replace(/\[\[(.*?)\]\]/, '').trim();
+          
+          // Log if there's a model mismatch
+          if (actualModel !== this.model) {
+            logger.warn('Model mismatch in Claude API', {
+              requested: this.model,
+              actual: actualModel,
+              apiReported: response.model
+            });
+            
+            // Add model info to the beginning of the response
+            responseContent = `[Note: Using Claude model: ${actualModel} (requested: ${this.model})]\n\n${responseContent}`;
+          }
+        }
+      }
 
       return {
-        response: response.content[0].text,
-        modelUsed: this.model,
+        response: responseContent,
+        requestedModel: this.model,
+        actualModel: actualModel,
         tokens: {
           input: response.usage?.input_tokens || 0,
           output: response.usage?.output_tokens || 0
