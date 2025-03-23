@@ -118,17 +118,17 @@ class PerplexityService {
           'Authorization': `Bearer ${this.apiKey}`
         },
         data: {
-          model: this.models.default,
+          model: options.model || this.models.default,
           messages: validatedMessages,
-          temperature: options.temperature || 0.1, // Lower temperature for more factual responses
+          temperature: options.temperature || 0.1,
           max_tokens: options.maxTokens || 1024,
           top_p: options.topP || 0.9,
-          search_domain_filter: options.domainFilter || [], // Empty array allows searching all domains
-          search_recency_filter: "day", // Get the most recent information
-          top_k: options.topK || 15, // Increase number of search results to consider
+          search_domain_filter: options.domainFilter || [],
+          search_recency_filter: "day",
+          top_k: options.topK || 15,
           return_citations: true,
-          frequency_penalty: 0.5, // Discourage repetitive text
-          search_context_mode: "high" // High search context mode for more comprehensive search
+          frequency_penalty: 0.5,
+          search_context_mode: options.searchContextMode || this.searchModes.default
         }
       };
 
