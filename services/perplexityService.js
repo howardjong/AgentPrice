@@ -147,7 +147,7 @@ class PerplexityService {
       return {
         response: enhancedResponse,
         citations: response.data.citations || [],
-        modelUsed: this.model,
+        modelUsed: responseModel,
         usage: response.data.usage || { total_tokens: 0 }
       };
     } catch (error) {
@@ -261,7 +261,7 @@ class PerplexityService {
           timestamp: new Date().toISOString(),
           content: enhancedContent,
           sources: response.data.citations || [],
-          modelUsed: this.model,
+          modelUsed: responseModel,
           usage: response.data.usage || { total_tokens: 0 }
         };
       });
