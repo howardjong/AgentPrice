@@ -1,6 +1,6 @@
 
 import { v4 as uuidv4 } from 'uuid';
-import anthropicService from './anthropicService.js';
+import claudeService from './claudeService.js';
 import perplexityService from './perplexityService.js';
 import contextManager from './contextManager.js';
 import realJobManager from './jobManager.js';
@@ -33,7 +33,7 @@ function registerJobProcessors() {
       // Step 1: Generate clarifying questions if enabled
       let clarifyingQuestions = [];
       if (options.generateClarifyingQuestions !== false) {
-        clarifyingQuestions = await anthropicService.generateClarifyingQuestions(query);
+        clarifyingQuestions = await claudeService.generateClarifyingQuestions(query);
         job.progress(20);
       }
       
@@ -55,7 +55,7 @@ function registerJobProcessors() {
         for (const chartType of options.generateCharts) {
           try {
             logger.info(`Generating chart data for ${chartType}`, { jobId: job.id });
-            const chartData = await anthropicService.generateChartData(
+            const chartData = await claudeService.generateChartData(
               researchResults.content,
               chartType
             );
@@ -163,7 +163,7 @@ async function answerWithContext(sessionId, query, answers = {}) {
     const promptContext = prepareContext(jobResults, answers);
     
     // Generate tailored response using Claude
-    const response = await anthropicService.generateResponse(query, promptContext);
+    const response = await claudeService.generateResponse(query, promptContext);
     
     // Update session context with this interaction
     await contextManager.updateContext(sessionId, (ctx) => {
