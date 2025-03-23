@@ -9,7 +9,7 @@ import promptManager from './promptManager.js';
 
 class PerplexityService {
   constructor() {
-    this.apiKey = process.env.REPLIT_PERPLEXITY_API_KEY || process.env.PERPLEXITY_API_KEY;
+    this.apiKey = process.env.PERPLEXITY_API_KEY;
     this.model = 'sonar-pro';
     this.isConnected = false;
     this.lastUsed = null;
