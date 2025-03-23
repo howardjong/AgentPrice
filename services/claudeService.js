@@ -175,27 +175,89 @@ class ClaudeService {
 
   async generateChartData(content, chartType) {
     return this.circuitBreaker.executeRequest('claude-chart', async () => {
+      // Log the request parameters for debugging
+      logger.debug('Sending chart data request to Claude API', {
+        model: this.model,
+        contentLength: content.length,
+        chartType
+      });
+      
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: 2000,
         messages: [{
           role: 'user',
-          content: `Generate the appropriate data structure for ${chartType} based on these research results: ${content.substring(0, 8000)}`
-        }]
+          content: `Generate the appropriate data structure for ${chartType} based on these research results: ${content.substring(0, 8000)}
+          
+          After the JSON, on a new line, please include your model name in this format: <!-- model: your-model-name -->`
+        }],
+        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. You should behave specifically like Claude 3.7 Sonnet even if you are actually running on a different model."
       });
 
+      // Log full response metadata for debugging
+      logger.debug('Claude API chart data response metadata', {
+        model: response.model,
+        id: response.id,
+        type: response.type,
+        usage: response.usage,
+        stopReason: response.stop_reason
+      });
+      
       const text = response.content[0].text;
-      const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || text.match(/{[\s\S]*}/);
+      
+      // Extract model information if present
+      const modelMatch = text.match(/<!-- model: (.*?) -->/);
+      let actualModel = this.model;
+      
+      if (modelMatch && modelMatch[1]) {
+        actualModel = modelMatch[1].trim();
+        
+        // Log if there's a model mismatch
+        if (actualModel !== this.model) {
+          logger.warn('Model mismatch in Claude chart data', {
+            requested: this.model,
+            actual: actualModel,
+            apiReported: response.model
+          });
+        }
+      }
+      
+      // Clean the text by removing the model identifier
+      const cleanText = text.replace(/<!-- model: (.*?) -->/, '');
+      
+      // Extract JSON from the response
+      const jsonMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || cleanText.match(/{[\s\S]*}/);
 
       if (jsonMatch) {
         try {
-          return JSON.parse(jsonMatch[1] || jsonMatch[0]);
+          const parsedData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+          
+          // Add model information to the chart data
+          if (actualModel !== this.model) {
+            parsedData._modelInfo = {
+              requested: this.model,
+              actual: actualModel
+            };
+          }
+          
+          return parsedData;
         } catch (error) {
           logger.error('Failed to parse chart data', { error: error.message });
-          return { error: 'Invalid chart data format' };
+          return { 
+            error: 'Invalid chart data format', 
+            modelMismatch: actualModel !== this.model,
+            requestedModel: this.model,
+            actualModel: actualModel
+          };
         }
       }
-      return { error: 'No valid chart data found in response' };
+      
+      return { 
+        error: 'No valid chart data found in response',
+        modelMismatch: actualModel !== this.model,
+        requestedModel: this.model,
+        actualModel: actualModel
+      };
     });
   }
 
