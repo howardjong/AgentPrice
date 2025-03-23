@@ -11,17 +11,17 @@ class PerplexityService {
   constructor() {
     this.apiKey = process.env.PERPLEXITY_API_KEY;
     this.models = {
-      default: 'sonar',
+      default: 'sonar-pro',
       deepResearch: 'sonar-deep-research'
     };
     this.searchModes = {
       default: 'medium',
       deepResearch: 'high'
     };
-    this.fallbackModels = ['sonar-pro', 'llama-3.1-sonar-small-128k-online'];
+    this.fallbackModels = ['sonar-pro', 'sonar'];
     this.fallbackConfig = {
       'sonar-deep-research': ['sonar-pro'],
-      'sonar': ['llama-3.1-sonar-small-128k-online']
+      'sonar-pro': ['sonar']
     };
     this.isConnected = false;
     this.lastUsed = null;
