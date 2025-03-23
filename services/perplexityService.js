@@ -118,7 +118,7 @@ class PerplexityService {
           'Authorization': `Bearer ${this.apiKey}`
         },
         data: {
-          model: options.model || this.models.default,
+          model: this.models.default,
           messages: validatedMessages,
           temperature: options.temperature || 0.1,
           max_tokens: options.maxTokens || 1024,
