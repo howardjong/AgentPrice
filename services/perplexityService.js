@@ -4,6 +4,8 @@
 import axios from 'axios';
 import logger from '../utils/logger.js';
 import { RobustAPIClient } from '../utils/apiClient.js';
+import { CircuitBreaker } from '../utils/monitoring.js';
+import promptManager from './promptManager.js';
 
 class PerplexityService {
   constructor() {
@@ -14,6 +16,10 @@ class PerplexityService {
     this.apiClient = new RobustAPIClient({
       maxRetries: 2,
       timeout: 120000 // 2 minutes for long-running research
+    });
+    this.circuitBreaker = new CircuitBreaker({
+      failureThreshold: 3,
+      resetTimeout: 300000 // 5 minutes
     });
     
     this.initialize();
@@ -40,7 +46,7 @@ class PerplexityService {
    */
   getStatus() {
     return {
-      service: 'perplexity',
+      service: 'Perplexity API',
       status: this.isConnected ? 'connected' : 'disconnected',
       lastUsed: this.lastUsed ? this.lastUsed.toISOString() : null,
       version: this.model,
@@ -98,6 +104,89 @@ class PerplexityService {
   }
 
   /**
+   * Perform deep research using Perplexity
+   * @param {string} query - Research query
+   * @param {string} jobId - Unique job identifier
+   * @returns {Promise<Object>} Research results with sources
+   */
+  async performDeepResearch(query, jobId) {
+    if (!this.isConnected) {
+      throw new Error('Perplexity service is not connected');
+    }
+
+    try {
+      logger.info(`Initiating deep research`, { jobId, queryLength: query.length });
+      
+      // Get and format the prompt
+      const promptTemplate = await promptManager.getPrompt('perplexity', 'deep_research');
+      const formattedQuery = promptManager.formatPrompt(promptTemplate, { query });
+
+      // Use circuit breaker pattern for the API call
+      return await this.circuitBreaker.executeRequest('perplexity-deep', async () => {
+        const requestOptions = {
+          method: 'POST',
+          url: 'https://api.perplexity.ai/chat/completions',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          data: {
+            model: this.model,
+            messages: [{ role: 'user', content: formattedQuery }],
+            options: {
+              depth: 'deep',
+              stream_final: true
+            }
+          }
+        };
+        
+        const start = Date.now();
+        const response = await this.apiClient.request(requestOptions);
+        const duration = Date.now() - start;
+        
+        logger.info('Perplexity API response received', {
+          duration: `${duration}ms`,
+          jobId
+        });
+
+        if (!response.data?.choices?.[0]?.message) {
+          throw new Error('Invalid response format from Perplexity API');
+        }
+
+        const responseData = response.data.choices[0].message;
+        
+        logger.info('Deep research completed successfully', {
+          jobId,
+          contentLength: responseData.content.length
+        });
+
+        return {
+          query: formattedQuery,
+          timestamp: new Date().toISOString(),
+          content: responseData.content,
+          sources: responseData.references || [],
+          modelUsed: this.model,
+          usage: response.data.usage || { total_tokens: 0 }
+        };
+      });
+    } catch (error) {
+      logger.error('Error performing deep research', {
+        jobId,
+        error: error.message
+      });
+
+      if (error.response?.data) {
+        logger.error('Perplexity API error details', {
+          jobId,
+          status: error.response.status,
+          data: error.response.data
+        });
+      }
+      throw error;
+    }
+  }
+
+  /**
    * Validate messages format for Perplexity API
    * Must alternate between user and assistant, ending with user
    * @param {Array} messages - Array of message objects with role and content
@@ -149,84 +238,3 @@ class PerplexityService {
 
 const perplexityService = new PerplexityService();
 export default perplexityService;
-  /**
-   * Perform deep research using Perplexity
-   * @param {string} query - Research query
-   * @param {string} jobId - Unique job identifier
-   * @returns {Promise<Object>} Research results with sources
-   */
-  async performDeepResearch(query, jobId) {
-    if (!this.isConnected) {
-      throw new Error('Perplexity service is not connected');
-    }
-
-    try {
-      logger.info(`Initiating deep research`, { jobId, queryLength: query.length });
-      
-      const formattedQuery = await promptManager.formatPrompt(
-        await promptManager.getPrompt('perplexity', 'deep_research'),
-        { query }
-      );
-
-      const requestOptions = {
-        method: 'POST',
-        url: 'https://api.perplexity.ai/chat/completions',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
-        },
-        data: {
-          model: this.model,
-          messages: [{ role: 'user', content: formattedQuery }],
-          options: {
-            depth: 'deep',
-            stream_final: true
-          }
-        }
-      };
-      
-      const start = Date.now();
-      const response = await this.apiClient.request(requestOptions);
-      const duration = Date.now() - start;
-      
-      logger.info('Perplexity API response received', {
-        duration: `${duration}ms`,
-        jobId
-      });
-
-      if (!response.data?.choices?.[0]?.message) {
-        throw new Error('Invalid response format from Perplexity API');
-      }
-
-      const responseData = response.data.choices[0].message;
-      
-      logger.info('Deep research completed successfully', {
-        jobId,
-        contentLength: responseData.content.length
-      });
-
-      return {
-        query: formattedQuery,
-        timestamp: new Date().toISOString(),
-        content: responseData.content,
-        sources: responseData.references || [],
-        modelUsed: this.model,
-        usage: response.data.usage || { total_tokens: 0 }
-      };
-
-    } catch (error) {
-      logger.error('Error performing deep research', {
-        jobId,
-        error: error.message
-      });
-
-      if (error.response?.data) {
-        logger.error('Perplexity API error details', {
-          jobId,
-          status: error.response.status,
-          data: error.response.data
-        });
-      }
-      throw error;
-    }
-  }
