@@ -120,3 +120,24 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "NODE_OPTIONS=--experimental-vm-modules jest tests/unit/services/researchService.test.js"
+
+[[workflows.workflow]]
+name = "Final Test Suite"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_OPTIONS=--experimental-vm-modules jest tests/unit/services/researchService.test.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/promptManagerTest.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/redisConnectionTest.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/perplexity-test.js"
