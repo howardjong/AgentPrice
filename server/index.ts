@@ -1,4 +1,7 @@
 
+// Load environment variables first
+import '../config/env.js';
+
 import express from 'express';
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
@@ -6,6 +9,7 @@ import logger from '../utils/logger.js';
 import requestTracer from '../middlewares/requestTracer.js';
 import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
 import redisClient from '../services/redisService.js';
+import { checkApiKeys } from '../config/env.js';
 
 // Force use of in-memory store for Redis operations and job queue
 process.env.REDIS_MODE = 'memory';
@@ -35,6 +39,14 @@ app.get('/health', (req, res) => {
 // Initialize required services
 async function initializeServices() {
   try {
+    // Check API keys first
+    const apiStatus = checkApiKeys();
+    logger.info('API key status checked', apiStatus);
+    
+    if (!apiStatus.anthropicAvailable || !apiStatus.perplexityAvailable) {
+      logger.warn('Some API keys are missing. This may affect functionality.');
+    }
+    
     logger.info('Initializing Redis client');
     await redisClient.connect();
     logger.info('Redis client initialized successfully');
