@@ -1,50 +1,71 @@
 
 import { jest } from '@jest/globals';
-import { v4 as uuidv4 } from 'uuid';
 import { initiateResearch, getResearchStatus, answerWithContext } from '../../../services/researchService.js';
-import anthropicService from '../../../services/anthropicService.js';
-import perplexityService from '../../../services/perplexityService.js';
-import contextManager from '../../../services/contextManager.js';
-import jobManager from '../../../services/jobManager.js';
-import logger from '../../../utils/logger.js';
 
+// Mock dependencies
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'test-uuid')
 }));
 
+// Create mock objects directly
+const mockAnthropicService = {
+  generateResponse: jest.fn(),
+  generateClarifyingQuestions: jest.fn(),
+  generateChartData: jest.fn()
+};
+
+const mockPerplexityService = {
+  performDeepResearch: jest.fn()
+};
+
+const mockContextManager = {
+  storeContext: jest.fn(),
+  getContext: jest.fn(),
+  updateContext: jest.fn()
+};
+
+const mockJobManager = {
+  enqueueJob: jest.fn(),
+  getJobStatus: jest.fn()
+};
+
+const mockLogger = {
+  info: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+  warn: jest.fn()
+};
+
+// Mock the imports
 jest.mock('../../../services/anthropicService.js', () => ({
-  default: {
-    generateResponse: jest.fn(),
-    generateClarifyingQuestions: jest.fn(),
-    generateChartData: jest.fn()
-  }
+  __esModule: true,
+  default: mockAnthropicService
 }));
 
 jest.mock('../../../services/perplexityService.js', () => ({
-  default: {
-    performDeepResearch: jest.fn()
-  }
+  __esModule: true,
+  default: mockPerplexityService
 }));
 
 jest.mock('../../../services/contextManager.js', () => ({
-  default: {
-    storeContext: jest.fn(),
-    getContext: jest.fn(),
-    updateContext: jest.fn()
-  }
+  __esModule: true,
+  default: mockContextManager
 }));
 
 jest.mock('../../../services/jobManager.js', () => ({
-  default: {
-    enqueueJob: jest.fn(),
-    getJobStatus: jest.fn()
-  }
+  __esModule: true,
+  default: mockJobManager
 }));
 
-jest.mock('../../../utils/logger.js');
+jest.mock('../../../utils/logger.js', () => ({
+  __esModule: true,
+  default: mockLogger
+}));
 
-// Skip this test suite for now until we can resolve the module teardown issue
-describe.skip('ResearchService', () => {
+describe('ResearchService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(logger, 'info').mockImplementation(() => {});

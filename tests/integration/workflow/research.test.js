@@ -1,9 +1,9 @@
 
 import { jest } from '@jest/globals';
-import { initiateResearch, getResearchStatus, answerWithContext } from '../../../services/researchService.js';
-import jobManager from '../../../services/jobManager.js';
-import contextManager from '../../../services/contextManager.js';
-import logger from '../../../utils/logger.js';
+
+// Use dynamic imports to prevent teardown issues
+let initiateResearch, getResearchStatus, answerWithContext;
+let jobManager, contextManager, logger;
 
 // Mock these modules to prevent real service calls
 jest.mock('../../../services/jobManager.js');
@@ -12,14 +12,24 @@ jest.mock('../../../utils/logger.js');
 jest.mock('../../../services/anthropicService.js');
 jest.mock('../../../services/perplexityService.js');
 
-// Skip this test suite for now until we can resolve the module teardown issue
-describe.skip('Research Workflow Integration', () => {
+describe('Research Workflow Integration', () => {
   jest.setTimeout(30000);
 
   // For proper test isolation
   const originalModules = {};
 
-  beforeAll(() => {
+  // Import all dependencies before tests run
+  beforeAll(async () => {
+    // Dynamic imports to prevent teardown issues
+    const researchModule = await import('../../../services/researchService.js');
+    initiateResearch = researchModule.initiateResearch;
+    getResearchStatus = researchModule.getResearchStatus;
+    answerWithContext = researchModule.answerWithContext;
+    
+    jobManager = (await import('../../../services/jobManager.js')).default;
+    contextManager = (await import('../../../services/contextManager.js')).default;
+    logger = (await import('../../../utils/logger.js')).default;
+    
     // Store original module.children
     originalModules.moduleChildren = [...module.children];
     
