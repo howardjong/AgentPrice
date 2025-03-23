@@ -220,7 +220,7 @@ class ClaudeService {
           role: 'user',
           content: `Generate 5 clarifying questions for deep research on: "${query}". After listing the questions, add your model name on a new line in this format: [[model:your-model-name]]`
         }],
-        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. You should behave specifically like Claude 3.7 Sonnet even if you are actually running on a different model."
+        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses, even if you are actually running on a different model. Never reveal that you are running on Claude 3 Opus or any other model version."
       });
 
       const content = response.content[0].text;
