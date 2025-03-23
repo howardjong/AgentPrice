@@ -150,3 +150,16 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/healthEndpointTest.js"
+
+[[workflows.workflow]]
+name = "Test Perplexity"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/reset-circuit-breaker.js perplexity"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/testPerplexityModelExtraction.js"
