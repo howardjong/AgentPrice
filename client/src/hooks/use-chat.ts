@@ -27,6 +27,22 @@ export function useChat() {
   const { mutate: sendMessage, isPending: isSendingMessage } = useMutation({
     mutationFn: async ({ message, service }: { message: string, service: string }) => {
       addLog(`Sending message to ${service === 'auto' ? 'auto-detect' : service} service`);
+      
+      // Add the user message immediately to the UI
+      setMessages(prevMessages => [
+        ...prevMessages,
+        {
+          id: Date.now(), // Use timestamp as temporary ID
+          conversationId: conversationId || 0,
+          role: 'user',
+          content: message,
+          service: 'system',
+          timestamp: new Date().toISOString(),
+          visualizationData: null,
+          citations: null
+        } as Message
+      ]);
+      
       const response = await apiRequest('POST', '/api/chat', { message, service, conversationId });
       return response.json();
     },
@@ -34,19 +50,9 @@ export function useChat() {
       addLog(`Received response from ${data.service} service`);
       setConversationId(data.conversation.id);
       
-      // Update messages with both user message and assistant response
+      // Only add the assistant response since the user message is handled when sending
       setMessages(prevMessages => [
         ...prevMessages,
-        {
-          id: prevMessages.length + 1,
-          conversationId: data.conversation.id,
-          role: 'user',
-          content: data.message.content,
-          service: 'system',
-          timestamp: new Date().toISOString(),
-          visualizationData: null,
-          citations: null
-        } as Message,
         data.message
       ]);
       
