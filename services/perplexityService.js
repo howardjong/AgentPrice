@@ -139,7 +139,9 @@ class PerplexityService {
       
       // Add explicit model information to the beginning of the response
       const originalResponse = response.data.choices[0].message.content;
-      const modelInfo = `[Using Perplexity AI - Model: ${this.model}]\n\n`;
+      // Use the actual model from the response payload rather than the requested model
+      const responseModel = response.data.model || this.model;
+      const modelInfo = `[Using Perplexity AI - Model: ${responseModel}]\n\n`;
       const enhancedResponse = modelInfo + originalResponse;
       
       return {
@@ -249,7 +251,9 @@ class PerplexityService {
         });
 
         // Add explicit model information to the beginning of the deep research response
-        const modelInfo = `[Using Perplexity AI - Model: ${this.model}]\n\n`;
+        // Use the actual model from the response payload rather than the requested model
+        const responseModel = response.data.model || this.model;
+        const modelInfo = `[Using Perplexity AI - Model: ${responseModel}]\n\n`;
         const enhancedContent = modelInfo + responseData.content;
         
         return {
