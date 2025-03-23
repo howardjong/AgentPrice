@@ -31,10 +31,24 @@ class ServiceRouter {
    * @returns {string} The service to use ('claude' or 'perplexity')
    */
   determineService(message, explicitService) {
-    // If a service is explicitly specified, use it
+    // If a service is explicitly specified, use it (but verify it's available)
     if (explicitService) {
-      logger.info(`Using explicitly requested service: ${explicitService}`);
-      return explicitService.toLowerCase();
+      const requestedService = explicitService.toLowerCase();
+      
+      // Check if explicitly requesting Perplexity but it's not available
+      if (requestedService === 'perplexity' && !perplexityService.isConnected) {
+        logger.warn('User explicitly requested Perplexity but service is not available, falling back to Claude');
+        return 'claude';
+      }
+      
+      logger.info(`Using explicitly requested service: ${requestedService}`);
+      return requestedService;
+    }
+    
+    // First check if Perplexity is available at all before deciding
+    if (!perplexityService.isConnected) {
+      logger.info('Perplexity service not available, automatically routing to Claude');
+      return 'claude';
     }
     
     // Check if research is needed based on keywords
@@ -91,9 +105,31 @@ class ServiceRouter {
       if (serviceToUse === 'perplexity') {
         // Check if Perplexity service is available
         if (!perplexityService.isConnected) {
-          logger.warn('Perplexity service not available, falling back to Claude');
-          return claudeService.processConversation(messages);
+          logger.warn('Perplexity service not available, falling back to Claude with research instructions');
+          
+          // Prepare enhanced messages for Claude to handle research request
+          const enhancedMessages = [...messages];
+          
+          // Find the last user message to enhance
+          const lastUserIndex = enhancedMessages.findLastIndex(m => m.role === 'user');
+          
+          if (lastUserIndex !== -1) {
+            // Add a note about Perplexity service being unavailable
+            enhancedMessages[lastUserIndex].content = 
+              `${enhancedMessages[lastUserIndex].content}\n\n[Note: This is a research question, but real-time internet search is currently unavailable. Please provide the most accurate information you have as of your training data.]`;
+            
+            // Add a system message at the beginning with research instructions
+            enhancedMessages.unshift({
+              role: 'system',
+              content: 'You are acting as a research assistant. The user is asking for information that would ideally be researched with real-time internet access, but that capability is currently unavailable. Please:\n1. Provide the most accurate information you have from your training data\n2. Clearly state when information might be outdated or when you're uncertain\n3. Suggest follow-up questions the user could ask to narrow down or clarify their research\n4. If applicable, suggest reliable sources the user could consult for more up-to-date information'
+            });
+          }
+          
+          // Use Claude with enhanced research-focused instructions
+          logger.info('Using Claude with research-focused instructions');
+          return claudeService.processConversation(enhancedMessages);
         }
+        
         logger.info('Routing message to Perplexity service');
         return perplexityService.performResearch(messages);
       } else {
@@ -103,6 +139,39 @@ class ServiceRouter {
       }
     } catch (error) {
       logger.error(`Error in service routing: ${error.message}`);
+      
+      // If Perplexity fails, fall back to Claude with an explanation
+      if (serviceToUse === 'perplexity') {
+        logger.info('Perplexity service failed, falling back to Claude with explanation');
+        
+        // Create a modified message array for Claude
+        const fallbackMessages = [...messages];
+        const lastUserIndex = fallbackMessages.findLastIndex(m => m.role === 'user');
+        
+        if (lastUserIndex !== -1) {
+          // Add a note about the fallback
+          fallbackMessages[lastUserIndex].content = 
+            `${fallbackMessages[lastUserIndex].content}\n\n[Note: The research service encountered an error. Providing information based on available knowledge.]`;
+        }
+        
+        // Add a system message explaining the situation
+        fallbackMessages.unshift({
+          role: 'system',
+          content: 'The user requested information that would normally be researched with real-time internet access, but that service encountered an error. Please provide your best response based on your training data, acknowledging any limitations in the currency of your information.'
+        });
+        
+        try {
+          return claudeService.processConversation(fallbackMessages);
+        } catch (claudeError) {
+          logger.error(`Fallback to Claude also failed: ${claudeError.message}`);
+          return {
+            status: 'error',
+            message: 'Both services failed to process the request',
+            error: `Original error: ${error.message}. Claude fallback error: ${claudeError.message}`
+          };
+        }
+      }
+      
       return {
         status: 'error',
         message: `Service routing error: ${error.message}`,

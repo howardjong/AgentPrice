@@ -10,7 +10,8 @@ import promptManager from './promptManager.js';
 class PerplexityService {
   constructor() {
     this.apiKey = process.env.PERPLEXITY_API_KEY;
-    this.model = 'sonar-pro';
+    this.model = 'sonar-pro'; // This model is confirmed working as of March 2025
+    this.fallbackModels = ['llama-3.1-sonar-small-128k-online']; // Potential fallback models if primary fails
     this.isConnected = false;
     this.lastUsed = null;
     this.apiClient = new RobustAPIClient({
