@@ -19,6 +19,10 @@ class PerplexityService {
       deepResearch: 'high'
     };
     this.fallbackModels = ['sonar-pro', 'llama-3.1-sonar-small-128k-online'];
+    this.fallbackConfig = {
+      'sonar-deep-research': ['sonar-pro'],
+      'sonar': ['llama-3.1-sonar-small-128k-online']
+    };
     this.isConnected = false;
     this.lastUsed = null;
     this.apiClient = new RobustAPIClient({
@@ -237,8 +241,37 @@ class PerplexityService {
           recencyFilter: requestOptions.data.search_recency_filter
         });
 
-        const start = Date.now();
-        const response = await this.apiClient.request(requestOptions);
+        let response;
+        try {
+          response = await this.apiClient.request(requestOptions);
+        } catch (error) {
+          if (error.response?.status === 429 || error.response?.status === 503) {
+            const currentModel = requestOptions.data.model;
+            const fallbacks = this.fallbackConfig[currentModel] || [];
+
+            for (const fallbackModel of fallbacks) {
+              logger.info(`Attempting fallback to model ${fallbackModel}`, { jobId, originalModel: currentModel });
+              requestOptions.data.model = fallbackModel;
+              try {
+                response = await this.apiClient.request(requestOptions);
+                logger.info(`Successfully fell back to ${fallbackModel}`, { jobId });
+                break;
+              } catch (fallbackError) {
+                logger.error(`Fallback to ${fallbackModel} failed`, { 
+                  jobId,
+                  error: fallbackError.message 
+                });
+              }
+            }
+
+            if (!response) {
+              throw error; // If all fallbacks failed, throw original error
+            }
+          } else {
+            throw error;
+          }
+        }
+
         const duration = Date.now() - start;
 
         logger.info('Perplexity API response received', {
