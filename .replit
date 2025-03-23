@@ -62,3 +62,39 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "NODE_OPTIONS=--experimental-vm-modules jest --config=jest.config.js"
+
+[[workflows.workflow]]
+name = "Test Redis"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/redisConnectionTest.js"
+
+[[workflows.workflow]]
+name = "Test Request Monitor"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/requestMonitorTest.js"
+
+[[workflows.workflow]]
+name = "Test Prompt Manager"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/promptManagerTest.js"
+
+[[workflows.workflow]]
+name = "Test Mock Research"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/mockResearchTest.js"
