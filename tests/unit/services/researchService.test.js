@@ -1,3 +1,4 @@
+
 import { jest } from '@jest/globals';
 
 // Mock service creators
@@ -18,12 +19,10 @@ const createMockContextManager = () => ({
   storeContext: jest.fn().mockResolvedValue(true),
   getContext: jest.fn().mockResolvedValue({
     jobId: 'test-uuid',
-    originalQuery: 'test query'
+    originalQuery: 'test query',
+    history: []
   }),
-  updateContext: jest.fn().mockImplementation(async (sessionId, updateFn) => {
-    const ctx = { history: [] };
-    return updateFn(ctx);
-  })
+  updateContext: jest.fn().mockResolvedValue(true)
 });
 
 const createMockJobManager = () => ({
@@ -94,13 +93,26 @@ describe('ResearchService', () => {
         status: 'PENDING'
       });
     });
+
+    it('should handle errors gracefully', async () => {
+      const mockContextManager = (await import('../../../services/contextManager.js')).default;
+      mockContextManager.storeContext.mockRejectedValueOnce(new Error('Storage error'));
+
+      await expect(researchModule.initiateResearch('test query'))
+        .rejects.toThrow('Storage error');
+    });
   });
 
   describe('getResearchStatus', () => {
-    it('should return research job status', async () => {
-      const status = await researchModule.getResearchStatus('test-uuid');
-      expect(status).toHaveProperty('status');
-      expect(status).toHaveProperty('returnvalue');
+    it('should return job status', async () => {
+      const result = await researchModule.getResearchStatus('test-uuid');
+      expect(result).toEqual({
+        status: 'completed',
+        returnvalue: {
+          content: 'Mock results',
+          sources: ['source1']
+        }
+      });
     });
   });
 
