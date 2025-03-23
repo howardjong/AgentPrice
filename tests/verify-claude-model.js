@@ -13,45 +13,56 @@ dotenv.config();
 
 async function checkClaudeModel() {
   try {
-    console.log('Verifying Claude model...');
+    console.log('Checking which Claude model is actually serving requests...');
     
-    if (!process.env.ANTHROPIC_API_KEY) {
-      console.error('ANTHROPIC_API_KEY is not set in environment variables');
-      return;
-    }
-    
+    // Initialize Anthropic client
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
     
-    // The model we're intending to use
-    const requestedModel = 'claude-3-7-sonnet-20250219';
+    if (!process.env.ANTHROPIC_API_KEY) {
+      console.error('Error: ANTHROPIC_API_KEY is not set in environment variables');
+      process.exit(1);
+    }
+    
+    // The model we're requesting
+    const requestedModel = "claude-3-7-sonnet-20250219";
     console.log(`Requesting model: ${requestedModel}`);
     
-    // Make a simple API call
+    // Make a simple request
     const response = await anthropic.messages.create({
       model: requestedModel,
       max_tokens: 300,
-      system: "You are Claude, an AI assistant created by Anthropic. You are a specific Claude model with a specific version. Please identify yourself correctly and accurately.",
       messages: [
-        {
-          role: 'user',
-          content: 'Please state exactly which Claude model and version you are, including your full model name as it would appear in API calls.'
+        { 
+          role: 'user', 
+          content: 'Please identify which Claude model you are. Reply with only the model name and nothing else.' 
         }
       ],
+      system: "Return your model name at the end of your response inside double brackets like this: [[model-name]]"
     });
     
-    // Check the model used in the response
-    console.log('API Response:');
-    console.log('---------------');
-    console.log(`Response model: ${response.model}`);
-    console.log(`Response content: ${response.content[0].text}`);
-    console.log('---------------');
+    console.log('\nResponse information:');
+    console.log('-------------------');
+    console.log(`API-reported model: ${response.model}`);
     
-    if (response.model === requestedModel) {
-      console.log('✅ SUCCESS: The requested model matches the response model');
+    // Try to extract model from content using regex
+    const content = response.content[0].text;
+    const modelMatch = content.match(/\[\[(.*?)\]\]/);
+    
+    if (modelMatch && modelMatch[1]) {
+      const reportedModel = modelMatch[1].trim();
+      console.log(`Self-reported model: ${reportedModel}`);
+      
+      if (reportedModel !== requestedModel) {
+        console.log(`\n⚠️ WARNING: Self-reported model "${reportedModel}" differs from requested "${requestedModel}"`);
+      }
     } else {
-      console.log(`⚠️ WARNING: Model mismatch! Requested "${requestedModel}" but got "${response.model}"`);
+      console.log('No self-reported model found in response');
+    }
+    
+    if (response.model !== requestedModel) {
+      console.log(`\n⚠️ WARNING: Model mismatch! Requested "${requestedModel}" but got "${response.model}"`);
     }
     
     return {
@@ -69,10 +80,13 @@ async function checkClaudeModel() {
   }
 }
 
-// Run the verification
+// Run the check
 checkClaudeModel()
   .then(result => {
-    console.log('Verification complete');
+    console.log('\nModel verification completed');
+    console.log('Response content:');
+    console.log('-------------------');
+    console.log(result.content);
     process.exit(0);
   })
   .catch(error => {

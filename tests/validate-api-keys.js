@@ -4,133 +4,118 @@
  * This script validates the API keys for both Anthropic and Perplexity services
  * by making a minimal test request to each API.
  */
+
+import Anthropic from '@anthropic-ai/sdk';
 import axios from 'axios';
 import dotenv from 'dotenv';
-import logger from '../utils/logger.js';
 
 // Load environment variables
 dotenv.config();
 
-console.log('\n===== API KEY VALIDATOR =====\n');
-
-// Helper function to validate Anthropic API key
 async function validateAnthropicKey() {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    console.error('❌ ANTHROPIC_API_KEY is not defined in environment variables');
-    return false;
-  }
-  
-  console.log(`Anthropic API key length: ${apiKey.length} characters`);
-  console.log(`Key starts with: ${apiKey.substring(0, 4)}...`);
-  
   try {
-    // Make a minimal request to Anthropic's API
-    const response = await axios({
-      method: 'POST',
-      url: 'https://api.anthropic.com/v1/messages',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      },
-      data: {
-        model: 'claude-3-7-sonnet-20250219',
-        max_tokens: 10,
-        messages: [
-          { role: 'user', content: 'Just reply with the word "valid" and nothing else.' }
-        ]
-      }
+    console.log('\n--- Validating Anthropic API Key ---');
+    
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      console.error('❌ Error: ANTHROPIC_API_KEY is not set in environment variables');
+      return false;
+    }
+    
+    console.log('🔑 API Key found. Making test request...');
+    
+    const anthropic = new Anthropic({ apiKey });
+    
+    const response = await anthropic.messages.create({
+      model: 'claude-3-7-sonnet-20250219',
+      max_tokens: 100,
+      messages: [{ role: 'user', content: 'Hello, this is a test request. Please respond with a single short sentence.' }]
     });
     
-    console.log('✅ ANTHROPIC API KEY IS VALID!');
-    console.log(`Response status: ${response.status}`);
-    console.log(`Response data: ${JSON.stringify(response.data.content).substring(0, 100)}...`);
+    console.log('✅ Success! Claude API responded.');
+    console.log(`📎 Model: ${response.model}`);
+    console.log(`📎 Response: "${response.content[0].text.trim().substring(0, 50)}..."`);
+    
     return true;
   } catch (error) {
-    console.error('❌ ANTHROPIC API KEY IS INVALID!');
-    console.error(`Error: ${error.message}`);
-    if (error.response) {
-      console.error(`Status code: ${error.response.status}`);
-      console.error(`Response data: ${JSON.stringify(error.response.data)}`);
-    }
+    console.error('❌ Claude API Key validation failed:', error.message);
     return false;
   }
 }
 
-// Helper function to validate Perplexity API key
 async function validatePerplexityKey() {
-  const apiKey = process.env.PERPLEXITY_API_KEY;
-  if (!apiKey) {
-    console.error('❌ PERPLEXITY_API_KEY is not defined in environment variables');
-    return false;
-  }
-  
-  console.log(`Perplexity API key length: ${apiKey.length} characters`);
-  console.log(`Key starts with: ${apiKey.substring(0, 4)}...`);
-  
   try {
-    // Make a minimal request to Perplexity's API
-    console.log('Making test request to Perplexity API...');
+    console.log('\n--- Validating Perplexity API Key ---');
+    
+    const apiKey = process.env.PERPLEXITY_API_KEY;
+    if (!apiKey) {
+      console.error('❌ Error: PERPLEXITY_API_KEY is not set in environment variables');
+      return false;
+    }
+    
+    console.log('🔑 API Key found. Making test request...');
+    
     const response = await axios({
-      method: 'POST',
+      method: 'post',
       url: 'https://api.perplexity.ai/chat/completions',
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
       },
       data: {
-        model: 'sonar-mini-online',  // Try a different model as a test
+        model: 'llama-3.1-sonar-small-128k-online',
         messages: [
-          { role: 'system', content: 'You are a helpful assistant.' },
-          { role: 'user', content: 'Just reply with the word "valid" and nothing else.' }
+          { role: 'system', content: 'Be precise and concise.' },
+          { role: 'user', content: 'Hello, this is a test request. Please respond with a single short sentence.' }
         ],
-        max_tokens: 10
-      }
+        max_tokens: 100,
+        temperature: 0.2
+      },
+      timeout: 15000
     });
     
-    console.log('✅ PERPLEXITY API KEY IS VALID!');
-    console.log(`Response status: ${response.status}`);
-    console.log(`Response data: ${JSON.stringify(response.data).substring(0, 100)}...`);
+    console.log('✅ Success! Perplexity API responded.');
+    console.log(`📎 Model: ${response.data.model}`);
+    console.log(`📎 Response: "${response.data.choices[0].message.content.trim().substring(0, 50)}..."`);
+    
     return true;
   } catch (error) {
-    console.error('❌ PERPLEXITY API KEY IS INVALID!');
-    console.error(`Error: ${error.message}`);
+    console.error('❌ Perplexity API Key validation failed:', error.message);
     if (error.response) {
-      console.error(`Status code: ${error.response.status}`);
-      console.error(`Response data: ${JSON.stringify(error.response.data)}`);
+      console.error('API error details:', error.response.data);
     }
     return false;
   }
 }
 
-// Run the validation checks
 async function validateAllKeys() {
-  console.log('Testing Anthropic API key...');
-  const anthropicValid = await validateAnthropicKey();
+  console.log('=== API Key Validation Tool ===');
+  console.log('Validating API keys for Anthropic and Perplexity services...');
   
-  console.log('\nTesting Perplexity API key...');
+  const claudeValid = await validateAnthropicKey();
   const perplexityValid = await validatePerplexityKey();
   
-  console.log('\n===== VALIDATION SUMMARY =====');
-  console.log(`Anthropic API Key: ${anthropicValid ? '✅ VALID' : '❌ INVALID'}`);
-  console.log(`Perplexity API Key: ${perplexityValid ? '✅ VALID' : '❌ INVALID'}`);
+  console.log('\n=== Validation Summary ===');
+  console.log(`Anthropic Claude API: ${claudeValid ? '✅ Valid' : '❌ Invalid'}`);
+  console.log(`Perplexity API: ${perplexityValid ? '✅ Valid' : '❌ Invalid'}`);
   
-  return anthropicValid && perplexityValid;
+  if (claudeValid && perplexityValid) {
+    console.log('\n🎉 All API keys are valid! The system is ready to use.');
+  } else {
+    console.log('\n⚠️ Some API keys are invalid or missing. Please check your environment variables.');
+  }
+  
+  return { claudeValid, perplexityValid };
 }
 
-// Run the validation function
-validateAllKeys()
-  .then(allValid => {
-    if (allValid) {
-      console.log('\n✅ All API keys are valid!');
-    } else {
-      console.error('\n❌ Some API keys are invalid or missing!');
-      console.log('Please update the invalid keys in your Replit secrets.');
-    }
-    process.exit(allValid ? 0 : 1);
-  })
-  .catch(error => {
-    console.error('Unexpected error during validation:', error);
-    process.exit(1);
-  });
+// Run validation when this script is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  validateAllKeys()
+    .then(() => process.exit(0))
+    .catch(error => {
+      console.error('Validation script error:', error);
+      process.exit(1);
+    });
+}
+
+export { validateAnthropicKey, validatePerplexityKey, validateAllKeys };
