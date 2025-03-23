@@ -1,12 +1,10 @@
 
-import { AnthropicService } from '../../services/anthropicService.js';
+import { anthropicService } from '../../services/anthropicService.js';
 
 async function checkModel() {
-  const claude = new AnthropicService();
-  
   try {
-    const response = await claude.client.messages.create({
-      model: claude.model,
+    const response = await anthropicService.client.messages.create({
+      model: anthropicService.model,
       max_tokens: 100,
       messages: [{
         role: 'user',
@@ -14,7 +12,7 @@ async function checkModel() {
       }]
     });
     
-    console.log('Configured model:', claude.model);
+    console.log('Configured model:', anthropicService.model);
     console.log('Actual model response:', response.content[0].text);
     console.log('Message metadata:', {
       model: response.model,
