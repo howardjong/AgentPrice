@@ -8,6 +8,11 @@ export class CircuitBreaker {
     this.resetTimeout = options.resetTimeout || 30000; // 30 seconds
     this.state = {};
     this.monitorInterval = setInterval(() => this.logCircuitStatus(), 60000);
+    
+    // Register for cleanup in tests
+    if (typeof global !== 'undefined' && global.registerCircuitBreakerForCleanup) {
+      global.registerCircuitBreakerForCleanup(this);
+    }
   }
 
   async executeRequest(serviceKey, requestFn) {
