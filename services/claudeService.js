@@ -100,16 +100,30 @@ class ClaudeService {
           // Remove the model identification from the response
           responseContent = responseContent.replace(/\[\[(.*?)\]\]/, '').trim();
           
-          // Log if there's a model mismatch
-          if (actualModel !== this.model) {
-            logger.warn('Model mismatch in Claude API', {
+          // Check for significant model mismatch (ignoring date variations)
+          const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
+          const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
+          
+          if (actualModelBase !== requestedModelBase) {
+            // This is a serious mismatch - completely different model
+            logger.warn('Serious model mismatch in Claude API', {
               requested: this.model,
               actual: actualModel,
               apiReported: response.model
             });
             
             // Add a prominent model mismatch notice at the beginning of the response
-            responseContent = `⚠️ MODEL MISMATCH WARNING: The system is using ${actualModel} instead of the requested ${this.model}. We've instructed the model to behave like Claude 3.7 Sonnet regardless.\n\n${responseContent}`;
+            responseContent = `⚠️ SERIOUS MODEL MISMATCH WARNING: The system is using ${actualModel} instead of the requested ${this.model}. We've instructed the model to behave like Claude 3.7 Sonnet regardless.\n\n${responseContent}`;
+          } else if (actualModel !== this.model) {
+            // Just a version/date mismatch but same base model - less concerning
+            logger.info('Model version mismatch in Claude API', {
+              requested: this.model,
+              actual: actualModel,
+              apiReported: response.model
+            });
+            
+            // Add a subtle notice about version difference
+            responseContent = `Note: Using Claude ${actualModelBase} (version may differ from ${this.model})\n\n${responseContent}`;
           }
         }
       }
@@ -147,9 +161,20 @@ class ClaudeService {
       if (modelMatch && modelMatch[1]) {
         actualModel = modelMatch[1].trim();
         
-        // Log if there's a model mismatch
-        if (actualModel !== this.model) {
-          logger.warn('Model mismatch in Claude questions', {
+        // Log if there's a significant model mismatch (ignoring date variations)
+        const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
+        const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
+        
+        if (actualModelBase !== requestedModelBase) {
+          // This is a serious mismatch - completely different model
+          logger.warn('Serious model mismatch in Claude questions', {
+            requested: this.model,
+            actual: actualModel,
+            apiReported: response.model
+          });
+        } else if (actualModel !== this.model) {
+          // Just a version/date mismatch but same base model - less concerning
+          logger.info('Model version mismatch in Claude questions', {
             requested: this.model,
             actual: actualModel,
             apiReported: response.model
@@ -212,9 +237,20 @@ class ClaudeService {
       if (modelMatch && modelMatch[1]) {
         actualModel = modelMatch[1].trim();
         
-        // Log if there's a model mismatch
-        if (actualModel !== this.model) {
-          logger.warn('Model mismatch in Claude chart data', {
+        // Check for significant model mismatch (ignoring date variations)
+        const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
+        const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
+        
+        if (actualModelBase !== requestedModelBase) {
+          // This is a serious mismatch - completely different model
+          logger.warn('Serious model mismatch in Claude chart data', {
+            requested: this.model,
+            actual: actualModel,
+            apiReported: response.model
+          });
+        } else if (actualModel !== this.model) {
+          // Just a version/date mismatch but same base model - less concerning
+          logger.info('Model version mismatch in Claude chart data', {
             requested: this.model,
             actual: actualModel,
             apiReported: response.model
@@ -307,16 +343,30 @@ class ClaudeService {
         // Remove the model identification from the SVG
         svgContent = svgContent.replace(/<!-- model: (.*?) -->/, '');
         
-        // Log if there's a model mismatch
-        if (actualModel !== this.model) {
-          logger.warn('Model mismatch in Claude visualization', {
+        // Check for significant model mismatch (ignoring date variations)
+        const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
+        const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
+        
+        if (actualModelBase !== requestedModelBase) {
+          // This is a serious mismatch - completely different model
+          logger.warn('Serious model mismatch in Claude visualization', {
             requested: this.model,
             actual: actualModel,
             apiReported: response.model
           });
           
-          // Add a comment at the top of the SVG indicating the model mismatch
-          svgContent = svgContent.replace(/<svg/, `<!-- ⚠️ Using ${actualModel} instead of ${this.model} -->\n<svg`);
+          // Add a prominent warning comment at the top of the SVG
+          svgContent = svgContent.replace(/<svg/, `<!-- ⚠️ SERIOUS MODEL MISMATCH: Using ${actualModel} instead of ${this.model} -->\n<svg`);
+        } else if (actualModel !== this.model) {
+          // Just a version/date mismatch but same base model - less concerning
+          logger.info('Model version mismatch in Claude visualization', {
+            requested: this.model,
+            actual: actualModel,
+            apiReported: response.model
+          });
+          
+          // Add a subtle comment at the top of the SVG
+          svgContent = svgContent.replace(/<svg/, `<!-- Note: Using Claude ${actualModelBase} (version may differ from ${this.model}) -->\n<svg`);
         }
       }
       

@@ -11,6 +11,10 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+/**
+ * Enhanced Claude model verification that examines the complete API response
+ * and provides detailed diagnostic information
+ */
 async function checkClaudeModel() {
   try {
     console.log('Checking which Claude model is actually serving requests...');
@@ -42,33 +46,65 @@ async function checkClaudeModel() {
       system: "Return your model name at the end of your response inside double brackets like this: [[model-name]]"
     });
     
-    console.log('\nResponse information:');
-    console.log('-------------------');
-    console.log(`API-reported model: ${response.model}`);
+    // Detailed response inspection
+    console.log('\nComplete API Response Details:');
+    console.log('============================');
+    console.log('Request ID:', response.id);
+    console.log('API-reported model:', response.model);
+    console.log('Response type:', response.type);
+    console.log('Stop reason:', response.stop_reason);
+    console.log('Usage tokens:', JSON.stringify(response.usage, null, 2));
+    
+    // For debugging - print all available response fields
+    console.log('\nAll Response Fields:');
+    console.log('------------------');
+    const allResponseFields = Object.keys(response);
+    console.log(allResponseFields.join(', '));
+    
+    // Extract model info from the response
+    const content = response.content[0].text;
+    
+    console.log('\nModel Identification Check:');
+    console.log('-------------------------');
     
     // Try to extract model from content using regex
-    const content = response.content[0].text;
     const modelMatch = content.match(/\[\[(.*?)\]\]/);
     
     if (modelMatch && modelMatch[1]) {
       const reportedModel = modelMatch[1].trim();
       console.log(`Self-reported model: ${reportedModel}`);
       
-      if (reportedModel !== requestedModel) {
-        console.log(`\n⚠️ WARNING: Self-reported model "${reportedModel}" differs from requested "${requestedModel}"`);
+      // Create clean base names for comparison (without version numbers)
+      const requestedModelBase = requestedModel.split('-20')[0];
+      const reportedModelBase = reportedModel.split('-20')[0];
+      
+      if (reportedModelBase !== requestedModelBase) {
+        console.log(`\n⚠️ SERIOUS MODEL MISMATCH! Using completely different model:`);
+        console.log(`  - Requested: ${requestedModel} (${requestedModelBase})`);
+        console.log(`  - Actual: ${reportedModel} (${reportedModelBase})`);
+      } else if (reportedModel !== requestedModel) {
+        console.log(`\n⚠️ VERSION MISMATCH! Same model family but different version:`);
+        console.log(`  - Requested: ${requestedModel}`);
+        console.log(`  - Actual: ${reportedModel}`);
+      } else {
+        console.log(`✅ MATCH! Requested and received the same model: ${requestedModel}`);
       }
     } else {
-      console.log('No self-reported model found in response');
+      console.log('⚠️ No self-reported model found in response');
     }
     
     if (response.model !== requestedModel) {
-      console.log(`\n⚠️ WARNING: Model mismatch! Requested "${requestedModel}" but got "${response.model}"`);
+      console.log(`\n⚠️ API METADATA MISMATCH! API response indicates:`);
+      console.log(`  - Requested: ${requestedModel}`);
+      console.log(`  - API reports: ${response.model}`);
     }
     
     return {
       requestedModel,
       actualModel: response.model,
-      content: response.content[0].text
+      content: response.content[0].text,
+      selfReportedModel: modelMatch && modelMatch[1] ? modelMatch[1].trim() : null,
+      fullResponse: response
     };
     
   } catch (error) {
