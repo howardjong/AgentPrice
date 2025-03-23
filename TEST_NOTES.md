@@ -30,3 +30,21 @@ NODE_OPTIONS=--experimental-vm-modules jest --config=jest.config.js -t "CircuitB
 - Refactor research service tests to be fully compatible with ES modules
 - Address any module teardown issues in the Jest configuration
 - Implement additional integration tests for the API endpoints
+
+## Outstanding Issues (March 23, 2025)
+1. Unhandled Promise Rejections
+   - Multiple unhandled rejections in client code
+   - Need to add proper error boundaries and promise catching
+
+2. Model Mismatches
+   - Claude model mismatches between requested and actual versions
+   - Perplexity model fallback from sonar-deep-research to sonar-pro
+   - Need to implement model version validation
+
+3. Rate Limiting
+   - Perplexity API hitting rate limits (429 errors)
+   - Need to implement better rate limiting and queuing strategy
+
+4. Test Coverage
+   - research.test.js (integration) needs ES module compatibility fixes
+   - researchService.test.js needs proper async handling
