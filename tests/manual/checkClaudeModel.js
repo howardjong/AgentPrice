@@ -14,7 +14,7 @@ async function checkModel() {
     console.log('API Key configured:', !!process.env.ANTHROPIC_API_KEY);
     
     // Test 1: API Response validation
-    const modelResponse = await anthropic.messages.create({
+    const modelResponse = await claudeService.client.messages.create({
       model: EXPECTED_MODEL,
       max_tokens: 100,
       messages: [{
@@ -59,7 +59,7 @@ async function checkModel() {
     });
 
     // Test 3: Capabilities check
-    const capabilitiesResponse = await anthropic.messages.create({
+    const capabilitiesResponse = await claudeService.client.messages.create({
       model: 'claude-3-7-sonnet-20250219',
       max_tokens: 150,
       messages: [{

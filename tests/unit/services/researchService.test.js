@@ -5,7 +5,7 @@ import { jest } from '@jest/globals';
 let initiateResearch;
 let getResearchStatus;
 let answerWithContext;
-let mockAnthropicService;
+let mockClaudeService;
 let mockPerplexityService;
 let mockContextManager;
 let mockJobManager;
@@ -30,7 +30,7 @@ const createMockContextManager = () => ({
   updateContext: jest.fn()
 });
 
-const createMockAnthropicService = () => ({
+const createMockClaudeService = () => ({
   generateResponse: jest.fn().mockResolvedValue('Generated response'),
   generateClarifyingQuestions: jest.fn(),
   generateChartData: jest.fn()

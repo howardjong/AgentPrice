@@ -34,7 +34,7 @@ const createMockContextManager = () => ({
   updateContext: jest.fn()
 });
 
-const createMockAnthropicService = () => ({
+const createMockClaudeService = () => ({
   generateResponse: jest.fn().mockResolvedValue('Generated response'),
   generateClarifyingQuestions: jest.fn()
 });
