@@ -1,13 +1,13 @@
 
-import { Anthropic } from '@anthropic-ai/sdk';
+import claudeService from '../../services/claudeService.js';
 import logger from '../../utils/logger.js';
 
 async function checkModel() {
   try {
     const EXPECTED_MODEL = 'claude-3-7-sonnet-20250219';
-    const anthropic = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY
-    });
+    if (!claudeService.isConnected) {
+      throw new Error('Claude service is not connected');
+    }
 
     console.log('\n=== API Configuration ===');
     console.log('Expected model:', EXPECTED_MODEL);
