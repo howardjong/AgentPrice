@@ -201,7 +201,8 @@ class PerplexityService {
             return_citations: true,
             frequency_penalty: 0.5,
             presence_penalty: 0.1,
-            stream: false // We want the complete response at once
+            stream: false, // We want the complete response at once
+            search_context_mode: "high" // High search context mode for more comprehensive search
           }
         };
         
