@@ -33,8 +33,14 @@ async function checkModel() {
     console.log('Usage Details:', JSON.stringify(modelResponse.usage, null, 2));
 
     console.log('\n=== Model Identity Test ===');
-    console.log('Configured model:', 'claude-3-7-sonnet-20250219');
+    console.log('Configured model:', EXPECTED_MODEL);
     console.log('Model self-identification:', modelResponse.content[0].text);
+    console.log('Response model:', modelResponse.model);
+    
+    // Validate it's a Claude model
+    if (!modelResponse.model.startsWith('claude-')) {
+        console.error('ERROR: Non-Claude model detected:', modelResponse.model);
+    }
     console.log('Response metadata:', {
       model: modelResponse.model,
       usage: modelResponse.usage

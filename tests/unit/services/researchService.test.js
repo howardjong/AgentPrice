@@ -1,4 +1,3 @@
-
 import { jest } from '@jest/globals';
 
 // Using let for variables that will be loaded dynamically
@@ -72,7 +71,7 @@ beforeAll(async () => {
   initiateResearch = researchModule.initiateResearch;
   getResearchStatus = researchModule.getResearchStatus;
   answerWithContext = researchModule.answerWithContext;
-  
+
   // Get references to mocks for direct access in tests
   mockAnthropicService = (await import('../../../services/anthropicService.js')).default;
   mockPerplexityService = (await import('../../../services/perplexityService.js')).default;
@@ -85,18 +84,18 @@ beforeAll(async () => {
 describe('ResearchService', () => {
   // Store original module cache state to restore later
   const originalModules = { moduleChildren: [...module.children] };
-  
+
   // Use fake timers to prevent any timers from running after tests complete
   jest.useFakeTimers();
-  
+
   // Add proper teardown to prevent "module torn down" errors
   afterAll(() => {
     // Reset timers
     jest.useRealTimers();
-    
+
     // Restore module cache to original state
     module.children = originalModules.moduleChildren;
-    
+
     // Cleanup any open handles that might be left behind
     jest.clearAllMocks();
     jest.resetModules();
