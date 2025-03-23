@@ -1,9 +1,9 @@
 /**
  * Perplexity Service Tests
  */
-import { jest } from '@jest/globals';
+import { jest, describe, it, expect, beforeEach, afterEach, beforeAll } from '@jest/globals';
 
-// Mock dependencies
+// Create mock objects first
 const mockLogger = {
   info: jest.fn(),
   error: jest.fn(),
@@ -11,36 +11,47 @@ const mockLogger = {
   debug: jest.fn()
 };
 
-// Set up mocks
-jest.mock('../../../utils/logger.js', () => ({
-  default: mockLogger
-}));
-
-// Mock API client
 const mockRequest = jest.fn();
-jest.mock('../../../utils/apiClient.js', () => ({
-  RobustAPIClient: jest.fn().mockImplementation(() => ({
-    request: mockRequest
-  }))
-}));
-
-// Mock circuit breaker
 const mockExecuteRequest = jest.fn(async (serviceKey, requestFn) => requestFn());
-jest.mock('../../../utils/monitoring.js', () => ({
-  CircuitBreaker: jest.fn().mockImplementation(() => ({
-    executeRequest: mockExecuteRequest
-  }))
-}));
+const mockPromptManager = {
+  getPrompt: jest.fn().mockResolvedValue('Test prompt template'),
+  formatPrompt: jest.fn((_template, { query }) => `Formatted prompt for: ${query}`)
+};
 
-// Mock prompt manager
-jest.mock('../../../services/promptManager.js', () => ({
-  default: {
-    getPrompt: jest.fn().mockResolvedValue('Test prompt template'),
-    formatPrompt: jest.fn((_template, { query }) => `Formatted prompt for: ${query}`)
-  }
-}));
+// Then set up mocks
+jest.mock('../../../utils/logger.js', () => {
+  return {
+    __esModule: true,
+    default: mockLogger
+  };
+});
 
-// Dynamic import of the perplexityService module
+jest.mock('../../../utils/apiClient.js', () => {
+  return {
+    __esModule: true,
+    RobustAPIClient: jest.fn().mockImplementation(() => ({
+      request: mockRequest
+    }))
+  };
+});
+
+jest.mock('../../../utils/monitoring.js', () => {
+  return {
+    __esModule: true,
+    CircuitBreaker: jest.fn().mockImplementation(() => ({
+      executeRequest: mockExecuteRequest
+    }))
+  };
+});
+
+jest.mock('../../../services/promptManager.js', () => {
+  return {
+    __esModule: true,
+    default: mockPromptManager
+  };
+});
+
+// Define the variable that will hold the imported module
 let perplexityService;
 
 describe('PerplexityService', () => {
