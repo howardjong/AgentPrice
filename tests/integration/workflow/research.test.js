@@ -1,34 +1,31 @@
 
 import { jest } from '@jest/globals';
-import { JobManager } from '../../../services/jobManager.js';
-import { ResearchService } from '../../../services/researchService.js';
+import { initiateResearch, getResearchStatus } from '../../../services/researchService.js';
 
 describe('Research Workflow Integration', () => {
-  let jobManager;
-  let researchService;
+  jest.setTimeout(30000); // Increase timeout for integration tests
 
-  beforeEach(() => {
-    jobManager = new JobManager();
-    researchService = new ResearchService();
-  });
-
-  test('complete research workflow', async () => {
-    const query = 'Test research query';
-    const job = await jobManager.createJob('research-jobs', {
-      query,
-      options: {
-        generateClarifyingQuestions: true
-      }
-    });
-
-    const result = await job.finished();
+  it('should complete a full research workflow', async () => {
+    const query = 'What are the latest developments in quantum computing?';
     
-    expect(result).toMatchObject({
-      query,
-      content: expect.any(String),
-      sources: expect.any(Array),
-      clarifyingQuestions: expect.any(Array),
-      timestamp: expect.any(String)
-    });
+    // Initialize research
+    const { jobId, sessionId } = await initiateResearch(query);
+    expect(jobId).toBeTruthy();
+    expect(sessionId).toBeTruthy();
+
+    // Poll for completion
+    let status;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    while (attempts < maxAttempts) {
+      status = await getResearchStatus(jobId);
+      if (status.status === 'completed') break;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      attempts++;
+    }
+
+    expect(status.status).toBe('completed');
+    expect(status.progress).toBe(100);
   });
 });

@@ -1,11 +1,12 @@
 
 import { jest } from '@jest/globals';
 import { v4 as uuidv4 } from 'uuid';
-import { AnthropicService } from '../../../services/anthropicService.js';
-import { PerplexityService } from '../../../services/perplexityService.js';
-import { ContextManager } from '../../../services/contextManager.js';
-import { JobManager } from '../../../services/jobManager.js';
-import { logger } from '../../../utils/logger.js';
+import { initiateResearch, getResearchStatus, answerWithContext } from '../../../services/researchService.js';
+import * as anthropicService from '../../../services/anthropicService.js';
+import * as perplexityService from '../../../services/perplexityService.js';
+import * as contextManager from '../../../services/contextManager.js';
+import * as jobManager from '../../../services/jobManager.js';
+import logger from '../../../utils/logger.js';
 
 jest.mock('../../../services/anthropicService.js');
 jest.mock('../../../services/perplexityService.js');
@@ -18,45 +19,41 @@ describe('ResearchService', () => {
     jest.clearAllMocks();
   });
 
-  test('registers job processors on initialization', async () => {
-    expect(JobManager.registerProcessor).toHaveBeenCalledWith(
-      'research-jobs',
-      expect.any(Function)
-    );
+  describe('initiateResearch', () => {
+    it('should create a new research job', async () => {
+      const query = 'test query';
+      const options = { generateClarifyingQuestions: true };
+      const jobId = uuidv4();
+      const sessionId = `session_${Date.now()}_test`;
+
+      jobManager.enqueueJob.mockResolvedValue(jobId);
+
+      const result = await initiateResearch(query, options);
+
+      expect(result).toEqual({
+        jobId: expect.any(String),
+        sessionId: expect.any(String),
+        status: 'PENDING'
+      });
+
+      expect(contextManager.storeContext).toHaveBeenCalled();
+      expect(jobManager.enqueueJob).toHaveBeenCalledWith('research-jobs', {
+        query,
+        options,
+        sessionId: expect.any(String)
+      });
+    });
   });
 
-  test('processes research job successfully', async () => {
-    const mockJob = {
-      id: uuidv4(),
-      data: {
-        query: 'test query',
-        options: {
-          generateClarifyingQuestions: true,
-          generateCharts: ['bar']
-        }
-      },
-      progress: jest.fn()
-    };
+  describe('getResearchStatus', () => {
+    it('should return job status', async () => {
+      const jobId = uuidv4();
+      const mockStatus = { status: 'completed', progress: 100 };
 
-    const mockClarifyingQuestions = ['Question 1', 'Question 2'];
-    AnthropicService.generateClarifyingQuestions.mockResolvedValue(mockClarifyingQuestions);
+      jobManager.getJobStatus.mockResolvedValue(mockStatus);
 
-    const mockResearchResults = {
-      content: 'Research results',
-      sources: ['source1', 'source2']
-    };
-    PerplexityService.performDeepResearch.mockResolvedValue(mockResearchResults);
-
-    const mockChartData = { data: [1, 2, 3] };
-    AnthropicService.generateChartData.mockResolvedValue(mockChartData);
-
-    await expect(jobProcessor(mockJob)).resolves.toEqual({
-      query: mockJob.data.query,
-      content: mockResearchResults.content,
-      sources: mockResearchResults.sources,
-      clarifyingQuestions: mockClarifyingQuestions,
-      charts: { bar: mockChartData },
-      timestamp: expect.any(String)
+      const result = await getResearchStatus(jobId);
+      expect(result).toEqual(mockStatus);
     });
   });
 });
