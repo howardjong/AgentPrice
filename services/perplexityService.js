@@ -272,7 +272,7 @@ class PerplexityService {
           }
         }
 
-        const duration = Date.now() - start;
+        const duration = Date.now() - response.config.timestamp;
 
         logger.info('Perplexity API response received', {
           duration: `${duration}ms`,
