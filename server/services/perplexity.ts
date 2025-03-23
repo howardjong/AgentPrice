@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { ServiceStatus } from '@shared/schema';
 
-const DEFAULT_MODEL = 'llama-3.1-sonar-small-128k-online';
+const DEFAULT_MODEL = 'sonar-pro';
 const API_KEY = process.env.PERPLEXITY_API_KEY || '';
 const API_URL = 'https://api.perplexity.ai/chat/completions';
 
@@ -85,7 +85,8 @@ export class PerplexityService {
         stream: false,
         frequency_penalty: 1,
         search_domain_filter: [], // Empty array allows searching all domains
-        top_k: 15 // Increase number of search results to consider
+        top_k: 15, // Increase number of search results to consider
+        search_context_mode: "high" // High search context mode for more comprehensive search
       };
       
       console.log('Perplexity request payload:', JSON.stringify(requestPayload));

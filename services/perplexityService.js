@@ -10,7 +10,7 @@ import promptManager from './promptManager.js';
 class PerplexityService {
   constructor() {
     this.apiKey = process.env.PERPLEXITY_API_KEY;
-    this.model = 'llama-3.1-sonar-small-128k-online';
+    this.model = 'sonar-pro';
     this.isConnected = false;
     this.lastUsed = null;
     this.apiClient = new RobustAPIClient({
@@ -104,7 +104,8 @@ class PerplexityService {
           search_recency_filter: "day", // Get the most recent information
           top_k: options.topK || 15, // Increase number of search results to consider
           return_citations: true,
-          frequency_penalty: 0.5 // Discourage repetitive text
+          frequency_penalty: 0.5, // Discourage repetitive text
+          search_context_mode: "high" // High search context mode for more comprehensive search
         }
       };
       
