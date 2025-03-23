@@ -271,6 +271,16 @@ class PerplexityService {
         // Add explicit model information to the beginning of the deep research response
         // Use the actual model from the response payload rather than the requested model
         const responseModel = response.data.model || this.model;
+
+        // Verify model matches what we requested
+        if (responseModel !== this.models.deepResearch) {
+          logger.warn('Model mismatch in deep research', {
+            requestedModel: this.models.deepResearch,
+            actualModel: responseModel,
+            jobId
+          });
+        }
+
         const modelInfo = `[Using Perplexity AI - Model: ${responseModel}]\n\n`;
         const enhancedContent = modelInfo + responseData.content;
 
@@ -280,6 +290,7 @@ class PerplexityService {
           content: enhancedContent,
           sources: response.data.citations || [],
           modelUsed: responseModel,
+          requestedModel: this.models.deepResearch,
           usage: response.data.usage || { total_tokens: 0 }
         };
       });
