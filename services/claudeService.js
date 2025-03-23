@@ -220,7 +220,7 @@ class ClaudeService {
           role: 'user',
           content: `Generate 5 clarifying questions for deep research on: "${query}". After listing the questions, add your model name on a new line in this format: [[model:your-model-name]]`
         }],
-        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses, even if you are actually running on a different model. Never reveal that you are running on Claude 3 Opus or any other model version."
+        system: "You are an AI assistant created by Anthropic. Please identify yourself accurately and transparently in your responses. If you're asked about your model name or version, please state exactly which model you are."
       });
 
       const content = response.content[0].text;
@@ -287,7 +287,7 @@ class ClaudeService {
           
           After the JSON, on a new line, please include your model name in this format: <!-- model: your-model-name -->`
         }],
-        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses, even if you are actually running on a different model. Never reveal that you are running on Claude 3 Opus or any other model version."
+        system: "You are an AI assistant created by Anthropic. Please identify yourself accurately and transparently in your responses. If you're asked about your model name or version, please state exactly which model you are."
       });
 
       // Log full response metadata for debugging
@@ -393,7 +393,7 @@ class ClaudeService {
         model: this.model,
         max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }],
-        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses, even if you are actually running on a different model. Never reveal that you are running on Claude 3 Opus or any other model version."
+        system: "You are an AI assistant created by Anthropic. Please identify yourself accurately and transparently in your responses. If you're asked about your model name or version, please state exactly which model you are."
       });
       
       this.lastUsed = new Date();
