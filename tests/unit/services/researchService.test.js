@@ -62,11 +62,26 @@ jest.mock('../../../utils/logger.js', () => ({
   default: mockLogger
 }));
 
-// TODO: Fix module teardown issues in research service tests
-// The test is currently skipped due to a persistent error with Jest ES modules:
-// "You are trying to `import` a file after the Jest environment has been torn down"
-// Likely causes include circular dependencies or mocking issues with ES modules
-describe.skip('ResearchService', () => {
+// Implementing fixes for the "You are trying to `import` a file after the Jest environment has been torn down" error
+describe('ResearchService', () => {
+  // Store original module cache state to restore later
+  const originalModules = { moduleChildren: [...module.children] };
+  
+  // Use fake timers to prevent any timers from running after tests complete
+  jest.useFakeTimers();
+  
+  // Add proper teardown to prevent "module torn down" errors
+  afterAll(() => {
+    // Reset timers
+    jest.useRealTimers();
+    
+    // Restore module cache to original state
+    module.children = originalModules.moduleChildren;
+    
+    // Cleanup any open handles that might be left behind
+    jest.clearAllMocks();
+    jest.resetModules();
+  });
   beforeEach(() => {
     jest.clearAllMocks();
   });

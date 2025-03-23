@@ -3,6 +3,9 @@
 import { jest } from '@jest/globals';
 global.jest = jest;
 
+// Store information to track originally loaded modules
+global.__ORIGINAL_MODULES__ = {};
+
 // Ensure all tests have proper cleanup
 afterAll(async () => {
   // Add any global cleanup here
@@ -26,6 +29,19 @@ afterAll(async () => {
   } catch (error) {
     console.warn('Could not stop redis client:', error);
   }
+  
+  // Reset any fake timers
+  try {
+    jest.useRealTimers();
+  } catch (error) {
+    console.warn('Could not reset timers:', error);
+  }
+  
+  // Clear mocks and reset modules
+  jest.clearAllMocks();
+  jest.resetModules();
+  
+  // No need to restore module state at global level
 });
 
 // Track circuit breakers created during tests

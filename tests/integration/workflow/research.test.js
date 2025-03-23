@@ -12,11 +12,8 @@ jest.mock('../../../utils/logger.js');
 jest.mock('../../../services/anthropicService.js');
 jest.mock('../../../services/perplexityService.js');
 
-// TODO: Fix module teardown issues in research integration tests
-// The test is currently skipped due to a persistent error with Jest ES modules:
-// "You are trying to `import` a file after the Jest environment has been torn down"
-// Likely causes include circular dependencies or mocking issues with ES modules
-describe.skip('Research Workflow Integration', () => {
+// Implementing fixes for teardown issues with Jest ES modules
+describe('Research Workflow Integration', () => {
   jest.setTimeout(30000);
 
   // For proper test isolation
@@ -44,9 +41,19 @@ describe.skip('Research Workflow Integration', () => {
     jest.spyOn(logger, 'warn').mockImplementation(() => {});
   });
 
+  // Use fake timers to prevent timers from running after tests complete
+  jest.useFakeTimers();
+  
   afterAll(() => {
+    // Reset timers
+    jest.useRealTimers();
+    
     // Restore module cache to original state to prevent torn down errors
     module.children = originalModules.moduleChildren;
+    
+    // Cleanup any open handles that might be left behind
+    jest.clearAllMocks();
+    jest.resetModules();
   });
 
   beforeEach(() => {
