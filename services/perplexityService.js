@@ -29,6 +29,17 @@ class PerplexityService {
     try {
       if (!this.apiKey) {
         logger.warn('Perplexity API key not found in environment variables');
+        this.isConnected = false;
+        
+        // Log clear instructions for adding the API key
+        logger.info('To enable Perplexity research functionality, add a PERPLEXITY_API_KEY to your environment or Replit secrets');
+        return;
+      }
+      
+      // Check if the API key appears to be valid (basic validation)
+      if (this.apiKey.length < 20 || !this.apiKey.startsWith('pplx-')) {
+        logger.warn('Perplexity API key appears to be invalid - should start with "pplx-" and be at least 20 characters');
+        this.isConnected = false;
         return;
       }
       

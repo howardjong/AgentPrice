@@ -71,6 +71,7 @@ async function validatePerplexityKey() {
   
   try {
     // Make a minimal request to Perplexity's API
+    console.log('Making test request to Perplexity API...');
     const response = await axios({
       method: 'POST',
       url: 'https://api.perplexity.ai/chat/completions',
@@ -79,7 +80,7 @@ async function validatePerplexityKey() {
         'Authorization': `Bearer ${apiKey}`
       },
       data: {
-        model: 'sonar-pro',
+        model: 'sonar-mini-online',  // Try a different model as a test
         messages: [
           { role: 'system', content: 'You are a helpful assistant.' },
           { role: 'user', content: 'Just reply with the word "valid" and nothing else.' }
