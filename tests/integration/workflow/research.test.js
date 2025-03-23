@@ -5,6 +5,21 @@ import { initiateResearch, getResearchStatus } from '../../../services/researchS
 describe('Research Workflow Integration', () => {
   jest.setTimeout(30000); // Increase timeout for integration tests
 
+  beforeEach(() => {
+    // Mock job status response
+    jobManager.getJobStatus = jest.fn().mockResolvedValue({
+      status: 'completed',
+      progress: 100,
+      returnvalue: {
+        content: 'Test research results',
+        sources: ['source1', 'source2']
+      }
+    });
+    
+    // Mock job creation
+    jobManager.enqueueJob = jest.fn().mockResolvedValue('test-job-id');
+  });
+
   it('should complete a full research workflow', async () => {
     const query = 'What are the latest developments in quantum computing?';
     

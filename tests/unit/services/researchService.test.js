@@ -2,14 +2,36 @@
 import { jest } from '@jest/globals';
 import { v4 as uuidv4 } from 'uuid';
 import { initiateResearch, getResearchStatus, answerWithContext } from '../../../services/researchService.js';
-import * as anthropicService from '../../../services/anthropicService.js';
-import * as perplexityService from '../../../services/perplexityService.js';
-import * as contextManager from '../../../services/contextManager.js';
-import * as jobManager from '../../../services/jobManager.js';
+import anthropicService from '../../../services/anthropicService.js';
+import perplexityService from '../../../services/perplexityService.js';
+import contextManager from '../../../services/contextManager.js';
+import jobManager from '../../../services/jobManager.js';
 import logger from '../../../utils/logger.js';
 
-jest.mock('../../../services/anthropicService.js');
-jest.mock('../../../services/perplexityService.js');
+jest.mock('../../../services/anthropicService.js', () => ({
+  default: {
+    generateClarifyingQuestions: jest.fn(),
+    generateChartData: jest.fn()
+  }
+}));
+jest.mock('../../../services/perplexityService.js', () => ({
+  default: {
+    performDeepResearch: jest.fn()
+  }
+}));
+jest.mock('../../../services/contextManager.js', () => ({
+  default: {
+    storeContext: jest.fn(),
+    getContext: jest.fn(),
+    updateContext: jest.fn()
+  }
+}));
+jest.mock('../../../services/jobManager.js', () => ({
+  default: {
+    enqueueJob: jest.fn(),
+    getJobStatus: jest.fn()
+  }
+}));
 jest.mock('../../../services/contextManager.js');
 jest.mock('../../../services/jobManager.js');
 jest.mock('../../../utils/logger.js');
