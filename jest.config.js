@@ -43,7 +43,7 @@ export default {
       ],
       // Run these tests in a separate process
       runner: 'jest-runner',
-      runInBand: true,
+      // Jest in ESM mode has different supported options
       maxWorkers: 1,
     }
   ]

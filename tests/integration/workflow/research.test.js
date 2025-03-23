@@ -5,12 +5,64 @@ import { jest } from '@jest/globals';
 let initiateResearch, getResearchStatus, answerWithContext;
 let jobManager, contextManager, logger;
 
+// Create mock implementations
+const createMockLogger = () => ({
+  info: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+  warn: jest.fn()
+});
+
+const createMockJobManager = () => ({
+  enqueueJob: jest.fn().mockResolvedValue('test-job-id'),
+  getJobStatus: jest.fn().mockResolvedValue({
+    status: 'completed',
+    progress: 100,
+    returnvalue: {
+      content: 'Test research results',
+      sources: ['source1', 'source2']
+    }
+  })
+});
+
+const createMockContextManager = () => ({
+  storeContext: jest.fn(),
+  getContext: jest.fn().mockResolvedValue({
+    jobId: 'test-job',
+    originalQuery: 'test query'
+  }),
+  updateContext: jest.fn()
+});
+
+const createMockAnthropicService = () => ({
+  generateResponse: jest.fn().mockResolvedValue('Generated response'),
+  generateClarifyingQuestions: jest.fn()
+});
+
+const createMockPerplexityService = () => ({
+  performDeepResearch: jest.fn()
+});
+
 // Mock these modules to prevent real service calls
-jest.mock('../../../services/jobManager.js');
-jest.mock('../../../services/contextManager.js');
-jest.mock('../../../utils/logger.js');
-jest.mock('../../../services/anthropicService.js');
-jest.mock('../../../services/perplexityService.js');
+jest.mock('../../../services/jobManager.js', () => ({
+  default: createMockJobManager()
+}));
+
+jest.mock('../../../services/contextManager.js', () => ({
+  default: createMockContextManager()
+}));
+
+jest.mock('../../../utils/logger.js', () => ({
+  default: createMockLogger()
+}));
+
+jest.mock('../../../services/anthropicService.js', () => ({
+  default: createMockAnthropicService()
+}));
+
+jest.mock('../../../services/perplexityService.js', () => ({
+  default: createMockPerplexityService()
+}));
 
 // Implementing fixes for teardown issues with Jest ES modules
 describe('Research Workflow Integration', () => {

@@ -11,49 +11,74 @@ let mockContextManager;
 let mockJobManager;
 let mockLogger;
 
+// Create mock implementations for all required services
+const createMockLogger = () => ({
+  info: jest.fn(),
+  error: jest.fn(),
+  debug: jest.fn(),
+  warn: jest.fn()
+});
+
+const createMockJobManager = () => ({
+  enqueueJob: jest.fn().mockResolvedValue('test-uuid'),
+  getJobStatus: jest.fn()
+});
+
+const createMockContextManager = () => ({
+  storeContext: jest.fn(),
+  getContext: jest.fn(),
+  updateContext: jest.fn()
+});
+
+const createMockAnthropicService = () => ({
+  generateResponse: jest.fn().mockResolvedValue('Generated response'),
+  generateClarifyingQuestions: jest.fn(),
+  generateChartData: jest.fn()
+});
+
+const createMockPerplexityService = () => ({
+  performDeepResearch: jest.fn()
+});
+
 // Mock dependencies before dynamic imports
-jest.mock('uuid');
-jest.mock('../../../services/anthropicService.js');
-jest.mock('../../../services/perplexityService.js');
-jest.mock('../../../services/contextManager.js');
-jest.mock('../../../services/jobManager.js');
-jest.mock('../../../utils/logger.js');
+jest.mock('uuid', () => ({
+  v4: () => 'test-uuid'
+}));
+
+jest.mock('../../../services/anthropicService.js', () => ({
+  default: createMockAnthropicService()
+}));
+
+jest.mock('../../../services/perplexityService.js', () => ({
+  default: createMockPerplexityService()
+}));
+
+jest.mock('../../../services/contextManager.js', () => ({
+  default: createMockContextManager()
+}));
+
+jest.mock('../../../services/jobManager.js', () => ({
+  default: createMockJobManager()
+}));
+
+jest.mock('../../../utils/logger.js', () => ({
+  default: createMockLogger()
+}));
 
 // Load all modules in beforeAll to avoid torn down environment
 beforeAll(async () => {
-  // Setup UUID mock
-  const uuidModule = await import('uuid');
-  jest.spyOn(uuidModule, 'v4').mockReturnValue('test-uuid');
-  
   // Import the functions we want to test
   const researchModule = await import('../../../services/researchService.js');
   initiateResearch = researchModule.initiateResearch;
   getResearchStatus = researchModule.getResearchStatus;
   answerWithContext = researchModule.answerWithContext;
   
-  // Load and configure mocks
+  // Get references to mocks for direct access in tests
   mockAnthropicService = (await import('../../../services/anthropicService.js')).default;
-  mockAnthropicService.generateResponse = jest.fn().mockResolvedValue('Generated response');
-  mockAnthropicService.generateClarifyingQuestions = jest.fn();
-  mockAnthropicService.generateChartData = jest.fn();
-  
   mockPerplexityService = (await import('../../../services/perplexityService.js')).default;
-  mockPerplexityService.performDeepResearch = jest.fn();
-  
   mockContextManager = (await import('../../../services/contextManager.js')).default;
-  mockContextManager.storeContext = jest.fn();
-  mockContextManager.getContext = jest.fn();
-  mockContextManager.updateContext = jest.fn();
-  
   mockJobManager = (await import('../../../services/jobManager.js')).default;
-  mockJobManager.enqueueJob = jest.fn().mockResolvedValue('test-uuid');
-  mockJobManager.getJobStatus = jest.fn();
-  
   mockLogger = (await import('../../../utils/logger.js')).default;
-  mockLogger.info = jest.fn();
-  mockLogger.error = jest.fn();
-  mockLogger.debug = jest.fn();
-  mockLogger.warn = jest.fn();
 });
 
 // Implementing fixes for the "You are trying to `import` a file after the Jest environment has been torn down" error
