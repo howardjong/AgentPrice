@@ -51,11 +51,20 @@ export class PerplexityService {
       // Validate messages format - must alternate between user and assistant
       const validatedMessages = this.validateMessages(messages);
 
+      // Add a system message that explicitly instructs to use web search
+      const messagesWithSystemInstruction = [
+        {
+          role: 'system', 
+          content: 'You are a research assistant with internet access. Always search the web for the most current information before responding. Include citations for your sources.'
+        },
+        ...validatedMessages.filter(m => m.role !== 'system')
+      ];
+
       const response = await axios.post(
         API_URL,
         {
           model: this.model,
-          messages: validatedMessages,
+          messages: messagesWithSystemInstruction,
           max_tokens: 1024,
           temperature: 0.2,
           top_p: 0.9,
@@ -63,7 +72,9 @@ export class PerplexityService {
           return_related_questions: false,
           search_recency_filter: "month",
           stream: false,
-          frequency_penalty: 1
+          frequency_penalty: 1,
+          search_domain_filter: [], // Empty array allows searching all domains
+          top_k: 10 // Increase number of search results to consider
         },
         {
           headers: {
@@ -73,16 +84,32 @@ export class PerplexityService {
         }
       );
 
+      console.log('Perplexity response:', {
+        citations: response.data.citations || [],
+        modelUsed: response.data.model,
+        promptTokens: response.data.usage?.prompt_tokens,
+        completionTokens: response.data.usage?.completion_tokens
+      });
+
       const citations = response.data.citations || [];
 
       return {
         response: response.data.choices[0].message.content,
         citations
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error performing research with Perplexity:', error);
       
-      const errorMessage = error.response?.data?.message || error.message;
+      // Safely access potential error properties with type checking
+      const errorMessage = 
+        (error && typeof error === 'object' && error.response && typeof error.response === 'object' && 
+         error.response.data && typeof error.response.data === 'object' && 
+         typeof error.response.data.message === 'string') 
+          ? error.response.data.message 
+          : (error && typeof error === 'object' && typeof error.message === 'string')
+            ? error.message
+            : 'Unknown error';
+            
       throw new Error(`Failed to perform research with Perplexity: ${errorMessage}`);
     }
   }

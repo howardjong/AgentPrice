@@ -43,7 +43,18 @@ export class ServiceRouter {
       lowercaseMessage.includes(keyword.toLowerCase())
     );
     
-    if (isResearchQuery) {
+    // Also check for questions likely to need current information
+    const needsCurrentInfo = 
+      lowercaseMessage.includes('latest') || 
+      lowercaseMessage.includes('current') || 
+      lowercaseMessage.includes('recent') || 
+      lowercaseMessage.includes('news') || 
+      lowercaseMessage.includes('today') ||
+      /what('s| is) happening/i.test(lowercaseMessage) ||
+      /tell me about ([a-z\s]+) in (\d{4}|\d{4}-\d{2}|\d{4}-\d{2}-\d{2})/i.test(lowercaseMessage);
+    
+    if (isResearchQuery || needsCurrentInfo) {
+      console.log('Using Perplexity for internet search query:', message.substring(0, 100) + (message.length > 100 ? '...' : ''));
       return 'perplexity';
     }
     
