@@ -137,8 +137,13 @@ class PerplexityService {
         });
       }
       
+      // Add explicit model information to the beginning of the response
+      const originalResponse = response.data.choices[0].message.content;
+      const modelInfo = `[Using Perplexity AI - Model: ${this.model}]\n\n`;
+      const enhancedResponse = modelInfo + originalResponse;
+      
       return {
-        response: response.data.choices[0].message.content,
+        response: enhancedResponse,
         citations: response.data.citations || [],
         modelUsed: this.model,
         usage: response.data.usage || { total_tokens: 0 }
@@ -243,10 +248,14 @@ class PerplexityService {
           contentLength: responseData.content.length
         });
 
+        // Add explicit model information to the beginning of the deep research response
+        const modelInfo = `[Using Perplexity AI - Model: ${this.model}]\n\n`;
+        const enhancedContent = modelInfo + responseData.content;
+        
         return {
           query: formattedQuery,
           timestamp: new Date().toISOString(),
-          content: responseData.content,
+          content: enhancedContent,
           sources: response.data.citations || [],
           modelUsed: this.model,
           usage: response.data.usage || { total_tokens: 0 }

@@ -120,8 +120,13 @@ export class PerplexityService {
 
       const citations = response.data.citations || [];
 
+      // Add explicit model information to the beginning of the response
+      const originalResponse = response.data.choices[0].message.content;
+      const modelInfo = `[Using Perplexity AI - Model: ${this.model}]\n\n`;
+      const enhancedResponse = modelInfo + originalResponse;
+      
       return {
-        response: response.data.choices[0].message.content,
+        response: enhancedResponse,
         citations
       };
     } catch (error: any) {
