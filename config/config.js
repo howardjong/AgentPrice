@@ -18,7 +18,7 @@ const config = {
     },
     perplexity: {
       apiKey: process.env.PERPLEXITY_API_KEY,
-      model: 'llama-3.1-sonar-small-128k-online',
+      model: 'sonar-pro',
       maxTokens: 4096,
     },
   },
