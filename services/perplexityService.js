@@ -211,7 +211,7 @@ class PerplexityService {
             'Authorization': `Bearer ${this.apiKey}`
           },
           data: {
-            model: this.models.deepResearch,
+            model: this.models.default,
             messages: [
               { 
                 role: 'system', 
