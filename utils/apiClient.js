@@ -73,6 +73,12 @@ export class RobustAPIClient {
       return false;
     }
 
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.headers['retry-after'];
+      this.retryDelay = (retryAfter ? parseInt(retryAfter) * 1000 : 60000);
+      return true;
+    }
+
     if (error.response && this.retryStatusCodes.includes(error.response.status)) {
       return true;
     }
