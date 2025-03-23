@@ -139,7 +139,7 @@ export class ClaudeService {
       // Extract the JSON visualization data
       let visualizationData = null;
       // Type assertion to handle content blocks properly
-      const contentBlock = response.content[0] as { type: string; text: string };
+      const contentBlock = response.content[0] as TextContentBlock;
       let responseText = contentBlock.text;
       
       const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);

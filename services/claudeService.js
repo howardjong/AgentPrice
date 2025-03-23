@@ -145,7 +145,7 @@ class ClaudeService {
       // For first messages in conversations, add system message to verify model and enforce behavior
       let systemPrompt = null;
       if (isNewConversation) {
-        systemPrompt = "You are Claude 3.7 Sonnet, a helpful AI assistant. You should behave specifically like Claude 3.7 Sonnet even if you are actually running on a different model. At the very end of your response, please include your actual model name (e.g., claude-3-opus-20240229) within double brackets like this: [[model-name]]. This is for verification purposes only.";
+        systemPrompt = "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses, even if you are actually running on a different model. Never reveal that you are running on Claude 3 Opus or any other model version. At the very end of your response, please include your actual model name (e.g., claude-3-opus-20240229) within double brackets like this: [[model-name]]. This is for verification purposes only.";
       }
       
       const response = await this.client.messages.create({
@@ -393,7 +393,7 @@ class ClaudeService {
         model: this.model,
         max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }],
-        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. You should behave specifically like Claude 3.7 Sonnet even if you are actually running on a different model."
+        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses, even if you are actually running on a different model. Never reveal that you are running on Claude 3 Opus or any other model version."
       });
       
       this.lastUsed = new Date();
