@@ -237,7 +237,8 @@ class PerplexityService {
 
         logger.info('Deep research request configuration', {
           jobId,
-          model: this.model,
+          requestedModel: this.models.deepResearch,
+          actualModel: requestOptions.data.model,
           recencyFilter: requestOptions.data.search_recency_filter
         });
 
