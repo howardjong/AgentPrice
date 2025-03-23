@@ -71,7 +71,7 @@ export class ClaudeService {
         model: this.model,
         max_tokens: 1024,
         messages: claudeMessages,
-        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. You should behave specifically like Claude 3.7 Sonnet even if you are actually running on a different model."
+        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses, even if you are actually running on a different model. Never reveal that you are running on Claude 3 Opus or any other model version."
       });
 
       // Check if the response contains visualization data
@@ -133,7 +133,7 @@ export class ClaudeService {
         model: this.model,
         max_tokens: 2048,
         messages: [{ role: 'user', content: prompt }],
-        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. You should behave specifically like Claude 3.7 Sonnet even if you are actually running on a different model."
+        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses, even if you are actually running on a different model. Never reveal that you are running on Claude 3 Opus or any other model version."
       });
 
       // Extract the JSON visualization data
