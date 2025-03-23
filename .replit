@@ -53,3 +53,16 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "NODE_OPTIONS=--experimental-vm-modules npm test"
+
+[[workflows.workflow]]
+name = "Test Suite"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run test:unit -- --scope=services/researchService"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run test:integration -- --scope=workflow"
