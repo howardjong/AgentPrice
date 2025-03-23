@@ -2,11 +2,21 @@
 /**
  * Manual test for Perplexity research functionality
  * Tests both quick research and deep research modes
+ * Respects rate limit of 5 requests per minute for sonar-deep-research
  */
 
 import perplexityService from '../../services/perplexityService.js';
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../../utils/logger.js';
+
+// Rate limit configuration
+const REQUESTS_PER_MINUTE = 5;
+const MINUTE_IN_MS = 60 * 1000;
+const DELAY_BETWEEN_REQUESTS = Math.ceil(MINUTE_IN_MS / REQUESTS_PER_MINUTE);
+
+async function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 async function testResearchModes() {
   try {
@@ -45,67 +55,66 @@ async function testResearchModes() {
       console.log(`\n=== Testing ${mode} Mode ===`);
       console.log(`Query: "${testCase.query}"`);
       console.log('Job ID:', jobId);
-      
-      const startTime = Date.now();
 
-      try {
-        let result;
-        if (testCase.wantsDeepResearch) {
-          console.log('User confirmed deep research, using sonar-deep-research model...');
-          result = await perplexityService.performDeepResearch(testCase.query, jobId, {
-            model: perplexityService.models.deepResearch,
-            searchMode: perplexityService.searchModes.deepResearch
-          });
-        } else {
-          console.log('Using default sonar model for quick research...');
-          result = await perplexityService.performDeepResearch(testCase.query, jobId);
-        }
-
-        const duration = (Date.now() - startTime) / 1000;
-        
-        console.log('\nResearch completed in', duration, 'seconds');
-        console.log('Model used:', result.modelUsed);
-        console.log('Content length:', result.content.length);
-        console.log('Number of sources:', result.sources.length);
-        
-        console.log('\nFirst 200 characters of content:');
-        console.log(result.content.substring(0, 200) + '...');
-        
-        console.log('\nSources:');
-        result.sources.forEach((source, i) => console.log(`${i+1}. ${source}`));
-
-        // Verify correct model usage
-        const expectedModel = testCase.wantsDeepResearch ? 
-          perplexityService.models.deepResearch : 
-          perplexityService.models.default;
-          
-        if (result.modelUsed !== expectedModel) {
-          console.error(`❌ Model mismatch - Expected: ${expectedModel}, Got: ${result.modelUsed}`);
-        } else {
-          console.log(`✓ Correct model used: ${result.modelUsed}`);
-        }
-
-      } catch (error) {
-        console.error(`Failed research for "${testCase.query}":`, error.message);
+      if (testCase.wantsDeepResearch) {
+        console.log('User confirmed deep research, using sonar-deep-research model...');
+      } else {
+        console.log('Using default sonar model for quick research...');
       }
       
-      // Add delay between requests
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const startTime = Date.now();
+      
+      try {
+        const results = await perplexityService.performDeepResearch(testCase.query, jobId);
+        const duration = Date.now() - startTime;
+        
+        console.log(`\nResearch completed in ${(duration / 1000).toFixed(3)} seconds`);
+        console.log(`Model used: ${results.modelUsed}`);
+        console.log(`Content length: ${results.content.length}`);
+        console.log(`Number of sources: ${results.sources.length}\n`);
+        
+        // Show first 200 chars of content
+        console.log('First 200 characters of content:');
+        console.log(results.content.substring(0, 200) + '...\n');
+        
+        // Show sources
+        console.log('Sources:');
+        results.sources.forEach((source, i) => {
+          console.log(`${i + 1}. ${source}`);
+        });
+
+        // Validate correct model usage
+        const expectedModel = testCase.wantsDeepResearch ? 'sonar-deep-research' : 'sonar';
+        if (results.modelUsed === expectedModel) {
+          console.log(`✓ Correct model used: ${results.modelUsed}`);
+        } else {
+          console.log(`❌ Model mismatch - Expected: ${expectedModel}, Got: ${results.modelUsed}`);
+        }
+
+        // Add delay between requests to respect rate limit
+        if (testCase.wantsDeepResearch) {
+          console.log(`\nWaiting ${DELAY_BETWEEN_REQUESTS}ms before next request to respect rate limit...`);
+          await delay(DELAY_BETWEEN_REQUESTS);
+        }
+      } catch (error) {
+        console.error(`Error in ${mode} test:`, error.message);
+      }
     }
-    
-    console.log('\n=== Research Mode Test Completed ===');
+
+    console.log('\n=== Research Mode Test Completed ===\n');
     
   } catch (error) {
-    console.error('Test failed:', error);
+    console.error('Test script error:', error);
+    process.exit(1);
   }
 }
 
-// Run test if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run test when executed directly
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
   testResearchModes()
-    .then(() => setTimeout(() => process.exit(0), 1000))
+    .then(() => process.exit(0))
     .catch(error => {
-      console.error('Unhandled error:', error);
+      console.error('Test failed:', error);
       process.exit(1);
     });
 }
