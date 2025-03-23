@@ -6,7 +6,7 @@ import redisClient from './redisService.js';
 import mockJobManager from './mockJobManager.js';
 
 // Flag to indicate if we're using the mock job manager
-const USE_MOCK_JOB_MANAGER = process.env.REDIS_MODE === 'memory';
+const USE_MOCK_JOB_MANAGER = process.env.USE_MOCK_JOB_MANAGER === 'true' || process.env.REDIS_MODE === 'memory';
 
 class JobManager {
   constructor() {

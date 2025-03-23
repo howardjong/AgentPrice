@@ -7,8 +7,9 @@ import requestTracer from '../middlewares/requestTracer.js';
 import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
 import redisClient from '../services/redisService.js';
 
-// Force use of in-memory store for Redis operations
+// Force use of in-memory store for Redis operations and job queue
 process.env.REDIS_MODE = 'memory';
+process.env.USE_MOCK_JOB_MANAGER = 'true';
 
 const app = express();
 app.use(express.json());

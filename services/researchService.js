@@ -7,8 +7,8 @@ import realJobManager from './jobManager.js';
 import mockJobManager from './mockJobManager.js';
 import logger from '../utils/logger.js';
 
-// Use mock job manager if REDIS_MODE is 'memory' or in development environment
-const useMockJobManager = process.env.REDIS_MODE === 'memory' || process.env.NODE_ENV === 'development';
+// Use mock job manager if explicitly set or REDIS_MODE is 'memory'
+const useMockJobManager = process.env.USE_MOCK_JOB_MANAGER === 'true' || process.env.REDIS_MODE === 'memory';
 const jobManager = useMockJobManager ? mockJobManager : realJobManager;
 
 logger.info(`Using ${useMockJobManager ? 'mock' : 'real'} job manager`);

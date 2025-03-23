@@ -4,58 +4,37 @@ import logger from '../utils/logger.js';
 import { performance } from 'perf_hooks';
 
 const CONTEXT_EXPIRY = 60 * 60 * 24; // 24 hours in seconds
-const USE_MEMORY_STORE = process.env.REDIS_MODE === 'memory';
 
+/**
+ * Context Manager for handling user session context
+ * Uses Redis or in-memory storage based on configuration
+ */
 class ContextManager {
   constructor() {
     this.prefix = 'context:';
-    this.memoryStore = new Map();
-    
-    if (USE_MEMORY_STORE) {
-      logger.info('Using in-memory store for context manager');
-      
-      // Set up expiry for memory store
-      this.cleanupInterval = setInterval(() => {
-        const now = Date.now();
-        for (const [key, value] of this.memoryStore.entries()) {
-          if (value.expiry < now) {
-            this.memoryStore.delete(key);
-            logger.debug(`Expired context removed: ${key}`);
-          }
-        }
-      }, 60000); // Clean up every minute
-    }
   }
   
+  /**
+   * Store context data for a session
+   * @param {string} sessionId - Unique session identifier
+   * @param {Object} context - Context data to store
+   * @returns {Promise<boolean>} - Success indicator
+   */
   async storeContext(sessionId, context) {
     try {
       const start = performance.now();
       const serialized = JSON.stringify(context);
       const key = `${this.prefix}${sessionId}`;
       
-      if (USE_MEMORY_STORE) {
-        // Store in memory with expiry
-        const expiry = Date.now() + (CONTEXT_EXPIRY * 1000);
-        this.memoryStore.set(key, {
-          data: serialized,
-          expiry
-        });
-      } else {
-        // Store in Redis
-        await redisClient.getClient().set(
-          key,
-          serialized,
-          'EX',
-          CONTEXT_EXPIRY
-        );
-      }
+      // Use Redis client (real or in-memory)
+      const client = await redisClient.getClient();
+      await client.set(key, serialized, 'EX', CONTEXT_EXPIRY);
       
       const duration = performance.now() - start;
       logger.debug(`Stored context for ${sessionId}`, { 
         sessionId, 
         contextSize: serialized.length,
-        duration: `${duration.toFixed(2)}ms`,
-        storage: USE_MEMORY_STORE ? 'memory' : 'redis'
+        duration: `${duration.toFixed(2)}ms`
       });
       
       return true;
@@ -68,28 +47,26 @@ class ContextManager {
     }
   }
   
+  /**
+   * Retrieve context data for a session
+   * @param {string} sessionId - Unique session identifier
+   * @returns {Promise<Object|null>} - Retrieved context or null if not found
+   */
   async getContext(sessionId) {
     try {
       const start = performance.now();
       const key = `${this.prefix}${sessionId}`;
       
-      let data;
-      if (USE_MEMORY_STORE) {
-        // Get from memory store
-        const entry = this.memoryStore.get(key);
-        data = entry ? entry.data : null;
-      } else {
-        // Get from Redis
-        data = await redisClient.getClient().get(key);
-      }
+      // Use Redis client (real or in-memory)
+      const client = await redisClient.getClient();
+      const data = await client.get(key);
       
       const duration = performance.now() - start;
       
       if (duration > 100) {
         logger.warn('Slow context retrieval', { 
           sessionId, 
-          duration: `${duration.toFixed(2)}ms`,
-          storage: USE_MEMORY_STORE ? 'memory' : 'redis'
+          duration: `${duration.toFixed(2)}ms`
         });
       }
       
@@ -101,8 +78,7 @@ class ContextManager {
       logger.debug('Retrieved context', { 
         sessionId, 
         contextSize: data.length,
-        duration: `${duration.toFixed(2)}ms`,
-        storage: USE_MEMORY_STORE ? 'memory' : 'redis'
+        duration: `${duration.toFixed(2)}ms`
       });
       
       return JSON.parse(data);
@@ -115,6 +91,12 @@ class ContextManager {
     }
   }
   
+  /**
+   * Update context data for a session using an updater function
+   * @param {string} sessionId - Unique session identifier
+   * @param {Function} updater - Function that takes current context and returns updated context
+   * @returns {Promise<Object>} - Updated context
+   */
   async updateContext(sessionId, updater) {
     try {
       // Get current context
@@ -136,21 +118,20 @@ class ContextManager {
     }
   }
   
+  /**
+   * Delete context data for a session
+   * @param {string} sessionId - Unique session identifier
+   * @returns {Promise<boolean>} - Success indicator
+   */
   async deleteContext(sessionId) {
     try {
       const key = `${this.prefix}${sessionId}`;
       
-      if (USE_MEMORY_STORE) {
-        // Delete from memory store
-        this.memoryStore.delete(key);
-      } else {
-        // Delete from Redis
-        await redisClient.getClient().del(key);
-      }
+      // Use Redis client (real or in-memory)
+      const client = await redisClient.getClient();
+      await client.del(key);
       
-      logger.debug(`Deleted context for ${sessionId}`, {
-        storage: USE_MEMORY_STORE ? 'memory' : 'redis'
-      });
+      logger.debug(`Deleted context for ${sessionId}`);
       return true;
     } catch (error) {
       logger.error('Error deleting context', { 
@@ -161,17 +142,17 @@ class ContextManager {
     }
   }
   
+  /**
+   * List all active sessions
+   * @param {number} limit - Maximum number of sessions to return
+   * @param {number} offset - Starting offset for pagination
+   * @returns {Promise<Array<string>>} - List of session IDs
+   */
   async listSessions(limit = 100, offset = 0) {
     try {
-      let keys;
-      
-      if (USE_MEMORY_STORE) {
-        // Get keys from memory store
-        keys = Array.from(this.memoryStore.keys());
-      } else {
-        // Get keys from Redis
-        keys = await redisClient.getClient().keys(`${this.prefix}*`);
-      }
+      // Use Redis client (real or in-memory)
+      const client = await redisClient.getClient();
+      const keys = await client.keys(`${this.prefix}*`);
       
       const sessions = keys
         .map(key => key.substring(this.prefix.length))
