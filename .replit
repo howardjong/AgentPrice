@@ -111,3 +111,12 @@ args = "node tests/reset-circuit-breaker.js perplexity"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/perplexity-test.js"
+
+[[workflows.workflow]]
+name = "Run Unit Tests"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_OPTIONS=--experimental-vm-modules jest tests/unit/services/researchService.test.js"

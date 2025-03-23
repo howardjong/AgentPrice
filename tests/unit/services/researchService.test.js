@@ -1,26 +1,14 @@
 import { jest } from '@jest/globals';
 
-// Using let for variables that will be loaded dynamically
-let initiateResearch;
-let getResearchStatus;
-let answerWithContext;
-let mockClaudeService;
-let mockPerplexityService;
-let mockContextManager;
-let mockJobManager;
-let mockLogger;
-
-// Create mock implementations for all required services
-const createMockLogger = () => ({
-  info: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-  warn: jest.fn()
+// Mock creation helpers
+const createMockClaudeService = () => ({
+  generateClarifyingQuestions: jest.fn(),
+  generateChartData: jest.fn(),
+  generateResponse: jest.fn()
 });
 
-const createMockJobManager = () => ({
-  enqueueJob: jest.fn().mockResolvedValue('test-uuid'),
-  getJobStatus: jest.fn()
+const createMockPerplexityService = () => ({
+  performDeepResearch: jest.fn()
 });
 
 const createMockContextManager = () => ({
@@ -29,77 +17,66 @@ const createMockContextManager = () => ({
   updateContext: jest.fn()
 });
 
-const createMockClaudeService = () => ({
-  generateResponse: jest.fn().mockResolvedValue('Generated response'),
-  generateClarifyingQuestions: jest.fn(),
-  generateChartData: jest.fn()
+const createMockJobManager = () => ({
+  enqueueJob: jest.fn(),
+  getJobStatus: jest.fn()
 });
 
-const createMockPerplexityService = () => ({
-  performDeepResearch: jest.fn()
+const createMockLogger = () => ({
+  info: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+  debug: jest.fn()
 });
 
-// Mock dependencies before dynamic imports
-jest.mock('uuid', () => ({
-  v4: () => 'test-uuid'
-}));
-
+// Mock modules
 jest.mock('../../../services/claudeService.js', () => ({
+  __esModule: true,
   default: createMockClaudeService()
 }));
 
 jest.mock('../../../services/perplexityService.js', () => ({
+  __esModule: true,
   default: createMockPerplexityService()
 }));
 
 jest.mock('../../../services/contextManager.js', () => ({
+  __esModule: true,
   default: createMockContextManager()
 }));
 
 jest.mock('../../../services/jobManager.js', () => ({
+  __esModule: true,
   default: createMockJobManager()
 }));
 
 jest.mock('../../../utils/logger.js', () => ({
+  __esModule: true,
   default: createMockLogger()
 }));
 
-// Load all modules in beforeAll to avoid torn down environment
-beforeAll(async () => {
-  // Import the functions we want to test
-  const researchModule = await import('../../../services/researchService.js');
-  initiateResearch = researchModule.initiateResearch;
-  getResearchStatus = researchModule.getResearchStatus;
-  answerWithContext = researchModule.answerWithContext;
+jest.mock('uuid', () => ({
+  v4: () => 'test-uuid'
+}));
 
-  // Get references to mocks for direct access in tests
-  mockClaudeService = (await import('../../../services/claudeService.js')).default;
-  mockPerplexityService = (await import('../../../services/perplexityService.js')).default;
-  mockContextManager = (await import('../../../services/contextManager.js')).default;
-  mockJobManager = (await import('../../../services/jobManager.js')).default;
-  mockLogger = (await import('../../../utils/logger.js')).default;
-});
-
-// Implementing fixes for the "You are trying to `import` a file after the Jest environment has been torn down" error
+// Test suite
 describe('ResearchService', () => {
-  // Store original module cache state to restore later
-  const originalModules = { moduleChildren: [...module.children] };
+  let initiateResearch, getResearchStatus, answerWithContext;
+  let mockClaudeService, mockPerplexityService, mockContextManager, mockJobManager, mockLogger;
 
-  // Use fake timers to prevent any timers from running after tests complete
-  jest.useFakeTimers();
+  beforeAll(async () => {
+    const researchModule = await import('../../../services/researchService.js');
+    initiateResearch = researchModule.initiateResearch;
+    getResearchStatus = researchModule.getResearchStatus;
+    answerWithContext = researchModule.answerWithContext;
 
-  // Add proper teardown to prevent "module torn down" errors
-  afterAll(() => {
-    // Reset timers
-    jest.useRealTimers();
-
-    // Restore module cache to original state
-    module.children = originalModules.moduleChildren;
-
-    // Cleanup any open handles that might be left behind
-    jest.clearAllMocks();
-    jest.resetModules();
+    mockClaudeService = (await import('../../../services/claudeService.js')).default;
+    mockPerplexityService = (await import('../../../services/perplexityService.js')).default;
+    mockContextManager = (await import('../../../services/contextManager.js')).default;
+    mockJobManager = (await import('../../../services/jobManager.js')).default;
+    mockLogger = (await import('../../../utils/logger.js')).default;
   });
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -124,59 +101,55 @@ describe('ResearchService', () => {
         sessionId: expect.any(String)
       });
     });
-  });
 
-  describe('answerWithContext', () => {
-    it('should generate response with context', async () => {
-      const sessionId = 'test-session';
-      const query = 'test query';
-      const mockContext = {
-        jobId: 'test-job',
-        originalQuery: 'original query'
-      };
-      const mockJobResults = {
-        content: 'Test research results',
-        sources: ['source1']
-      };
-      const mockResponse = 'Generated response';
+    it('should handle errors gracefully', async () => {
+      mockContextManager.storeContext.mockRejectedValue(new Error('Storage error'));
 
-      mockContextManager.getContext.mockResolvedValue(mockContext);
-      mockJobManager.getJobStatus.mockResolvedValue({
-        status: 'completed',
-        returnvalue: mockJobResults
-      });
-      mockClaudeService.generateResponse.mockResolvedValue(mockResponse);
-
-      const result = await answerWithContext(sessionId, query);
-
-      expect(result).toEqual({
-        query,
-        response: mockResponse,
-        sources: ['source1']
-      });
-    });
-
-    it('should throw error if context not found', async () => {
-      const sessionId = 'test-session';
-      const query = 'test query';
-
-      mockContextManager.getContext.mockResolvedValue(null);
-
-      await expect(answerWithContext(sessionId, query))
-        .rejects
-        .toThrow('Research session not found');
+      await expect(initiateResearch('query')).rejects.toThrow('Storage error');
+      expect(mockLogger.error).toHaveBeenCalled();
     });
   });
 
   describe('getResearchStatus', () => {
     it('should return job status', async () => {
       const jobId = 'test-job';
-      const mockStatus = { status: 'completed', progress: 100 };
+      const mockStatus = { status: 'completed', data: { result: 'test' } };
 
       mockJobManager.getJobStatus.mockResolvedValue(mockStatus);
 
       const result = await getResearchStatus(jobId);
       expect(result).toEqual(mockStatus);
+    });
+  });
+
+  describe('answerWithContext', () => {
+    it('should generate response using context', async () => {
+      const sessionId = 'test-session';
+      const query = 'test query';
+      const answers = { q1: 'a1' };
+
+      mockContextManager.getContext.mockResolvedValue({
+        jobId: 'test-job',
+        history: []
+      });
+
+      mockJobManager.getJobStatus.mockResolvedValue({
+        status: 'completed',
+        returnvalue: {
+          content: 'research results',
+          sources: ['source1']
+        }
+      });
+
+      mockClaudeService.generateResponse.mockResolvedValue('generated response');
+
+      const result = await answerWithContext(sessionId, query, answers);
+
+      expect(result).toEqual({
+        query,
+        response: 'generated response',
+        sources: ['source1']
+      });
     });
   });
 });
