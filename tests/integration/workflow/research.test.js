@@ -56,7 +56,7 @@ jest.mock('../../../utils/logger.js', () => ({
   default: createMockLogger()
 }));
 
-jest.mock('../../../services/anthropicService.js', () => ({
+jest.mock('../../../services/claudeService.js', () => ({
   default: createMockAnthropicService()
 }));
 
