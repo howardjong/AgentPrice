@@ -4,19 +4,34 @@ import logger from '../../utils/logger.js';
 
 async function checkModel() {
   try {
+    const EXPECTED_MODEL = 'claude-3-7-sonnet-20250219';
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY
     });
+
+    console.log('\n=== API Configuration ===');
+    console.log('Expected model:', EXPECTED_MODEL);
+    console.log('API Key configured:', !!process.env.ANTHROPIC_API_KEY);
     
     // Test 1: Basic model check
     const modelResponse = await anthropic.messages.create({
-      model: 'claude-3-7-sonnet-20250219',
+      model: EXPECTED_MODEL,
       max_tokens: 100,
       messages: [{
         role: 'user',
         content: 'What model are you? Please respond with only your model name.'
       }]
     });
+
+    // Log complete response object for debugging
+    console.log('\n=== Raw API Response ===');
+    console.log('Response ID:', modelResponse.id);
+    console.log('Response Type:', modelResponse.type);
+    console.log('Complete Message:', modelResponse.content);
+    console.log('Response Model:', modelResponse.model);
+    console.log('Response Role:', modelResponse.role);
+    console.log('System Fingerprint:', modelResponse.system_fingerprint);
+    console.log('Usage Details:', JSON.stringify(modelResponse.usage, null, 2));
     
     console.log('\n=== Model Identity Test ===');
     console.log('Configured model:', 'claude-3-7-sonnet-20250219');
