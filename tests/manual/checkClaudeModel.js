@@ -1,10 +1,15 @@
 
-import anthropicService from '../../services/anthropicService.js';
+import { Anthropic } from '@anthropic-ai/sdk';
+import logger from '../../utils/logger.js';
 
 async function checkModel() {
   try {
-    const response = await anthropicService.client.messages.create({
-      model: anthropicService.model,
+    const anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY
+    });
+    
+    const response = await anthropic.messages.create({
+      model: 'claude-3-7-sonnet-20250219',
       max_tokens: 100,
       messages: [{
         role: 'user',
@@ -12,7 +17,7 @@ async function checkModel() {
       }]
     });
     
-    console.log('Configured model:', anthropicService.model);
+    console.log('Configured model:', 'claude-3-7-sonnet-20250219');
     console.log('Actual model response:', response.content[0].text);
     console.log('Message metadata:', {
       model: response.model,
