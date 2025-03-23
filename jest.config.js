@@ -7,6 +7,7 @@ export default {
   transform: {},
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^(\\.{1,2}/.*)\\.jsx?$': '$1',
   },
   transformIgnorePatterns: [
     'node_modules/(?!(cls-hooked|winston)/)'
