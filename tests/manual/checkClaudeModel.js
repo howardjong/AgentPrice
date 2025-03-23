@@ -18,7 +18,7 @@ async function checkModel() {
       max_tokens: 100,
       messages: [{
         role: 'user',
-        content: 'Return exactly this string: "claude-3-7-sonnet-20250219"'
+        content: 'Please identify yourself by returning only your model identifier, no other text.'
       }]
     });
 
@@ -36,7 +36,7 @@ async function checkModel() {
     console.log('Configured model:', EXPECTED_MODEL);
     console.log('Model self-identification:', modelResponse.content[0].text);
     console.log('Response model:', modelResponse.model);
-    
+
     // Validate it's a Claude model
     if (!modelResponse.model.startsWith('claude-')) {
         console.error('ERROR: Non-Claude model detected:', modelResponse.model);
