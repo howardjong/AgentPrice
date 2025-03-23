@@ -176,3 +176,16 @@ args = "sleep 65 && node tests/reset-circuit-breaker.js perplexity"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "sleep 2 && node tests/manual/testPerplexityModelExtraction.js"
+
+[[workflows.workflow]]
+name = "Test Deep Research"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/reset-circuit-breaker.js perplexity"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/testDeepResearch.js"
