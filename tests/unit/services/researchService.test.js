@@ -44,7 +44,7 @@ jest.mock('uuid', () => ({
   v4: () => 'test-uuid'
 }));
 
-jest.mock('../../../services/anthropicService.js', () => ({
+jest.mock('../../../services/claudeService.js', () => ({
   default: createMockAnthropicService()
 }));
 
@@ -73,7 +73,7 @@ beforeAll(async () => {
   answerWithContext = researchModule.answerWithContext;
 
   // Get references to mocks for direct access in tests
-  mockAnthropicService = (await import('../../../services/anthropicService.js')).default;
+  mockAnthropicService = (await import('../../../services/claudeService.js')).default;
   mockPerplexityService = (await import('../../../services/perplexityService.js')).default;
   mockContextManager = (await import('../../../services/contextManager.js')).default;
   mockJobManager = (await import('../../../services/jobManager.js')).default;
