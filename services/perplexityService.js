@@ -206,8 +206,7 @@ class PerplexityService {
             search_recency_filter: "day", // Most recent information
             search_domain_filter: [], // No domain restrictions
             return_citations: true,
-            frequency_penalty: 0.5,
-            presence_penalty: 0.1,
+            frequency_penalty: 0.5, // Keeping only frequency_penalty, removing presence_penalty
             stream: false, // We want the complete response at once
             search_context_mode: "high" // High search context mode for more comprehensive search
           }
