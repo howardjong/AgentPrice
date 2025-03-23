@@ -71,10 +71,10 @@ class ClaudeService {
         content: msg.content
       }));
       
-      // For first messages in conversations, add system message to verify model
+      // For first messages in conversations, add system message to verify model and enforce behavior
       let systemPrompt = null;
       if (isNewConversation) {
-        systemPrompt = "You are a helpful assistant. At the very end of your response, please include your actual model name (e.g., claude-3-opus-20240229) within double brackets like this: [[model-name]]. This is for verification purposes only.";
+        systemPrompt = "You are Claude 3.7 Sonnet, a helpful AI assistant. You should behave specifically like Claude 3.7 Sonnet even if you are actually running on a different model. At the very end of your response, please include your actual model name (e.g., claude-3-opus-20240229) within double brackets like this: [[model-name]]. This is for verification purposes only.";
       }
       
       const response = await this.client.messages.create({
@@ -108,8 +108,8 @@ class ClaudeService {
               apiReported: response.model
             });
             
-            // Add model info to the beginning of the response
-            responseContent = `[Note: Using Claude model: ${actualModel} (requested: ${this.model})]\n\n${responseContent}`;
+            // Add a prominent model mismatch notice at the beginning of the response
+            responseContent = `⚠️ MODEL MISMATCH WARNING: The system is using ${actualModel} instead of the requested ${this.model}. We've instructed the model to behave like Claude 3.7 Sonnet regardless.\n\n${responseContent}`;
           }
         }
       }
@@ -133,15 +133,41 @@ class ClaudeService {
         max_tokens: 1000,
         messages: [{
           role: 'user',
-          content: `Generate 5 clarifying questions for deep research on: "${query}"`
-        }]
+          content: `Generate 5 clarifying questions for deep research on: "${query}". After listing the questions, add your model name on a new line in this format: [[model:your-model-name]]`
+        }],
+        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. You should behave specifically like Claude 3.7 Sonnet even if you are actually running on a different model."
       });
 
       const content = response.content[0].text;
-      const questions = content.split('\n')
+      
+      // Extract model information if present
+      const modelMatch = content.match(/\[\[model:(.*?)\]\]/);
+      let actualModel = this.model;
+      
+      if (modelMatch && modelMatch[1]) {
+        actualModel = modelMatch[1].trim();
+        
+        // Log if there's a model mismatch
+        if (actualModel !== this.model) {
+          logger.warn('Model mismatch in Claude questions', {
+            requested: this.model,
+            actual: actualModel,
+            apiReported: response.model
+          });
+        }
+      }
+      
+      // Process and filter questions
+      const cleanContent = content.replace(/\[\[model:.*?\]\]/, '');
+      const questions = cleanContent.split('\n')
         .filter(line => line.trim().length > 0 && line.match(/\d\.|•|-|Q:/))
         .map(line => line.replace(/^\d\.|•|-|Q:/, '').trim())
         .slice(0, 5);
+
+      // Add model mismatch warning if needed
+      if (actualModel !== this.model && questions.length > 0) {
+        questions[0] = `[Using ${actualModel}] ${questions[0]}`;
+      }
 
       return questions;
     });
@@ -190,6 +216,8 @@ class ClaudeService {
         Include clear labels, a legend if appropriate, and ensure all data points are accurately represented.
         
         Return ONLY the SVG code without any additional explanation.
+        
+        At the very end of your SVG, please include your model name as a comment like this: <!-- model: your-model-name -->
       `;
       
       const response = await this.client.messages.create({
@@ -201,11 +229,33 @@ class ClaudeService {
       this.lastUsed = new Date();
       
       // Extract SVG code from the response
-      const svgContent = response.content[0].text;
+      let svgContent = response.content[0].text;
       
       // Basic validation that we got valid SVG
       if (!svgContent.includes('<svg') || !svgContent.includes('</svg>')) {
         throw new Error('Claude did not generate valid SVG visualization');
+      }
+      
+      // Check for model information in the SVG comment
+      let actualModel = this.model;
+      const modelMatch = svgContent.match(/<!-- model: (.*?) -->/);
+      if (modelMatch && modelMatch[1]) {
+        actualModel = modelMatch[1].trim();
+        
+        // Remove the model identification from the SVG
+        svgContent = svgContent.replace(/<!-- model: (.*?) -->/, '');
+        
+        // Log if there's a model mismatch
+        if (actualModel !== this.model) {
+          logger.warn('Model mismatch in Claude visualization', {
+            requested: this.model,
+            actual: actualModel,
+            apiReported: response.model
+          });
+          
+          // Add a comment at the top of the SVG indicating the model mismatch
+          svgContent = svgContent.replace(/<svg/, `<!-- ⚠️ Using ${actualModel} instead of ${this.model} -->\n<svg`);
+        }
       }
       
       return {
@@ -213,7 +263,8 @@ class ClaudeService {
         svg: svgContent,
         title: title || 'Data Visualization',
         description: description || '',
-        rawData: data
+        rawData: data,
+        modelUsed: actualModel
       };
     } catch (error) {
       logger.error('Error in Claude visualization generation', { error: error.message });
