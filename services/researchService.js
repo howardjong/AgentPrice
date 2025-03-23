@@ -3,8 +3,15 @@ import { v4 as uuidv4 } from 'uuid';
 import anthropicService from './anthropicService.js';
 import perplexityService from './perplexityService.js';
 import contextManager from './contextManager.js';
-import jobManager from './jobManager.js';
+import realJobManager from './jobManager.js';
+import mockJobManager from './mockJobManager.js';
 import logger from '../utils/logger.js';
+
+// Use mock job manager if REDIS_MODE is 'memory' or in development environment
+const useMockJobManager = process.env.REDIS_MODE === 'memory' || process.env.NODE_ENV === 'development';
+const jobManager = useMockJobManager ? mockJobManager : realJobManager;
+
+logger.info(`Using ${useMockJobManager ? 'mock' : 'real'} job manager`);
 
 // Register job processors
 function registerJobProcessors() {

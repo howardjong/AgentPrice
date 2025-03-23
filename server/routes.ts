@@ -10,6 +10,7 @@ import {
   visualizeSchema,
   insertMessageSchema 
 } from "@shared/schema";
+import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -235,6 +236,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error generating visualization:', error);
       res.status(500).json({ message: `Failed to generate visualization: ${error.message}` });
+    }
+  });
+
+  // Mock Research Initialization Endpoint (for testing/development only)
+  app.post('/api/mock-init', async (req: Request, res: Response) => {
+    // This endpoint should only be available in development mode
+    if (process.env.NODE_ENV !== 'development' && process.env.ALLOW_MOCK_INIT !== 'true') {
+      return res.status(403).json({ message: 'This endpoint is only available in development mode' });
+    }
+
+    try {
+      console.log('Initializing mock research data...');
+      const result = await initializeAllMockResearch();
+      
+      res.json({
+        message: 'Mock research data initialized successfully',
+        data: {
+          totalJobs: result.total,
+          productQuestions: result.productQuestions.length,
+          researchTopics: result.researchTopics.length
+        }
+      });
+    } catch (error: any) {
+      console.error('Error initializing mock research data:', error);
+      res.status(500).json({ message: `Failed to initialize mock research: ${error.message}` });
     }
   });
 

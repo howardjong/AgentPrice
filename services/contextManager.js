@@ -1,5 +1,5 @@
 
-import redisClient from './redisClient.js';
+import redisClient from './redisService.js';
 import logger from '../utils/logger.js';
 import { performance } from 'perf_hooks';
 

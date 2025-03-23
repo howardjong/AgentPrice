@@ -4,6 +4,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic } from "./vite";
 import logger from '../utils/logger.js';
 import requestTracer from '../middlewares/requestTracer.js';
+import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
 
 const app = express();
 app.use(express.json());
@@ -49,8 +50,23 @@ app.get('/health', (req, res) => {
     reusePort: true,
     keepAliveTimeout: 65000,
     headersTimeout: 66000,
-  }, () => {
+  }, async () => {
     logger.info(`Server running on port ${port}`);
+    
+    // Initialize mock research data if in development mode or if INIT_MOCK_DATA env variable is set
+    if (app.get("env") === "development" || process.env.INIT_MOCK_DATA === "true") {
+      try {
+        logger.info("Starting mock research data initialization");
+        const result = await initializeAllMockResearch();
+        logger.info("Mock research data initialized successfully", { 
+          totalJobs: result.total,
+          productQuestions: result.productQuestions.length,
+          researchTopics: result.researchTopics.length
+        });
+      } catch (error: any) {
+        logger.error("Failed to initialize mock research data", { error: error.message });
+      }
+    }
   });
 })();
 

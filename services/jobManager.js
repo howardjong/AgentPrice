@@ -15,8 +15,13 @@ class JobManager {
       return this.queues[name];
     }
     
+    // Set Redis mode to memory by default for this deployment environment
+    if (process.env.REDIS_MODE !== 'real') {
+      process.env.REDIS_MODE = 'memory';
+    }
+    
     const defaultOptions = {
-      redis: process.env.REDIS_URL,
+      redis: process.env.REDIS_URL || 'redis://localhost:6379',
       defaultJobOptions: {
         attempts: 3,
         backoff: {
