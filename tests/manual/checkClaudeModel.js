@@ -13,13 +13,13 @@ async function checkModel() {
     console.log('Expected model:', EXPECTED_MODEL);
     console.log('API Key configured:', !!process.env.ANTHROPIC_API_KEY);
     
-    // Test 1: Basic model check
+    // Test 1: API Response validation
     const modelResponse = await anthropic.messages.create({
       model: EXPECTED_MODEL,
       max_tokens: 100,
       messages: [{
         role: 'user',
-        content: 'What model are you? Please respond with only your model name.'
+        content: 'Return exactly this string: "claude-3-7-sonnet-20240219"'
       }]
     });
 
