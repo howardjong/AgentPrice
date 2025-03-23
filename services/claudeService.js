@@ -13,7 +13,7 @@ const apiClient = new RobustAPIClient({
 
 class ClaudeService {
   constructor() {
-    this.apiKey = process.env.ANTHROPIC_API_KEY;
+    this.apiKey = process.env.REPLIT_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY;
     this.model = "claude-3-7-sonnet-20250219";
     this.isConnected = false;
     this.lastUsed = null;
