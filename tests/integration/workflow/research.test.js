@@ -1,9 +1,19 @@
 
 import { jest } from '@jest/globals';
-import { initiateResearch, getResearchStatus } from '../../../services/researchService.js';
+import { initiateResearch, getResearchStatus, answerWithContext } from '../../../services/researchService.js';
+import jobManager from '../../../services/jobManager.js';
+import logger from '../../../utils/logger.js';
+
+jest.mock('../../../services/jobManager.js');
+jest.mock('../../../utils/logger.js');
 
 describe('Research Workflow Integration', () => {
   jest.setTimeout(30000); // Increase timeout for integration tests
+  
+  beforeAll(() => {
+    jest.spyOn(logger, 'info').mockImplementation(() => {});
+    jest.spyOn(logger, 'error').mockImplementation(() => {});
+  });
 
   beforeEach(() => {
     // Mock job status response

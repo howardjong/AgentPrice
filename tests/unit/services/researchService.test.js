@@ -39,6 +39,51 @@ jest.mock('../../../utils/logger.js');
 describe('ResearchService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.spyOn(logger, 'info').mockImplementation(() => {});
+    jest.spyOn(logger, 'error').mockImplementation(() => {});
+  });
+
+  describe('answerWithContext', () => {
+    it('should generate response with context', async () => {
+      const sessionId = 'test-session';
+      const query = 'What about quantum computing?';
+      const mockContext = {
+        jobId: 'test-job',
+        originalQuery: 'quantum computing research'
+      };
+      const mockJobResults = {
+        content: 'Quantum computing research results',
+        sources: ['source1']
+      };
+      const mockResponse = 'Generated response about quantum computing';
+
+      contextManager.getContext.mockResolvedValue(mockContext);
+      jobManager.getJobStatus.mockResolvedValue({
+        status: 'completed',
+        returnvalue: mockJobResults
+      });
+      anthropicService.generateResponse = jest.fn().mockResolvedValue(mockResponse);
+
+      const result = await answerWithContext(sessionId, query);
+
+      expect(result).toEqual({
+        query,
+        response: mockResponse,
+        sources: ['source1']
+      });
+      expect(contextManager.updateContext).toHaveBeenCalled();
+    });
+
+    it('should throw error if context not found', async () => {
+      const sessionId = 'missing-session';
+      const query = 'test query';
+
+      contextManager.getContext.mockResolvedValue(null);
+
+      await expect(answerWithContext(sessionId, query))
+        .rejects
+        .toThrow('Research session not found');
+    });
   });
 
   describe('initiateResearch', () => {
