@@ -10,6 +10,7 @@ import {
   visualizeSchema,
   insertMessageSchema 
 } from "@shared/schema";
+import { v4 as uuidv4 } from 'uuid';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize services

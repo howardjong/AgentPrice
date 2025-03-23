@@ -95,3 +95,15 @@ export const visualizeSchema = z.object({
 });
 
 export type VisualizeRequest = z.infer<typeof visualizeSchema>;
+
+export const deepResearchSchema = z.object({
+  query: z.string().min(5, "Query must be at least 5 characters long"),
+  conversationId: z.number().optional(),
+  options: z.object({
+    depth: z.enum(['shallow', 'medium', 'deep']).default('deep'),
+    maxSourceCount: z.number().optional(),
+    recencyFilter: z.string().optional()
+  }).optional()
+});
+
+export type DeepResearchRequest = z.infer<typeof deepResearchSchema>;
