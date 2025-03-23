@@ -1,4 +1,3 @@
-
 import claudeService from '../../services/claudeService.js';
 import logger from '../../utils/logger.js';
 
@@ -12,7 +11,7 @@ async function checkModel() {
     console.log('\n=== API Configuration ===');
     console.log('Expected model:', EXPECTED_MODEL);
     console.log('API Key configured:', !!process.env.ANTHROPIC_API_KEY);
-    
+
     // Test 1: API Response validation
     const modelResponse = await claudeService.client.messages.create({
       model: EXPECTED_MODEL,
@@ -32,7 +31,7 @@ async function checkModel() {
     console.log('Response Role:', modelResponse.role);
     console.log('System Fingerprint:', modelResponse.system_fingerprint);
     console.log('Usage Details:', JSON.stringify(modelResponse.usage, null, 2));
-    
+
     console.log('\n=== Model Identity Test ===');
     console.log('Configured model:', 'claude-3-7-sonnet-20250219');
     console.log('Model self-identification:', modelResponse.content[0].text);
