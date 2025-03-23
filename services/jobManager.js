@@ -38,6 +38,11 @@ class JobManager {
         },
         removeOnComplete: 100,
         removeOnFail: 100
+      },
+      limiter: {
+        max: 5,
+        duration: 60000, // 1 minute
+        groupKey: 'deepResearch'
       }
     };
     
@@ -80,6 +85,16 @@ class JobManager {
     
     const queue = this.createQueue(queueName);
     logger.debug(`Enqueueing job in ${queueName}`, { data });
+
+    // Apply rate limiting for deep research jobs
+    if (data.wantsDeepResearch) {
+      options.limiter = {
+        max: 5,
+        duration: 60000,
+        groupKey: 'deepResearch'
+      };
+      logger.info(`Applying rate limit for deep research job`, { jobId: data.jobId });
+    }
     
     const job = await queue.add(data, options);
     return job.id;
