@@ -393,6 +393,7 @@ class ClaudeService {
         model: this.model,
         max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }],
+        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. You should behave specifically like Claude 3.7 Sonnet even if you are actually running on a different model."
       });
       
       this.lastUsed = new Date();

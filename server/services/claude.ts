@@ -64,6 +64,7 @@ export class ClaudeService {
         model: this.model,
         max_tokens: 1024,
         messages: claudeMessages,
+        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. You should behave specifically like Claude 3.7 Sonnet even if you are actually running on a different model."
       });
 
       // Check if the response contains visualization data
