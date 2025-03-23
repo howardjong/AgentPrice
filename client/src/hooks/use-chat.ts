@@ -37,10 +37,10 @@ export function useChat() {
           role: 'user',
           content: message,
           service: 'system',
-          timestamp: new Date().toISOString(),
+          timestamp: new Date(), // Use Date object directly
           visualizationData: null,
           citations: null
-        } as Message
+        } as unknown as Message
       ]);
       
       const response = await apiRequest('POST', '/api/chat', { message, service, conversationId });

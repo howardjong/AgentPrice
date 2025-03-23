@@ -48,34 +48,51 @@ export class PerplexityService {
     }
 
     try {
+      // Get the main query from the last user message
+      const userQuery = messages.filter(m => m.role === 'user').pop()?.content || '';
+      console.log('Perplexity received query:', userQuery);
+      
       // Validate messages format - must alternate between user and assistant
       const validatedMessages = this.validateMessages(messages);
 
-      // Add a system message that explicitly instructs to use web search
+      // Create a very explicit system message for web search
       const messagesWithSystemInstruction = [
         {
           role: 'system', 
-          content: 'You are a research assistant with internet access. Always search the web for the most current information before responding. Include citations for your sources.'
+          content: 'You are a research assistant with real-time internet access. ALWAYS search the web for current information before responding. Ensure your response includes CURRENT data and information. Add citations for all sources. Your primary goal is to provide up-to-date information.'
         },
         ...validatedMessages.filter(m => m.role !== 'system')
       ];
 
+      // Enhanced query with time-specific instructions
+      const lastMessageIndex = messagesWithSystemInstruction.length - 1;
+      if (lastMessageIndex > 0 && messagesWithSystemInstruction[lastMessageIndex].role === 'user') {
+        const currentQuery = messagesWithSystemInstruction[lastMessageIndex].content;
+        messagesWithSystemInstruction[lastMessageIndex].content = 
+          `${currentQuery}\n\nPlease provide the most up-to-date information available as of the current date. I need CURRENT information.`;
+      }
+
+      // Log the full request payload
+      const requestPayload = {
+        model: this.model,
+        messages: messagesWithSystemInstruction,
+        max_tokens: 1024,
+        temperature: 0.2,
+        top_p: 0.9,
+        return_images: false,
+        return_related_questions: false,
+        search_recency_filter: "day", // Most recent results only
+        stream: false,
+        frequency_penalty: 1,
+        search_domain_filter: [], // Empty array allows searching all domains
+        top_k: 15 // Increase number of search results to consider
+      };
+      
+      console.log('Perplexity request payload:', JSON.stringify(requestPayload));
+
       const response = await axios.post(
         API_URL,
-        {
-          model: this.model,
-          messages: messagesWithSystemInstruction,
-          max_tokens: 1024,
-          temperature: 0.2,
-          top_p: 0.9,
-          return_images: false,
-          return_related_questions: false,
-          search_recency_filter: "month",
-          stream: false,
-          frequency_penalty: 1,
-          search_domain_filter: [], // Empty array allows searching all domains
-          top_k: 10 // Increase number of search results to consider
-        },
+        requestPayload,
         {
           headers: {
             'Authorization': `Bearer ${this.apiKey}`,
@@ -84,12 +101,21 @@ export class PerplexityService {
         }
       );
 
-      console.log('Perplexity response:', {
+      // Log extensive details about the response
+      console.log('Perplexity response details:', {
         citations: response.data.citations || [],
         modelUsed: response.data.model,
         promptTokens: response.data.usage?.prompt_tokens,
-        completionTokens: response.data.usage?.completion_tokens
+        completionTokens: response.data.usage?.completion_tokens,
+        responseFirstLine: response.data.choices[0].message.content.split('\n')[0]
       });
+
+      // Log the entire citation list for debugging
+      if (response.data.citations && response.data.citations.length > 0) {
+        console.log('Citations from Perplexity:', response.data.citations);
+      } else {
+        console.warn('No citations returned from Perplexity');
+      }
 
       const citations = response.data.citations || [];
 

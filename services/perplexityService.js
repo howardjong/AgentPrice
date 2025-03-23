@@ -66,9 +66,27 @@ class PerplexityService {
     }
     
     try {
+      // Get the user query from the last message
+      const userQuery = messages.filter(m => m.role === 'user').pop()?.content || '';
+      logger.info('Perplexity received query', { queryLength: userQuery.length });
+      
       // Validate and prepare messages for the Perplexity API
       const validatedMessages = this.validateMessages(messages);
       
+      // Add a more explicit system message for internet search
+      validatedMessages.unshift({
+        role: 'system', 
+        content: 'You are a research assistant with real-time internet access. ALWAYS search the web for the most current information. Your primary goal is to provide up-to-date information with citations. Search broadly across different domains to find the most relevant and recent information.'
+      });
+      
+      // Append current date instruction to the user query
+      const lastMsgIndex = validatedMessages.findIndex(m => m.role === 'user' && validatedMessages.slice(validatedMessages.indexOf(m) + 1).every(n => n.role !== 'user'));
+      
+      if (lastMsgIndex !== -1) {
+        validatedMessages[lastMsgIndex].content = `${validatedMessages[lastMsgIndex].content}\n\nPlease provide the most up-to-date information available as of today, March 23, 2025. I need CURRENT information.`;
+      }
+      
+      // Enhanced request options
       const requestOptions = {
         method: 'POST',
         url: 'https://api.perplexity.ai/chat/completions',
@@ -79,17 +97,44 @@ class PerplexityService {
         data: {
           model: this.model,
           messages: validatedMessages,
-          temperature: options.temperature || 0.2,
+          temperature: options.temperature || 0.1, // Lower temperature for more factual responses
           max_tokens: options.maxTokens || 1024,
           top_p: options.topP || 0.9,
-          search_domain_filter: options.domainFilter || [],
-          search_recency_filter: options.recencyFilter || "month",
-          return_citations: true
+          search_domain_filter: options.domainFilter || [], // Empty array allows searching all domains
+          search_recency_filter: "day", // Get the most recent information
+          top_k: options.topK || 15, // Increase number of search results to consider
+          return_citations: true,
+          frequency_penalty: 0.5 // Discourage repetitive text
         }
       };
       
+      // Log the request
+      logger.info('Sending enhanced request to Perplexity', {
+        messageCount: requestOptions.data.messages.length,
+        model: this.model, 
+        recencyFilter: requestOptions.data.search_recency_filter
+      });
+      
       const response = await this.apiClient.request(requestOptions);
       this.lastUsed = new Date();
+      
+      // Log detailed information about the response
+      logger.info('Perplexity API response received', { 
+        citationsCount: (response.data.citations || []).length,
+        contentLength: response.data.choices[0].message.content.length,
+        promptTokens: response.data.usage?.prompt_tokens,
+        completionTokens: response.data.usage?.completion_tokens
+      });
+      
+      // If there are no citations, log a warning
+      if (!response.data.citations || response.data.citations.length === 0) {
+        logger.warn('No citations returned from Perplexity - response may not include current information');
+      } else {
+        logger.info('Citations included in response', { 
+          count: response.data.citations.length,
+          sources: response.data.citations.slice(0, 3) // Log first few citations
+        });
+      }
       
       return {
         response: response.data.choices[0].message.content,
@@ -119,10 +164,14 @@ class PerplexityService {
       
       // Get and format the prompt
       const promptTemplate = await promptManager.getPrompt('perplexity', 'deep_research');
-      const formattedQuery = promptManager.formatPrompt(promptTemplate, { query });
+      let formattedQuery = promptManager.formatPrompt(promptTemplate, { query });
+      
+      // Add an explicit instruction for current information
+      formattedQuery += `\n\nMake sure to include only the most current information available as of today, March 23, 2025. This research must be based on the latest available data.`;
 
       // Use circuit breaker pattern for the API call
       return await this.circuitBreaker.executeRequest('perplexity-deep', async () => {
+        // Enhanced request settings for better search capabilities
         const requestOptions = {
           method: 'POST',
           url: 'https://api.perplexity.ai/chat/completions',
@@ -132,13 +181,34 @@ class PerplexityService {
           },
           data: {
             model: this.model,
-            messages: [{ role: 'user', content: formattedQuery }],
-            options: {
-              depth: 'deep',
-              stream_final: true
-            }
+            messages: [
+              { 
+                role: 'system', 
+                content: 'You are a research assistant with real-time internet access. Always search for and use the most recent information available. Your research should be comprehensive, up-to-date, and well-sourced with citations.'
+              },
+              { 
+                role: 'user', 
+                content: formattedQuery 
+              }
+            ],
+            temperature: 0.1, // Lower temperature for more factual responses
+            max_tokens: 1500, // Allow for longer, more detailed responses
+            top_p: 0.95,
+            top_k: 15,
+            search_recency_filter: "day", // Most recent information
+            search_domain_filter: [], // No domain restrictions
+            return_citations: true,
+            frequency_penalty: 0.5,
+            presence_penalty: 0.1,
+            stream: false // We want the complete response at once
           }
         };
+        
+        logger.info('Deep research request configuration', {
+          jobId,
+          model: this.model,
+          recencyFilter: requestOptions.data.search_recency_filter
+        });
         
         const start = Date.now();
         const response = await this.apiClient.request(requestOptions);
@@ -146,6 +216,7 @@ class PerplexityService {
         
         logger.info('Perplexity API response received', {
           duration: `${duration}ms`,
+          citationsCount: (response.data.citations || []).length,
           jobId
         });
 
@@ -154,6 +225,16 @@ class PerplexityService {
         }
 
         const responseData = response.data.choices[0].message;
+        
+        // Log full citations for debugging
+        if (response.data.citations && response.data.citations.length > 0) {
+          logger.info('Citations from deep research', {
+            jobId,
+            citations: response.data.citations.slice(0, 5) // Log first 5 citations
+          });
+        } else {
+          logger.warn('No citations returned from deep research', { jobId });
+        }
         
         logger.info('Deep research completed successfully', {
           jobId,
@@ -164,7 +245,7 @@ class PerplexityService {
           query: formattedQuery,
           timestamp: new Date().toISOString(),
           content: responseData.content,
-          sources: responseData.references || [],
+          sources: response.data.citations || [],
           modelUsed: this.model,
           usage: response.data.usage || { total_tokens: 0 }
         };
