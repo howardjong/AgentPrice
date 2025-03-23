@@ -1,5 +1,5 @@
 
-import { anthropicService } from '../../services/anthropicService.js';
+import anthropicService from '../../services/anthropicService.js';
 
 async function checkModel() {
   try {
