@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger.js';
 
 // Flag to indicate if we're using direct mock approach
-const USE_DIRECT_MOCK = process.env.NODE_ENV === 'development' || process.env.REDIS_MODE === 'memory';
+const USE_DIRECT_MOCK = process.env.USE_MOCK_JOB_MANAGER === 'true' || process.env.REDIS_MODE === 'memory';
 
 // Mock product questions for business research
 const MOCK_PRODUCT_QUESTIONS = [
