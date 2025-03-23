@@ -5,6 +5,7 @@ import { setupVite, serveStatic } from "./vite";
 import logger from '../utils/logger.js';
 import requestTracer from '../middlewares/requestTracer.js';
 import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
+import redisClient from '../services/redisService.js';
 
 // Force use of in-memory store for Redis operations
 process.env.REDIS_MODE = 'memory';
@@ -30,7 +31,21 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Initialize required services
+async function initializeServices() {
+  try {
+    logger.info('Initializing Redis client');
+    await redisClient.connect();
+    logger.info('Redis client initialized successfully');
+  } catch (error: any) {
+    logger.error('Error initializing Redis client', { error: error.message });
+  }
+}
+
 (async () => {
+  // Initialize services before starting the server
+  await initializeServices();
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

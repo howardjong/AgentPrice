@@ -1,4 +1,4 @@
-import { createClient } from 'redis';
+// Simplified Redis client implementation with in-memory fallback
 import logger from '../utils/logger.js';
 
 // In-memory store for fallback mode
@@ -30,11 +30,25 @@ export class InMemoryStore {
     return value;
   }
 
-  async set(key, value, options = {}) {
+  async set(key, value, ...args) {
+    // Handle different Redis set() formats:
+    // set(key, value)
+    // set(key, value, 'EX', seconds)
+    // set(key, value, { EX: seconds })
+    
     let expiry = null;
-    if (options.EX) {
-      expiry = Date.now() + (options.EX * 1000);
+    
+    if (args.length === 1 && typeof args[0] === 'object') {
+      // Object options format
+      const options = args[0];
+      if (options.EX) {
+        expiry = Date.now() + (options.EX * 1000);
+      }
+    } else if (args.length >= 2 && args[0] === 'EX') {
+      // EX seconds format
+      expiry = Date.now() + (parseInt(args[1], 10) * 1000);
     }
+    
     this.store.set(key, { value, expiry });
     return 'OK';
   }
@@ -69,6 +83,20 @@ export class InMemoryStore {
     return result;
   }
 
+  async keys(pattern) {
+    // Very simple pattern matching: only support exact matches and * at the end
+    const keys = Array.from(this.store.keys());
+    
+    if (pattern === '*') return keys;
+    
+    if (pattern.endsWith('*')) {
+      const prefix = pattern.slice(0, -1);
+      return keys.filter(key => key.startsWith(prefix));
+    }
+    
+    return keys.filter(key => key === pattern);
+  }
+
   async quit() {
     this.store.clear();
     this.pubsub.clear();
@@ -88,123 +116,41 @@ export class InMemoryStore {
 class RedisClient {
   constructor() {
     this.client = null;
-    this.healthCheckInterval = null;
-    this.redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
     this.useInMemoryStore = process.env.REDIS_MODE === 'memory' || false;
-  }
-
-  connect() {
-    try {
-      if (this.useInMemoryStore) {
-        logger.info('Using in-memory Redis store');
-        this.client = new InMemoryStore();
-        return this.client;
-      }
-
-      const client = createClient({
-        url: this.redisUrl,
-        maxRetriesPerRequest: 3,
-        disableOfflineQueue: true
-      });
-
-      client.on('connect', () => {
-        logger.info('Redis client connected');
-      });
-
-      client.on('error', (error) => {
-        logger.error('Redis client error', { error: error.message });
-        
-        // If connection fails, fallback to in-memory store
-        if (!this.client || !(this.client instanceof InMemoryStore)) {
-          logger.info('Falling back to in-memory Redis store');
-          this.useInMemoryStore = true;
-          this.client = new InMemoryStore();
-        }
-      });
-
-      client.on('close', () => {
-        logger.warn('Redis connection closed');
-      });
-
-      this.client = client;
-      this.startHealthCheck();
-      return client;
-    } catch (error) {
-      logger.error('Failed to initialize Redis client', { error: error.message });
-      
-      // If initialization fails, fallback to in-memory store
-      logger.info('Falling back to in-memory Redis store');
-      this.useInMemoryStore = true;
+    
+    // Initialize with in-memory store immediately
+    if (this.useInMemoryStore) {
+      logger.info('Initializing in-memory Redis store');
       this.client = new InMemoryStore();
-      return this.client;
     }
   }
 
-  getClient() {
+  async connect() {
     if (!this.client) {
-      this.connect();
+      logger.info('Creating new in-memory Redis store');
+      this.client = new InMemoryStore();
+    }
+    return this.client;
+  }
+
+  async getClient() {
+    if (!this.client) {
+      await this.connect();
     }
     return this.client;
   }
 
   async ping() {
+    const client = await this.getClient();
     try {
-      const result = await this.getClient().ping();
-      return result === 'PONG';
+      return await client.ping() === 'PONG';
     } catch (error) {
       logger.error('Redis ping failed', { error: error.message });
-      
-      // If ping fails and we're not already using in-memory store, fallback
-      if (!this.useInMemoryStore) {
-        logger.info('Falling back to in-memory Redis store');
-        this.useInMemoryStore = true;
-        this.client = new InMemoryStore();
-        return true;
-      }
-      
       return false;
     }
   }
 
-  startHealthCheck() {
-    if (this.healthCheckInterval) {
-      clearInterval(this.healthCheckInterval);
-    }
-
-    this.healthCheckInterval = setInterval(async () => {
-      const isHealthy = await this.ping();
-
-      if (!isHealthy) {
-        logger.warn('Redis health check failed, attempting reconnection');
-        await this.reconnect();
-      }
-    }, 30000); // Check every 30 seconds
-  }
-
-  async reconnect() {
-    if (this.client) {
-      try {
-        await this.client.quit();
-      } catch (error) {
-        logger.error('Error closing Redis connection', { error: error.message });
-      }
-      this.client = null;
-    }
-
-    try {
-      await this.connect();
-      logger.info('Redis reconnection successful');
-    } catch (error) {
-      logger.error('Redis reconnection failed', { error: error.message });
-    }
-  }
-
   async stop() {
-    if (this.healthCheckInterval) {
-      clearInterval(this.healthCheckInterval);
-      this.healthCheckInterval = null;
-    }
-
     if (this.client) {
       try {
         await this.client.quit();
