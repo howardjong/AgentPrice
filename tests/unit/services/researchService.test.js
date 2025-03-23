@@ -1,66 +1,60 @@
 
 import { jest } from '@jest/globals';
-import { initiateResearch, getResearchStatus, answerWithContext } from '../../../services/researchService.js';
 
-// Mock dependencies
-jest.mock('uuid', () => ({
-  v4: jest.fn(() => 'test-uuid')
-}));
+// Using let for variables that will be loaded dynamically
+let initiateResearch;
+let getResearchStatus;
+let answerWithContext;
+let mockAnthropicService;
+let mockPerplexityService;
+let mockContextManager;
+let mockJobManager;
+let mockLogger;
 
-// Create mock objects directly
-const mockAnthropicService = {
-  generateResponse: jest.fn(),
-  generateClarifyingQuestions: jest.fn(),
-  generateChartData: jest.fn()
-};
+// Mock dependencies before dynamic imports
+jest.mock('uuid');
+jest.mock('../../../services/anthropicService.js');
+jest.mock('../../../services/perplexityService.js');
+jest.mock('../../../services/contextManager.js');
+jest.mock('../../../services/jobManager.js');
+jest.mock('../../../utils/logger.js');
 
-const mockPerplexityService = {
-  performDeepResearch: jest.fn()
-};
-
-const mockContextManager = {
-  storeContext: jest.fn(),
-  getContext: jest.fn(),
-  updateContext: jest.fn()
-};
-
-const mockJobManager = {
-  enqueueJob: jest.fn(),
-  getJobStatus: jest.fn()
-};
-
-const mockLogger = {
-  info: jest.fn(),
-  error: jest.fn(),
-  debug: jest.fn(),
-  warn: jest.fn()
-};
-
-// Mock the imports
-jest.mock('../../../services/anthropicService.js', () => ({
-  __esModule: true,
-  default: mockAnthropicService
-}));
-
-jest.mock('../../../services/perplexityService.js', () => ({
-  __esModule: true,
-  default: mockPerplexityService
-}));
-
-jest.mock('../../../services/contextManager.js', () => ({
-  __esModule: true,
-  default: mockContextManager
-}));
-
-jest.mock('../../../services/jobManager.js', () => ({
-  __esModule: true,
-  default: mockJobManager
-}));
-
-jest.mock('../../../utils/logger.js', () => ({
-  __esModule: true,
-  default: mockLogger
-}));
+// Load all modules in beforeAll to avoid torn down environment
+beforeAll(async () => {
+  // Setup UUID mock
+  const uuidModule = await import('uuid');
+  jest.spyOn(uuidModule, 'v4').mockReturnValue('test-uuid');
+  
+  // Import the functions we want to test
+  const researchModule = await import('../../../services/researchService.js');
+  initiateResearch = researchModule.initiateResearch;
+  getResearchStatus = researchModule.getResearchStatus;
+  answerWithContext = researchModule.answerWithContext;
+  
+  // Load and configure mocks
+  mockAnthropicService = (await import('../../../services/anthropicService.js')).default;
+  mockAnthropicService.generateResponse = jest.fn().mockResolvedValue('Generated response');
+  mockAnthropicService.generateClarifyingQuestions = jest.fn();
+  mockAnthropicService.generateChartData = jest.fn();
+  
+  mockPerplexityService = (await import('../../../services/perplexityService.js')).default;
+  mockPerplexityService.performDeepResearch = jest.fn();
+  
+  mockContextManager = (await import('../../../services/contextManager.js')).default;
+  mockContextManager.storeContext = jest.fn();
+  mockContextManager.getContext = jest.fn();
+  mockContextManager.updateContext = jest.fn();
+  
+  mockJobManager = (await import('../../../services/jobManager.js')).default;
+  mockJobManager.enqueueJob = jest.fn().mockResolvedValue('test-uuid');
+  mockJobManager.getJobStatus = jest.fn();
+  
+  mockLogger = (await import('../../../utils/logger.js')).default;
+  mockLogger.info = jest.fn();
+  mockLogger.error = jest.fn();
+  mockLogger.debug = jest.fn();
+  mockLogger.warn = jest.fn();
+});
 
 // Implementing fixes for the "You are trying to `import` a file after the Jest environment has been torn down" error
 describe('ResearchService', () => {
