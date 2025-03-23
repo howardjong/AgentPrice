@@ -1,6 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { ServiceStatus } from '@shared/schema';
 
+// Define a type for the content block to handle type checking
+interface TextContentBlock {
+  type: 'text';
+  text: string;
+}
+
 // the newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
 const DEFAULT_MODEL = 'claude-3-7-sonnet-20250219';
 const API_KEY = process.env.ANTHROPIC_API_KEY || '';
@@ -54,9 +60,10 @@ export class ClaudeService {
     }
 
     try {
-      // Map the message roles to Claude format (user, assistant, system)
+      // Map the message roles to Claude format (user, assistant)
+      // Note: 'system' role messages are not supported in messages array, only as a separate parameter
       const claudeMessages = messages.map(m => ({
-        role: m.role === 'user' ? 'user' : m.role === 'system' ? 'system' : 'assistant',
+        role: m.role === 'user' ? 'user' as const : 'assistant' as const,
         content: m.content
       }));
 
@@ -69,7 +76,9 @@ export class ClaudeService {
 
       // Check if the response contains visualization data
       let visualizationData = null;
-      let responseText = response.content[0].text;
+      // Type assertion to handle content blocks properly
+      const contentBlock = response.content[0] as TextContentBlock;
+      let responseText = contentBlock.text;
       
       // Simple extraction of JSON visualization data if present
       const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
@@ -87,9 +96,9 @@ export class ClaudeService {
         response: responseText.trim(),
         visualizationData
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing conversation with Claude:', error);
-      throw new Error(`Failed to process conversation with Claude: ${error.message}`);
+      throw new Error(`Failed to process conversation with Claude: ${error?.message || String(error)}`);
     }
   }
 
@@ -124,11 +133,14 @@ export class ClaudeService {
         model: this.model,
         max_tokens: 2048,
         messages: [{ role: 'user', content: prompt }],
+        system: "You are Claude 3.7 Sonnet, a helpful AI assistant. You should behave specifically like Claude 3.7 Sonnet even if you are actually running on a different model."
       });
 
       // Extract the JSON visualization data
       let visualizationData = null;
-      let responseText = response.content[0].text;
+      // Type assertion to handle content blocks properly
+      const contentBlock = response.content[0] as { type: string; text: string };
+      let responseText = contentBlock.text;
       
       const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
       if (jsonMatch && jsonMatch[1]) {
@@ -150,9 +162,9 @@ export class ClaudeService {
           description
         }
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating visualization with Claude:', error);
-      throw new Error(`Failed to generate visualization with Claude: ${error.message}`);
+      throw new Error(`Failed to generate visualization with Claude: ${error?.message || String(error)}`);
     }
   }
 }
