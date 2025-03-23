@@ -141,3 +141,12 @@ args = "node tests/manual/redisConnectionTest.js"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/perplexity-test.js"
+
+[[workflows.workflow]]
+name = "Test Health Endpoint"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/healthEndpointTest.js"
