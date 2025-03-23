@@ -3,19 +3,17 @@
  */
 import { jest } from '@jest/globals';
 
-// Import the mocked dependencies
-import { logger } from '../../../utils/logger.js';
-import { RobustAPIClient } from '../../../utils/apiClient.js';
-import { CircuitBreaker } from '../../../utils/monitoring.js';
-import promptManager from '../../../services/promptManager.js';
+// Mock dependencies
+const mockLogger = {
+  info: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+  debug: jest.fn()
+};
 
 // Set up mocks
 jest.mock('../../../utils/logger.js', () => ({
-  logger: {
-    info: jest.fn(),
-    error: jest.fn(),
-    warn: jest.fn()
-  }
+  default: mockLogger
 }));
 
 // Mock API client
@@ -146,7 +144,7 @@ describe('PerplexityService', () => {
       };
       
       // Setup mock implementation
-      apiClient.request.mockResolvedValueOnce(mockResponseData);
+      mockRequest.mockResolvedValueOnce(mockResponseData);
       
       // Execute the function
       const result = await perplexityService.performDeepResearch('Test deep research query', 'test-job-id');
