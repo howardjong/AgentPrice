@@ -18,7 +18,7 @@ async function checkModel() {
       max_tokens: 100,
       messages: [{
         role: 'user',
-        content: 'Return exactly this string: "claude-3-7-sonnet-20240219"'
+        content: 'Return exactly this string: "claude-3-7-sonnet-20250219"'
       }]
     });
 
