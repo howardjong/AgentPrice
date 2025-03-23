@@ -30,7 +30,16 @@ class ServiceRouter {
    * @param {string} [explicitService] - Optional explicitly requested service
    * @returns {string} The service to use ('claude' or 'perplexity')
    */
-  determineService(message, explicitService) {
+  determineService(message, explicitService, options = {}) {
+    // If deep research is confirmed, use Perplexity with deep research settings
+    if (options.confirmDeepResearch) {
+      return { 
+        service: 'perplexity',
+        mode: 'deep',
+        estimatedTime: '15-30 minutes'
+      };
+    }
+
     // If a service is explicitly specified, use it (but verify it's available)
     if (explicitService) {
       const requestedService = explicitService.toLowerCase();
@@ -63,11 +72,18 @@ class ServiceRouter {
     
     // Make a decision based on the analysis
     if (needsResearch && !needsVisualization) {
-      logger.info('Router determined research is needed, routing to Perplexity');
-      return 'perplexity';
+      logger.info('Research query detected, should confirm deep research');
+      return {
+        service: 'needs_confirmation',
+        suggestedAction: 'deep_research',
+        message: 'This query may benefit from deep, comprehensive research which can take up to 30 minutes. Would you like to proceed with in-depth research?'
+      };
     } else {
       logger.info('Router determined general processing/visualization is needed, routing to Claude');
-      return 'claude';
+      return {
+        service: 'claude',
+        mode: 'default'
+      };
     }
   }
 
