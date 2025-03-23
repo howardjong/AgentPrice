@@ -81,7 +81,7 @@ export interface ApiStatus {
 // API Endpoint types
 export const chatMessageSchema = z.object({
   message: z.string(),
-  conversationId: z.number().optional(),
+  conversationId: z.number().nullable().optional(),
   service: z.enum(['claude', 'perplexity', 'auto']).default('auto'),
 });
 
