@@ -1,5 +1,5 @@
 
-const AnthropicService = require('../../services/anthropicService.js');
+import { AnthropicService } from '../../services/anthropicService.js';
 
 async function checkModel() {
   const claude = new AnthropicService();
