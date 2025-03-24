@@ -202,7 +202,3 @@ args = "node tests/reset-circuit-breaker.js perplexity"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/testDeepResearch.js \"what does the competitor landscape look like for all day elementary school children camps in spring and summer break in the greater Vancouver area?\""
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "</commands>"
