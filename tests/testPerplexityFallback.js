@@ -41,8 +41,15 @@ async function verifyFallbackSetup() {
     // Verify circuit breaker configuration
     console.log('\nCircuit Breaker configuration:');
     if (perplexityService.circuitBreaker) {
-      console.log(`Failure threshold: ${perplexityService.circuitBreaker.options.failureThreshold}`);
-      console.log(`Reset timeout: ${perplexityService.circuitBreaker.options.resetTimeout}ms (${perplexityService.circuitBreaker.options.resetTimeout/60000} minutes)`);
+      // Check for options property first
+      if (perplexityService.circuitBreaker.options) {
+        console.log(`Failure threshold: ${perplexityService.circuitBreaker.options.failureThreshold}`);
+        console.log(`Reset timeout: ${perplexityService.circuitBreaker.options.resetTimeout}ms (${perplexityService.circuitBreaker.options.resetTimeout/60000} minutes)`);
+      } else {
+        // If options is not available, try direct properties
+        console.log(`Failure threshold: ${perplexityService.circuitBreaker.failureThreshold || 'Unknown'}`);
+        console.log(`Reset timeout: ${perplexityService.circuitBreaker.resetTimeout || 'Unknown'}`);
+      }
     } else {
       console.log('Circuit breaker not properly configured');
     }
@@ -50,8 +57,16 @@ async function verifyFallbackSetup() {
     // Verify API client configuration
     console.log('\nRobust API Client configuration:');
     if (perplexityService.apiClient) {
-      console.log(`Max retries: ${perplexityService.apiClient.options.maxRetries}`);
-      console.log(`Timeout: ${perplexityService.apiClient.options.timeout}ms (${perplexityService.apiClient.options.timeout/1000} seconds)`);
+      try {
+        if (perplexityService.apiClient.options) {
+          console.log(`Max retries: ${perplexityService.apiClient.options.maxRetries}`);
+          console.log(`Timeout: ${perplexityService.apiClient.options.timeout}ms (${perplexityService.apiClient.options.timeout/1000} seconds)`);
+        } else {
+          console.log('API client options not accessible, client exists but configuration unknown');
+        }
+      } catch (e) {
+        console.log('API client exists but configuration could not be read:', e.message);
+      }
     } else {
       console.log('API client not properly configured');
     }
