@@ -5,9 +5,57 @@
  * and check the status of jobs in the research queue.
  */
 
+
+// Main test function
+async function runMockResearchTest() {
+  logger.info("===== STARTING MOCK RESEARCH INITIALIZATION TEST =====");
+  
+  try {
+    // Verify perplexity service is configured for deep research
+    logger.info("Verifying perplexity service configuration");
+    const perplexityStatus = perplexityService.getStatus();
+    logger.info("Perplexity status", {
+      status: perplexityStatus.status,
+      model: perplexityStatus.model
+    });
+    
+    logger.info("Initializing mock research with deep research option enabled");
+    const result = await initializeAllMockResearch({
+      deepResearch: true  // Explicitly enable deep research
+    });
+    
+    logger.info("Mock research initialization completed", {
+      researchCount: result.researchTopics.length,
+      success: result.success
+    });
+    
+    if (result.researchTopics.length > 0) {
+      const sampleResearchJob = result.researchTopics[0];
+      const jobStatus = await jobManager.getJobStatus('research-jobs', sampleResearchJob.jobId);
+      logger.info("Sample research topic job status", { 
+        jobId: sampleResearchJob.jobId,
+        topic: sampleResearchJob.topic.substring(0, 50),
+        status: jobStatus.status,
+        progress: jobStatus.progress
+      });
+    }
+    
+    logger.info("===== COMPLETED MOCK RESEARCH INITIALIZATION TEST =====");
+  } catch (error) {
+    logger.error("Error in mock research test", { error: error.message, stack: error.stack });
+  } finally {
+    // Don't exit process immediately so that logs can flush
+    setTimeout(() => process.exit(0), 1000);
+  }
+}
+
+// Run the test when the script is executed directly
+runMockResearchTest();
+
 import { initializeAllMockResearch } from '../../services/initializeMockResearch.js';
 import jobManager from '../../services/jobManager.js';
 import logger from '../../utils/logger.js';
+import perplexityService from '../../services/perplexityService.js';
 
 async function testMockResearchInitialization() {
   try {

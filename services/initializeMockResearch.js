@@ -30,29 +30,30 @@ const MOCK_RESEARCH_TOPICS = [
 /**
  * Initialize mock product research questions directly in the mock job manager
  */
-async function initializeMockProductQuestions() {
+async function initializeMockProductQuestions(options = {}) {
   try {
     logger.info('Initializing mock product questions');
-    
+
     const results = [];
-    
+
     if (USE_DIRECT_MOCK) {
       // Direct mock approach that doesn't rely on the Redis-based job queue
       for (const question of MOCK_PRODUCT_QUESTIONS) {
         const jobId = uuidv4();
         const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-        
+
         // Add job directly to mock job manager
         await mockJobManager.enqueueJob('research-jobs', {
           query: question,
           options: {
             generateClarifyingQuestions: true,
             origin: 'mock-initialization',
-            priority: 'low'
+            priority: 'low',
+            deepResearch: options.deepResearch === true
           },
           sessionId
         }, { jobId });
-        
+
         results.push({ question, jobId, sessionId });
         logger.info(`Directly enqueued mock product question`, { question: question.substring(0, 50), jobId });
       }
@@ -62,14 +63,15 @@ async function initializeMockProductQuestions() {
         const result = await initiateResearch(question, {
           generateClarifyingQuestions: true,
           origin: 'mock-initialization',
-          priority: 'low' // Lower priority for mock questions
+          priority: 'low', // Lower priority for mock questions
+          deepResearch: options.deepResearch === true
         });
-        
+
         results.push({ question, jobId: result.jobId, sessionId: result.sessionId });
         logger.info(`Enqueued mock product question`, { question: question.substring(0, 50), jobId: result.jobId });
       }
     }
-    
+
     return results;
   } catch (error) {
     logger.error('Error initializing mock product questions', { error: error.message });
@@ -80,18 +82,18 @@ async function initializeMockProductQuestions() {
 /**
  * Initialize mock research topics in the mock job manager
  */
-async function initializeMockResearchTopics() {
+async function initializeMockResearchTopics(options = {}) {
   try {
     logger.info('Initializing mock research topics');
-    
+
     const results = [];
-    
+
     if (USE_DIRECT_MOCK) {
       // Direct mock approach that doesn't rely on the Redis-based job queue
       for (const topic of MOCK_RESEARCH_TOPICS) {
         const jobId = uuidv4();
         const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-        
+
         // Add job directly to mock job manager
         await mockJobManager.enqueueJob('research-jobs', {
           query: topic,
@@ -99,11 +101,12 @@ async function initializeMockResearchTopics() {
             generateClarifyingQuestions: true,
             generateCharts: ['bar', 'pie'],
             origin: 'mock-initialization',
-            priority: 'low'
+            priority: 'low',
+            deepResearch: options.deepResearch === true
           },
           sessionId
         }, { jobId });
-        
+
         results.push({ topic, jobId, sessionId });
         logger.info(`Directly enqueued mock research topic`, { topic: topic.substring(0, 50), jobId });
       }
@@ -114,14 +117,15 @@ async function initializeMockResearchTopics() {
           generateClarifyingQuestions: true,
           generateCharts: ['bar', 'pie'],
           origin: 'mock-initialization',
-          priority: 'low' // Lower priority for mock research
+          priority: 'low', // Lower priority for mock research
+          deepResearch: options.deepResearch === true
         });
-        
+
         results.push({ topic, jobId: result.jobId, sessionId: result.sessionId });
         logger.info(`Enqueued mock research topic`, { topic: topic.substring(0, 50), jobId: result.jobId });
       }
     }
-    
+
     return results;
   } catch (error) {
     logger.error('Error initializing mock research topics', { error: error.message });
@@ -132,13 +136,13 @@ async function initializeMockResearchTopics() {
 /**
  * Initialize all mock research data
  */
-async function initializeAllMockResearch() {
+async function initializeAllMockResearch(options = {}) {
   try {
-    logger.info('Initializing all mock research data');
-    
-    const productQuestions = await initializeMockProductQuestions();
-    const researchTopics = await initializeMockResearchTopics();
-    
+    logger.info('Initializing all mock research data', { deepResearch: options.deepResearch === true });
+
+    const productQuestions = await initializeMockProductQuestions(options);
+    const researchTopics = await initializeMockResearchTopics(options);
+
     return {
       productQuestions,
       researchTopics,
