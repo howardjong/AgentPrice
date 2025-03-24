@@ -86,7 +86,7 @@ export class PerplexityService {
         frequency_penalty: 1,
         search_domain_filter: [], // Empty array allows searching all domains
         top_k: 15, // Increase number of search results to consider
-        search_context_mode: "high" // High search context mode for more comprehensive search
+        search_context_mode: "medium" // Medium search context mode for basic queries
       };
       
       console.log('Perplexity request payload:', JSON.stringify(requestPayload));
