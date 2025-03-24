@@ -210,9 +210,7 @@ class ClaudeService {
     });
   }
   
-  processResponse(response, claudeMessages, isNewConversation) {
-
-      // Reusable method to process Claude API responses
+  // Reusable method to process Claude API responses
   processResponse(response, claudeMessages, isNewConversation) {
     // Get the response content
     let responseContent = response.content[0].text;
