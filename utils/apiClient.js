@@ -16,56 +16,78 @@ export class RobustAPIClient {
   async request(config) {
     const requestConfig = {
       ...config,
-      timeout: this.timeout
+      timeout: this.timeout,
+      // Add timestamp to track request lifecycle
+      timestamp: Date.now()
     };
 
     const serviceKey = `${config.method}:${config.url}`;
     
-    return this.circuitBreaker.executeRequest(serviceKey, async () => {
-      let retries = 0;
-      const startTime = Date.now();
-      
-      while (true) {
-        try {
-          const response = await axios(requestConfig);
-          
-          const duration = Date.now() - startTime;
-          logger.debug(`API request succeeded in ${duration}ms`, {
-            url: config.url,
-            method: config.method,
-            duration,
-            retries
-          });
-          
-          return response;
-        } catch (error) {
-          const shouldRetry = this.shouldRetryRequest(error, retries);
-          
-          if (!shouldRetry) {
+    // Track all active promises for debugging
+    const activePromises = new Set();
+    
+    try {
+      // Create the promise and track it
+      const promise = this.circuitBreaker.executeRequest(serviceKey, async () => {
+        let retries = 0;
+        const startTime = Date.now();
+        
+        while (true) {
+          try {
+            const response = await axios(requestConfig);
+            
             const duration = Date.now() - startTime;
-            logger.error('API request failed', {
+            logger.debug(`API request succeeded in ${duration}ms`, {
               url: config.url,
               method: config.method,
-              error: error.message,
-              status: error.response?.status,
               duration,
               retries
             });
-            throw error;
-          }
+            
+            return response;
+          } catch (error) {
+            const shouldRetry = this.shouldRetryRequest(error, retries);
+            
+            if (!shouldRetry) {
+              const duration = Date.now() - startTime;
+              logger.error('API request failed', {
+                url: config.url,
+                method: config.method,
+                error: error.message,
+                status: error.response?.status,
+                duration,
+                retries
+              });
+              throw error;
+            }
 
-          retries++;
-          const delay = this.calculateRetryDelay(retries);
-          logger.info(`Retrying request (attempt ${retries})`, {
-            url: config.url,
-            delay,
-            error: error.message,
-            status: error.response?.status
-          });
-          await new Promise(resolve => setTimeout(resolve, delay));
+            retries++;
+            const delay = this.calculateRetryDelay(retries);
+            logger.info(`Retrying request (attempt ${retries})`, {
+              url: config.url,
+              delay,
+              error: error.message,
+              status: error.response?.status
+            });
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
         }
-      }
-    });
+      });
+      
+      // Track the promise and remove it when done
+      activePromises.add(promise);
+      promise.finally(() => activePromises.delete(promise));
+      
+      // Return the tracked promise
+      return promise;
+    } catch (error) {
+      logger.error('Fatal error in API client', {
+        url: config.url,
+        method: config.method,
+        error: error.message
+      });
+      throw error;
+    }
   }
 
   shouldRetryRequest(error, retries) {

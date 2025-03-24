@@ -1,4 +1,18 @@
 
+// Add global unhandled promise rejection handler
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Log to your existing logging service
+  if (global.logger) {
+    global.logger.error('Unhandled promise rejection', { 
+      reason: reason?.toString(),
+      stack: reason instanceof Error ? reason.stack : 'No stack trace'
+    });
+  }
+});
+
+
+
 // Load environment variables first
 import '../config/env.js';
 
