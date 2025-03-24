@@ -237,3 +237,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/test-claude-fallback.js"
+
+[[workflows.workflow]]
+name = "Verify Claude Haiku"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/verify-claude-haiku.js"
