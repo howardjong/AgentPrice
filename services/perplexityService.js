@@ -390,7 +390,8 @@ class PerplexityService {
     // Check for keywords that suggest using the basic model
     const simpleQueryKeywords = [
       'simple', 'briefly', 'summary', 'quick', 'basic', 'short',
-      'summarize', 'just tell me', 'in a few words', 'tldr'
+      'summarize', 'just tell me', 'in a few words', 'tldr', 'who is',
+      'when did', 'where is', 'what is', 'how much', 'tell me about'
     ];
     
     // Check if query contains complexity keywords
@@ -404,10 +405,42 @@ class PerplexityService {
     );
     
     // Length-based heuristic - long queries tend to be more complex
-    const isLongQuery = query.length > 100;
+    const isLongQuery = query.length > 150; // Increased threshold to avoid catching simple queries
     
-    // Make the model decision
-    if (isComplex || isLongQuery) {
+    // Common simple queries that should use the basic model regardless of length
+    const simpleQueryPatterns = [
+      // Financial queries
+      /stock price/i, /stock market/i, /exchange rate/i, /currency/i, /bitcoin/i, /crypto/i,
+      
+      // Weather and time queries
+      /weather/i, /forecast/i, /temperature/i, /what time/i, /what day/i, /date today/i,
+      
+      // Sports and entertainment
+      /sports score/i, /game score/i, /who won/i, /match result/i, /movie/i, /tv show/i,
+      
+      // Factual information
+      /news/i, /define/i, /meaning of/i, /capital of/i, /population/i, /height of/i, /age of/i,
+      
+      // How-to and instructional 
+      /how to/i, /how do I/i, /steps to/i, /recipe/i, /make a/i, /create a/i,
+      
+      // Simple questions
+      /where is/i, /when was/i, /who is/i, /what is/i, /tell me about/i
+    ];
+    
+    // Check if query matches common simple query patterns
+    const isCommonSimpleQuery = simpleQueryPatterns.some(pattern => 
+      pattern.test(query)
+    );
+    
+    // Make the model decision, prioritizing common simple patterns
+    if (isCommonSimpleQuery) {
+      logger.info('Using basic model (sonar) for common simple query', {
+        queryLength: query.length,
+        isCommonSimpleQuery: true
+      });
+      return this.models.basic;
+    } else if (isComplex || (isLongQuery && !isSimpleRequest)) {
       logger.info('Using standard model (sonar-pro) for complex query', {
         queryLength: query.length,
         isComplex,
