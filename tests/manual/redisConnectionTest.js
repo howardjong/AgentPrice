@@ -13,6 +13,7 @@ async function testRedisConnection() {
     
     // Test simple operations
     logger.info('Setting test value');
+    const client = await redisClient.getClient();
     await client.set('test-key', 'test-value');
     
     logger.info('Getting test value');
