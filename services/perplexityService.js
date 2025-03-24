@@ -106,19 +106,7 @@ class PerplexityService {
         validatedMessages[lastMsgIndex].content = `${validatedMessages[lastMsgIndex].content}\n\nPlease provide the most up-to-date information available as of today, March 24, 2025. I need CURRENT information.`;
       }
 
-      // Check if this is a stock price or weather query - DIRECTLY FORCE BASIC MODEL
-      const stockPricePattern = /stock price|price of stock|share price|stock value|current price|trading at/i;
-      const weatherPattern = /weather|forecast|temperature|rain|snow|climate|sunny|cloudy/i;
-      
-      if (stockPricePattern.test(userQuery) || weatherPattern.test(userQuery)) {
-        // Override any model selection for these specific query types
-        options = { ...options, model: this.models.basic };
-        logger.info('SIMPLE QUERY PATTERN DETECTED - FORCING BASIC MODEL', {
-          query: userQuery,
-          forcedModel: this.models.basic,
-          pattern: stockPricePattern.test(userQuery) ? 'stock price' : 'weather'
-        });
-      }
+      // No special pattern detection - we'll use the basic model by default
 
       // Enhanced request options
       // Determine which model to use based on query complexity
@@ -382,59 +370,19 @@ class PerplexityService {
       return options.model;
     }
     
-    // Check for the complexity keywords that suggest using sonar-pro
-    const complexityKeywords = [
-      'detailed analysis', 'comprehensive', 'in-depth', 'deep dive',
-      'technical explanation', 'complex', 'pros and cons', 'compare', 
-      'evaluate', 'research', 'analyze', 'trends', 'statistical', 
-      'explain the implications', 'historical context'
-    ];
-    
-    // Check for keywords that suggest using the basic model
-    const simpleQueryKeywords = [
-      // Simple request indicators
-      'simple', 'briefly', 'summary', 'quick', 'basic', 'short',
-      'summarize', 'just tell me', 'in a few words', 'tldr', 
-      // Question words and common simple queries 
-      'who is', 'when did', 'where is', 'what is', 'how much', 'tell me about',
-      // Common information requests that should use basic model
-      'stock price', 'weather', 'forecast', 'temperature', 'sports score', 'news'
-    ];
-    
-    // Check if query contains complexity keywords
-    const isComplex = complexityKeywords.some(keyword => 
-      query.toLowerCase().includes(keyword.toLowerCase())
-    );
-    
-    // Check if query explicitly asks for a simple response
-    const isSimpleRequest = simpleQueryKeywords.some(keyword => 
-      query.toLowerCase().includes(keyword.toLowerCase())
-    );
-    
-    // Length-based heuristic - long queries tend to be more complex
-    const isLongQuery = query.length > 150; // Increased threshold to avoid catching simple queries
-    
-    // Make the model decision
-    if (isComplex || (isLongQuery && !isSimpleRequest)) {
-      logger.info('Using standard model (sonar-pro) for complex query', {
-        queryLength: query.length,
-        isComplex,
-        isLongQuery
-      });
-      return this.models.standard;
-    } else if (isSimpleRequest) {
-      logger.info('Using basic model (sonar) for simple query', {
-        queryLength: query.length,
-        isSimpleRequest
-      });
-      return this.models.basic;
-    } else {
-      // Default to the basic model, which is now 'sonar'
-      logger.info('Using default basic model (sonar) for query', {
+    // If deep research is specifically requested, use the deep research model
+    if (options.deepResearch === true) {
+      logger.info('Using deep research model (sonar-deep-research) - explicitly requested', {
         queryLength: query.length
       });
-      return this.models.basic;
+      return this.models.deepResearch;
     }
+    
+    // Always default to the basic model (sonar) unless explicitly requested otherwise
+    logger.info('Using default basic model (sonar)', {
+      queryLength: query.length
+    });
+    return this.models.basic;
   }
 
   /**
