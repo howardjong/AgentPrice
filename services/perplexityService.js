@@ -141,7 +141,40 @@ class PerplexityService {
         searchContextMode: requestOptions.data.search_context_mode
       });
 
-      const response = await this.apiClient.request(requestOptions);
+      let response;
+      try {
+        response = await this.apiClient.request(requestOptions);
+      } catch (error) {
+        // Handle rate limits and service unavailable errors with fallback models
+        if (error.response?.status === 429 || error.response?.status === 503) {
+          const currentModel = requestOptions.data.model;
+          const fallbacks = this.fallbackConfig[currentModel] || [];
+          
+          // Log that we're falling back due to rate limiting
+          logger.warn(`Rate limit or service unavailable (${error.response.status}) encountered for ${currentModel}. Attempting fallbacks.`);
+          
+          for (const fallbackModel of fallbacks) {
+            logger.info(`Attempting fallback to model ${fallbackModel}`, { originalModel: currentModel });
+            requestOptions.data.model = fallbackModel;
+            try {
+              response = await this.apiClient.request(requestOptions);
+              logger.info(`Successfully fell back to ${fallbackModel} due to rate limits`);
+              break;
+            } catch (fallbackError) {
+              logger.error(`Fallback to ${fallbackModel} failed`, { 
+                error: fallbackError.message 
+              });
+            }
+          }
+          
+          if (!response) {
+            throw error; // If all fallbacks failed, throw original error
+          }
+        } else {
+          throw error;
+        }
+      }
+      
       this.lastUsed = new Date();
 
       // Log detailed information about the response
