@@ -118,6 +118,9 @@ class PerplexityService {
       }
 
       // Enhanced request options
+      // Determine which model to use based on query complexity
+      const selectedModel = this.determineModelForQuery(userQuery, options);
+      
       const requestOptions = {
         method: 'POST',
         url: 'https://api.perplexity.ai/chat/completions',
@@ -126,7 +129,7 @@ class PerplexityService {
           'Authorization': `Bearer ${this.apiKey}`
         },
         data: {
-          model: this.determineModelForQuery(userQuery, options),
+          model: selectedModel,
           messages: validatedMessages,
           temperature: options.temperature || 0.1,
           max_tokens: options.maxTokens || 1024,
@@ -140,22 +143,28 @@ class PerplexityService {
         }
       };
 
-      // Log the request
+      // Log the request with detailed model selection info
       logger.info('Sending enhanced request to Perplexity', {
         messageCount: requestOptions.data.messages.length,
-        model: this.model, 
-        recencyFilter: requestOptions.data.search_recency_filter
+        model: selectedModel, 
+        recencyFilter: requestOptions.data.search_recency_filter,
+        queryLength: userQuery.length,
+        searchContextMode: requestOptions.data.search_context_mode
       });
 
       const response = await this.apiClient.request(requestOptions);
       this.lastUsed = new Date();
 
       // Log detailed information about the response
+      const actualModel = response.data.model || selectedModel;
       logger.info('Perplexity API response received', { 
         citationsCount: (response.data.citations || []).length,
         contentLength: response.data.choices[0].message.content.length,
         promptTokens: response.data.usage?.prompt_tokens,
-        completionTokens: response.data.usage?.completion_tokens
+        completionTokens: response.data.usage?.completion_tokens,
+        requestedModel: selectedModel,
+        actualModel: actualModel,
+        modelMatch: actualModel === selectedModel ? 'match' : 'mismatch'
       });
 
       // If there are no citations, log a warning
@@ -171,7 +180,7 @@ class PerplexityService {
       // Add explicit model information to the beginning of the response
       const originalResponse = response.data.choices[0].message.content;
       // Use the actual model from the response payload rather than the requested model
-      const responseModel = response.data.model || this.model;
+      const responseModel = response.data.model || requestOptions.data.model;
       const modelInfo = `[Using Perplexity AI - Model: ${responseModel}]\n\n`;
       const enhancedResponse = modelInfo + originalResponse;
 
@@ -283,10 +292,14 @@ class PerplexityService {
 
         const duration = Date.now() - response.config.timestamp;
 
+        const actualModel = response.data.model || requestOptions.data.model;
         logger.info('Perplexity API response received', {
           duration: `${duration}ms`,
           citationsCount: (response.data.citations || []).length,
-          jobId
+          jobId,
+          requestedModel: this.models.deepResearch,
+          actualModel: actualModel,
+          modelMatch: actualModel === this.models.deepResearch ? 'match' : 'mismatch'
         });
 
         if (!response.data?.choices?.[0]?.message) {
@@ -312,7 +325,7 @@ class PerplexityService {
 
         // Add explicit model information to the beginning of the deep research response
         // Use the actual model from the response payload rather than the requested model
-        const responseModel = response.data.model || this.model;
+        const responseModel = response.data.model || requestOptions.data.model;
 
         // Verify model matches what we requested
         if (responseModel !== this.models.deepResearch) {
@@ -350,6 +363,69 @@ class PerplexityService {
         });
       }
       throw error;
+    }
+  }
+
+  /**
+   * Analyzes a query and determines which model should be used based on complexity
+   * @param {string} query - The user query to analyze
+   * @param {Object} options - Additional options that may override the default selection
+   * @returns {string} The model name to use
+   */
+  determineModelForQuery(query, options = {}) {
+    // If there's an explicit model override in options, use that
+    if (options.model) {
+      logger.info(`Using explicitly requested model: ${options.model}`);
+      return options.model;
+    }
+    
+    // Check for the complexity keywords that suggest using sonar-pro
+    const complexityKeywords = [
+      'detailed analysis', 'comprehensive', 'in-depth', 'deep dive',
+      'technical explanation', 'complex', 'pros and cons', 'compare', 
+      'evaluate', 'research', 'analyze', 'trends', 'statistical', 
+      'explain the implications', 'historical context'
+    ];
+    
+    // Check for keywords that suggest using the basic model
+    const simpleQueryKeywords = [
+      'simple', 'briefly', 'summary', 'quick', 'basic', 'short',
+      'summarize', 'just tell me', 'in a few words', 'tldr'
+    ];
+    
+    // Check if query contains complexity keywords
+    const isComplex = complexityKeywords.some(keyword => 
+      query.toLowerCase().includes(keyword.toLowerCase())
+    );
+    
+    // Check if query explicitly asks for a simple response
+    const isSimpleRequest = simpleQueryKeywords.some(keyword => 
+      query.toLowerCase().includes(keyword.toLowerCase())
+    );
+    
+    // Length-based heuristic - long queries tend to be more complex
+    const isLongQuery = query.length > 100;
+    
+    // Make the model decision
+    if (isComplex || isLongQuery) {
+      logger.info('Using standard model (sonar-pro) for complex query', {
+        queryLength: query.length,
+        isComplex,
+        isLongQuery
+      });
+      return this.models.standard;
+    } else if (isSimpleRequest) {
+      logger.info('Using basic model (sonar) for simple query', {
+        queryLength: query.length,
+        isSimpleRequest
+      });
+      return this.models.basic;
+    } else {
+      // Default to the basic model, which is now 'sonar'
+      logger.info('Using default basic model (sonar) for query', {
+        queryLength: query.length
+      });
+      return this.models.basic;
     }
   }
 
