@@ -16,9 +16,9 @@ class PerplexityService {
       deepResearch: 'sonar-deep-research' // For comprehensive research
     };
     this.searchModes = {
-      basic: 'medium',
-      standard: 'medium',
-      deepResearch: 'high'
+      basic: 'medium',     // Medium search context for basic queries with sonar
+      standard: 'high',    // High search context for standard queries with sonar-pro
+      deepResearch: 'high' // High search context for deep research with sonar-deep-research
     };
     // Maintain backward compatibility
     this.fallbackModels = ['sonar-pro', 'sonar'];
@@ -139,7 +139,7 @@ class PerplexityService {
           top_k: options.topK || 15,
           return_citations: true,
           frequency_penalty: 0.5,
-          search_context_mode: options.searchContextMode || this.searchModes.default
+          search_context_mode: options.searchContextMode || this.getSearchModeForModel(selectedModel)
         }
       };
 
@@ -427,6 +427,31 @@ class PerplexityService {
       });
       return this.models.basic;
     }
+  }
+
+  /**
+   * Get the appropriate search mode for a given model
+   * @param {string} model - The Perplexity model name
+   * @returns {string} The search context mode to use
+   */
+  getSearchModeForModel(model) {
+    // For sonar (basic model)
+    if (model === this.models.basic) {
+      return this.searchModes.basic;
+    }
+    
+    // For sonar-pro (standard model) 
+    if (model === this.models.standard) {
+      return this.searchModes.standard;
+    }
+    
+    // For sonar-deep-research (deep research model)
+    if (model === this.models.deepResearch) {
+      return this.searchModes.deepResearch;
+    }
+    
+    // Default to medium mode if model isn't recognized
+    return 'medium';
   }
 
   /**
