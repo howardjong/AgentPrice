@@ -11,13 +11,16 @@ class PerplexityService {
   constructor() {
     this.apiKey = process.env.PERPLEXITY_API_KEY;
     this.models = {
-      default: 'sonar-pro',
-      deepResearch: 'sonar-deep-research'
+      basic: 'sonar',         // For simple queries, now the default
+      standard: 'sonar-pro',  // For complex queries (previously the default)
+      deepResearch: 'sonar-deep-research' // For comprehensive research
     };
     this.searchModes = {
-      default: 'medium',
+      basic: 'medium',
+      standard: 'medium',
       deepResearch: 'high'
     };
+    // Maintain backward compatibility
     this.fallbackModels = ['sonar-pro', 'sonar'];
     this.fallbackConfig = {
       'sonar-deep-research': ['sonar-pro'],
@@ -123,7 +126,7 @@ class PerplexityService {
           'Authorization': `Bearer ${this.apiKey}`
         },
         data: {
-          model: this.models.default,
+          model: this.determineModelForQuery(userQuery, options),
           messages: validatedMessages,
           temperature: options.temperature || 0.1,
           max_tokens: options.maxTokens || 1024,
