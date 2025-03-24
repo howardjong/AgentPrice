@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { ServiceStatus } from '@shared/schema';
 
-const DEFAULT_MODEL = 'sonar-pro';
+const DEFAULT_MODEL = 'sonar';
 const API_KEY = process.env.PERPLEXITY_API_KEY || '';
 const API_URL = 'https://api.perplexity.ai/chat/completions';
 

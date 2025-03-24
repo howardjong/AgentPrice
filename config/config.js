@@ -18,7 +18,7 @@ const config = {
     },
     perplexity: {
       apiKey: process.env.PERPLEXITY_API_KEY,
-      model: 'sonar-pro',
+      model: 'sonar',
       maxTokens: 4096,
     },
   },
