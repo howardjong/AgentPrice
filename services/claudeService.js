@@ -45,7 +45,7 @@ class ClaudeService {
   constructor() {
     this.apiKey = process.env.ANTHROPIC_API_KEY;
     this.model = "claude-3-7-sonnet-20250219";
-    this.fallbackModel = "claude-3-5-haiku-20240307";
+    this.fallbackModel = "claude-3-5-haiku-20241022";
     this.isConnected = false;
     this.lastUsed = null;
     this.client = null;
