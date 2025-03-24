@@ -228,3 +228,12 @@ args = "node tests/reset-circuit-breaker.js perplexity"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/debug-view-response.js"
+
+[[workflows.workflow]]
+name = "Test Claude Fallback"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/test-claude-fallback.js"
