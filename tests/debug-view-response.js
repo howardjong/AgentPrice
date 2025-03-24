@@ -1,59 +1,72 @@
 
 /**
- * Debug script to display the latest Perplexity deep research response
+ * Debug script to display the complete Perplexity deep research response
  */
 import fs from 'fs';
-import path from 'path';
+import perplexityService from '../services/perplexityService.js';
+import { v4 as uuidv4 } from 'uuid';
 
-// Read the latest response from logs
-try {
-  // Try to read from combined log file first
-  const logData = fs.readFileSync('combined.log', 'utf8');
-  
-  // Find the most recent deep research content
-  const contentMatches = logData.match(/Deep research completed successfully.*?contentLength":(\d+)/g);
-  
-  if (contentMatches && contentMatches.length > 0) {
-    const latestMatch = contentMatches[contentMatches.length - 1];
-    const contentLengthMatch = latestMatch.match(/contentLength":(\d+)/);
-    const contentLength = contentLengthMatch ? contentLengthMatch[1] : 'unknown';
+const QUERY = "what does the competitor landscape look like for all day elementary school children camps in spring and summer break in the greater Vancouver area?";
+
+async function displayResponse() {
+  try {
+    console.log('=== Perplexity Deep Research Response Viewer ===');
+    console.log('\nRunning query and capturing complete response...');
+    console.log(`Query: "${QUERY}"`);
     
-    // Get the job ID from the log
-    const jobIdMatch = latestMatch.match(/jobId":"([^"]+)"/);
-    const jobId = jobIdMatch ? jobIdMatch[1] : 'unknown';
+    const jobId = uuidv4();
+    console.log(`Job ID: ${jobId}`);
     
-    console.log('========================');
-    console.log(`Found latest deep research response (Job ID: ${jobId})`);
-    console.log(`Content length: ${contentLength} characters`);
-    console.log('========================\n');
+    // Capture start time
+    const startTime = Date.now();
     
-    // Search for the model data
-    const modelMatch = logData.match(new RegExp(`modelUsed":"([^"]+)".*?${jobId}`));
-    if (modelMatch) {
-      console.log(`Model used: ${modelMatch[1]}\n`);
-    }
+    // Run the deep research query
+    const result = await perplexityService.performDeepResearch(QUERY, jobId);
     
-    // Look for the actual content
-    // This is challenging since the logs don't contain the full content
-    console.log('To see the full content, run the test deep research workflow again:');
-    console.log('Note: The response will be visible in the terminal when the test runs');
-  } else {
-    console.log('No deep research responses found in logs');
+    // Calculate duration
+    const duration = (Date.now() - startTime) / 1000;
+    
+    console.log('\n======= RESEARCH RESULTS =======');
+    console.log(`Duration: ${duration.toFixed(1)} seconds`);
+    console.log(`Model used: ${result.modelUsed}`);
+    console.log(`Content length: ${result.content.length} characters`);
+    console.log(`Sources: ${result.sources.length} citations`);
+    console.log('\n======= FULL RESPONSE TEXT =======\n');
+    console.log(result.content);
+    
+    console.log('\n======= CITATIONS =======\n');
+    result.sources.forEach((source, index) => {
+      console.log(`[${index + 1}] ${source}`);
+    });
+
+    // Also save to file for easier viewing
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `perplexity-response-${timestamp}.txt`;
+    
+    let fullOutput = `PERPLEXITY DEEP RESEARCH RESPONSE\n`;
+    fullOutput += `Query: ${QUERY}\n`;
+    fullOutput += `Timestamp: ${timestamp}\n`;
+    fullOutput += `Model: ${result.modelUsed}\n`;
+    fullOutput += `Duration: ${duration.toFixed(1)} seconds\n\n`;
+    fullOutput += `===== RESPONSE TEXT =====\n\n`;
+    fullOutput += result.content;
+    fullOutput += `\n\n===== CITATIONS (${result.sources.length}) =====\n\n`;
+    
+    result.sources.forEach((source, index) => {
+      fullOutput += `[${index + 1}] ${source}\n`;
+    });
+    
+    fs.writeFileSync(filename, fullOutput);
+    console.log(`\nFull response saved to ${filename}`);
+  } catch (error) {
+    console.error('Error running deep research query:', error.message);
   }
-} catch (error) {
-  console.error('Error reading logs:', error.message);
 }
 
-console.log('\nRunning deep research query now:');
-
-// Display instructions
-console.log(`
-To run the deep research test and see full content:
-
-1. Use the "Test Deep Research Query" workflow 
-2. Check the console output for the complete response
-
-Alternatively, run this command:
-node tests/reset-circuit-breaker.js perplexity
-node tests/manual/testDeepResearch.js "what does the competitor landscape look like for all day elementary school children camps in spring and summer break in the greater Vancouver area?"
-`);
+// Run the function if this script is executed directly
+if (process.argv[1].endsWith('debug-view-response.js')) {
+  displayResponse().catch(error => {
+    console.error('Unhandled error:', error);
+    process.exit(1);
+  });
+}

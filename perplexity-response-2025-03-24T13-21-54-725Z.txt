@@ -1,0 +1,83 @@
+PERPLEXITY DEEP RESEARCH RESPONSE
+Query: what does the competitor landscape look like for all day elementary school children camps in spring and summer break in the greater Vancouver area?
+Timestamp: 2025-03-24T13-21-54-725Z
+Model: sonar-deep-research
+Duration: 143.4 seconds
+
+===== RESPONSE TEXT =====
+
+[Using Perplexity AI - Model: sonar-deep-research]
+
+<think>
+Okay, let's tackle this query about the competitor landscape for all-day elementary school children camps in the Greater Vancouver area during spring and summer breaks. The user wants a comprehensive, detailed research answer based on current data as of March 24, 2025. 
+
+First, I need to go through each of the provided search results to identify relevant information. Let's start by skimming through each source.
+
+Looking at result [1], it's about temporary summer jobs in Vancouver. Not directly related to camps, but mentions some locations and dates for camps like Point Grey-Jericho Hill Centre and others. These might be part of school-based programs or municipal camps. The dates range from mid-June to late August 2025. This could indicate the operational periods for these camps.
+
+Result [2] from Family Fun Canada lists various summer camps in Metro Vancouver. There are several mentioned here: Elevate Ultimate (Ultimate Frisbee), WildPlay Element Parks (adventure camps), Gateway Theatre (acting/musical theatre), Grouse Mountain (adventure day camps), Mulgrave School Summer Camps (academic and general), North Shore Equestrian Centre (horse riding), Royal Soccer Club. These are all different types of camps, showing a diverse range of options.
+
+Result [3] is about Antler, a startup investor. Doesn't seem relevant here.
+
+Result [4] is a Wikipedia featured article candidate discussion. Not relevant.
+
+Result [5] is about Calgary summer camps from Family Fun Canada again. Since the query is about Greater Vancouver, this might not be useful unless there's a cross-reference, but probably not.
+
+Result [6] is the School of Rock's Taylor Swift Camp in Vancouver running July 14-18, 2025. It's a music-focused camp with performance elements.
+
+Result [7] is NBC Sports news; not relevant.
+
+Result [8] has arXiv papers on AI topics; unrelated.
+
+Result [9] is SongRoots Summer Camp #1 from July 7-11, 2025, focusing on music with instructors like Brian Tate and Cara Luft. It includes accommodation and meals, which might be a residential camp or day camp? The cost is $1000 + fees, which seems higher-end.
+
+Result [10] talks about Hockinson School District's activities but doesn't mention specific camps except maybe mock trial teams and sports participation rates—probably not relevant unless they run their own camps, which isn't clear here.
+
+Result [11] from Queen Margaret's School mentions spring break riding camps ("Pony Pals Spring Break Riding Camp II") which are half-day equestrian programs. Also mentions Bill Ulmer's clinic in March 2025—so they have equestrian-focused spring break options.
+
+Result [12] from Northview Community Church lists job postings for Bethesda's summer day camp targeting youth with diverse abilities ages 8-18. They're hiring assistants and support workers with competitive salaries. This indicates specialized camps for children with diverse needs as part of the competitor landscape.
+
+Now I need to categorize these findings into different types of competitors: municipal/school-based programs vs private organizations vs specialized/niche offerings.
+
+Municipal/School-Based Camps:
+- From result [1], locations like Point Grey-Jericho Hill Centre and others listed under "Trail Camps" might be part of city-run programs.
+- Queen Margaret's School (result[11]) offers equestrian half-day spring break camps.
+- Hockinson School District (result[10]) doesn't explicitly mention their own camps but has high sports participation; maybe they partner with local organizations?
+
+Private Organizations:
+- Family Fun Canada lists several private options: Elevate Ultimate, WildPlay Element Parks (adventure), Gateway Theatre (arts), Grouse Mountain (outdoor activities), Mulgrave School (academic + general), North Shore Equestrian Centre (horse riding), Royal Soccer Club.
+- School of Rock (result[6]) offers music-themed summer camps.
+- SongRoots Summer Camp ([9]) focuses on music and community singing; priced higher at $1000+, possibly a more niche offering.
+- Bethesda’s summer day camp ([12]) caters to youth with diverse abilities—specialized support here.
+
+Specialized/Niche Camps:
+- Adventure: WildPlay Element Parks, Grouse Mountain
+- Arts: Gateway Theatre, Pumphouse Theatre (from result[5], but that’s Calgary—maybe similar exists in Vancouver?), Stagecoach School for Performing Arts
+- Sports: Royal Soccer Club, Elevate Ultimate
+- Academic: Mulgrave School offers Summer Learning for English/Math
+- Equestrian: North Shore Equestrian Centre ([2]), Queen Margaret’s School ([11])
+- Music: School of Rock ([6]), SongRoots ([9])
+- Special Needs: Bethesda’s camp ([12])
+
+Looking at dates:
+Most summer camps run from late June through August 2025 as per result[1]. Spring break would typically be March-April; QMS has spring break riding camp II mentioned in result[11], but exact dates aren't specified beyond "spring break."
+
+Pricing varies widely:
+- SongRoots is $1000+ including accommodations and meals—likely an overnight camp.
+- Bethesda’s positions offer hourly rates for staff ($20-$25/hr) but doesn't list camper fees directly.
+
+
+===== CITATIONS (12) =====
+
+[1] https://ca.indeed.com/q-temporary-summer-l-vancouver,-bc-jobs.html
+[2] https://www.familyfuncanada.com/vancouver/summer-camps/
+[3] https://www.antler.co
+[4] https://en.wikipedia.org/wiki/Wikipedia:Featured_article_candidates
+[5] https://www.familyfuncanada.com/calgary/summer-camps/
+[6] https://www.schoolofrock.com/locations/vancouverwa/music-camps/taylor-swift-camp-july-14-2025
+[7] https://www.nbcsports.com
+[8] https://arxiv.org/list/cs/new
+[9] https://songroots.ca/songroots-summer-camp-1-july7-11-2025/
+[10] https://www.hocksd.org
+[11] https://qms.bc.ca/parent-portal/school-calendars/
+[12] https://northview.org/classifieds/
