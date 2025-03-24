@@ -244,9 +244,11 @@ class PerplexityService {
           }
         };
 
+        // We now use the model determination method with deepResearch flag
+        // This ensures consistent logging and proper model selection
         logger.info('Deep research request configuration', {
           jobId,
-          requestedModel: this.models.deepResearch,
+          requestedModel: requestOptions.data.model,
           actualModel: requestOptions.data.model,
           recencyFilter: requestOptions.data.search_recency_filter
         });
@@ -289,9 +291,9 @@ class PerplexityService {
           duration: `${duration}ms`,
           citationsCount: (response.data.citations || []).length,
           jobId,
-          requestedModel: this.models.deepResearch,
+          requestedModel: requestOptions.data.model,
           actualModel: actualModel,
-          modelMatch: actualModel === this.models.deepResearch ? 'match' : 'mismatch'
+          modelMatch: actualModel === requestOptions.data.model ? 'match' : 'mismatch'
         });
 
         if (!response.data?.choices?.[0]?.message) {
@@ -319,10 +321,10 @@ class PerplexityService {
         // Use the actual model from the response payload rather than the requested model
         const responseModel = response.data.model || requestOptions.data.model;
 
-        // Verify model matches what we requested
-        if (responseModel !== this.models.deepResearch) {
+        // Verify model matches what we requested (could be deepResearch or fallback)
+        if (responseModel !== requestOptions.data.model) {
           logger.warn('Model mismatch in deep research', {
-            requestedModel: this.models.deepResearch,
+            requestedModel: requestOptions.data.model,
             actualModel: responseModel,
             jobId
           });
@@ -337,7 +339,7 @@ class PerplexityService {
           content: enhancedContent,
           sources: response.data.citations || [],
           modelUsed: responseModel,
-          requestedModel: this.models.deepResearch,
+          requestedModel: options.deepResearch ? this.models.deepResearch : this.models.basic,
           usage: response.data.usage || { total_tokens: 0 }
         };
       });
