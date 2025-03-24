@@ -48,15 +48,26 @@ class PerplexityService {
   initialize() {
     try {
       if (!this.apiKey) {
-        logger.warn('Perplexity API key not found, service will be unavailable');
+        logger.warn('Perplexity API key not found in environment variables');
+        this.isConnected = false;
+
+        // Log clear instructions for adding the API key
+        logger.info('To enable Perplexity research functionality, add a PERPLEXITY_API_KEY to your environment or Replit secrets');
         return;
       }
-      
-      logger.info('Initializing Perplexity service with default model');
+
+      // Check if the API key appears to be valid (basic validation)
+      if (this.apiKey.length < 20 || !this.apiKey.startsWith('pplx-')) {
+        logger.warn('Perplexity API key appears to be invalid - should start with "pplx-" and be at least 20 characters');
+        this.isConnected = false;
+        return;
+      }
+
       this.isConnected = true;
-      logger.info('Perplexity service initialized successfully', { model: this.models.basic });
+      logger.info('Perplexity service initialized successfully');
     } catch (error) {
-      logger.error(`Error initializing Perplexity service: ${error.message}`);
+      logger.error('Failed to initialize Perplexity service', { error: error.message });
+      this.isConnected = false;
     }
   }
 
@@ -88,7 +99,39 @@ class PerplexityService {
     try {
       // Get the user query from the last message
       const userQuery = messages.filter(m => m.role === 'user').pop()?.content || '';
-      logger.info('Perplexity received query', { queryLength: userQuery.length });
+      
+      // Log the raw query for debugging
+      logger.info('Perplexity received raw query', { 
+        query: userQuery,
+        queryLength: userQuery.length 
+      });
+      
+      // TEST: Directly check common patterns before any other processing
+      // Check for stock price queries specifically
+      const stockPricePattern = /stock price|price of stock|share price|stock value|current price|trading at/i;
+      const isStockPriceQuery = stockPricePattern.test(userQuery);
+      
+      if (isStockPriceQuery) {
+        logger.info('DETECTED STOCK PRICE QUERY', { 
+          query: userQuery,
+          matched: 'stock price pattern'
+        });
+        // Force the basic model for stock price queries
+        options.model = this.models.basic;
+      }
+      
+      // Weather pattern check
+      const weatherPattern = /weather|forecast|temperature|rain|snow|climate|sunny|cloudy/i;
+      const isWeatherQuery = weatherPattern.test(userQuery);
+      
+      if (isWeatherQuery) {
+        logger.info('DETECTED WEATHER QUERY', { 
+          query: userQuery,
+          matched: 'weather pattern'
+        });
+        // Force the basic model for weather queries
+        options.model = this.models.basic;
+      }
 
       // Validate and prepare messages for the Perplexity API
       const validatedMessages = this.validateMessages(messages);
@@ -106,23 +149,31 @@ class PerplexityService {
         validatedMessages[lastMsgIndex].content = `${validatedMessages[lastMsgIndex].content}\n\nPlease provide the most up-to-date information available as of today, March 24, 2025. I need CURRENT information.`;
       }
 
-      // Check if this is a stock price or weather query - DIRECTLY FORCE BASIC MODEL
+      // PRE-FILTER: First check if this is a stock price or weather query
       const stockPricePattern = /stock price|price of stock|share price|stock value|current price|trading at/i;
       const weatherPattern = /weather|forecast|temperature|rain|snow|climate|sunny|cloudy/i;
       
-      if (stockPricePattern.test(userQuery) || weatherPattern.test(userQuery)) {
-        // Override any model selection for these specific query types
-        options = { ...options, model: this.models.basic };
-        logger.info('SIMPLE QUERY PATTERN DETECTED - FORCING BASIC MODEL', {
+      // Create options object copy to avoid modifying original
+      const modelOptions = {...options};
+      
+      // Directly override for common simple queries before the main model selection
+      if (stockPricePattern.test(userQuery)) {
+        logger.info('STOCK PRICE QUERY DETECTED - FORCING BASIC MODEL', {
           query: userQuery,
-          forcedModel: this.models.basic,
-          pattern: stockPricePattern.test(userQuery) ? 'stock price' : 'weather'
+          forcedModel: this.models.basic
         });
+        modelOptions.model = this.models.basic;
+      } else if (weatherPattern.test(userQuery)) {
+        logger.info('WEATHER QUERY DETECTED - FORCING BASIC MODEL', {
+          query: userQuery,
+          forcedModel: this.models.basic
+        });
+        modelOptions.model = this.models.basic;
       }
-
+      
       // Enhanced request options
       // Determine which model to use based on query complexity
-      const selectedModel = this.determineModelForQuery(userQuery, options);
+      const selectedModel = this.determineModelForQuery(userQuery, modelOptions);
       
       const requestOptions = {
         method: 'POST',
@@ -218,7 +269,7 @@ class PerplexityService {
       let formattedQuery = promptManager.formatPrompt(promptTemplate, { query });
 
       // Add an explicit instruction for current information
-      formattedQuery += `\n\nMake sure to include only the most current information available as of today, March 24, 2025. This research must be based on the latest available data.`;
+      formattedQuery += `\n\nMake sure to include only the most current information available as of today, March 23, 2025. This research must be based on the latest available data.`;
 
       // Use circuit breaker pattern for the API call
       return await this.circuitBreaker.executeRequest('perplexity-deep', async () => {
@@ -395,10 +446,14 @@ class PerplexityService {
       // Simple request indicators
       'simple', 'briefly', 'summary', 'quick', 'basic', 'short',
       'summarize', 'just tell me', 'in a few words', 'tldr', 
-      // Question words and common simple queries 
+      
+      // Question words and common simple queries
       'who is', 'when did', 'where is', 'what is', 'how much', 'tell me about',
+      
       // Common information requests that should use basic model
-      'stock price', 'weather', 'forecast', 'temperature', 'sports score', 'news'
+      'stock price', 'stock market', 'exchange rate', 'weather', 'forecast',
+      'temperature', 'sports score', 'news', 'current price', 'bitcoin',
+      'crypto', 'capital of', 'population', 'recipe', 'how to'
     ];
     
     // Check if query contains complexity keywords
@@ -414,8 +469,40 @@ class PerplexityService {
     // Length-based heuristic - long queries tend to be more complex
     const isLongQuery = query.length > 150; // Increased threshold to avoid catching simple queries
     
-    // Make the model decision
-    if (isComplex || (isLongQuery && !isSimpleRequest)) {
+    // Common simple queries that should use the basic model regardless of length
+    const simpleQueryPatterns = [
+      // Financial queries
+      /stock price/i, /stock market/i, /exchange rate/i, /currency/i, /bitcoin/i, /crypto/i,
+      
+      // Weather and time queries
+      /weather/i, /forecast/i, /temperature/i, /what time/i, /what day/i, /date today/i,
+      
+      // Sports and entertainment
+      /sports score/i, /game score/i, /who won/i, /match result/i, /movie/i, /tv show/i,
+      
+      // Factual information
+      /news/i, /define/i, /meaning of/i, /capital of/i, /population/i, /height of/i, /age of/i,
+      
+      // How-to and instructional 
+      /how to/i, /how do I/i, /steps to/i, /recipe/i, /make a/i, /create a/i,
+      
+      // Simple questions
+      /where is/i, /when was/i, /who is/i, /what is/i, /tell me about/i
+    ];
+    
+    // Check if query matches common simple query patterns
+    const isCommonSimpleQuery = simpleQueryPatterns.some(pattern => 
+      pattern.test(query)
+    );
+    
+    // Make the model decision, prioritizing common simple patterns
+    if (isCommonSimpleQuery) {
+      logger.info('Using basic model (sonar) for common simple query', {
+        queryLength: query.length,
+        isCommonSimpleQuery: true
+      });
+      return this.models.basic;
+    } else if (isComplex || (isLongQuery && !isSimpleRequest)) {
       logger.info('Using standard model (sonar-pro) for complex query', {
         queryLength: query.length,
         isComplex,
