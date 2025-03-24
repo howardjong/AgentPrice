@@ -1,0 +1,13 @@
+{
+  "claude": {
+    "clarifying_questions": "default",
+    "response_generation": "default",
+    "chart_data": {
+      "van_westendorp": "default",
+      "conjoint": "default"
+    }
+  },
+  "perplexity": {
+    "deep_research": "default"
+  }
+}
