@@ -262,7 +262,6 @@ class ClaudeService {
         output: response.usage?.output_tokens || 0
       }
     };
-    });
   }
 
   async generateClarifyingQuestions(query) {
