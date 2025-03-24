@@ -26,9 +26,14 @@ class PerplexityService {
     this.isConnected = false;
     this.lastUsed = null;
     this.apiClient = new RobustAPIClient({
-      maxRetries: 2,
-      timeout: 120000 // 2 minutes for long-running research
+      maxRetries: 3,
+      timeout: 180000, // 3 minutes for long-running research
+      retryDelay: (retryCount) => Math.min(1000 * Math.pow(2, retryCount), 30000) // Exponential backoff capped at 30s
     });
+    this.requestCounter = {
+      timestamp: Date.now(),
+      count: 0
+    };
     this.circuitBreaker = new CircuitBreaker({
       failureThreshold: 3,
       resetTimeout: 300000 // 5 minutes
