@@ -4,6 +4,24 @@ import axios from 'axios';
 import logger from './logger.js';
 import { CircuitBreaker } from './monitoring.js';
 
+// Global set to track and manage all active API promises
+const globalActivePromises = new Set();
+
+// Global unhandled rejection handler
+if (typeof process !== 'undefined') {
+  process.on('unhandledRejection', (reason, promise) => {
+    // Check if this is one of our tracked promises
+    if (globalActivePromises.has(promise)) {
+      logger.error('Caught unhandled promise rejection in API client', { 
+        reason: reason?.message || String(reason),
+        stack: reason?.stack
+      });
+      // Remove from tracked set to prevent memory leaks
+      globalActivePromises.delete(promise);
+    }
+  });
+}
+
 export class RobustAPIClient {
   constructor(options = {}) {
     this.maxRetries = options.maxRetries || 3;
@@ -11,23 +29,83 @@ export class RobustAPIClient {
     this.retryStatusCodes = options.retryStatusCodes || [429, 500, 502, 503, 504];
     this.retryDelay = options.retryDelay || 1000;
     this.circuitBreaker = new CircuitBreaker(options.circuitBreaker);
+    this.activePromises = new Map(); // Track promises with metadata
+    this.rateLimitedEndpoints = new Map(); // Track rate-limited endpoints
+    
+    // Cleanup stale promises every minute
+    this.cleanupInterval = setInterval(() => this.cleanupStalePromises(), 60000);
+  }
+
+  cleanupStalePromises() {
+    const now = Date.now();
+    let cleanedCount = 0;
+    
+    this.activePromises.forEach((metadata, promise) => {
+      // If promise is older than 30 minutes, consider it stale
+      if (now - metadata.timestamp > 30 * 60 * 1000) {
+        this.activePromises.delete(promise);
+        globalActivePromises.delete(promise);
+        cleanedCount++;
+      }
+    });
+    
+    if (cleanedCount > 0) {
+      logger.info(`Cleaned up ${cleanedCount} stale API promises`, {
+        remaining: this.activePromises.size
+      });
+    }
+  }
+  
+  // Safely track a promise with proper cleanup
+  trackPromise(promise, metadata = {}) {
+    const enhancedMetadata = {
+      ...metadata,
+      timestamp: Date.now()
+    };
+    
+    this.activePromises.set(promise, enhancedMetadata);
+    globalActivePromises.add(promise);
+    
+    // Ensure promise is removed from tracking when settled
+    promise.finally(() => {
+      this.activePromises.delete(promise);
+      globalActivePromises.delete(promise);
+    });
+    
+    return promise;
   }
 
   async request(config) {
     const requestConfig = {
       ...config,
       timeout: this.timeout,
-      // Add timestamp to track request lifecycle
       timestamp: Date.now()
     };
 
     const serviceKey = `${config.method}:${config.url}`;
+    const endpointKey = config.url.split('?')[0]; // Base URL without query params
     
-    // Track all active promises for debugging
-    const activePromises = new Set();
+    // Check if endpoint is rate limited
+    if (this.rateLimitedEndpoints.has(endpointKey)) {
+      const limitInfo = this.rateLimitedEndpoints.get(endpointKey);
+      const now = Date.now();
+      
+      if (now < limitInfo.resetTime) {
+        const waitTime = limitInfo.resetTime - now;
+        logger.info(`Endpoint ${endpointKey} is rate limited, waiting ${waitTime}ms before retry`, {
+          resetTime: new Date(limitInfo.resetTime).toISOString()
+        });
+        
+        // Wait before proceeding
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+      
+      // Clear rate limit info after waiting
+      this.rateLimitedEndpoints.delete(endpointKey);
+    }
     
     try {
-      // Create the promise and track it
+      // Create the promise with circuit breaker
       const promise = this.circuitBreaker.executeRequest(serviceKey, async () => {
         let retries = 0;
         const startTime = Date.now();
@@ -46,6 +124,36 @@ export class RobustAPIClient {
             
             return response;
           } catch (error) {
+            // Special handling for rate limit errors
+            if (error.response?.status === 429) {
+              // Extract retry-after header or use exponential backoff
+              const retryAfter = error.response.headers['retry-after'];
+              const retryDelayMs = retryAfter ? parseInt(retryAfter) * 1000 : this.calculateRetryDelay(retries + 1);
+              
+              // Track this rate-limited endpoint to avoid immediate retries
+              this.rateLimitedEndpoints.set(endpointKey, {
+                resetTime: Date.now() + retryDelayMs,
+                status: error.response.status
+              });
+              
+              if (retries >= this.maxRetries) {
+                logger.warn(`Rate limit (429) reached maximum retries for ${config.url}`, { 
+                  retries, 
+                  retryDelayMs 
+                });
+                throw error;
+              }
+              
+              retries++;
+              logger.info(`Rate limited (429), waiting ${retryDelayMs}ms before retry ${retries}`, {
+                url: config.url,
+                retryDelayMs
+              });
+              
+              await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+              continue;
+            }
+            
             const shouldRetry = this.shouldRetryRequest(error, retries);
             
             if (!shouldRetry) {
@@ -74,12 +182,12 @@ export class RobustAPIClient {
         }
       });
       
-      // Track the promise and remove it when done
-      activePromises.add(promise);
-      promise.finally(() => activePromises.delete(promise));
-      
-      // Return the tracked promise
-      return promise;
+      // Track the promise with proper cleanup
+      return this.trackPromise(promise, {
+        url: config.url,
+        method: config.method,
+        timestamp: Date.now()
+      });
     } catch (error) {
       logger.error('Fatal error in API client', {
         url: config.url,
@@ -95,9 +203,8 @@ export class RobustAPIClient {
       return false;
     }
 
+    // 429 is handled separately with special logic
     if (error.response?.status === 429) {
-      const retryAfter = error.response.headers['retry-after'];
-      this.retryDelay = (retryAfter ? parseInt(retryAfter) * 1000 : 60000);
       return true;
     }
 
@@ -113,8 +220,21 @@ export class RobustAPIClient {
   }
 
   calculateRetryDelay(retries) {
+    // More aggressive exponential backoff for rate limits
     const baseDelay = this.retryDelay * Math.pow(2, retries - 1);
+    // Add randomization to prevent thundering herd problem
     const jitter = Math.random() * 0.5 * baseDelay;
-    return baseDelay + jitter;
+    return Math.min(baseDelay + jitter, 300000); // Cap at 5 minutes
+  }
+  
+  // Clean up resources when client is no longer needed
+  destroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+    
+    // Clear all tracked promises
+    this.activePromises.clear();
   }
 }

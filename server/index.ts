@@ -1,14 +1,10 @@
-
 // Add global unhandled promise rejection handler
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // Log to your existing logging service
-  if (global.logger) {
-    global.logger.error('Unhandled promise rejection', { 
-      reason: reason?.toString(),
-      stack: reason instanceof Error ? reason.stack : 'No stack trace'
-    });
-  }
+  logger.error('Unhandled Rejection at server level', { 
+    reason: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : 'No stack trace available'
+  });
+  // Not terminating the process, just logging for now
 });
 
 
@@ -56,11 +52,11 @@ async function initializeServices() {
     // Check API keys first
     const apiStatus = checkApiKeys();
     logger.info('API key status checked', apiStatus);
-    
+
     if (!apiStatus.anthropicAvailable || !apiStatus.perplexityAvailable) {
       logger.warn('Some API keys are missing. This may affect functionality.');
     }
-    
+
     logger.info('Initializing Redis client');
     await redisClient.connect();
     logger.info('Redis client initialized successfully');
@@ -72,7 +68,7 @@ async function initializeServices() {
 (async () => {
   // Initialize services before starting the server
   await initializeServices();
-  
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -97,7 +93,7 @@ async function initializeServices() {
     headersTimeout: 66000,
   }, async () => {
     logger.info(`Server running on port ${port}`);
-    
+
     // Initialize mock research data if in development mode or if INIT_MOCK_DATA env variable is set
     if (app.get("env") === "development" || process.env.INIT_MOCK_DATA === "true") {
       try {

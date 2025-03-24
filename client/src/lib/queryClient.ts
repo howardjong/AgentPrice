@@ -1,3 +1,67 @@
+import { QueryClient } from '@tanstack/react-query';
+
+// Custom error handler for query client
+const queryErrorHandler = (error: unknown) => {
+  // Log the error
+  console.error('React Query error:', error);
+
+  // Check if it's a rate limit error
+  const isRateLimit = 
+    error instanceof Error && 
+    'status' in (error as any) && 
+    (error as any).status === 429;
+
+  if (isRateLimit) {
+    console.warn('Rate limit detected in React Query, backing off...');
+  }
+};
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: (failureCount, error) => {
+        // Don't retry too many times for rate limit errors
+        const isRateLimit = 
+          error instanceof Error && 
+          'status' in (error as any) && 
+          (error as any).status === 429;
+
+        if (isRateLimit && failureCount >= 2) {
+          return false;
+        }
+
+        // For other errors, retry up to 2 times
+        return failureCount < 2;
+      },
+      retryDelay: (attemptIndex) => {
+        // Exponential backoff with a base of 5 seconds
+        return Math.min(1000 * Math.pow(2, attemptIndex) * 5, 30000);
+      },
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      onError: queryErrorHandler
+    },
+    mutations: {
+      onError: queryErrorHandler,
+      retry: (failureCount, error) => {
+        // Special handling for rate limits
+        const isRateLimit = 
+          error instanceof Error && 
+          'status' in (error as any) && 
+          (error as any).status === 429;
+
+        // Only retry once for rate limits
+        if (isRateLimit) {
+          return failureCount < 1;
+        }
+
+        return false; // Don't retry other mutation errors
+      },
+      retryDelay: 10000 // 10 seconds delay for mutation retries
+    }
+  },
+});
+
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 async function throwIfResNotOk(res: Response) {
@@ -25,7 +89,7 @@ export async function apiRequest(
   } catch (error) {
     // Ensure error is properly formatted and handled
     console.error(`API request failed: ${method} ${url}`, error);
-    
+
     // Re-throw as a properly structured error object
     if (error instanceof Error) {
       throw error;
@@ -52,18 +116,3 @@ export const getQueryFn: <T>(options: {
     await throwIfResNotOk(res);
     return await res.json();
   };
-
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
-      refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
-    },
-    mutations: {
-      retry: false,
-    },
-  },
-});

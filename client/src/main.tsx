@@ -7,23 +7,29 @@ import { ErrorBoundary } from './components/error-boundary';
 
 const queryClient = new QueryClient();
 
+// Global promise rejection handler for the client
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection in client:', event.reason);
+  // Optionally report to your error monitoring service
+});
+
 // Enhanced unhandled rejection handler with more detailed logging
 window.onunhandledrejection = (event) => {
   console.error('Unhandled promise rejection:', event.reason);
-  
+
   // Prevent the error from being silently swallowed
   event.preventDefault();
-  
+
   // Add better error reporting
   const errorDetails = {
     message: event.reason?.message || 'Unknown error',
     stack: event.reason?.stack,
     timestamp: new Date().toISOString()
   };
-  
+
   // Log to console in a structured way for better debugging
   console.error('Promise rejection details:', errorDetails);
-  
+
   // Could add error reporting to server here if needed
   // fetch('/api/log-client-error', {
   //   method: 'POST', 
