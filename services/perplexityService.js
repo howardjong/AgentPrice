@@ -11,13 +11,11 @@ class PerplexityService {
   constructor() {
     this.apiKey = process.env.PERPLEXITY_API_KEY;
     this.models = {
-      basic: 'sonar',         // For simple queries, now the default
-      standard: 'sonar-pro',  // For complex queries (previously the default)
-      deepResearch: 'sonar-deep-research' // For comprehensive research
+      basic: 'sonar',         // The default model for most queries
+      deepResearch: 'sonar-deep-research' // Only used when deep research is explicitly requested
     };
     this.searchModes = {
       basic: 'medium',     // Medium search context for basic queries with sonar
-      standard: 'high',    // High search context for standard queries with sonar-pro
       deepResearch: 'high' // High search context for deep research with sonar-deep-research
     };
     // Maintain backward compatibility
@@ -200,6 +198,9 @@ class PerplexityService {
 
     try {
       logger.info(`Initiating deep research`, { jobId, queryLength: query.length });
+      
+      // Set the deep research flag to ensure we use the correct model
+      const options = { deepResearch: true };
 
       // Get and format the prompt
       const promptTemplate = await promptManager.getPrompt('perplexity', 'deep_research');
@@ -219,7 +220,7 @@ class PerplexityService {
             'Authorization': `Bearer ${this.apiKey}`
           },
           data: {
-            model: this.models.deepResearch,
+            model: this.determineModelForQuery(query, options),
             messages: [
               { 
                 role: 'system', 
@@ -396,14 +397,14 @@ class PerplexityService {
       return this.searchModes.basic;
     }
     
-    // For sonar-pro (standard model) 
-    if (model === this.models.standard) {
-      return this.searchModes.standard;
-    }
-    
     // For sonar-deep-research (deep research model)
     if (model === this.models.deepResearch) {
       return this.searchModes.deepResearch;
+    }
+    
+    // If it's a fallback model (sonar-pro), use high search mode
+    if (model === 'sonar-pro') {
+      return 'high';
     }
     
     // Default to medium mode if model isn't recognized
