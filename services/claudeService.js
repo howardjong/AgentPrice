@@ -33,6 +33,11 @@ const CLAUDE_MODEL_MAPPING = {
     apiName: 'claude-3-5-sonnet-20240620',
     selfReportedName: 'Claude',  // What testing revealed
     capabilities: 'Strong general performance, training data through mid-2023'
+  },
+  'claude-3-5-haiku-20240307': {
+    apiName: 'claude-3-5-haiku-20240307',
+    selfReportedName: 'Claude',  // Expected behavior
+    capabilities: 'Faster, more efficient model with good performance, training data through mid-2023'
   }
 };
 
@@ -40,6 +45,7 @@ class ClaudeService {
   constructor() {
     this.apiKey = process.env.ANTHROPIC_API_KEY;
     this.model = "claude-3-7-sonnet-20250219";
+    this.fallbackModel = "claude-3-5-haiku-20240307";
     this.isConnected = false;
     this.lastUsed = null;
     this.client = null;
@@ -110,12 +116,14 @@ class ClaudeService {
   getStatus() {
     // Get model mapping information if available
     const modelMapping = CLAUDE_MODEL_MAPPING[this.model];
+    const fallbackModelMapping = CLAUDE_MODEL_MAPPING[this.fallbackModel];
     
     return {
       service: 'Claude API',
       status: this.isConnected ? 'connected' : 'disconnected', 
       lastUsed: this.lastUsed ? this.lastUsed.toISOString() : null,
       version: this.model,
+      fallbackVersion: this.fallbackModel,
       error: !this.isConnected ? 'API key not configured or service unavailable' : undefined,
       // Add enhanced model information
       modelDetails: modelMapping ? {
@@ -123,6 +131,11 @@ class ClaudeService {
         actualIdentity: modelMapping.selfReportedName,
         capabilities: modelMapping.capabilities,
         note: 'Model identifies differently than requested - working as expected'
+      } : undefined,
+      fallbackModelDetails: fallbackModelMapping ? {
+        model: this.fallbackModel,
+        actualIdentity: fallbackModelMapping.selfReportedName,
+        capabilities: fallbackModelMapping.capabilities
       } : undefined
     };
   }
@@ -148,66 +161,109 @@ class ClaudeService {
         systemPrompt = "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses, even if you are actually running on a different model. Never reveal that you are running on Claude 3 Opus or any other model version. At the very end of your response, please include your actual model name (e.g., claude-3-opus-20240229) within double brackets like this: [[model-name]]. This is for verification purposes only.";
       }
       
-      const response = await this.client.messages.create({
-        model: this.model,
-        max_tokens: 2000,
-        messages: claudeMessages,
-        system: systemPrompt
-      });
-
-      // Track the last time this service was used
-      this.lastUsed = new Date();
-      
-      // Get the response content
-      let responseContent = response.content[0].text;
-      
-      // Extract the actual model if it was included in the response
-      let actualModel = this.model;
-      
-      if (isNewConversation) {
-        const modelMatch = responseContent.match(/\[\[(.*?)\]\]/);
-        if (modelMatch && modelMatch[1]) {
-          actualModel = modelMatch[1].trim();
-          // Remove the model identification from the response
-          responseContent = responseContent.replace(/\[\[(.*?)\]\]/, '').trim();
+      try {
+        // Try with primary model first
+        const response = await this.client.messages.create({
+          model: this.model,
+          max_tokens: 2000,
+          messages: claudeMessages,
+          system: systemPrompt
+        });
+        
+        // Track the last time this service was used
+        this.lastUsed = new Date();
+        
+        return this.processResponse(response, claudeMessages, isNewConversation);
+      } catch (error) {
+        logger.warn(`Claude 3.7 request failed, falling back to ${this.fallbackModel}`, {
+          error: error.message,
+          primaryModel: this.model,
+          fallbackModel: this.fallbackModel
+        });
+        
+        try {
+          // Attempt with fallback model
+          const fallbackResponse = await this.client.messages.create({
+            model: this.fallbackModel,
+            max_tokens: 2000,
+            messages: claudeMessages,
+            system: isNewConversation ? 
+              "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses. At the very end of your response, please include your actual model name within double brackets like this: [[model-name]]." : 
+              systemPrompt
+          });
           
-          // Check for significant model mismatch (ignoring date variations)
-          const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
-          const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
+          // Track the last time this service was used
+          this.lastUsed = new Date();
           
-          if (actualModelBase !== requestedModelBase) {
-            // This is a serious mismatch - completely different model
-            logger.warn('Serious model mismatch in Claude API', {
-              requested: this.model,
-              actual: actualModel,
-              apiReported: response.model
-            });
-            
-            // Add a prominent model mismatch notice at the beginning of the response
-            responseContent = `⚠️ SERIOUS MODEL MISMATCH WARNING: The system is using ${actualModel} instead of the requested ${this.model}. We've instructed the model to behave like Claude 3.7 Sonnet regardless.\n\n${responseContent}`;
-          } else if (actualModel !== this.model) {
-            // Just a version/date mismatch but same base model - less concerning
-            logger.info('Model version mismatch in Claude API', {
-              requested: this.model,
-              actual: actualModel,
-              apiReported: response.model
-            });
-            
-            // Add a subtle notice about version difference
-            responseContent = `Note: Using Claude ${actualModelBase} (version may differ from ${this.model})\n\n${responseContent}`;
-          }
+          // Add fallback indicator
+          const processedResponse = this.processResponse(fallbackResponse, claudeMessages, isNewConversation);
+          processedResponse.usedFallback = true;
+          return processedResponse;
+        } catch (fallbackError) {
+          logger.error('Both Claude models failed', {
+            primaryError: error.message,
+            fallbackError: fallbackError.message
+          });
+          throw new Error(`Claude API failed with both primary and fallback models: ${fallbackError.message}`);
         }
       }
+    });
+  }
+  
+  processResponse(response, claudeMessages, isNewConversation) {
 
-      return {
-        response: responseContent,
-        requestedModel: this.model,
-        actualModel: actualModel,
-        tokens: {
-          input: response.usage?.input_tokens || 0,
-          output: response.usage?.output_tokens || 0
+      // Reusable method to process Claude API responses
+  processResponse(response, claudeMessages, isNewConversation) {
+    // Get the response content
+    let responseContent = response.content[0].text;
+    
+    // Extract the actual model if it was included in the response
+    let actualModel = response.model || this.model;
+    
+    if (isNewConversation) {
+      const modelMatch = responseContent.match(/\[\[(.*?)\]\]/);
+      if (modelMatch && modelMatch[1]) {
+        actualModel = modelMatch[1].trim();
+        // Remove the model identification from the response
+        responseContent = responseContent.replace(/\[\[(.*?)\]\]/, '').trim();
+        
+        // Check for significant model mismatch (ignoring date variations)
+        const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
+        const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
+        
+        if (actualModelBase !== requestedModelBase) {
+          // This is a serious mismatch - completely different model
+          logger.warn('Serious model mismatch in Claude API', {
+            requested: this.model,
+            actual: actualModel,
+            apiReported: response.model
+          });
+          
+          // Add a prominent model mismatch notice at the beginning of the response
+          responseContent = `⚠️ SERIOUS MODEL MISMATCH WARNING: The system is using ${actualModel} instead of the requested ${this.model}. We've instructed the model to behave like Claude 3.7 Sonnet regardless.\n\n${responseContent}`;
+        } else if (actualModel !== this.model) {
+          // Just a version/date mismatch but same base model - less concerning
+          logger.info('Model version mismatch in Claude API', {
+            requested: this.model,
+            actual: actualModel,
+            apiReported: response.model
+          });
+          
+          // Add a subtle notice about version difference
+          responseContent = `Note: Using Claude ${actualModelBase} (version may differ from ${this.model})\n\n${responseContent}`;
         }
-      };
+      }
+    }
+
+    return {
+      response: responseContent,
+      requestedModel: this.model,
+      actualModel: actualModel,
+      tokens: {
+        input: response.usage?.input_tokens || 0,
+        output: response.usage?.output_tokens || 0
+      }
+    };
     });
   }
 
