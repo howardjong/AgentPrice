@@ -126,20 +126,21 @@ export class RobustAPIClient {
           } catch (error) {
             // Special handling for rate limit errors
             if (error.response?.status === 429) {
-              // Extract retry-after header or use exponential backoff
-              const retryAfter = error.response.headers['retry-after'];
-              const retryDelayMs = retryAfter ? parseInt(retryAfter) * 1000 : this.calculateRetryDelay(retries + 1);
+              // Use improved retry delay calculation that checks headers
+              const retryDelayMs = this.calculateRetryDelay(retries + 1, error.response);
               
               // Track this rate-limited endpoint to avoid immediate retries
               this.rateLimitedEndpoints.set(endpointKey, {
                 resetTime: Date.now() + retryDelayMs,
-                status: error.response.status
+                status: error.response.status,
+                retryCount: (this.rateLimitedEndpoints.get(endpointKey)?.retryCount || 0) + 1
               });
               
               if (retries >= this.maxRetries) {
                 logger.warn(`Rate limit (429) reached maximum retries for ${config.url}`, { 
                   retries, 
-                  retryDelayMs 
+                  retryDelayMs,
+                  totalEndpointRetries: this.rateLimitedEndpoints.get(endpointKey)?.retryCount || 1
                 });
                 throw error;
               }
@@ -147,7 +148,8 @@ export class RobustAPIClient {
               retries++;
               logger.info(`Rate limited (429), waiting ${retryDelayMs}ms before retry ${retries}`, {
                 url: config.url,
-                retryDelayMs
+                retryDelayMs,
+                retryAfterHeader: error.response.headers['retry-after'] || 'not provided'
               });
               
               await new Promise(resolve => setTimeout(resolve, retryDelayMs));
@@ -219,12 +221,31 @@ export class RobustAPIClient {
     return false;
   }
 
-  calculateRetryDelay(retries) {
-    // More aggressive exponential backoff for rate limits
+  calculateRetryDelay(retries, response = null) {
+    // Check for Retry-After header for more accurate retry timing
+    if (response?.headers?.['retry-after']) {
+      const retryAfter = parseInt(response.headers['retry-after'], 10);
+      if (!isNaN(retryAfter)) {
+        // Convert to milliseconds and add small jitter
+        const retryMs = retryAfter * 1000;
+        const jitter = Math.random() * 0.1 * retryMs;
+        logger.info(`Using retry-after header: ${retryAfter}s (${retryMs + jitter}ms with jitter)`);
+        return retryMs + jitter;
+      }
+    }
+    
+    // Standard exponential backoff if no header
     const baseDelay = this.retryDelay * Math.pow(2, retries - 1);
     // Add randomization to prevent thundering herd problem
     const jitter = Math.random() * 0.5 * baseDelay;
-    return Math.min(baseDelay + jitter, 300000); // Cap at 5 minutes
+    
+    // More aggressive backoff for higher retry counts
+    let delay = baseDelay + jitter;
+    if (retries > 2) {
+      delay *= 1.5; // Add 50% more time for 3+ retries
+    }
+    
+    return Math.min(delay, 300000); // Cap at 5 minutes
   }
   
   // Clean up resources when client is no longer needed

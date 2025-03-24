@@ -99,10 +99,12 @@ class PromptManager {
     }
   }
 
-  async getPrompt(engine, promptType, variant = null) {
+  async getPrompt(engine, promptType, variant = null, options = {}) {
     const cacheKey = `${engine}:${promptType}:${variant || this.getActiveVersion(engine, promptType)}`;
+    const useCache = options.useCache !== false; // Default to using cache
     
-    if (this.promptCache.has(cacheKey)) {
+    if (useCache && this.promptCache.has(cacheKey)) {
+      logger.debug(`Using cached prompt for ${cacheKey}`);
       return this.promptCache.get(cacheKey);
     }
     

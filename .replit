@@ -246,3 +246,16 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/verify-claude-haiku.js"
+
+[[workflows.workflow]]
+name = "Test Rate Limit Recovery"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/reset-circuit-breaker.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/testRateLimitRecovery.js"

@@ -71,16 +71,33 @@ export class CircuitBreaker {
 
     // Create a cancellable request with timeout
     const requestId = Date.now() + '-' + Math.random().toString(36).substring(2, 10);
-    const timeoutMs = 180000; // 3 minute timeout for long-running research requests
+    // Adjust timeout based on service - deep research needs more time
+    const timeoutMs = serviceKey.includes('deep') ? 300000 : 180000; // 5 min for deep research, 3 min for others
     
     try {
       // Track this request
       const timeout = setTimeout(() => {
         // If the request is still pending after timeout, consider it failed
         if (this.pendingPromises.has(requestId)) {
-          logger.error(`Request ${requestId} for ${serviceKey} timed out after ${timeoutMs}ms`);
+          logger.error(`Request ${requestId} for ${serviceKey} timed out after ${timeoutMs}ms`, {
+            serviceKey,
+            requestId,
+            startTime: new Date(this.pendingPromises.get(requestId).startTime).toISOString(),
+            elapsedTime: Date.now() - this.pendingPromises.get(requestId).startTime
+          });
+          
+          // Attempt to cancel the request if possible
+          const pendingRequest = this.pendingPromises.get(requestId);
+          if (pendingRequest.cancel && typeof pendingRequest.cancel === 'function') {
+            try {
+              pendingRequest.cancel('Request timed out');
+              logger.info(`Cancelled request ${requestId} for ${serviceKey}`);
+            } catch (cancelError) {
+              logger.warn(`Failed to cancel request ${requestId}`, { error: cancelError.message });
+            }
+          }
+          
           this.pendingPromises.delete(requestId);
-          // Don't increment circuit breaker failures for timeouts
         }
       }, timeoutMs);
       
@@ -202,20 +219,51 @@ export class CircuitBreaker {
   }
   
   logCircuitStatus() {
+    const now = Date.now();
+    let totalCircuitsOpen = 0;
+    let totalRateLimitedServices = 0;
+    
     for (const [serviceKey, state] of Object.entries(this.state)) {
-      logger.debug(`Circuit status for ${serviceKey}`, {
+      if (state.status === 'OPEN') totalCircuitsOpen++;
+      if (state.rateLimited) totalRateLimitedServices++;
+      
+      // Calculate time since last activity
+      const timeSinceSuccess = state.lastSuccess ? Math.round((now - state.lastSuccess) / 1000) : null;
+      const timeSinceFailure = state.lastFailure ? Math.round((now - state.lastFailure) / 1000) : null;
+      
+      // Only log when there's activity or issues
+      const shouldDetailLog = state.status !== 'CLOSED' || 
+                            state.rateLimited || 
+                            state.consecutiveRateLimits > 0 ||
+                            state.failures > 0;
+      
+      const logMethod = shouldDetailLog ? 'info' : 'debug';
+      
+      logger[logMethod](`Circuit status for ${serviceKey}`, {
         status: state.status,
         failures: state.failures,
         successCount: state.successCount,
         failureCount: state.failureCount,
+        successRate: state.successCount > 0 ? Math.round((state.successCount / (state.successCount + state.failureCount)) * 100) + '%' : '0%',
         rateLimited: state.rateLimited || false,
         consecutiveRateLimits: state.consecutiveRateLimits || 0,
         rateLimitResetTime: state.rateLimitResetTime ? new Date(state.rateLimitResetTime).toISOString() : null,
+        rateLimitResetIn: state.rateLimitResetTime ? Math.round((state.rateLimitResetTime - now) / 1000) + 's' : null,
         lastSuccess: state.lastSuccess ? new Date(state.lastSuccess).toISOString() : null,
+        timeSinceSuccess: timeSinceSuccess !== null ? timeSinceSuccess + 's' : 'never',
         lastFailure: state.lastFailure ? new Date(state.lastFailure).toISOString() : null,
-        pendingRequests: this.pendingPromises.size
+        timeSinceFailure: timeSinceFailure !== null ? timeSinceFailure + 's' : 'never',
+        pendingRequests: [...this.pendingPromises.values()].filter(req => req.serviceKey === serviceKey).length
       });
     }
+    
+    // Log summary of all circuits
+    logger.info('Circuit breaker summary', {
+      totalCircuits: Object.keys(this.state).length,
+      openCircuits: totalCircuitsOpen,
+      rateLimitedServices: totalRateLimitedServices,
+      pendingRequests: this.pendingPromises.size
+    });
   }
   
   reset(serviceKey) {
