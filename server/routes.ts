@@ -257,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <head>
               <title>Van Westendorp Visualization - Processing</title>
               <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-              <meta http-equiv="refresh" content="5;url=/api/test-visualization/van-westendrop">
+              <meta http-equiv="refresh" content="5;url=/api/test-visualization/van-westendorp">
               <style>
                 body { 
                   font-family: Arial, sans-serif; 
