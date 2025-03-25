@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import claudeService from './claudeService.js';
 import perplexityService from './perplexityService.js';
@@ -25,32 +24,32 @@ function registerJobProcessors() {
   // Register deep research processor
   jobManager.registerProcessor('research-jobs', async (job) => {
     const { query, options = {} } = job.data;
-    
+
     try {
       job.progress(10);
       logger.info(`Starting deep research for job ${job.id}`, { jobId: job.id });
-      
+
       // Step 1: Generate clarifying questions if enabled
       let clarifyingQuestions = [];
       if (options.generateClarifyingQuestions !== false) {
         clarifyingQuestions = await claudeService.generateClarifyingQuestions(query);
         job.progress(20);
       }
-      
+
       // Step 2: Perform deep research using Perplexity
       logger.info(`Performing deep research for job ${job.id}`, { jobId: job.id });
       job.progress(30);
       const researchResults = await perplexityService.performDeepResearch(query, job.id);
       job.progress(70);
-      
+
       // Step 3: Generate any requested chart data
       const charts = {};
       if (options.generateCharts && Array.isArray(options.generateCharts) && options.generateCharts.length > 0) {
         logger.info(`Generating ${options.generateCharts.length} charts for job ${job.id}`, { jobId: job.id });
-        
+
         let chartProgress = 70;
         const progressPerChart = 20 / options.generateCharts.length;
-        
+
         // Process each requested chart type
         for (const chartType of options.generateCharts) {
           try {
@@ -67,12 +66,12 @@ function registerJobProcessors() {
             });
             charts[chartType] = { error: chartError.message };
           }
-          
+
           chartProgress += progressPerChart;
           job.progress(Math.min(90, chartProgress));
         }
       }
-      
+
       // Format and return the final results
       const result = {
         query,
@@ -82,7 +81,7 @@ function registerJobProcessors() {
         charts,
         timestamp: new Date().toISOString()
       };
-      
+
       job.progress(100);
       return result;
     } catch (error) {
@@ -101,9 +100,9 @@ async function initiateResearch(query, options = {}) {
     // Generate a unique job ID and session ID
     const jobId = uuidv4();
     const sessionId = options.sessionId || `session_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
-    
+
     logger.info('Initiating research', { query, jobId, sessionId });
-    
+
     // Store initial context
     await contextManager.storeContext(sessionId, {
       originalQuery: query,
@@ -112,14 +111,14 @@ async function initiateResearch(query, options = {}) {
       history: [],
       createdAt: new Date().toISOString()
     });
-    
+
     // Queue the research job
     await jobManager.enqueueJob('research-jobs', {
       query,
       options,
       sessionId
     });
-    
+
     return { jobId, sessionId, status: 'PENDING' };
   } catch (error) {
     logger.error('Error initiating research', { query, error: error.message });
@@ -141,11 +140,11 @@ async function answerWithContext(sessionId, query, answers = {}) {
   try {
     // Get the context for this session
     const context = await contextManager.getContext(sessionId);
-    
+
     if (!context) {
       throw new Error('Research session not found');
     }
-    
+
     // Get job results if they exist
     let jobResults = null;
     if (context.jobId) {
@@ -154,31 +153,31 @@ async function answerWithContext(sessionId, query, answers = {}) {
         jobResults = job.returnvalue;
       }
     }
-    
+
     if (!jobResults) {
       throw new Error('Research results not found or research not complete');
     }
-    
+
     // Prepare context from research results and additional answers
     const promptContext = prepareContext(jobResults, answers);
-    
+
     // Generate tailored response using Claude
     const response = await claudeService.generateResponse(query, promptContext);
-    
+
     // Update session context with this interaction
     await contextManager.updateContext(sessionId, (ctx) => {
       if (!ctx.history) ctx.history = [];
-      
+
       ctx.history.push({
         query,
         answer: response,
         answers,
         timestamp: new Date().toISOString()
       });
-      
+
       return ctx;
     });
-    
+
     return {
       query,
       response,
@@ -197,16 +196,16 @@ async function answerWithContext(sessionId, query, answers = {}) {
 // Helper functions
 function prepareContext(results, answers) {
   let context = results.content;
-  
+
   // Add user answers to context
   if (Object.keys(answers).length > 0) {
     context += '\n\nAdditional context provided by the user:\n';
-    
+
     for (const [question, answer] of Object.entries(answers)) {
       context += `Question: ${question}\nAnswer: ${answer}\n\n`;
     }
   }
-  
+
   return context;
 }
 

@@ -49,7 +49,7 @@ class PerplexityService {
         logger.warn('Perplexity API key not found, service will be unavailable');
         return;
       }
-      
+
       logger.info('Initializing Perplexity service with default model');
       this.isConnected = true;
       logger.info('Perplexity service initialized successfully', { model: this.models.basic });
@@ -109,7 +109,7 @@ class PerplexityService {
       // Enhanced request options
       // Determine which model to use based on query complexity
       const selectedModel = this.determineModelForQuery(userQuery, options);
-      
+
       const requestOptions = {
         method: 'POST',
         url: 'https://api.perplexity.ai/chat/completions',
@@ -149,10 +149,10 @@ class PerplexityService {
         if (error.response?.status === 429 || error.response?.status === 503) {
           const currentModel = requestOptions.data.model;
           const fallbacks = this.fallbackConfig[currentModel] || [];
-          
+
           // Log that we're falling back due to rate limiting
           logger.warn(`Rate limit or service unavailable (${error.response.status}) encountered for ${currentModel}. Attempting fallbacks.`);
-          
+
           for (const fallbackModel of fallbacks) {
             logger.info(`Attempting fallback to model ${fallbackModel}`, { originalModel: currentModel });
             requestOptions.data.model = fallbackModel;
@@ -166,7 +166,7 @@ class PerplexityService {
               });
             }
           }
-          
+
           if (!response) {
             throw error; // If all fallbacks failed, throw original error
           }
@@ -174,7 +174,7 @@ class PerplexityService {
           throw error;
         }
       }
-      
+
       this.lastUsed = new Date();
 
       // Log detailed information about the response
@@ -224,173 +224,182 @@ class PerplexityService {
    * @param {string} jobId - Unique job identifier
    * @returns {Promise<Object>} Research results with sources
    */
-  async performDeepResearch(query, jobId) {
-    if (!this.isConnected) {
-      throw new Error('Perplexity service is not connected');
+  async performDeepResearch(query, options = {}) {
+    const { context = '', maxCitations = 15, sessionId = 'default', circuitBreaker = true } = options;
+
+    if (!query || typeof query !== 'string') {
+      throw new Error('Query must be a non-empty string');
     }
 
-    try {
-      logger.info(`Initiating deep research`, { jobId, queryLength: query.length });
-      
-      // Set the deep research flag to ensure we use the correct model
-      const options = { deepResearch: true };
+    // Import the rate limiter
+    const perplexityRateLimiter = (await import('../utils/rateLimiter.js')).default;
 
-      // Get and format the prompt
-      const promptTemplate = await promptManager.getPrompt('perplexity', 'deep_research');
-      let formattedQuery = promptManager.formatPrompt(promptTemplate, { query });
+    // Use the main circuit breaker by default, or allow passing a custom one
+    const breaker = circuitBreaker === true ? this.circuitBreaker : circuitBreaker;
 
-      // Add an explicit instruction for current information
-      formattedQuery += `\n\nMake sure to include only the most current information available as of today, March 24, 2025. This research must be based on the latest available data.`;
+    // Log the status of the rate limiter
+    const rateLimiterStatus = perplexityRateLimiter.getStatus();
+    logger.info(`Perplexity rate limiter status before request`, {
+      service: 'multi-llm-research',
+      activeRequests: rateLimiterStatus.activeRequests,
+      queuedRequests: rateLimiterStatus.queuedRequests,
+      isRateLimited: rateLimiterStatus.isRateLimited,
+      nextAvailableSlot: rateLimiterStatus.nextAvailableSlot
+    });
 
-      // Use circuit breaker pattern for the API call
-      return await this.circuitBreaker.executeRequest('perplexity-deep', async () => {
-        // Enhanced request settings for better search capabilities
-        const requestOptions = {
-          method: 'POST',
-          url: 'https://api.perplexity.ai/chat/completions',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`
-          },
-          data: {
-            model: this.determineModelForQuery(query, options),
-            messages: [
-              { 
-                role: 'system', 
-                content: 'You are a research assistant with real-time internet access. Always search for and use the most recent information available. Your research should be comprehensive, up-to-date, and well-sourced with citations.'
-              },
-              { 
-                role: 'user', 
-                content: formattedQuery 
-              }
-            ],
-            temperature: 0.1, // Lower temperature for more factual responses
-            max_tokens: 1500, // Allow for longer, more detailed responses
-            top_p: 0.95,
-            top_k: 15,
-            search_recency_filter: "day", // Most recent information
-            search_domain_filter: [], // No domain restrictions
-            return_citations: true,
-            frequency_penalty: 0.5, // Keeping only frequency_penalty, removing presence_penalty
-            stream: false, // We want the complete response at once
-            search_context_mode: "high" // High search context mode for more comprehensive search
-          }
-        };
-
-        // We now use the model determination method with deepResearch flag
-        // This ensures consistent logging and proper model selection
-        logger.info('Deep research request configuration', {
-          jobId,
-          requestedModel: requestOptions.data.model,
-          actualModel: requestOptions.data.model,
-          recencyFilter: requestOptions.data.search_recency_filter
+    // Schedule the request through the rate limiter
+    return perplexityRateLimiter.schedule(async () => {
+      try {
+        logger.info(`Starting deep research with Perplexity for query: "${query.substring(0, 50)}${query.length > 50 ? '...' : ''}"`, {
+          service: 'multi-llm-research',
+          modelRequested: 'sonar-deep-research'
         });
 
-        let response;
-        try {
-          response = await this.apiClient.request(requestOptions);
-        } catch (error) {
-          if (error.response?.status === 429 || error.response?.status === 503) {
-            const currentModel = requestOptions.data.model;
-            const fallbacks = this.fallbackConfig[currentModel] || [];
+        const promptTemplate = await this.promptManager.getPrompt('perplexity/deep-research');
+        const formattedPrompt = this.promptManager.formatPrompt(promptTemplate, { query, context });
 
-            for (const fallbackModel of fallbacks) {
-              logger.info(`Attempting fallback to model ${fallbackModel}`, { jobId, originalModel: currentModel });
-              requestOptions.data.model = fallbackModel;
-              try {
-                response = await this.apiClient.request(requestOptions);
-                logger.info(`Successfully fell back to ${fallbackModel}`, { jobId });
-                break;
-              } catch (fallbackError) {
-                logger.error(`Fallback to ${fallbackModel} failed`, { 
-                  jobId,
-                  error: fallbackError.message 
-                });
-              }
+        // Use circuit breaker pattern for the API call
+        return await breaker.executeRequest('perplexity-deep', async () => {
+          // Enhanced request settings for better search capabilities
+          const requestOptions = {
+            method: 'POST',
+            url: 'https://api.perplexity.ai/chat/completions',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${this.apiKey}`
+            },
+            data: {
+              model: this.models.deepResearch,
+              messages: [
+                { 
+                  role: 'system', 
+                  content: 'You are a research assistant with real-time internet access. Always search for and use the most recent information available. Your research should be comprehensive, up-to-date, and well-sourced with citations.'
+                },
+                { 
+                  role: 'user', 
+                  content: formattedPrompt
+                }
+              ],
+              temperature: 0.1, // Lower temperature for more factual responses
+              max_tokens: 1500, // Allow for longer, more detailed responses
+              top_p: 0.95,
+              top_k: 15,
+              search_recency_filter: "day", // Most recent information
+              search_domain_filter: [], // No domain restrictions
+              return_citations: true,
+              frequency_penalty: 0.5, // Keeping only frequency_penalty, removing presence_penalty
+              stream: false, // We want the complete response at once
+              search_context_mode: "high" // High search context mode for more comprehensive search
             }
+          };
 
-            if (!response) {
-              throw error; // If all fallbacks failed, throw original error
-            }
-          } else {
-            throw error;
-          }
-        }
-
-        const duration = Date.now() - response.config.timestamp;
-
-        const actualModel = response.data.model || requestOptions.data.model;
-        logger.info('Perplexity API response received', {
-          duration: `${duration}ms`,
-          citationsCount: (response.data.citations || []).length,
-          jobId,
-          requestedModel: requestOptions.data.model,
-          actualModel: actualModel,
-          modelMatch: actualModel === requestOptions.data.model ? 'match' : 'mismatch'
-        });
-
-        if (!response.data?.choices?.[0]?.message) {
-          throw new Error('Invalid response format from Perplexity API');
-        }
-
-        const responseData = response.data.choices[0].message;
-
-        // Log full citations for debugging
-        if (response.data.citations && response.data.citations.length > 0) {
-          logger.info('Citations from deep research', {
-            jobId,
-            citations: response.data.citations.slice(0, 5) // Log first 5 citations
-          });
-        } else {
-          logger.warn('No citations returned from deep research', { jobId });
-        }
-
-        logger.info('Deep research completed successfully', {
-          jobId,
-          contentLength: responseData.content.length
-        });
-
-        // Add explicit model information to the beginning of the deep research response
-        // Use the actual model from the response payload rather than the requested model
-        const responseModel = response.data.model || requestOptions.data.model;
-
-        // Verify model matches what we requested (could be deepResearch or fallback)
-        if (responseModel !== requestOptions.data.model) {
-          logger.warn('Model mismatch in deep research', {
+          logger.info('Deep research request configuration', {
+            sessionId,
             requestedModel: requestOptions.data.model,
-            actualModel: responseModel,
-            jobId
+            actualModel: requestOptions.data.model,
+            recencyFilter: requestOptions.data.search_recency_filter
           });
-        }
 
-        const modelInfo = `[Using Perplexity AI - Model: ${responseModel}]\n\n`;
-        const enhancedContent = modelInfo + responseData.content;
+          let response;
+          try {
+            response = await this.apiClient.request(requestOptions);
+          } catch (error) {
+            if (error.response?.status === 429 || error.response?.status === 503) {
+              const currentModel = requestOptions.data.model;
+              const fallbacks = this.fallbackConfig[currentModel] || [];
 
-        return {
-          query: formattedQuery,
-          timestamp: new Date().toISOString(),
-          content: enhancedContent,
-          sources: response.data.citations || [],
-          modelUsed: responseModel,
-          requestedModel: options.deepResearch ? this.models.deepResearch : this.models.basic,
-          usage: response.data.usage || { total_tokens: 0 }
-        };
-      });
-    } catch (error) {
-      logger.error('Error performing deep research', {
-        jobId,
-        error: error.message
-      });
+              for (const fallbackModel of fallbacks) {
+                logger.info(`Attempting fallback to model ${fallbackModel}`, { sessionId, originalModel: currentModel });
+                requestOptions.data.model = fallbackModel;
+                try {
+                  response = await this.apiClient.request(requestOptions);
+                  logger.info(`Successfully fell back to ${fallbackModel}`, { sessionId });
+                  break;
+                } catch (fallbackError) {
+                  logger.error(`Fallback to ${fallbackModel} failed`, { 
+                    sessionId,
+                    error: fallbackError.message 
+                  });
+                }
+              }
 
-      if (error.response?.data) {
-        logger.error('Perplexity API error details', {
-          jobId,
-          status: error.response.status,
-          data: error.response.data
+              if (!response) {
+                throw error; // If all fallbacks failed, throw original error
+              }
+            } else {
+              throw error;
+            }
+          }
+
+          const duration = Date.now() - response.config.timestamp;
+
+          const actualModel = response.data.model || requestOptions.data.model;
+          logger.info('Perplexity API response received', {
+            duration: `${duration}ms`,
+            citationsCount: (response.data.citations || []).length,
+            sessionId,
+            requestedModel: requestOptions.data.model,
+            actualModel: actualModel,
+            modelMatch: actualModel === requestOptions.data.model ? 'match' : 'mismatch'
+          });
+
+          if (!response.data?.choices?.[0]?.message) {
+            throw new Error('Invalid response format from Perplexity API');
+          }
+
+          const responseData = response.data.choices[0].message;
+          const extractedCitations = response.data.citations || [];
+          const processedResponse = responseData.content;
+
+          // Log full citations for debugging
+          if (response.data.citations && response.data.citations.length > 0) {
+            logger.info('Citations from deep research', {
+              sessionId,
+              citations: response.data.citations.slice(0, 5) // Log first 5 citations
+            });
+          } else {
+            logger.warn('No citations returned from deep research', { sessionId });
+          }
+
+          logger.info('Deep research completed successfully', {
+            sessionId,
+            contentLength: processedResponse.length
+          });
+
+          // Add explicit model information to the beginning of the deep research response
+          // Use the actual model from the response payload rather than the requested model
+          const responseModel = response.data.model || requestOptions.data.model;
+
+          // Verify model matches what we requested (could be deepResearch or fallback)
+          if (responseModel !== requestOptions.data.model) {
+            logger.warn('Model mismatch in deep research', {
+              requestedModel: requestOptions.data.model,
+              actualModel: responseModel,
+              sessionId
+            });
+          }
+
+          const modelInfo = `[Using Perplexity AI - Model: ${responseModel}]\n\n`;
+          const enhancedContent = modelInfo + processedResponse;
+
+          return {
+            query,
+            timestamp: new Date().toISOString(),
+            content: enhancedContent,
+            sources: extractedCitations,
+            modelUsed: responseModel,
+            requestedModel: this.models.deepResearch,
+            usage: response.data.usage || { total_tokens: 0 }
+          };
         });
+      } catch (error) {
+        logger.error('Error performing deep research', {
+          service: 'multi-llm-research',
+          error: error.message
+        });
+        throw error;
       }
-      throw error;
-    }
+    });
   }
 
   /**
@@ -405,7 +414,7 @@ class PerplexityService {
       logger.info(`Using explicitly requested model: ${options.model}`);
       return options.model;
     }
-    
+
     // If deep research is specifically requested, use the deep research model
     if (options.deepResearch === true) {
       logger.info('Using deep research model (sonar-deep-research) - explicitly requested', {
@@ -413,7 +422,7 @@ class PerplexityService {
       });
       return this.models.deepResearch;
     }
-    
+
     // Always default to the basic model (sonar) unless explicitly requested otherwise
     logger.info('Using default basic model (sonar)', {
       queryLength: query.length
@@ -431,17 +440,17 @@ class PerplexityService {
     if (model === this.models.basic) {
       return this.searchModes.basic;
     }
-    
+
     // For sonar-deep-research (deep research model)
     if (model === this.models.deepResearch) {
       return this.searchModes.deepResearch;
     }
-    
+
     // If it's a fallback model (sonar-pro), use high search mode
     if (model === 'sonar-pro') {
       return 'high';
     }
-    
+
     // Default to medium mode if model isn't recognized
     return 'medium';
   }

@@ -259,3 +259,12 @@ args = "node tests/reset-circuit-breaker.js"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/testRateLimitRecovery.js"
+
+[[workflows.workflow]]
+name = "Test Rate Limiter"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/testRateLimiter.js"
