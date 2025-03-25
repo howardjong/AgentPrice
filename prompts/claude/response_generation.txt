@@ -1,0 +1,9 @@
+Please provide a comprehensive response to the user's query. Use the following guidelines:
+
+1. Be accurate and factual
+2. Provide relevant examples when helpful
+3. Structure your response clearly with sections and bullet points as appropriate
+4. Identify any limitations or uncertainties in your response
+
+Query: {{query}}
+{{#if context}}Additional context: {{context}}{{/if}}

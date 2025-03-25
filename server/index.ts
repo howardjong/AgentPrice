@@ -20,6 +20,7 @@ import requestTracer from '../middlewares/requestTracer.js';
 import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
 import redisClient from '../services/redisService.js';
 import { checkApiKeys } from '../config/env.js';
+import promptManager from '../services/promptManager.js';
 
 // Force use of in-memory store for Redis operations and job queue
 process.env.REDIS_MODE = 'memory';
@@ -60,8 +61,13 @@ async function initializeServices() {
     logger.info('Initializing Redis client');
     await redisClient.connect();
     logger.info('Redis client initialized successfully');
+
+    // Initialize prompt manager
+    logger.info('Initializing prompt manager');
+    await promptManager.initialize();
+    logger.info('Prompt manager initialized successfully');
   } catch (error: any) {
-    logger.error('Error initializing Redis client', { error: error.message });
+    logger.error('Error initializing services', { error: error.message });
   }
 }
 

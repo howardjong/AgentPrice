@@ -1,0 +1,5 @@
+Based on this research query, please generate 5 clarifying questions that would help better understand the user's specific information needs:
+
+Research query: {{query}}
+
+Generate questions that would help narrow down exactly what information would be most helpful to the user. The questions should be concise, non-redundant, and directly relevant to improving the research outcome.

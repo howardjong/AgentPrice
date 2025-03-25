@@ -454,20 +454,34 @@ Generate questions that would help narrow down exactly what information would be
     }
 
     try {
-      const prompt = `
-        Generate a ${type} visualization using the following data:
-        ${JSON.stringify(data, null, 2)}
-        ${title ? `The title should be: ${title}` : ''}
-        ${description ? `Additional context: ${description}` : ''}
+      // Try to get the visualization prompt from promptManager
+      let prompt;
+      try {
+        const promptTemplate = await this.promptManager.getPrompt('claude', 'visualization');
+        prompt = this.promptManager.formatPrompt(promptTemplate, { 
+          type, 
+          data: JSON.stringify(data, null, 2),
+          title: title || '',
+          description: description || ''
+        });
+      } catch (error) {
+        logger.warn(`Failed to get visualization prompt, using default: ${error.message}`);
+        // Fallback to default prompt
+        prompt = `
+          Generate a ${type} visualization using the following data:
+          ${JSON.stringify(data, null, 2)}
+          ${title ? `The title should be: ${title}` : ''}
+          ${description ? `Additional context: ${description}` : ''}
 
-        Please provide a visualization in SVG format that best represents this data.
-        The SVG should be complete and valid, with appropriate dimensions, styling, and responsive design.
-        Include clear labels, a legend if appropriate, and ensure all data points are accurately represented.
+          Please provide a visualization in SVG format that best represents this data.
+          The SVG should be complete and valid, with appropriate dimensions, styling, and responsive design.
+          Include clear labels, a legend if appropriate, and ensure all data points are accurately represented.
 
-        Return ONLY the SVG code without any additional explanation.
+          Return ONLY the SVG code without any additional explanation.
 
-        At the very end of your SVG, please include your model name as a comment like this: <!-- model: your-model-name -->
-      `;
+          At the very end of your SVG, please include your model name as a comment like this: <!-- model: your-model-name -->
+        `;
+      }
 
       const response = await this.client.messages.create({
         model: this.model,

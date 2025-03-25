@@ -1,0 +1,24 @@
+Generate a Van Westendorp Price Sensitivity visualization using the following data:
+{{data}}
+{{#if title}}The title should be: {{title}}{{/if}}
+{{#if description}}Additional context: {{description}}{{/if}}
+
+The Van Westendorp Price Sensitivity Meter should show:
+1. Too Expensive (Red Line)
+2. Expensive but Reasonable (Orange Line)
+3. Good Value (Green Line)
+4. Too Cheap (Blue Line)
+
+Your visualization should identify key price points:
+- Optimal Price Point (OPP): Intersection of "Too Cheap" and "Too Expensive"
+- Point of Marginal Cheapness (PMC): Intersection of "Too Cheap" and "Expensive but Reasonable"
+- Point of Marginal Expensiveness (PME): Intersection of "Too Expensive" and "Good Value"
+- Range of Acceptable Prices: The range between PMC and PME
+
+Please provide a visualization in SVG format that best represents this data.
+The SVG should be complete and valid, with appropriate dimensions, styling, and responsive design.
+Include clear labels, a legend, and ensure all data points are accurately represented.
+
+Return ONLY the SVG code without any additional explanation.
+
+At the very end of your SVG, please include your model name as a comment like this: <!-- model: your-model-name -->
