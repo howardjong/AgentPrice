@@ -19,7 +19,7 @@ localPort = 6379
 externalPort = 3000
 
 [workflows]
-runButton = "Verify Claude Model Details"
+runButton = "Test Single Query with Claude 3.7"
 
 [[workflows.workflow]]
 name = "Project"
@@ -317,3 +317,16 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/check-claude-model-details.js"
+
+[[workflows.workflow]]
+name = "Test Single Query with Claude 3.7"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/reset-circuit-breaker.js claude"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-plotly-integration.js"

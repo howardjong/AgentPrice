@@ -20,17 +20,26 @@
         ],
         "marker": {
           "color": [
-            "#4e79a7",
-            "#f28e2c",
-            "#e15759",
-            "#76b7b2",
-            "#59a14f"
+            "#1f77b4",
+            "#ff7f0e",
+            "#2ca02c",
+            "#d62728",
+            "#9467bd"
           ],
           "line": {
-            "width": 1,
+            "width": 1.5,
             "color": "#ffffff"
           }
         },
+        "text": [
+          23,
+          45,
+          32,
+          15,
+          37
+        ],
+        "textposition": "auto",
+        "hoverinfo": "x+y",
         "hovertemplate": "<b>%{x}</b><br>Value: %{y}<extra></extra>"
       }
     ],
@@ -52,10 +61,7 @@
           }
         },
         "tickangle": -45,
-        "tickfont": {
-          "size": 14,
-          "color": "#333333"
-        },
+        "gridwidth": 1,
         "gridcolor": "#eeeeee"
       },
       "yaxis": {
@@ -66,15 +72,37 @@
             "color": "#333333"
           }
         },
-        "tickfont": {
-          "size": 14,
-          "color": "#333333"
-        },
+        "gridwidth": 1,
         "gridcolor": "#eeeeee",
         "zeroline": true,
-        "zerolinecolor": "#cccccc",
-        "zerolinewidth": 1
+        "zerolinewidth": 2,
+        "zerolinecolor": "#969696"
       },
+      "hoverlabel": {
+        "bgcolor": "#ffffff",
+        "bordercolor": "#333333",
+        "font": {
+          "family": "Arial, sans-serif",
+          "size": 14,
+          "color": "#333333"
+        }
+      },
+      "margin": {
+        "l": 60,
+        "r": 30,
+        "t": 80,
+        "b": 80
+      },
+      "bargap": 0.3,
+      "colorway": [
+        "#1f77b4",
+        "#ff7f0e",
+        "#2ca02c",
+        "#d62728",
+        "#9467bd"
+      ],
+      "paper_bgcolor": "#ffffff",
+      "plot_bgcolor": "#ffffff",
       "annotations": [
         {
           "x": "Category B",
@@ -83,7 +111,8 @@
           "showarrow": true,
           "arrowhead": 2,
           "arrowsize": 1,
-          "arrowcolor": "#333333",
+          "arrowwidth": 1,
+          "arrowcolor": "#636363",
           "ax": 0,
           "ay": -30
         },
@@ -94,30 +123,12 @@
           "showarrow": true,
           "arrowhead": 2,
           "arrowsize": 1,
-          "arrowcolor": "#333333",
+          "arrowwidth": 1,
+          "arrowcolor": "#636363",
           "ax": 0,
           "ay": -30
         }
-      ],
-      "margin": {
-        "l": 60,
-        "r": 30,
-        "t": 80,
-        "b": 80
-      },
-      "paper_bgcolor": "#ffffff",
-      "plot_bgcolor": "#ffffff",
-      "colorway": [
-        "#4e79a7",
-        "#f28e2c",
-        "#e15759",
-        "#76b7b2",
-        "#59a14f"
-      ],
-      "width": 800,
-      "height": 500,
-      "bargap": 0.2,
-      "hovermode": "closest"
+      ]
     },
     "config": {
       "responsive": true,
@@ -130,21 +141,21 @@
       "toImageButtonOptions": {
         "format": "png",
         "filename": "category_performance",
-        "height": 500,
-        "width": 800,
+        "height": 800,
+        "width": 1200,
         "scale": 2
       }
     }
   },
   "insights": [
-    "Category B has the highest value (45), which is 3 times higher than the lowest value in Category D (15).",
-    "Categories B and E together account for nearly half (82/152 = 54%) of the total value across all categories.",
-    "There is significant variation across categories, with values ranging from 15 to 45, indicating uneven performance."
+    "Category B has the highest value (45), significantly outperforming all other categories by at least 8 points.",
+    "Category D shows the lowest performance with only 15, which is less than half of the average value across all categories.",
+    "The second and third highest performers (Categories E and C) are relatively close in value (37 and 32 respectively), suggesting a tier of mid-range performers."
   ],
   "recommendations": [
-    "Investigate the factors contributing to Category B's success to potentially replicate them in lower-performing categories, especially Category D.",
-    "Consider allocating additional resources to improve Category D's performance, as it significantly lags behind other categories.",
-    "Develop balanced improvement strategies for Categories A and C, which show moderate performance and have potential for growth."
+    "Investigate the factors contributing to Category B's superior performance to potentially replicate its success in other categories.",
+    "Develop an intervention strategy for Category D to address its underperformance, as it lags significantly behind other categories.",
+    "Consider grouping Categories C and E for strategic initiatives as they represent a middle performance tier with similar values."
   ],
   "pricePoints": null,
   "optimalCombination": null,
