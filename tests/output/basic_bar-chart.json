@@ -1,49 +1,89 @@
 {
-  "chart_type": "basic_bar",
-  "title": "SaaS Pricing Models in Project Management Tools",
-  "subtitle": "Average Monthly Pricing ($/user) for Mid-Tier Plans",
-  "x_axis": {
-    "label": "Product",
-    "categories": [
-      "Jira",
-      "Asana",
-      "ClickUp",
-      "Trello",
-      "Bolt",
-      "Odoo"
-    ]
-  },
-  "y_axis": {
-    "label": "Price ($/user/month)",
-    "min": 0,
-    "max": 30
+  "chart": {
+    "type": "bar",
+    "title": "SaaS Pricing Comparison - Project Management Tools",
+    "subtitle": "Price per user per month (billed annually)",
+    "yAxisLabel": "Price ($)",
+    "xAxisLabel": "Platforms"
   },
   "data": [
     {
-      "name": "Monthly Price",
-      "values": [
-        17,
-        24.99,
-        12,
-        10,
-        16,
-        28
+      "platform": "Asana",
+      "tiers": [
+        {
+          "name": "Entry Tier",
+          "price": 10.99
+        },
+        {
+          "name": "Mid-Tier",
+          "price": 24.99
+        },
+        {
+          "name": "Enterprise",
+          "price": null
+        }
+      ]
+    },
+    {
+      "platform": "Jira",
+      "tiers": [
+        {
+          "name": "Entry Tier",
+          "price": 7.29
+        },
+        {
+          "name": "Mid-Tier",
+          "price": 14.17
+        },
+        {
+          "name": "Enterprise",
+          "price": null
+        }
+      ]
+    },
+    {
+      "platform": "Monday.com",
+      "tiers": [
+        {
+          "name": "Entry Tier",
+          "price": 9
+        },
+        {
+          "name": "Mid-Tier",
+          "price": 19
+        },
+        {
+          "name": "Enterprise",
+          "price": null
+        }
+      ]
+    },
+    {
+      "platform": "Bolt",
+      "tiers": [
+        {
+          "name": "Entry Tier",
+          "price": 10
+        },
+        {
+          "name": "Mid-Tier",
+          "price": 16
+        },
+        {
+          "name": "Enterprise",
+          "price": null
+        }
       ]
     }
   ],
-  "annotations": [
-    {
-      "type": "text",
-      "content": "Enterprise tiers typically use custom pricing",
-      "position": {
-        "x": 3,
-        "y": 25
-      }
-    }
+  "notes": [
+    "Enterprise pricing is typically custom/negotiated",
+    "All prices shown are per user per month with annual billing",
+    "Free tiers not included in this comparison"
   ],
-  "colors": [
-    "#4e79a7"
-  ],
-  "legend": true,
-  "data_labels": true
+  "dataSource": "Research compiled from multiple sources including vendor websites",
+  "_modelInfo": {
+    "requested": "claude-3-7-sonnet-20250219",
+    "actual": "claude-3-opus-20240229"
+  }
 }

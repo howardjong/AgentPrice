@@ -1,6 +1,28 @@
 {
-  "error": "No valid chart data found in response",
-  "modelMismatch": false,
-  "requestedModel": "claude-3-7-sonnet-20250219",
-  "actualModel": "claude-3-7-sonnet-20250219"
+  "attributes": [
+    {
+      "name": "Price",
+      "levels": [
+        "$9.99/month",
+        "$19.99/month",
+        "$29.99/month"
+      ]
+    },
+    {
+      "name": "Features",
+      "levels": [
+        "Basic",
+        "Advanced",
+        "Premium"
+      ]
+    },
+    {
+      "name": "Support",
+      "levels": [
+        "Email only",
+        "Email + Chat",
+        "24/7 Priority"
+      ]
+    }
+  ]
 }
