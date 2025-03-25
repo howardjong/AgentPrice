@@ -245,7 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test Visualization endpoints
   
   // Van Westendorp visualization endpoint
-  app.get('/api/test-visualization/van-westendrop', async (req: Request, res: Response) => {
+  app.get('/api/test-visualization/van-westendorp', async (req: Request, res: Response) => {
     let hasResponded = false;
     
     // Add a timeout handler
