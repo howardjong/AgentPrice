@@ -610,120 +610,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }, 2000); // Show loading page after 2 seconds
 
     try {
-      // Create a basic SVG for conjoint analysis without using Claude API
-      // This avoids hitting the rate limit
-      const svg = `
-        <svg width="600" height="550" viewBox="0 0 600 550" xmlns="http://www.w3.org/2000/svg">
-          <style>
-            .title { font-family: Arial; font-size: 18px; font-weight: bold; text-anchor: middle; }
-            .subtitle { font-family: Arial; font-size: 14px; fill: #666; text-anchor: middle; }
-            .axis { font-family: Arial; font-size: 12px; fill: #333; }
-            .bar { fill-opacity: 0.8; }
-            .bar-price { fill: #3498db; }
-            .bar-storage { fill: #2ecc71; }
-            .bar-battery { fill: #f39c12; }
-            .bar-camera { fill: #9b59b6; }
-            .bar-label { font-family: Arial; font-size: 11px; fill: white; text-anchor: middle; }
-            .legend-item { font-family: Arial; font-size: 12px; }
-            .importance-label { font-family: Arial; font-size: 14px; font-weight: bold; text-anchor: middle; }
-            .grid { stroke: #e0e0e0; stroke-width: 1; }
-          </style>
-          
-          <!-- Title and Subtitle -->
-          <text x="300" y="30" class="title">Conjoint Analysis of Product Features</text>
-          <text x="300" y="50" class="subtitle">Attribute Importance and Level Utilities</text>
-          
-          <!-- Importance Chart -->
-          <text x="300" y="80" class="importance-label">Attribute Importance (%)</text>
-          
-          <!-- Bars for Importance -->
-          <rect x="50" y="100" width="500" height="1" class="grid" />
-          <rect x="50" y="140" width="500" height="1" class="grid" />
-          <rect x="50" y="180" width="500" height="1" class="grid" />
-          
-          <rect x="100" y="100" width="400" height="30" class="bar bar-price" />
-          <rect x="100" y="140" width="250" height="30" class="bar bar-storage" />
-          <rect x="100" y="180" width="200" height="30" class="bar bar-battery" />
-          <rect x="100" y="220" width="150" height="30" class="bar bar-camera" />
-          
-          <text x="80" y="115" class="axis" text-anchor="end">Price</text>
-          <text x="80" y="155" class="axis" text-anchor="end">Storage</text>
-          <text x="80" y="195" class="axis" text-anchor="end">Battery</text>
-          <text x="80" y="235" class="axis" text-anchor="end">Camera</text>
-          
-          <text x="300" y="120" class="bar-label">40%</text>
-          <text x="225" y="160" class="bar-label">25%</text>
-          <text x="200" y="200" class="bar-label">20%</text>
-          <text x="175" y="240" class="bar-label">15%</text>
-          
-          <!-- Utility Chart -->
-          <text x="300" y="290" class="importance-label">Level Utilities</text>
-          
-          <!-- Horizontal line for zero utility -->
-          <line x1="50" y1="400" x2="550" y2="400" stroke="#333" stroke-width="2" />
-          
-          <!-- Y-axis labels -->
-          <text x="50" y="310" class="axis" text-anchor="end">1.0</text>
-          <text x="50" y="350" class="axis" text-anchor="end">0.5</text>
-          <text x="50" y="400" class="axis" text-anchor="end">0.0</text>
-          <text x="50" y="450" class="axis" text-anchor="end">-0.5</text>
-          <text x="50" y="500" class="axis" text-anchor="end">-1.0</text>
-          
-          <!-- Price levels -->
-          <rect x="70" y="320" width="30" height="80" class="bar bar-price" />
-          <rect x="110" y="360" width="30" height="40" class="bar bar-price" />
-          <rect x="150" y="400" width="30" height="50" class="bar bar-price" rx="2" ry="2" />
-          <rect x="190" y="400" width="30" height="90" class="bar bar-price" rx="2" ry="2" />
-          
-          <text x="85" y="315" class="axis" font-size="10" text-anchor="middle">$49.99</text>
-          <text x="125" y="355" class="axis" font-size="10" text-anchor="middle">$99.99</text>
-          <text x="165" y="505" class="axis" font-size="10" text-anchor="middle">$149.99</text>
-          <text x="205" y="505" class="axis" font-size="10" text-anchor="middle">$199.99</text>
-          
-          <!-- Storage levels -->
-          <rect x="250" y="400" width="30" height="60" class="bar bar-storage" rx="2" ry="2" />
-          <rect x="290" y="380" width="30" height="20" class="bar bar-storage" />
-          <rect x="330" y="350" width="30" height="50" class="bar bar-storage" />
-          <rect x="370" y="320" width="30" height="80" class="bar bar-storage" />
-          
-          <text x="265" y="505" class="axis" font-size="10" text-anchor="middle">128GB</text>
-          <text x="305" y="375" class="axis" font-size="10" text-anchor="middle">256GB</text>
-          <text x="345" y="345" class="axis" font-size="10" text-anchor="middle">512GB</text>
-          <text x="385" y="315" class="axis" font-size="10" text-anchor="middle">1TB</text>
-          
-          <!-- Battery levels -->
-          <rect x="430" y="400" width="30" height="70" class="bar bar-battery" rx="2" ry="2" />
-          <rect x="470" y="390" width="30" height="10" class="bar bar-battery" />
-          <rect x="510" y="340" width="30" height="60" class="bar bar-battery" />
-          <rect x="550" y="310" width="30" height="90" class="bar bar-battery" />
-          
-          <text x="445" y="505" class="axis" font-size="10" text-anchor="middle">8h</text>
-          <text x="485" y="385" class="axis" font-size="10" text-anchor="middle">12h</text>
-          <text x="525" y="335" class="axis" font-size="10" text-anchor="middle">18h</text>
-          <text x="565" y="305" class="axis" font-size="10" text-anchor="middle">24h</text>
-          
-          <!-- Legend -->
-          <rect x="100" y="520" width="15" height="15" class="bar bar-price" />
-          <text x="120" y="532" class="legend-item">Price</text>
-          
-          <rect x="200" y="520" width="15" height="15" class="bar bar-storage" />
-          <text x="220" y="532" class="legend-item">Storage</text>
-          
-          <rect x="300" y="520" width="15" height="15" class="bar bar-battery" />
-          <text x="320" y="532" class="legend-item">Battery Life</text>
-          
-          <rect x="400" y="520" width="15" height="15" class="bar bar-camera" />
-          <text x="420" y="532" class="legend-item">Camera</text>
-        </svg>
-      `;
+      // Use sample data to create an interactive Plotly.js visualization
+      const sampleData = [
+        {
+          name: 'Price',
+          importance: 35,
+          levels: [
+            { name: '$499', partWorth: 3.5 },
+            { name: '$699', partWorth: 1.2 },
+            { name: '$899', partWorth: -0.8 },
+            { name: '$1099', partWorth: -4.5 }
+          ]
+        },
+        {
+          name: 'Storage',
+          importance: 25,
+          levels: [
+            { name: '128GB', partWorth: -2.1 },
+            { name: '256GB', partWorth: 0.2 },
+            { name: '512GB', partWorth: 2.5 },
+            { name: '1TB', partWorth: 3.8 }
+          ]
+        },
+        {
+          name: 'Battery Life',
+          importance: 20,
+          levels: [
+            { name: '8 hours', partWorth: -2.8 },
+            { name: '10 hours', partWorth: -0.5 },
+            { name: '12 hours', partWorth: 1.2 },
+            { name: '15 hours', partWorth: 3.0 }
+          ]
+        },
+        {
+          name: 'Camera',
+          importance: 15,
+          levels: [
+            { name: '12MP', partWorth: -1.5 },
+            { name: '16MP', partWorth: 0.5 },
+            { name: '20MP', partWorth: 1.8 },
+            { name: '24MP', partWorth: 2.5 }
+          ]
+        }
+      ];
 
-      // Build a static result to avoid using the API
+      // Prepare data for the importance chart
+      const importanceChartData = {
+        x: sampleData.map(d => d.name),
+        y: sampleData.map(d => d.importance),
+        type: 'bar',
+        marker: {
+          color: ['#3498db', '#2ecc71', '#f39c12', '#9b59b6'],
+          opacity: 0.8
+        }
+      };
+
+      // Prepare data for the part-worth utility chart
+      const partWorthTraces = sampleData.map((attribute, index) => {
+        const colors = ['#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
+        return {
+          x: attribute.levels.map(level => level.name),
+          y: attribute.levels.map(level => level.partWorth),
+          name: attribute.name,
+          type: 'bar',
+          marker: {
+            color: colors[index % colors.length]
+          }
+        };
+      });
+
+      // Create the result with interactive charts
       const result = {
-        svg,
         title: 'Conjoint Analysis of Product Features',
         description: 'Analysis of consumer preferences for different product features and levels',
-        visualizationType: 'conjoint',
-        modelUsed: 'Static SVG (Claude API rate limited)'
+        visualizationType: 'conjoint_analysis',
+        modelUsed: 'Interactive Plotly.js',
+        importanceChartData: JSON.stringify(importanceChartData),
+        partWorthTraces: JSON.stringify(partWorthTraces)
       };
 
       // Clear the timeout since we have a result
@@ -736,6 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <head>
               <title>Conjoint Analysis Visualization</title>
               <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+              <script src="https://cdn.plot.ly/plotly-2.29.1.min.js"></script>
               <style>
                 body { 
                   font-family: Arial, sans-serif; 
@@ -747,51 +711,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   color: #2c3e50; 
                   font-size: 1.4rem;
                   margin-bottom: 8px;
+                  text-align: center;
                 }
                 p {
                   font-size: 0.9rem;
                   line-height: 1.4;
                   margin: 8px 0;
+                  text-align: center;
                 }
-                .visualization { 
-                  border: 1px solid #ddd; 
-                  padding: 10px; 
+                .visualization-container { 
+                  margin: 20px auto;
+                  max-width: 1200px;
+                }
+                .chart-container {
+                  margin: 15px 0;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
                   border-radius: 5px;
-                  overflow-x: auto;
-                  margin: 10px 0;
-                }
-                svg {
-                  max-width: 100%;
-                  height: auto;
+                  background: white;
+                  overflow: hidden;
                 }
                 .model-info { 
-                  margin-top: 15px; 
-                  padding: 8px; 
+                  margin: 15px auto; 
+                  padding: 10px; 
                   background: #f8f9fa; 
                   border-radius: 5px;
                   font-size: 0.85rem;
+                  max-width: 600px;
                 }
                 .back-link {
-                  display: inline-block;
-                  margin-top: 15px;
+                  display: block;
+                  margin: 15px auto;
                   background: #f0f0f0;
                   padding: 8px 15px;
                   border-radius: 4px;
                   text-decoration: none;
                   color: #333;
                   font-weight: bold;
+                  text-align: center;
+                  max-width: 150px;
                 }
-                .note {
-                  margin-top: 15px;
-                  padding: 8px;
-                  background: #fff8e1;
-                  border: 1px solid #ffd54f;
+                .interpretation {
+                  margin: 15px auto;
+                  padding: 10px;
+                  background: #f0f7ff;
                   border-radius: 5px;
-                  font-size: 0.85rem;
+                  font-size: 0.9rem;
+                  max-width: 600px;
+                }
+                .interpretation h3 {
+                  margin-top: 0;
+                  font-size: 1rem;
+                }
+                .interpretation ul {
+                  padding-left: 20px;
+                  margin: 8px 0;
                 }
                 @media (min-width: 768px) {
                   body {
-                    max-width: 900px;
                     padding: 20px;
                   }
                   h1 {
@@ -800,24 +776,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   p {
                     font-size: 1rem;
                   }
+                  .grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 20px;
+                  }
                 }
               </style>
             </head>
             <body>
               <h1>${result.title}</h1>
               <p>${result.description}</p>
-              <div class="visualization">
-                ${result.svg}
+              
+              <div class="visualization-container">
+                <div class="grid">
+                  <div class="chart-container">
+                    <div id="importance-chart" style="height: 300px;"></div>
+                  </div>
+                  <div class="chart-container">
+                    <div id="partworth-chart" style="height: 300px;"></div>
+                  </div>
+                </div>
+                
+                <div class="interpretation">
+                  <h3>How to interpret these charts:</h3>
+                  <ul>
+                    <li><strong>Feature Importance</strong>: Shows the relative importance of each feature in customer decision-making.</li>
+                    <li><strong>Part-Worth Utilities</strong>: Indicates how much value customers place on specific feature levels. Higher values mean customers prefer that option more.</li>
+                  </ul>
+                </div>
+                
+                <div class="model-info">
+                  <p><strong>Visualization Type:</strong> ${result.visualizationType}</p>
+                  <p><strong>Source:</strong> ${result.modelUsed}</p>
+                </div>
               </div>
-              <div class="note">
-                <p><strong>Note:</strong> This is a static demonstration visualization. The Claude API is currently rate-limited, 
-                so we're showing a pre-generated SVG instead of a dynamically created one.</p>
-              </div>
-              <div class="model-info">
-                <p><strong>Visualization Type:</strong> ${result.visualizationType}</p>
-                <p><strong>Source:</strong> ${result.modelUsed}</p>
-              </div>
+              
               <a href="/" class="back-link">&laquo; Back to Dashboard</a>
+              
+              <script>
+                // Render the importance chart
+                const importanceData = [${result.importanceChartData}];
+                const importanceLayout = {
+                  title: 'Feature Importance',
+                  xaxis: {
+                    title: 'Features'
+                  },
+                  yaxis: {
+                    title: 'Importance (%)',
+                    range: [0, 50]
+                  },
+                  margin: {
+                    l: 50,
+                    r: 30,
+                    b: 60,
+                    t: 50,
+                    pad: 4
+                  }
+                };
+                
+                Plotly.newPlot('importance-chart', importanceData, importanceLayout, {responsive: true});
+                
+                // Render the part-worth utilities chart
+                const partWorthTraces = ${result.partWorthTraces};
+                const partWorthLayout = {
+                  title: 'Part-Worth Utilities by Feature Level',
+                  barmode: 'group',
+                  xaxis: {
+                    title: 'Feature Levels',
+                    tickangle: -30
+                  },
+                  yaxis: {
+                    title: 'Part-Worth Utility'
+                  },
+                  legend: {
+                    orientation: 'h',
+                    y: -0.2
+                  },
+                  margin: {
+                    l: 50,
+                    r: 30,
+                    b: 100,
+                    t: 50,
+                    pad: 4
+                  }
+                };
+                
+                Plotly.newPlot('partworth-chart', partWorthTraces, partWorthLayout, {responsive: true});
+              </script>
             </body>
           </html>
         `);
