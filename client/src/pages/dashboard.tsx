@@ -130,6 +130,38 @@ export default function Dashboard() {
             />
           </div>
           
+          {/* Visualization Section */}
+          <div className="mt-6 bg-white rounded-lg shadow overflow-hidden">
+            <div className="border-b border-gray-200">
+              <div className="px-4 py-4 sm:px-6">
+                <h2 className="text-lg font-medium text-gray-900">Visualization Examples</h2>
+                <p className="mt-1 text-sm text-gray-500">Test the visualization capabilities of the system</p>
+              </div>
+            </div>
+            <div className="px-4 py-5 sm:p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <a 
+                  href="/api/test-visualization/van-westendorp" 
+                  target="_blank"
+                  rel="noopener noreferrer" 
+                  className="flex flex-col items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  <div className="text-xl font-semibold mb-2">Van Westendorp Chart</div>
+                  <p className="text-sm text-gray-500 text-center">Price sensitivity analysis visualization</p>
+                </a>
+                <a 
+                  href="/api/test-visualization/conjoint" 
+                  target="_blank"
+                  rel="noopener noreferrer" 
+                  className="flex flex-col items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
+                >
+                  <div className="text-xl font-semibold mb-2">Conjoint Analysis</div>
+                  <p className="text-sm text-gray-500 text-center">Feature preference visualization</p>
+                </a>
+              </div>
+            </div>
+          </div>
+          
           {/* API Endpoints Section */}
           <div className="mt-6 bg-white rounded-lg shadow overflow-hidden">
             <div className="border-b border-gray-200">

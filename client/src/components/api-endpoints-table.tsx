@@ -47,7 +47,18 @@ export function ApiEndpointsTable({ endpoints }: ApiEndpointsTableProps) {
                 </span>
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
-                {endpoint.path}
+                {endpoint.method === 'GET' && (endpoint.path.includes('test-visualization')) ? (
+                  <a 
+                    href={endpoint.path} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    {endpoint.path}
+                  </a>
+                ) : (
+                  endpoint.path
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 {endpoint.description}
