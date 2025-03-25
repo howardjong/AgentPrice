@@ -295,3 +295,16 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/test-workflow-integration.js"
+
+[[workflows.workflow]]
+name = "Test Single Query Workflow"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/reset-circuit-breaker.js perplexity"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-single-query-workflow.js"
