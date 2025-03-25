@@ -1,6 +1,146 @@
 {
-  "error": "Invalid chart data format",
-  "modelMismatch": true,
-  "requestedModel": "claude-3-7-sonnet-20250219",
-  "actualModel": "claude-3-opus-20240229"
+  "study_name": "Task Management Software Pricing Analysis",
+  "methodology": "Van Westendorp Price Sensitivity Meter",
+  "sample_size": 450,
+  "demographic": "Business software decision-makers",
+  "product_category": "Task and Project Management SaaS",
+  "price_points": {
+    "too_cheap": {
+      "question": "At what price would you consider this product to be so inexpensive that you would question its quality?",
+      "distribution": [
+        {
+          "price": "$0",
+          "percentage": 5
+        },
+        {
+          "price": "$1-3",
+          "percentage": 15
+        },
+        {
+          "price": "$4-6",
+          "percentage": 35
+        },
+        {
+          "price": "$7-9",
+          "percentage": 30
+        },
+        {
+          "price": "$10+",
+          "percentage": 15
+        }
+      ],
+      "median_price": "$5.50"
+    },
+    "good_value": {
+      "question": "At what price would you consider this product to be a good value?",
+      "distribution": [
+        {
+          "price": "$0-5",
+          "percentage": 10
+        },
+        {
+          "price": "$6-10",
+          "percentage": 35
+        },
+        {
+          "price": "$11-15",
+          "percentage": 30
+        },
+        {
+          "price": "$16-20",
+          "percentage": 20
+        },
+        {
+          "price": "$21+",
+          "percentage": 5
+        }
+      ],
+      "median_price": "$12.00"
+    },
+    "getting_expensive": {
+      "question": "At what price would you consider the product starting to get expensive?",
+      "distribution": [
+        {
+          "price": "$0-10",
+          "percentage": 5
+        },
+        {
+          "price": "$11-15",
+          "percentage": 25
+        },
+        {
+          "price": "$16-20",
+          "percentage": 40
+        },
+        {
+          "price": "$21-25",
+          "percentage": 20
+        },
+        {
+          "price": "$26+",
+          "percentage": 10
+        }
+      ],
+      "median_price": "$17.50"
+    },
+    "too_expensive": {
+      "question": "At what price would you consider the product to be so expensive that you would not consider buying it?",
+      "distribution": [
+        {
+          "price": "$0-15",
+          "percentage": 5
+        },
+        {
+          "price": "$16-20",
+          "percentage": 15
+        },
+        {
+          "price": "$21-25",
+          "percentage": 30
+        },
+        {
+          "price": "$26-30",
+          "percentage": 35
+        },
+        {
+          "price": "$31+",
+          "percentage": 15
+        }
+      ],
+      "median_price": "$26.00"
+    }
+  },
+  "optimal_price_range": {
+    "lower_bound": "$12.00",
+    "upper_bound": "$17.50",
+    "optimal_price_point": "$15.00",
+    "indifference_price": "$16.50"
+  },
+  "competitor_pricing": [
+    {
+      "name": "Jira",
+      "standard_tier": "$8.60"
+    },
+    {
+      "name": "ClickUp",
+      "business_tier": "$12.00"
+    },
+    {
+      "name": "Asana",
+      "premium_tier": "$24.99"
+    },
+    {
+      "name": "Trello",
+      "standard_tier": "$5.00"
+    },
+    {
+      "name": "Monday.com",
+      "standard_tier": "$10.00"
+    }
+  ],
+  "pricing_recommendations": {
+    "entry_tier": "$9.99",
+    "standard_tier": "$14.99",
+    "premium_tier": "$24.99"
+  }
 }

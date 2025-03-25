@@ -1,6 +1,49 @@
 {
-  "error": "No valid chart data found in response",
-  "modelMismatch": true,
-  "requestedModel": "claude-3-7-sonnet-20250219",
-  "actualModel": "claude-3-opus-20240229"
+  "chart_type": "basic_bar",
+  "title": "SaaS Pricing Models in Project Management Tools",
+  "subtitle": "Average Monthly Pricing ($/user) for Mid-Tier Plans",
+  "x_axis": {
+    "label": "Product",
+    "categories": [
+      "Jira",
+      "Asana",
+      "ClickUp",
+      "Trello",
+      "Bolt",
+      "Odoo"
+    ]
+  },
+  "y_axis": {
+    "label": "Price ($/user/month)",
+    "min": 0,
+    "max": 30
+  },
+  "data": [
+    {
+      "name": "Monthly Price",
+      "values": [
+        17,
+        24.99,
+        12,
+        10,
+        16,
+        28
+      ]
+    }
+  ],
+  "annotations": [
+    {
+      "type": "text",
+      "content": "Enterprise tiers typically use custom pricing",
+      "position": {
+        "x": 3,
+        "y": 25
+      }
+    }
+  ],
+  "colors": [
+    "#4e79a7"
+  ],
+  "legend": true,
+  "data_labels": true
 }
