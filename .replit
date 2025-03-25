@@ -19,7 +19,7 @@ localPort = 6379
 externalPort = 3000
 
 [workflows]
-runButton = "Test Single Query with Claude 3.7"
+runButton = "Start Application with Charts"
 
 [[workflows.workflow]]
 name = "Project"
@@ -330,3 +330,12 @@ args = "node tests/reset-circuit-breaker.js claude"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/test-plotly-integration.js"
+
+[[workflows.workflow]]
+name = "Start Application with Charts"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"

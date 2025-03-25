@@ -1,0 +1,145 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plotly Visualizations</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .chart-container {
+            margin-bottom: 40px;
+            border: 1px solid #ddd;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #555;
+        }
+        .insights {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .insights h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Generated Plotly Visualizations</h1>
+    
+    <div class="chart-container">
+        <h2>Van Westendorp Price Sensitivity Analysis</h2>
+        <div id="van-westendorp-chart" style="height: 500px;"></div>
+        <div id="van-westendorp-insights" class="insights">
+            <h3>Insights</h3>
+            <ul id="van-westendorp-insights-list"></ul>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <h2>Conjoint Analysis</h2>
+        <div id="conjoint-chart" style="height: 500px;"></div>
+        <div id="conjoint-insights" class="insights">
+            <h3>Insights</h3>
+            <ul id="conjoint-insights-list"></ul>
+        </div>
+    </div>
+    
+    <div class="chart-container">
+        <h2>Basic Bar Chart</h2>
+        <div id="bar-chart" style="height: 500px;"></div>
+        <div id="bar-insights" class="insights">
+            <h3>Insights</h3>
+            <ul id="bar-insights-list"></ul>
+        </div>
+    </div>
+
+    <script>
+        // Function to load and render charts
+        async function loadAndRenderCharts() {
+            try {
+                // Load Van Westendorp chart
+                const vanWestendorpResponse = await fetch('/tests/output/van_westendorp_plotly.json');
+                const vanWestendorpData = await vanWestendorpResponse.json();
+                
+                if (vanWestendorpData && vanWestendorpData.plotlyConfig) {
+                    Plotly.newPlot('van-westendorp-chart', 
+                        vanWestendorpData.plotlyConfig.data, 
+                        vanWestendorpData.plotlyConfig.layout,
+                        vanWestendorpData.plotlyConfig.config || {});
+                        
+                    // Display insights
+                    const insightsList = document.getElementById('van-westendorp-insights-list');
+                    if (vanWestendorpData.insights && vanWestendorpData.insights.length > 0) {
+                        vanWestendorpData.insights.forEach(insight => {
+                            const li = document.createElement('li');
+                            li.textContent = insight;
+                            insightsList.appendChild(li);
+                        });
+                    }
+                }
+
+                // Load Conjoint chart
+                const conjointResponse = await fetch('/tests/output/conjoint_plotly.json');
+                const conjointData = await conjointResponse.json();
+                
+                if (conjointData && conjointData.plotlyConfig) {
+                    Plotly.newPlot('conjoint-chart', 
+                        conjointData.plotlyConfig.data, 
+                        conjointData.plotlyConfig.layout,
+                        conjointData.plotlyConfig.config || {});
+                        
+                    // Display insights
+                    const insightsList = document.getElementById('conjoint-insights-list');
+                    if (conjointData.insights && conjointData.insights.length > 0) {
+                        conjointData.insights.forEach(insight => {
+                            const li = document.createElement('li');
+                            li.textContent = insight;
+                            insightsList.appendChild(li);
+                        });
+                    }
+                }
+
+                // Load Bar chart
+                const barChartResponse = await fetch('/tests/output/bar_chart_plotly.json');
+                const barChartData = await barChartResponse.json();
+                
+                if (barChartData && barChartData.plotlyConfig) {
+                    Plotly.newPlot('bar-chart', 
+                        barChartData.plotlyConfig.data, 
+                        barChartData.plotlyConfig.layout,
+                        barChartData.plotlyConfig.config || {});
+                        
+                    // Display insights
+                    const insightsList = document.getElementById('bar-insights-list');
+                    if (barChartData.insights && barChartData.insights.length > 0) {
+                        barChartData.insights.forEach(insight => {
+                            const li = document.createElement('li');
+                            li.textContent = insight;
+                            insightsList.appendChild(li);
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading charts:', error);
+                document.body.innerHTML += `<div style="color: red; padding: 20px;">Error loading charts: ${error.message}</div>`;
+            }
+        }
+
+        // Load charts when page loads
+        window.addEventListener('load', loadAndRenderCharts);
+    </script>
+</body>
+</html>
