@@ -25,6 +25,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Serve the charts view page
   app.get('/view-charts.html', (req: Request, res: Response) => {
+    // Using import.meta.url instead of __dirname for ES modules
+    const __filename = new URL(import.meta.url).pathname;
+    const __dirname = path.dirname(__filename);
     res.sendFile(path.resolve(__dirname, '../public/view-charts.html'));
   });
 
@@ -1018,7 +1021,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Serve files from tests/output directory for chart JSON data
+  // Using import.meta.url instead of __dirname for ES modules
+  const __filename = new URL(import.meta.url).pathname;
+  const __dirname = path.dirname(__filename);
   app.use('/tests/output', express.static(path.resolve(__dirname, '../tests/output')));
+  
+  // Serve static files from public directory
+  app.use(express.static(path.resolve(__dirname, '../public')));
   
   // Mock Research Initialization Endpoint (for testing/development only)
   app.post('/api/mock-init', async (req: Request, res: Response) => {
