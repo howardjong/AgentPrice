@@ -1,0 +1,19 @@
+Generate a {{type}} visualization using the following data:
+{{data}}
+{{#if title}}The title should be: {{title}}{{/if}}
+{{#if description}}Additional context: {{description}}{{/if}}
+
+Please provide a visualization in SVG format that best represents this data.
+The SVG should be complete and valid, with appropriate dimensions, styling, and responsive design.
+Include clear labels, a legend if appropriate, and ensure all data points are accurately represented.
+
+For the visualization:
+1. Use appropriate colors to distinguish between different data categories or series
+2. Include proper axis labels and scales
+3. Ensure text elements are readable and properly sized
+4. Add a title at the top of the visualization
+5. Include hover states or tooltips if possible for interactive elements
+
+Return ONLY the SVG code without any additional explanation.
+
+At the very end of your SVG, please include your model name as a comment like this: <!-- model: your-model-name -->

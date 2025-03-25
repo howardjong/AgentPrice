@@ -1,0 +1,24 @@
+Generate a Conjoint Analysis visualization using the following data:
+{{data}}
+{{#if title}}The title should be: {{title}}{{/if}}
+{{#if description}}Additional context: {{description}}{{/if}}
+
+For the Conjoint Analysis visualization:
+1. Create a horizontal bar chart showing the relative importance or utility scores for each attribute and level
+2. Organize by attributes (feature categories) and their levels (specific options)
+3. Use consistent color coding for each attribute category
+4. Sort attributes by importance (highest impact attributes at the top)
+5. Include a clear legend with attribute categories
+
+The visualization should clearly show:
+- Which product attributes have the strongest impact on customer preference
+- The relative importance of different attribute levels within each attribute category
+- The overall importance ranking of attributes
+
+Please provide a visualization in SVG format that best represents this data.
+The SVG should be complete and valid, with appropriate dimensions, styling, and responsive design.
+Include clear labels, a legend, and ensure all data points are accurately represented.
+
+Return ONLY the SVG code without any additional explanation.
+
+At the very end of your SVG, please include your model name as a comment like this: <!-- model: your-model-name -->

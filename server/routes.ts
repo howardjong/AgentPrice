@@ -230,12 +230,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const result = await claudeService.generateVisualization(data, type, title, description);
 
       res.json({
-        response: result.response,
-        visualizationData: result.visualizationData
+        svg: result.svg,
+        visualizationType: result.visualizationType,
+        title: result.title,
+        description: result.description,
+        modelUsed: result.modelUsed
       });
     } catch (error) {
       console.error('Error generating visualization:', error);
       res.status(500).json({ message: `Failed to generate visualization: ${error.message}` });
+    }
+  });
+  
+  // Test Visualization endpoints
+  
+  // Van Westendorp visualization endpoint
+  app.get('/api/test-visualization/van-westendorp', async (req: Request, res: Response) => {
+    try {
+      // Sample data for van westendorp price sensitivity analysis
+      const data = {
+        prices: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+        tooExpensive: [5, 15, 30, 50, 70, 85, 90, 95, 98, 99],
+        expensiveButReasonable: [1, 5, 15, 30, 50, 65, 75, 85, 90, 95],
+        goodValue: [99, 95, 80, 60, 40, 25, 15, 10, 5, 1],
+        tooCheap: [95, 80, 60, 40, 20, 10, 5, 3, 2, 1]
+      };
+
+      // Generate visualization using Claude
+      const result = await claudeService.generateVisualization(
+        data, 
+        'van_westendorp', 
+        'Van Westendorp Price Sensitivity Analysis', 
+        'Sample price sensitivity data for product pricing analysis'
+      );
+
+      res.send(`
+        <html>
+          <head>
+            <title>Van Westendorp Visualization Test</title>
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
+              h1 { color: #2c3e50; }
+              .visualization { border: 1px solid #ddd; padding: 20px; border-radius: 5px; }
+              .model-info { margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 5px; }
+            </style>
+          </head>
+          <body>
+            <h1>${result.title}</h1>
+            <p>${result.description}</p>
+            <div class="visualization">
+              ${result.svg}
+            </div>
+            <div class="model-info">
+              <p><strong>Visualization Type:</strong> ${result.visualizationType}</p>
+              <p><strong>Model Used:</strong> ${result.modelUsed}</p>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error('Error generating test visualization:', error);
+      res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
+    }
+  });
+  
+  // Conjoint analysis visualization endpoint
+  app.get('/api/test-visualization/conjoint', async (req: Request, res: Response) => {
+    try {
+      // Sample data for conjoint analysis
+      const data = {
+        attributes: [
+          {
+            name: "Price",
+            importance: 40,
+            levels: [
+              { name: "$49.99", utility: 0.8 },
+              { name: "$99.99", utility: 0.4 },
+              { name: "$149.99", utility: -0.5 },
+              { name: "$199.99", utility: -0.9 }
+            ]
+          },
+          {
+            name: "Storage",
+            importance: 25,
+            levels: [
+              { name: "128GB", utility: -0.6 },
+              { name: "256GB", utility: 0.2 },
+              { name: "512GB", utility: 0.5 },
+              { name: "1TB", utility: 0.8 }
+            ]
+          },
+          {
+            name: "Battery Life",
+            importance: 20,
+            levels: [
+              { name: "8 hours", utility: -0.7 },
+              { name: "12 hours", utility: 0.1 },
+              { name: "18 hours", utility: 0.6 },
+              { name: "24 hours", utility: 0.9 }
+            ]
+          },
+          {
+            name: "Camera",
+            importance: 15,
+            levels: [
+              { name: "12MP", utility: -0.4 },
+              { name: "24MP", utility: 0.3 },
+              { name: "48MP", utility: 0.7 }
+            ]
+          }
+        ]
+      };
+
+      // Generate visualization using Claude
+      const result = await claudeService.generateVisualization(
+        data, 
+        'conjoint', 
+        'Conjoint Analysis of Product Features', 
+        'Analysis of consumer preferences for different product features and levels'
+      );
+
+      res.send(`
+        <html>
+          <head>
+            <title>Conjoint Analysis Visualization Test</title>
+            <style>
+              body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
+              h1 { color: #2c3e50; }
+              .visualization { border: 1px solid #ddd; padding: 20px; border-radius: 5px; }
+              .model-info { margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 5px; }
+            </style>
+          </head>
+          <body>
+            <h1>${result.title}</h1>
+            <p>${result.description}</p>
+            <div class="visualization">
+              ${result.svg}
+            </div>
+            <div class="model-info">
+              <p><strong>Visualization Type:</strong> ${result.visualizationType}</p>
+              <p><strong>Model Used:</strong> ${result.modelUsed}</p>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error('Error generating test visualization:', error);
+      res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
     }
   });
 
