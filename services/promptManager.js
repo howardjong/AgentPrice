@@ -85,6 +85,49 @@ class PromptManager {
         }
       }
       
+      // Create additional subdirectories based on active versions config
+      for (const [engine, promptTypes] of Object.entries(this.activeVersions)) {
+        const enginePath = path.join(this.basePath, engine);
+        
+        for (const promptType of Object.keys(promptTypes)) {
+          if (typeof promptTypes[promptType] === 'object') {
+            // This is a nested structure like chart_data
+            const categoryPath = path.join(enginePath, promptType);
+            await fs.access(categoryPath).catch(async () => {
+              logger.warn(`Creating missing prompt directory: ${categoryPath}`);
+              await fs.mkdir(categoryPath, { recursive: true });
+            });
+            
+            // Also create versions and variants subdirectories for this category
+            const versionPath = path.join(enginePath, 'versions', promptType);
+            await fs.access(versionPath).catch(async () => {
+              logger.warn(`Creating missing prompt directory: ${versionPath}`);
+              await fs.mkdir(versionPath, { recursive: true });
+            });
+            
+            const variantPath = path.join(enginePath, 'variants', promptType);
+            await fs.access(variantPath).catch(async () => {
+              logger.warn(`Creating missing prompt directory: ${variantPath}`);
+              await fs.mkdir(variantPath, { recursive: true });
+            });
+          } else {
+            // Regular prompt type
+            // Create subdirectories for versions and variants if needed
+            const versionPath = path.join(enginePath, 'versions', promptType);
+            await fs.access(versionPath).catch(async () => {
+              logger.warn(`Creating missing prompt directory: ${versionPath}`);
+              await fs.mkdir(versionPath, { recursive: true });
+            });
+            
+            const variantPath = path.join(enginePath, 'variants', promptType);
+            await fs.access(variantPath).catch(async () => {
+              logger.warn(`Creating missing prompt directory: ${variantPath}`);
+              await fs.mkdir(variantPath, { recursive: true });
+            });
+          }
+        }
+      }
+      
       // Ensure chart_data directory exists for Claude
       const chartDataPath = path.join(this.basePath, 'claude', 'chart_data');
       await fs.access(chartDataPath).catch(async () => {
@@ -92,10 +135,50 @@ class PromptManager {
         await fs.mkdir(chartDataPath, { recursive: true });
       });
       
+      // Create default prompt files if they don't exist
+      if (!(await this.ensureDefaultPrompts())) {
+        logger.warn('Failed to create some default prompts');
+      }
+      
       return true;
     } catch (error) {
       logger.error('Error validating prompt structure', { error: error.message });
       throw error;
+    }
+  }
+  
+  async ensureDefaultPrompts() {
+    try {
+      // Check and create default prompts if needed
+      const defaultPrompts = {
+        'claude': {
+          'clarifying_questions': 'Based on this research query, please generate 5 clarifying questions that would help better understand the user\'s specific information needs:\n\nResearch query: {{query}}\n\nGenerate questions that would help narrow down exactly what information would be most helpful to the user. The questions should be concise, non-redundant, and directly relevant to improving the research outcome.',
+          'response_generation': 'Please provide a comprehensive response to the user\'s query. Use the following guidelines:\n\n1. Be accurate and factual\n2. Provide relevant examples when helpful\n3. Structure your response clearly with sections and bullet points as appropriate\n4. Identify any limitations or uncertainties in your response\n\nQuery: {{query}}\n{{#if context}}Additional context: {{context}}{{/if}}'
+        },
+        'perplexity': {
+          'deep_research': 'You are a research assistant tasked with providing comprehensive, detailed responses on complex topics. Conduct deep research on the provided query.\n\nFor this deep research task:\n1. Focus on gathering authoritative, accurate, and up-to-date information\n2. Cite your sources clearly within your response\n3. Organize information logically with appropriate headings and structure\n4. Consider multiple perspectives and provide a balanced view\n5. Include relevant statistics, examples, and expert opinions where available\n6. Identify any limitations or gaps in the available information\n\nResearch query: {{query}}\n{{#if context}}Additional context: {{context}}{{/if}}'
+        }
+      };
+      
+      for (const [engine, prompts] of Object.entries(defaultPrompts)) {
+        for (const [promptType, content] of Object.entries(prompts)) {
+          const promptPath = path.join(this.basePath, engine, `${promptType}.txt`);
+          
+          try {
+            await fs.access(promptPath);
+            // Prompt exists, no need to create it
+          } catch (err) {
+            // Prompt doesn't exist, create it
+            logger.info(`Creating default prompt: ${engine}/${promptType}`);
+            await fs.writeFile(promptPath, content);
+          }
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      logger.error('Error creating default prompts', { error: error.message });
+      return false;
     }
   }
 
@@ -113,23 +196,61 @@ class PromptManager {
       
       if (variant) {
         // For variant testing, look in the variants folder
-        promptPath = path.join(this.basePath, engine, 'variants', promptType, `${variant}.txt`);
+        promptPath = path.join(this.basePath, engine, 'variants', `${promptType}.txt`);
       } else {
         // Use the active version
         const version = this.getActiveVersion(engine, promptType);
         if (version === 'default') {
+          // First try direct file in engine directory
           promptPath = path.join(this.basePath, engine, `${promptType}.txt`);
+          
+          // Check if file exists
+          try {
+            await fs.access(promptPath);
+          } catch (err) {
+            // If not found in direct path, try looking in a subdirectory with the same name as promptType
+            const subdirPath = path.join(this.basePath, engine, promptType, 'default.txt');
+            try {
+              await fs.access(subdirPath);
+              promptPath = subdirPath;
+            } catch (subErr) {
+              // Keep the original path, we'll handle the error below
+            }
+          }
         } else {
-          promptPath = path.join(this.basePath, engine, 'versions', promptType, `${version}.txt`);
+          promptPath = path.join(this.basePath, engine, 'versions', `${promptType}_${version}.txt`);
+          
+          // Check if file exists
+          try {
+            await fs.access(promptPath);
+          } catch (err) {
+            // Try alternative structure with subdirectories
+            const subdirPath = path.join(this.basePath, engine, 'versions', promptType, `${version}.txt`);
+            try {
+              await fs.access(subdirPath);
+              promptPath = subdirPath;
+            } catch (subErr) {
+              // Keep the original path, we'll handle the error below
+            }
+          }
         }
       }
       
       // Special handling for chart data prompts
       if (promptType.startsWith('chart_data/')) {
         const chartType = promptType.split('/')[1];
-        promptPath = path.join(this.basePath, engine, 'chart_data', `${chartType}.txt`);
+        const chartDataPath = path.join(this.basePath, engine, 'chart_data', `${chartType}.txt`);
+        
+        try {
+          await fs.access(chartDataPath);
+          promptPath = chartDataPath;
+        } catch (err) {
+          // The chart data path doesn't exist, keep using the previously calculated path
+          logger.debug(`Chart data path ${chartDataPath} not found, using default path`);
+        }
       }
       
+      logger.debug(`Looking for prompt at path: ${promptPath}`);
       const promptContent = await fs.readFile(promptPath, 'utf8');
       this.promptCache.set(cacheKey, promptContent);
       
@@ -137,7 +258,8 @@ class PromptManager {
         engine,
         promptType,
         variant: variant || this.getActiveVersion(engine, promptType),
-        size: promptContent.length
+        size: promptContent.length,
+        path: promptPath
       });
       
       return promptContent;
@@ -167,18 +289,49 @@ class PromptManager {
   
   async createPromptVariant(engine, promptType, variantName, content) {
     try {
-      const variantDir = path.join(this.basePath, engine, 'variants', promptType);
-      await fs.mkdir(variantDir, { recursive: true });
+      // Try to find the template location to mirror in variants
+      let promptExists = false;
       
-      const variantPath = path.join(variantDir, `${variantName}.txt`);
-      await fs.writeFile(variantPath, content);
-      
-      logger.info('Created prompt variant', { engine, promptType, variantName });
+      // Check if a default prompt exists in root directory
+      const rootPath = path.join(this.basePath, engine, `${promptType}.txt`);
+      try {
+        await fs.access(rootPath);
+        promptExists = true;
+        
+        // Create in flat variant directory structure
+        const variantPath = path.join(this.basePath, engine, 'variants', `${promptType}_${variantName}.txt`);
+        await fs.writeFile(variantPath, content);
+        logger.info(`Created prompt variant at ${variantPath}`);
+      } catch (err) {
+        // Root path doesn't exist, check subdirectory
+        try {
+          const subdirPath = path.join(this.basePath, engine, promptType, 'default.txt');
+          await fs.access(subdirPath);
+          promptExists = true;
+          
+          // Create in nested variant directory structure
+          const variantDir = path.join(this.basePath, engine, 'variants', promptType);
+          await fs.mkdir(variantDir, { recursive: true });
+          
+          const variantPath = path.join(variantDir, `${variantName}.txt`);
+          await fs.writeFile(variantPath, content);
+          logger.info(`Created prompt variant at ${variantPath}`);
+        } catch (subErr) {
+          // No existing templates found, create both directory and file
+          const variantDir = path.join(this.basePath, engine, 'variants', promptType);
+          await fs.mkdir(variantDir, { recursive: true });
+          
+          const variantPath = path.join(variantDir, `${variantName}.txt`);
+          await fs.writeFile(variantPath, content);
+          logger.info(`Created prompt variant at ${variantPath}`);
+        }
+      }
       
       // Clear cache entry if it exists
       const cacheKey = `${engine}:${promptType}:${variantName}`;
       this.promptCache.delete(cacheKey);
       
+      logger.info('Created prompt variant', { engine, promptType, variantName });
       return true;
     } catch (error) {
       logger.error('Failed to create prompt variant', {
@@ -193,16 +346,53 @@ class PromptManager {
   
   async promoteVariantToVersion(engine, promptType, variantName, versionName) {
     try {
+      // Try to find the variant in both flat and nested structures
+      let variantPath;
+      let variantContent;
+      
+      // First try the flat structure
+      const flatVariantPath = path.join(this.basePath, engine, 'variants', `${promptType}_${variantName}.txt`);
+      try {
+        await fs.access(flatVariantPath);
+        variantPath = flatVariantPath;
+      } catch (err) {
+        // Try the nested structure
+        const nestedVariantPath = path.join(this.basePath, engine, 'variants', promptType, `${variantName}.txt`);
+        try {
+          await fs.access(nestedVariantPath);
+          variantPath = nestedVariantPath;
+        } catch (subErr) {
+          throw new Error(`Variant '${variantName}' for '${engine}/${promptType}' not found in any location`);
+        }
+      }
+      
       // Read the variant content
-      const variantPath = path.join(this.basePath, engine, 'variants', promptType, `${variantName}.txt`);
-      const promptContent = await fs.readFile(variantPath, 'utf8');
+      variantContent = await fs.readFile(variantPath, 'utf8');
       
-      // Write to versions directory
-      const versionDir = path.join(this.basePath, engine, 'versions', promptType);
-      await fs.mkdir(versionDir, { recursive: true });
+      // Try to find the matching default prompt structure to mirror
+      let defaultInRoot = false;
+      try {
+        await fs.access(path.join(this.basePath, engine, `${promptType}.txt`));
+        defaultInRoot = true;
+      } catch (err) {
+        // Default not in root, check subdirectory
+      }
       
-      const versionPath = path.join(versionDir, `${versionName}.txt`);
-      await fs.writeFile(versionPath, promptContent);
+      // Write to the appropriate versions directory structure
+      if (defaultInRoot) {
+        // Use flat structure
+        const versionPath = path.join(this.basePath, engine, 'versions', `${promptType}_${versionName}.txt`);
+        await fs.writeFile(versionPath, variantContent);
+        logger.info(`Promoted variant to version at ${versionPath}`);
+      } else {
+        // Use nested structure
+        const versionDir = path.join(this.basePath, engine, 'versions', promptType);
+        await fs.mkdir(versionDir, { recursive: true });
+        
+        const versionPath = path.join(versionDir, `${versionName}.txt`);
+        await fs.writeFile(versionPath, variantContent);
+        logger.info(`Promoted variant to version at ${versionPath}`);
+      }
       
       logger.info('Promoted variant to version', {
         engine,
@@ -277,26 +467,50 @@ class PromptManager {
     try {
       const versions = [];
       
-      // Always add default if it exists
+      // Check for default prompt in engine directory
       const defaultPath = path.join(this.basePath, engine, `${promptType}.txt`);
       try {
         await fs.access(defaultPath);
         versions.push('default');
       } catch (err) {
-        // Default doesn't exist, that's ok
+        // Check for default in subdirectory
+        const subdirDefaultPath = path.join(this.basePath, engine, promptType, 'default.txt');
+        try {
+          await fs.access(subdirDefaultPath);
+          versions.push('default');
+        } catch (subErr) {
+          // Default doesn't exist in either location, that's ok
+        }
       }
       
-      // List versions
-      const versionsDir = path.join(this.basePath, engine, 'versions', promptType);
+      // Check for versioned files in both patterns:
+      // 1. engine/versions/promptType_version.txt format
       try {
+        const versionsDir = path.join(this.basePath, engine, 'versions');
         const files = await fs.readdir(versionsDir);
         for (const file of files) {
-          if (file.endsWith('.txt')) {
-            versions.push(file.replace('.txt', ''));
+          if (file.startsWith(`${promptType}_`) && file.endsWith('.txt')) {
+            versions.push(file.replace(`${promptType}_`, '').replace('.txt', ''));
           }
         }
       } catch (err) {
-        // Versions directory might not exist yet, that's ok
+        // Versions directory might not exist, that's ok
+      }
+      
+      // 2. engine/versions/promptType/version.txt format
+      try {
+        const versionsSubdir = path.join(this.basePath, engine, 'versions', promptType);
+        const files = await fs.readdir(versionsSubdir);
+        for (const file of files) {
+          if (file.endsWith('.txt')) {
+            const version = file.replace('.txt', '');
+            if (!versions.includes(version)) {
+              versions.push(version);
+            }
+          }
+        }
+      } catch (err) {
+        // Subdirectory might not exist, that's ok
       }
       
       return {
