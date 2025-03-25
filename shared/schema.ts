@@ -89,7 +89,7 @@ export type ChatMessage = z.infer<typeof chatMessageSchema>;
 
 export const visualizeSchema = z.object({
   data: z.any(),
-  type: z.enum(['bar', 'line', 'pie', 'scatter', 'custom']).default('bar'),
+  type: z.enum(['bar', 'line', 'pie', 'scatter', 'custom', 'van_westendorp', 'conjoint']).default('bar'),
   title: z.string().optional(),
   description: z.string().optional(),
 });
