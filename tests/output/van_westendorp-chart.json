@@ -1,0 +1,6 @@
+{
+  "error": "Invalid chart data format",
+  "modelMismatch": true,
+  "requestedModel": "claude-3-7-sonnet-20250219",
+  "actualModel": "claude-3-opus-20240229"
+}
