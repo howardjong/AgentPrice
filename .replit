@@ -19,7 +19,7 @@ localPort = 6379
 externalPort = 3000
 
 [workflows]
-runButton = "Project"
+runButton = "Test Single Query Workflow"
 
 [[workflows.workflow]]
 name = "Project"
