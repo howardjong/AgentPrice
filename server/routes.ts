@@ -307,91 +307,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }, 2000); // Show loading page after 2 seconds
 
     try {
-      // Create a basic SVG for van Westendorp price sensitivity analysis without using Claude API
-      // This avoids hitting the rate limit
-      const svg = `
-        <svg width="600" height="400" viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg">
-          <style>
-            .axis { stroke: #333; stroke-width: 1; }
-            .grid { stroke: #ccc; stroke-width: 0.5; stroke-dasharray: 5,5; }
-            .label { font-family: Arial; font-size: 12px; fill: #333; }
-            .title { font-family: Arial; font-size: 16px; font-weight: bold; fill: #333; text-anchor: middle; }
-            .line { stroke-width: 2; fill: none; }
-            .too-expensive { stroke: #e74c3c; }
-            .expensive-but-reasonable { stroke: #f39c12; }
-            .good-value { stroke: #2ecc71; }
-            .too-cheap { stroke: #3498db; }
-            .legend-item { font-family: Arial; font-size: 12px; }
-          </style>
-          
-          <!-- Title -->
-          <text x="300" y="30" class="title">Van Westendorp Price Sensitivity Analysis</text>
-          
-          <!-- Axes -->
-          <line x1="50" y1="350" x2="550" y2="350" class="axis" />
-          <line x1="50" y1="50" x2="50" y2="350" class="axis" />
-          
-          <!-- X-axis labels -->
-          <text x="300" y="380" class="label" text-anchor="middle">Price ($)</text>
-          <text x="50" y="370" class="label" text-anchor="middle">10</text>
-          <text x="150" y="370" class="label" text-anchor="middle">30</text>
-          <text x="250" y="370" class="label" text-anchor="middle">50</text>
-          <text x="350" y="370" class="label" text-anchor="middle">70</text>
-          <text x="450" y="370" class="label" text-anchor="middle">90</text>
-          <text x="550" y="370" class="label" text-anchor="middle">110</text>
-          
-          <!-- Y-axis labels -->
-          <text x="30" y="200" class="label" text-anchor="middle" transform="rotate(-90,30,200)">Cumulative Percentage (%)</text>
-          <text x="40" y="350" class="label" text-anchor="end">0</text>
-          <text x="40" y="300" class="label" text-anchor="end">20</text>
-          <text x="40" y="250" class="label" text-anchor="end">40</text>
-          <text x="40" y="200" class="label" text-anchor="end">60</text>
-          <text x="40" y="150" class="label" text-anchor="end">80</text>
-          <text x="40" y="100" class="label" text-anchor="end">100</text>
-          
-          <!-- Grid lines -->
-          <line x1="50" y1="300" x2="550" y2="300" class="grid" />
-          <line x1="50" y1="250" x2="550" y2="250" class="grid" />
-          <line x1="50" y1="200" x2="550" y2="200" class="grid" />
-          <line x1="50" y1="150" x2="550" y2="150" class="grid" />
-          <line x1="50" y1="100" x2="550" y2="100" class="grid" />
-          <line x1="150" y1="50" x2="150" y2="350" class="grid" />
-          <line x1="250" y1="50" x2="250" y2="350" class="grid" />
-          <line x1="350" y1="50" x2="350" y2="350" class="grid" />
-          <line x1="450" y1="50" x2="450" y2="350" class="grid" />
-          
-          <!-- Lines -->
-          <polyline points="50,345 150,280 250,200 350,150 450,110 550,100" class="line too-expensive" />
-          <polyline points="50,349 150,335 250,250 350,180 450,140 550,120" class="line expensive-but-reasonable" />
-          <polyline points="50,100 150,140 250,200 350,250 450,330 550,349" class="line good-value" />
-          <polyline points="50,120 150,150 250,200 350,250 450,290 550,348" class="line too-cheap" />
-          
-          <!-- Intersections -->
-          <circle cx="250" cy="200" r="5" fill="#333" />
-          <circle cx="350" cy="250" r="5" fill="#333" />
-          
-          <!-- Legend -->
-          <rect x="400" y="60" width="15" height="3" class="too-expensive" />
-          <text x="420" y="63" class="legend-item">Too Expensive</text>
-          
-          <rect x="400" y="80" width="15" height="3" class="expensive-but-reasonable" />
-          <text x="420" y="83" class="legend-item">Expensive but Reasonable</text>
-          
-          <rect x="400" y="100" width="15" height="3" class="good-value" />
-          <text x="420" y="103" class="legend-item">Good Value</text>
-          
-          <rect x="400" y="120" width="15" height="3" class="too-cheap" />
-          <text x="420" y="123" class="legend-item">Too Cheap</text>
-        </svg>
-      `;
+      // Create sample data for Van Westendorp visualization
+      const sampleData = [
+        { price: 10, tooExpensive: 5, expensiveButWorth: 10, goodValue: 80, tooCheap: 90 },
+        { price: 30, tooExpensive: 20, expensiveButWorth: 35, goodValue: 60, tooCheap: 50 },
+        { price: 50, tooExpensive: 50, expensiveButWorth: 50, goodValue: 50, tooCheap: 20 },
+        { price: 70, tooExpensive: 70, expensiveButWorth: 65, goodValue: 25, tooCheap: 15 },
+        { price: 90, tooExpensive: 90, expensiveButWorth: 80, goodValue: 10, tooCheap: 5 },
+        { price: 110, tooExpensive: 95, expensiveButWorth: 90, goodValue: 5, tooCheap: 2 }
+      ];
 
-      // Build a static result to avoid using the API
+      // Create traces for Plotly.js
+      const tooExpensiveTrace = {
+        x: sampleData.map(d => d.price),
+        y: sampleData.map(d => d.tooExpensive),
+        mode: 'lines+markers',
+        name: 'Too Expensive',
+        line: {
+          color: '#e74c3c',
+          width: 3
+        },
+        marker: {
+          size: 8
+        }
+      };
+
+      const expensiveButWorthTrace = {
+        x: sampleData.map(d => d.price),
+        y: sampleData.map(d => d.expensiveButWorth),
+        mode: 'lines+markers',
+        name: 'Expensive But Worth It',
+        line: {
+          color: '#f39c12',
+          width: 3
+        },
+        marker: {
+          size: 8
+        }
+      };
+
+      const goodValueTrace = {
+        x: sampleData.map(d => d.price),
+        y: sampleData.map(d => d.goodValue),
+        mode: 'lines+markers',
+        name: 'Good Value',
+        line: {
+          color: '#2ecc71',
+          width: 3
+        },
+        marker: {
+          size: 8
+        }
+      };
+
+      const tooCheapTrace = {
+        x: sampleData.map(d => d.price),
+        y: sampleData.map(d => d.tooCheap),
+        mode: 'lines+markers',
+        name: 'Too Cheap',
+        line: {
+          color: '#3498db',
+          width: 3
+        },
+        marker: {
+          size: 8
+        }
+      };
+
+      // Find the intersection points (approximate using the nearest data points)
+      const optimalPricePoint = sampleData.find(d => Math.abs(d.goodValue - d.tooExpensive) < 5);
+      const indifferencePricePoint = sampleData.find(d => Math.abs(d.tooCheap - d.expensiveButWorth) < 5);
+
+      // Create intersection annotations
+      const annotations = [];
+      
+      if (optimalPricePoint) {
+        annotations.push({
+          x: optimalPricePoint.price,
+          y: optimalPricePoint.goodValue,
+          text: 'Optimal Price Point',
+          showarrow: true,
+          arrowhead: 2,
+          arrowsize: 1,
+          arrowwidth: 2,
+          ax: 40,
+          ay: -40
+        });
+      }
+
+      if (indifferencePricePoint) {
+        annotations.push({
+          x: indifferencePricePoint.price,
+          y: indifferencePricePoint.tooCheap,
+          text: 'Indifference Price Point',
+          showarrow: true,
+          arrowhead: 2,
+          arrowsize: 1,
+          arrowwidth: 2,
+          ax: -40,
+          ay: -40
+        });
+      }
+
+      // Create the result with interactive chart
       const result = {
-        svg,
         title: 'Van Westendorp Price Sensitivity Analysis',
         description: 'Sample price sensitivity data for product pricing analysis',
         visualizationType: 'van_westendorp',
-        modelUsed: 'Static SVG (Claude API rate limited)'
+        modelUsed: 'Interactive Plotly.js',
+        traces: JSON.stringify([tooExpensiveTrace, expensiveButWorthTrace, goodValueTrace, tooCheapTrace]),
+        annotations: JSON.stringify(annotations)
       };
 
       // Clear the timeout since we have a result
@@ -404,6 +429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <head>
               <title>Van Westendorp Visualization</title>
               <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+              <script src="https://cdn.plot.ly/plotly-2.29.1.min.js"></script>
               <style>
                 body { 
                   font-family: Arial, sans-serif; 
@@ -415,51 +441,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   color: #2c3e50; 
                   font-size: 1.4rem;
                   margin-bottom: 8px;
+                  text-align: center;
                 }
                 p {
                   font-size: 0.9rem;
                   line-height: 1.4;
                   margin: 8px 0;
+                  text-align: center;
                 }
-                .visualization { 
-                  border: 1px solid #ddd; 
-                  padding: 10px; 
+                .visualization-container { 
+                  margin: 20px auto;
+                  max-width: 800px;
+                }
+                .chart-container {
+                  margin: 15px 0;
+                  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
                   border-radius: 5px;
-                  overflow-x: auto;
-                  margin: 10px 0;
-                }
-                svg {
-                  max-width: 100%;
-                  height: auto;
+                  background: white;
+                  overflow: hidden;
+                  height: 450px;
                 }
                 .model-info { 
-                  margin-top: 15px; 
-                  padding: 8px; 
+                  margin: 15px auto; 
+                  padding: 10px; 
                   background: #f8f9fa; 
                   border-radius: 5px;
                   font-size: 0.85rem;
+                  max-width: 600px;
                 }
                 .back-link {
-                  display: inline-block;
-                  margin-top: 15px;
+                  display: block;
+                  margin: 15px auto;
                   background: #f0f0f0;
                   padding: 8px 15px;
                   border-radius: 4px;
                   text-decoration: none;
                   color: #333;
                   font-weight: bold;
+                  text-align: center;
+                  max-width: 150px;
                 }
-                .note {
-                  margin-top: 15px;
-                  padding: 8px;
-                  background: #fff8e1;
-                  border: 1px solid #ffd54f;
+                .interpretation {
+                  margin: 15px auto;
+                  padding: 10px;
+                  background: #f0f7ff;
                   border-radius: 5px;
-                  font-size: 0.85rem;
+                  font-size: 0.9rem;
+                  max-width: 600px;
+                }
+                .interpretation h3 {
+                  margin-top: 0;
+                  font-size: 1rem;
+                }
+                .interpretation ul {
+                  padding-left: 20px;
+                  margin: 8px 0;
                 }
                 @media (min-width: 768px) {
                   body {
-                    max-width: 900px;
                     padding: 20px;
                   }
                   h1 {
@@ -474,18 +513,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
             <body>
               <h1>${result.title}</h1>
               <p>${result.description}</p>
-              <div class="visualization">
-                ${result.svg}
+              
+              <div class="visualization-container">
+                <div class="chart-container">
+                  <div id="price-sensitivity-chart" style="height: 100%;"></div>
+                </div>
+                
+                <div class="interpretation">
+                  <h3>How to interpret this chart:</h3>
+                  <ul>
+                    <li><strong>Too Expensive</strong>: Percentage of customers who think the price is too high.</li>
+                    <li><strong>Expensive But Worth It</strong>: Percentage who think it's expensive but justified.</li>
+                    <li><strong>Good Value</strong>: Percentage who think the price is a good value.</li>
+                    <li><strong>Too Cheap</strong>: Percentage who think the price is suspiciously low.</li>
+                    <li><strong>Optimal Price Point</strong>: The intersection of "Too Expensive" and "Good Value" curves.</li>
+                    <li><strong>Indifference Price Point</strong>: The intersection of "Too Cheap" and "Expensive But Worth It" curves.</li>
+                  </ul>
+                </div>
+                
+                <div class="model-info">
+                  <p><strong>Visualization Type:</strong> ${result.visualizationType}</p>
+                  <p><strong>Source:</strong> ${result.modelUsed}</p>
+                </div>
               </div>
-              <div class="note">
-                <p><strong>Note:</strong> This is a static demonstration visualization. The Claude API is currently rate-limited, 
-                so we're showing a pre-generated SVG instead of a dynamically created one.</p>
-              </div>
-              <div class="model-info">
-                <p><strong>Visualization Type:</strong> ${result.visualizationType}</p>
-                <p><strong>Source:</strong> ${result.modelUsed}</p>
-              </div>
+              
               <a href="/" class="back-link">&laquo; Back to Dashboard</a>
+              
+              <script>
+                // Render the chart
+                const traces = ${result.traces};
+                const annotations = ${result.annotations};
+                
+                const layout = {
+                  title: 'Van Westendorp Price Sensitivity Analysis',
+                  xaxis: {
+                    title: 'Price ($)',
+                    tickmode: 'array',
+                    tickvals: [10, 30, 50, 70, 90, 110]
+                  },
+                  yaxis: {
+                    title: 'Percentage of Customers (%)',
+                    range: [0, 100]
+                  },
+                  legend: {
+                    orientation: 'h',
+                    y: -0.2
+                  },
+                  annotations: annotations,
+                  hovermode: 'closest',
+                  margin: {
+                    l: 50,
+                    r: 30,
+                    b: 100,
+                    t: 50,
+                    pad: 4
+                  }
+                };
+                
+                Plotly.newPlot('price-sensitivity-chart', traces, layout, {responsive: true});
+              </script>
             </body>
           </html>
         `);
