@@ -19,7 +19,7 @@ localPort = 6379
 externalPort = 3000
 
 [workflows]
-runButton = "Test Single Query Workflow"
+runButton = "Verify Claude Model Details"
 
 [[workflows.workflow]]
 name = "Project"
@@ -308,3 +308,12 @@ args = "node tests/reset-circuit-breaker.js perplexity"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/test-single-query-workflow.js"
+
+[[workflows.workflow]]
+name = "Verify Claude Model Details"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/check-claude-model-details.js"
