@@ -141,7 +141,7 @@ export default function Dashboard() {
             <div className="px-4 py-5 sm:p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <a 
-                  href="/api/test-visualization/van-westendrop" 
+                  href="/api/test-visualization/van-westendorp" 
                   target="_blank"
                   rel="noopener noreferrer" 
                   className="flex flex-col items-center p-4 border rounded-lg hover:bg-blue-50 transition-colors"
