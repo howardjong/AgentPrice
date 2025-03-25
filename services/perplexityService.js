@@ -39,6 +39,7 @@ class PerplexityService {
       failureThreshold: 3,
       resetTimeout: 300000 // 5 minutes
     });
+    this.promptManager = promptManager;
 
     this.initialize();
   }
@@ -255,8 +256,21 @@ class PerplexityService {
           modelRequested: 'sonar-deep-research'
         });
 
-        const promptTemplate = await this.promptManager.getPrompt('perplexity/deep-research');
-        const formattedPrompt = this.promptManager.formatPrompt(promptTemplate, { query, context });
+        // Use a default prompt if promptManager fails
+        let formattedPrompt;
+        try {
+          const promptTemplate = await this.promptManager.getPrompt('perplexity', 'deep_research');
+          formattedPrompt = this.promptManager.formatPrompt(promptTemplate, { query, context });
+        } catch (error) {
+          logger.warn(`Failed to get prompt template, using default: ${error.message}`);
+          // Create a default research prompt
+          formattedPrompt = `Please conduct in-depth research on the following topic and provide a comprehensive, well-structured response with citations.
+          
+Research query: ${query}
+${context ? `Additional context: ${context}` : ''}
+
+Please include the most up-to-date information available, with particular attention to recent developments and reliable sources. Format your response in a clear, organized manner with appropriate headings and citation references where applicable.`;
+        }
 
         // Use circuit breaker pattern for the API call
         return await breaker.executeRequest('perplexity-deep', async () => {
