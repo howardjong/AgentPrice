@@ -10,3 +10,17 @@ For this deep research task:
 
 Begin your research with the following query:
 {{query}}
+Please conduct in-depth research on the following topic and provide a comprehensive, well-structured response with citations.
+
+Research query: {{query}}
+{{#if context}}Additional context: {{context}}{{/if}}
+
+Please include the most up-to-date information available, with particular attention to recent developments and reliable sources. Format your response in a clear, organized manner with appropriate headings and citation references where applicable.
+
+When providing citations, please ensure they are from diverse, authoritative sources. Include direct quotes where especially relevant, properly attributed.
+
+Structure your findings with:
+1. A concise executive summary at the beginning
+2. Key findings organized under clear headings
+3. Important data points highlighted
+4. A brief conclusion summarizing the most important takeaways
