@@ -15,6 +15,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import logger from '../utils/logger.js';
 import { CircuitBreaker } from '../utils/monitoring.js';
 import { RobustAPIClient } from '../utils/apiClient.js';
+import promptManager from './promptManager.js';
 
 const apiClient = new RobustAPIClient({
   maxRetries: 3,
@@ -42,7 +43,7 @@ const CLAUDE_MODEL_MAPPING = {
 };
 
 class ClaudeService {
-  constructor(promptManager) {
+  constructor() {
     this.apiKey = process.env.ANTHROPIC_API_KEY;
     this.model = "claude-3-7-sonnet-20250219";
     this.fallbackModel = "claude-3-5-haiku-20241022";
@@ -50,10 +51,11 @@ class ClaudeService {
     this.lastUsed = null;
     this.client = null;
     this.expectedModelIdentity = CLAUDE_MODEL_MAPPING[this.model]?.selfReportedName || this.model;
-
-    this.initialize();
-    // Make sure promptManager is initialized
+    
+    // Use the imported promptManager
     this.promptManager = promptManager;
+    
+    this.initialize();
   }
 
   initialize() {
@@ -535,5 +537,6 @@ Generate questions that would help narrow down exactly what information would be
   }
 }
 
+// Initialize claudeService with promptManager
 const claudeService = new ClaudeService();
 export default claudeService;
