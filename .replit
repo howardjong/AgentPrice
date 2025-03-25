@@ -268,3 +268,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/testRateLimiter.js"
+
+[[workflows.workflow]]
+name = "Test Claude Prompt Manager"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-claude-prompt-manager.js"
