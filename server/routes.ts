@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import express, { type Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
@@ -12,6 +12,7 @@ import {
 } from "@shared/schema";
 import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
 import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize services
@@ -21,6 +22,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update storage with initial service status
   await storage.updateServiceStatus('claude', claudeStatus);
   await storage.updateServiceStatus('perplexity', perplexityStatus);
+
+  // Serve the charts view page
+  app.get('/view-charts.html', (req: Request, res: Response) => {
+    res.sendFile(path.resolve(__dirname, '../public/view-charts.html'));
+  });
 
   // API Status Endpoint
   app.get('/api/status', async (req: Request, res: Response) => {
@@ -1011,6 +1017,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Serve files from tests/output directory for chart JSON data
+  app.use('/tests/output', express.static(path.resolve(__dirname, '../tests/output')));
+  
   // Mock Research Initialization Endpoint (for testing/development only)
   app.post('/api/mock-init', async (req: Request, res: Response) => {
     // This endpoint should only be available in development mode
