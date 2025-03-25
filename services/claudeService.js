@@ -229,30 +229,41 @@ class ClaudeService {
         // Remove the model identification from the response
         responseContent = responseContent.replace(/\[\[(.*?)\]\]/, '').trim();
 
-        // Check for significant model mismatch (ignoring date variations)
+        // Check for model differences (ignoring date variations)
         const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
         const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
+        
+        // Check if API metadata and self-reported model differ
+        const apiReportedModel = response.model || this.model;
+        const apiMatchesRequested = apiReportedModel === this.model;
 
         if (actualModelBase !== requestedModelBase) {
-          // This is a serious mismatch - completely different model
-          logger.warn('Serious model mismatch in Claude API', {
+          // Different base model, but prioritize API metadata as source of truth
+          logger.info('Note: Self-reported model differs from requested model, but API reports expected model', {
             requested: this.model,
-            actual: actualModel,
-            apiReported: response.model
+            selfReported: actualModel,
+            apiReported: apiReportedModel
           });
-
-          // Add a prominent model mismatch notice at the beginning of the response
-          responseContent = `⚠️ SERIOUS MODEL MISMATCH WARNING: The system is using ${actualModel} instead of the requested ${this.model}. We've instructed the model to behave like Claude 3.7 Sonnet regardless.\n\n${responseContent}`;
+          
+          // Only add a subtle notice if needed
+          if (apiMatchesRequested) {
+            // If API matches our request, just log and don't modify response
+            logger.debug('API metadata matches requested model, using API as source of truth', {
+              apiReported: apiReportedModel
+            });
+          } else {
+            // Only add a notice if both API and self-reported model differ from requested
+            responseContent = `Note: API reports using ${apiReportedModel} (self-reported as ${actualModel})\n\n${responseContent}`;
+          }
         } else if (actualModel !== this.model) {
           // Just a version/date mismatch but same base model - less concerning
-          logger.info('Model version mismatch in Claude API', {
+          logger.debug('Minor model version mismatch in Claude API', {
             requested: this.model,
-            actual: actualModel,
-            apiReported: response.model
+            selfReported: actualModel,
+            apiReported: apiReportedModel
           });
-
-          // Add a subtle notice about version difference
-          responseContent = `Note: Using Claude ${actualModelBase} (version may differ from ${this.model})\n\n${responseContent}`;
+          
+          // No response modification needed for minor version differences
         }
       }
     }

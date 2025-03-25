@@ -79,13 +79,22 @@ async function checkClaudeModel() {
       const reportedModelBase = reportedModel.split('-20')[0];
       
       if (reportedModelBase !== requestedModelBase) {
-        console.log(`\n⚠️ SERIOUS MODEL MISMATCH! Using completely different model:`);
+        console.log(`\n📝 MODEL IDENTIFICATION NOTE: Self-reported model differs from requested model:`);
         console.log(`  - Requested: ${requestedModel} (${requestedModelBase})`);
-        console.log(`  - Actual: ${reportedModel} (${reportedModelBase})`);
+        console.log(`  - Self-reported: ${reportedModel} (${reportedModelBase})`);
+        console.log(`  - API metadata reports: ${response.model}`);
+        
+        // Check if API metadata matches requested model
+        if (response.model === requestedModel) {
+          console.log(`  ✅ API METADATA MATCH: API reports correct requested model, which is the source of truth`);
+        } else {
+          console.log(`  ⚠️ API METADATA MISMATCH: API reports ${response.model} instead of ${requestedModel}`);
+        }
       } else if (reportedModel !== requestedModel) {
-        console.log(`\n⚠️ VERSION MISMATCH! Same model family but different version:`);
+        console.log(`\n📝 VERSION DIFFERENCE: Same model family but different version:`);
         console.log(`  - Requested: ${requestedModel}`);
-        console.log(`  - Actual: ${reportedModel}`);
+        console.log(`  - Self-reported: ${reportedModel}`);
+        console.log(`  - API metadata reports: ${response.model}`);
       } else {
         console.log(`✅ MATCH! Requested and received the same model: ${requestedModel}`);
       }
