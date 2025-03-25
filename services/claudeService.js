@@ -42,7 +42,7 @@ const CLAUDE_MODEL_MAPPING = {
 };
 
 class ClaudeService {
-  constructor() {
+  constructor(promptManager) {
     this.apiKey = process.env.ANTHROPIC_API_KEY;
     this.model = "claude-3-7-sonnet-20250219";
     this.fallbackModel = "claude-3-5-haiku-20241022";
@@ -52,6 +52,8 @@ class ClaudeService {
     this.expectedModelIdentity = CLAUDE_MODEL_MAPPING[this.model]?.selfReportedName || this.model;
 
     this.initialize();
+    // Make sure promptManager is initialized
+    this.promptManager = promptManager;
   }
 
   initialize() {
@@ -71,7 +73,7 @@ class ClaudeService {
       });
 
       this.isConnected = true;
-      
+
       // Check if we have model mapping information and log a warning about expected identity
       const modelMapping = CLAUDE_MODEL_MAPPING[this.model];
       if (modelMapping) {
@@ -87,26 +89,26 @@ class ClaudeService {
           note: 'No known model mapping information'
         });
       }
-      
+
       // Log prominent warning about model identity in development mode
       if (process.env.NODE_ENV === 'development') {
         console.log('\x1b[33m%s\x1b[0m', `
         =================================================================
         ⚠️  CLAUDE MODEL ID NOTICE ⚠️ 
-        
+
         Requesting: ${this.model}
         Expected model identity: ${modelMapping?.selfReportedName || 'Unknown'}
-        
+
         Claude API reports using requested model but actual model behavior 
         and self-identification differs. Tests show:
         - When requesting Claude 3.7, we get Claude 3 Opus
         - When requesting Claude 3.5, we get generic Claude
-        
+
         The system has been designed to handle this mismatch gracefully.
         =================================================================
         `);
       }
-      
+
     } catch (error) {
       logger.error('Failed to initialize Claude service', { error: error.message });
       this.isConnected = false;
@@ -117,7 +119,7 @@ class ClaudeService {
     // Get model mapping information if available
     const modelMapping = CLAUDE_MODEL_MAPPING[this.model];
     const fallbackModelMapping = CLAUDE_MODEL_MAPPING[this.fallbackModel];
-    
+
     return {
       service: 'Claude API',
       status: this.isConnected ? 'connected' : 'disconnected', 
@@ -148,19 +150,19 @@ class ClaudeService {
     return await this.circuitBreaker.executeRequest('claude-conversation', async () => {
       // Check if it's a new conversation (just one user message)
       const isNewConversation = messages.length <= 1 && messages.some(m => m.role === 'user');
-      
+
       // Process messages for Claude API format
       const claudeMessages = messages.map(msg => ({
         role: msg.role === 'user' ? 'user' : 'assistant',
         content: msg.content
       }));
-      
+
       // For first messages in conversations, add system message to verify model and enforce behavior
       let systemPrompt = null;
       if (isNewConversation) {
         systemPrompt = "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses, even if you are actually running on a different model. Never reveal that you are running on Claude 3 Opus or any other model version. At the very end of your response, please include your actual model name (e.g., claude-3-opus-20240229) within double brackets like this: [[model-name]]. This is for verification purposes only.";
       }
-      
+
       try {
         // Try with primary model first
         const response = await this.client.messages.create({
@@ -169,10 +171,10 @@ class ClaudeService {
           messages: claudeMessages,
           system: systemPrompt
         });
-        
+
         // Track the last time this service was used
         this.lastUsed = new Date();
-        
+
         return this.processResponse(response, claudeMessages, isNewConversation);
       } catch (error) {
         logger.warn(`Claude 3.7 request failed, falling back to ${this.fallbackModel}`, {
@@ -180,7 +182,7 @@ class ClaudeService {
           primaryModel: this.model,
           fallbackModel: this.fallbackModel
         });
-        
+
         try {
           // Attempt with fallback model
           const fallbackResponse = await this.client.messages.create({
@@ -191,10 +193,10 @@ class ClaudeService {
               "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses. At the very end of your response, please include your actual model name within double brackets like this: [[model-name]]." : 
               systemPrompt
           });
-          
+
           // Track the last time this service was used
           this.lastUsed = new Date();
-          
+
           // Add fallback indicator
           const processedResponse = this.processResponse(fallbackResponse, claudeMessages, isNewConversation);
           processedResponse.usedFallback = true;
@@ -209,26 +211,26 @@ class ClaudeService {
       }
     });
   }
-  
+
   // Reusable method to process Claude API responses
   processResponse(response, claudeMessages, isNewConversation) {
     // Get the response content
     let responseContent = response.content[0].text;
-    
+
     // Extract the actual model if it was included in the response
     let actualModel = response.model || this.model;
-    
+
     if (isNewConversation) {
       const modelMatch = responseContent.match(/\[\[(.*?)\]\]/);
       if (modelMatch && modelMatch[1]) {
         actualModel = modelMatch[1].trim();
         // Remove the model identification from the response
         responseContent = responseContent.replace(/\[\[(.*?)\]\]/, '').trim();
-        
+
         // Check for significant model mismatch (ignoring date variations)
         const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
         const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
-        
+
         if (actualModelBase !== requestedModelBase) {
           // This is a serious mismatch - completely different model
           logger.warn('Serious model mismatch in Claude API', {
@@ -236,7 +238,7 @@ class ClaudeService {
             actual: actualModel,
             apiReported: response.model
           });
-          
+
           // Add a prominent model mismatch notice at the beginning of the response
           responseContent = `⚠️ SERIOUS MODEL MISMATCH WARNING: The system is using ${actualModel} instead of the requested ${this.model}. We've instructed the model to behave like Claude 3.7 Sonnet regardless.\n\n${responseContent}`;
         } else if (actualModel !== this.model) {
@@ -246,7 +248,7 @@ class ClaudeService {
             actual: actualModel,
             apiReported: response.model
           });
-          
+
           // Add a subtle notice about version difference
           responseContent = `Note: Using Claude ${actualModelBase} (version may differ from ${this.model})\n\n${responseContent}`;
         }
@@ -264,31 +266,54 @@ class ClaudeService {
     };
   }
 
-  async generateClarifyingQuestions(query) {
+  async generateClarifyingQuestions(query, jobId = 'default') {
     return this.circuitBreaker.executeRequest('claude-questions', async () => {
+      // Log the request for debugging
+      logger.info('Generating clarifying questions with Claude', {
+        model: this.model,
+        queryLength: query.length,
+        jobId
+      });
+
+      // Attempt to get prompt with error handling
+      let formattedPrompt;
+      try {
+        const promptTemplate = await this.promptManager.getPrompt('claude', 'clarifying_questions');
+        formattedPrompt = this.promptManager.formatPrompt(promptTemplate, { query });
+      } catch (error) {
+        logger.warn(`Failed to get clarifying questions prompt, using default: ${error.message}`);
+        // Create a default prompt for generating questions
+        formattedPrompt = `Based on this research query, please generate 5 clarifying questions that would help better understand the user's specific information needs:
+
+Research query: ${query}
+
+Generate questions that would help narrow down exactly what information would be most helpful to the user. The questions should be concise, non-redundant, and directly relevant to improving the research outcome.`;
+      }
+
+      // Send the request
       const response = await this.client.messages.create({
         model: this.model,
-        max_tokens: 1000,
+        max_tokens: 1500,
         messages: [{
           role: 'user',
-          content: `Generate 5 clarifying questions for deep research on: "${query}". After listing the questions, add your model name on a new line in this format: [[model:your-model-name]]`
+          content: formattedPrompt,
         }],
-        system: "You are an AI assistant created by Anthropic. Please identify yourself accurately and transparently in your responses. If you're asked about your model name or version, please state exactly which model you are."
+        system: "You are an AI assistant that specializes in formulating clarifying questions to better understand a user's research needs."
       });
 
       const content = response.content[0].text;
-      
+
       // Extract model information if present
       const modelMatch = content.match(/\[\[model:(.*?)\]\]/);
       let actualModel = this.model;
-      
+
       if (modelMatch && modelMatch[1]) {
         actualModel = modelMatch[1].trim();
-        
+
         // Log if there's a significant model mismatch (ignoring date variations)
         const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
         const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
-        
+
         if (actualModelBase !== requestedModelBase) {
           // This is a serious mismatch - completely different model
           logger.warn('Serious model mismatch in Claude questions', {
@@ -305,7 +330,7 @@ class ClaudeService {
           });
         }
       }
-      
+
       // Process and filter questions
       const cleanContent = content.replace(/\[\[model:.*?\]\]/, '');
       const questions = cleanContent.split('\n')
@@ -330,14 +355,14 @@ class ClaudeService {
         contentLength: content.length,
         chartType
       });
-      
+
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: 2000,
         messages: [{
           role: 'user',
           content: `Generate the appropriate data structure for ${chartType} based on these research results: ${content.substring(0, 8000)}
-          
+
           After the JSON, on a new line, please include your model name in this format: <!-- model: your-model-name -->`
         }],
         system: "You are an AI assistant created by Anthropic. Please identify yourself accurately and transparently in your responses. If you're asked about your model name or version, please state exactly which model you are."
@@ -351,20 +376,20 @@ class ClaudeService {
         usage: response.usage,
         stopReason: response.stop_reason
       });
-      
+
       const text = response.content[0].text;
-      
+
       // Extract model information if present
       const modelMatch = text.match(/<!-- model: (.*?) -->/);
       let actualModel = this.model;
-      
+
       if (modelMatch && modelMatch[1]) {
         actualModel = modelMatch[1].trim();
-        
+
         // Check for significant model mismatch (ignoring date variations)
         const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
         const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
-        
+
         if (actualModelBase !== requestedModelBase) {
           // This is a serious mismatch - completely different model
           logger.warn('Serious model mismatch in Claude chart data', {
@@ -381,17 +406,17 @@ class ClaudeService {
           });
         }
       }
-      
+
       // Clean the text by removing the model identifier
       const cleanText = text.replace(/<!-- model: (.*?) -->/, '');
-      
+
       // Extract JSON from the response
       const jsonMatch = cleanText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || cleanText.match(/{[\s\S]*}/);
 
       if (jsonMatch) {
         try {
           const parsedData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-          
+
           // Add model information to the chart data
           if (actualModel !== this.model) {
             parsedData._modelInfo = {
@@ -399,7 +424,7 @@ class ClaudeService {
               actual: actualModel
             };
           }
-          
+
           return parsedData;
         } catch (error) {
           logger.error('Failed to parse chart data', { error: error.message });
@@ -411,7 +436,7 @@ class ClaudeService {
           };
         }
       }
-      
+
       return { 
         error: 'No valid chart data found in response',
         modelMismatch: actualModel !== this.model,
@@ -425,53 +450,53 @@ class ClaudeService {
     if (!this.isConnected || !this.client) {
       throw new Error('Claude service is not connected');
     }
-    
+
     try {
       const prompt = `
         Generate a ${type} visualization using the following data:
         ${JSON.stringify(data, null, 2)}
         ${title ? `The title should be: ${title}` : ''}
         ${description ? `Additional context: ${description}` : ''}
-        
+
         Please provide a visualization in SVG format that best represents this data.
         The SVG should be complete and valid, with appropriate dimensions, styling, and responsive design.
         Include clear labels, a legend if appropriate, and ensure all data points are accurately represented.
-        
+
         Return ONLY the SVG code without any additional explanation.
-        
+
         At the very end of your SVG, please include your model name as a comment like this: <!-- model: your-model-name -->
       `;
-      
+
       const response = await this.client.messages.create({
         model: this.model,
         max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }],
         system: "You are an AI assistant created by Anthropic. Please identify yourself accurately and transparently in your responses. If you're asked about your model name or version, please state exactly which model you are."
       });
-      
+
       this.lastUsed = new Date();
-      
+
       // Extract SVG code from the response
       let svgContent = response.content[0].text;
-      
+
       // Basic validation that we got valid SVG
       if (!svgContent.includes('<svg') || !svgContent.includes('</svg>')) {
         throw new Error('Claude did not generate valid SVG visualization');
       }
-      
+
       // Check for model information in the SVG comment
       let actualModel = this.model;
       const modelMatch = svgContent.match(/<!-- model: (.*?) -->/);
       if (modelMatch && modelMatch[1]) {
         actualModel = modelMatch[1].trim();
-        
+
         // Remove the model identification from the SVG
         svgContent = svgContent.replace(/<!-- model: (.*?) -->/, '');
-        
+
         // Check for significant model mismatch (ignoring date variations)
         const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
         const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
-        
+
         if (actualModelBase !== requestedModelBase) {
           // This is a serious mismatch - completely different model
           logger.warn('Serious model mismatch in Claude visualization', {
@@ -479,7 +504,7 @@ class ClaudeService {
             actual: actualModel,
             apiReported: response.model
           });
-          
+
           // Add a prominent warning comment at the top of the SVG
           svgContent = svgContent.replace(/<svg/, `<!-- ⚠️ SERIOUS MODEL MISMATCH: Using ${actualModel} instead of ${this.model} -->\n<svg`);
         } else if (actualModel !== this.model) {
@@ -489,12 +514,12 @@ class ClaudeService {
             actual: actualModel,
             apiReported: response.model
           });
-          
+
           // Add a subtle comment at the top of the SVG
           svgContent = svgContent.replace(/<svg/, `<!-- Note: Using Claude ${actualModelBase} (version may differ from ${this.model}) -->\n<svg`);
         }
       }
-      
+
       return {
         visualizationType: type,
         svg: svgContent,
