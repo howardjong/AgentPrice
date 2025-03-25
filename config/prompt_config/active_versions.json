@@ -3,9 +3,12 @@
     "clarifying_questions": "default",
     "response_generation": "default",
     "visualization": "default",
+    "plotly_visualization": "default",
     "chart_data": {
       "van_westendorp": "default",
-      "conjoint": "default"
+      "conjoint": "default",
+      "plotly_van_westendorp": "default",
+      "plotly_conjoint": "default"
     }
   },
   "perplexity": {

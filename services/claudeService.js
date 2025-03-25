@@ -549,6 +549,156 @@ Generate questions that would help narrow down exactly what information would be
       throw new Error(`Claude visualization error: ${error.message}`);
     }
   }
+
+  /**
+   * Generate an interactive Plotly visualization configuration based on research data
+   * @param {Object} data - The data to visualize
+   * @param {string} type - The type of visualization (bar, line, pie, van_westendorp, conjoint, etc.)
+   * @param {string} title - The title for the visualization
+   * @param {string} description - Additional context or description
+   * @returns {Promise<Object>} Plotly configuration and insights
+   */
+  async generatePlotlyVisualization(data, type, title, description) {
+    if (!this.isConnected || !this.client) {
+      throw new Error('Claude service is not connected');
+    }
+
+    try {
+      // Determine which prompt to use based on chart type
+      let promptPath = 'plotly_visualization';
+      if (type === 'van_westendorp') {
+        promptPath = 'chart_data/plotly_van_westendorp';
+      } else if (type === 'conjoint') {
+        promptPath = 'chart_data/plotly_conjoint';
+      }
+
+      // Try to get the appropriate Plotly visualization prompt from promptManager
+      let prompt;
+      try {
+        const promptTemplate = await this.promptManager.getPrompt('claude', promptPath);
+        prompt = this.promptManager.formatPrompt(promptTemplate, { 
+          chart_type: type,
+          data: JSON.stringify(data, null, 2),
+          title: title || '',
+          description: description || ''
+        });
+      } catch (error) {
+        logger.warn(`Failed to get Plotly visualization prompt for ${type}, using default: ${error.message}`);
+        // Fallback to a generic Plotly prompt
+        prompt = `
+          Generate a complete Plotly.js configuration for a ${type} visualization using the following data:
+          ${JSON.stringify(data, null, 2)}
+          ${title ? `The title should be: ${title}` : ''}
+          ${description ? `Additional context: ${description}` : ''}
+
+          Return ONLY a JSON object with the following structure:
+          {
+            "plotlyConfig": {
+              "data": [...],
+              "layout": {...},
+              "config": {...}
+            },
+            "insights": ["Insight 1", "Insight 2", "Insight 3"],
+            "recommendations": ["Recommendation 1", "Recommendation 2"]
+          }
+
+          Do not include any explanatory text, only return the JSON object as specified.
+          At the very end of your response, please include your model name in this format: <!-- model: your-model-name -->
+        `;
+      }
+
+      // Send the request to Claude with a larger token limit for complex configurations
+      const response = await this.client.messages.create({
+        model: this.model,
+        max_tokens: 8000,
+        messages: [{ role: 'user', content: prompt }],
+        system: "You are an AI assistant specializing in data visualization with Plotly.js. Generate complete, valid Plotly configurations that accurately represent the data."
+      });
+
+      this.lastUsed = new Date();
+      const responseText = response.content[0].text;
+
+      // Extract model information if present
+      let actualModel = this.model;
+      const modelMatch = responseText.match(/<!-- model: (.*?) -->/);
+      if (modelMatch) {
+        actualModel = modelMatch[1].trim();
+      }
+
+      // Clean the response text by removing the model information
+      const cleanedText = responseText.replace(/<!-- model: (.*?) -->/, '').trim();
+
+      // Extract the JSON configuration
+      const jsonMatch = cleanedText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || cleanedText.match(/({[\s\S]*})/);
+      
+      if (!jsonMatch) {
+        throw new Error('Failed to extract valid JSON from Claude response');
+      }
+
+      // Parse the JSON configuration
+      try {
+        const plotlyData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+
+        // Validate the Plotly configuration has the expected structure
+        if (!plotlyData.plotlyConfig || !plotlyData.plotlyConfig.data || !plotlyData.plotlyConfig.layout) {
+          throw new Error('Invalid Plotly configuration structure');
+        }
+
+        // Check for model mismatch and log warnings
+        if (actualModel !== this.model) {
+          const requestedModelBase = this.model.split('-20')[0];
+          const actualModelBase = actualModel.split('-20')[0];
+          
+          if (actualModelBase !== requestedModelBase) {
+            logger.warn('Serious model mismatch in Claude Plotly visualization', {
+              requested: this.model,
+              actual: actualModel,
+              apiReported: response.model
+            });
+            
+            // Add model mismatch warning to the response
+            plotlyData._modelMismatch = {
+              requested: this.model,
+              actual: actualModel,
+              severity: 'serious'
+            };
+          } else {
+            logger.info('Model version mismatch in Claude Plotly visualization', {
+              requested: this.model,
+              actual: actualModel,
+              apiReported: response.model
+            });
+            
+            plotlyData._modelMismatch = {
+              requested: this.model,
+              actual: actualModel,
+              severity: 'minor'
+            };
+          }
+        }
+
+        // Add metadata to the response
+        return {
+          visualizationType: type,
+          plotlyConfig: plotlyData.plotlyConfig,
+          insights: plotlyData.insights || [],
+          recommendations: plotlyData.recommendations || [],
+          pricePoints: plotlyData.pricePoints || null,
+          optimalCombination: plotlyData.optimalCombination || null,
+          title: title || 'Data Visualization',
+          description: description || '',
+          rawData: data,
+          modelUsed: actualModel
+        };
+      } catch (parseError) {
+        logger.error('Failed to parse Plotly configuration', { error: parseError.message });
+        throw new Error(`Failed to parse Plotly configuration: ${parseError.message}`);
+      }
+    } catch (error) {
+      logger.error('Error in Claude Plotly visualization generation', { error: error.message });
+      throw new Error(`Claude Plotly visualization error: ${error.message}`);
+    }
+  }
 }
 
 // Initialize claudeService with promptManager

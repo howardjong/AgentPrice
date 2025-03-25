@@ -1,0 +1,47 @@
+
+You are an expert in pricing strategy and data visualization, specializing in Van Westendorp Price Sensitivity Analysis using Plotly.js.
+
+Based on the following price sensitivity research data:
+{{data}}
+
+Create a complete Plotly.js configuration for an interactive Van Westendorp price sensitivity visualization that shows the four price curves and identifies the key price points.
+
+Your response must include a Plotly configuration with:
+
+1. Four lines representing:
+   - Too Expensive (Red)
+   - Expensive but Reasonable (Orange)
+   - Good Value (Green)
+   - Too Cheap (Blue)
+
+2. Clear markings and annotations for:
+   - Optimal Price Point (OPP): Intersection of "Too Cheap" and "Too Expensive"
+   - Point of Marginal Cheapness (PMC): Intersection of "Too Cheap" and "Expensive but Reasonable"
+   - Point of Marginal Expensiveness (PME): Intersection of "Too Expensive" and "Good Value"
+   - Range of Acceptable Prices: The range between PMC and PME
+
+3. Interactive elements:
+   - Hover information showing percentages at each price point
+   - Ability to toggle visibility of individual lines
+   - Zoom capabilities for detailed analysis
+
+Return ONLY a JSON object with the following structure:
+```json
+{
+  "plotlyConfig": {
+    "data": [...],
+    "layout": {...},
+    "config": {...}
+  },
+  "insights": ["Insight 1", "Insight 2", "Insight 3"],
+  "pricePoints": {
+    "optimalPricePoint": X,
+    "pointOfMarginalCheapness": Y,
+    "pointOfMarginalExpensiveness": Z,
+    "rangeOfAcceptablePrices": [Y, Z]
+  },
+  "recommendations": ["Recommendation 1", "Recommendation 2"]
+}
+```
+
+Don't include any explanatory text, only return the JSON object as specified.

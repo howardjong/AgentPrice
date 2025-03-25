@@ -277,3 +277,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/test-claude-prompt-manager.js"
+
+[[workflows.workflow]]
+name = "Test Plotly Integration"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-plotly-integration.js"

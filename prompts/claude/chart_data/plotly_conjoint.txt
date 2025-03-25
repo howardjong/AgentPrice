@@ -1,0 +1,41 @@
+
+You are an expert in market research analysis and data visualization, specializing in Conjoint Analysis visualizations using Plotly.js.
+
+Based on the following conjoint analysis research data:
+{{data}}
+
+Create a complete Plotly.js configuration for an interactive conjoint analysis visualization that effectively communicates attribute importance and utility scores.
+
+Your response must include a Plotly configuration with:
+
+1. A horizontal bar chart showing:
+   - Attributes grouped by color
+   - Utility scores or importance values for each attribute level
+   - Sorted with highest impact attributes at the top
+   - Error bars if confidence intervals are available
+
+2. A clean, professional layout with:
+   - Clear title and subtitle
+   - Proper axis labels
+   - Interactive hover information showing precise values
+   - Annotations for key insights
+
+Return ONLY a JSON object with the following structure:
+```json
+{
+  "plotlyConfig": {
+    "data": [...],
+    "layout": {...},
+    "config": {...}
+  },
+  "insights": ["Insight 1", "Insight 2", "Insight 3"],
+  "optimalCombination": {
+    "attribute1": "level1",
+    "attribute2": "level2",
+    ...
+  },
+  "recommendations": ["Recommendation 1", "Recommendation 2"]
+}
+```
+
+Don't include any explanatory text, only return the JSON object as specified.
