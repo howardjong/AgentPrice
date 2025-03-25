@@ -297,6 +297,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   background: #f0f0f0;
                   padding: 8px 15px;
                   border-radius: 4px;
+
+// Two-stage research endpoint - first gets clarifying questions, then performs research with answers
+router.post('/api/two-stage-research', async (req: Request, res: Response) => {
+  try {
+    const { query, options = {} } = req.body;
+    
+    if (!query) {
+      return res.status(400).json({ error: 'Query is required' });
+    }
+    
+    // Check if this is stage 1 (get questions) or stage 2 (perform research with answers)
+    if (!req.body.stage || req.body.stage === 1) {
+      // Stage 1: Generate clarifying questions
+      const questions = await claudeService.generateClarifyingQuestions(query);
+      return res.json({
+        success: true,
+        questions,
+        stage: 1
+      });
+    } else {
+      // Stage 2: Perform research with answers
+      const { answers = {} } = req.body;
+      
+      // Start research with the provided answers
+      const research = await initiateResearch(query, {
+        ...options,
+        clarificationAnswers: answers,
+        generateClarifyingQuestions: true
+      });
+      
+      return res.json({
+        success: true,
+        research,
+        stage: 2
+      });
+    }
+  } catch (error) {
+    console.error('Error in two-stage research:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
                   text-decoration: none;
                   color: #333;
                   font-weight: bold;

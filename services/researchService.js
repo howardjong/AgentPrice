@@ -32,10 +32,35 @@ function registerJobProcessors() {
 
       // Step 1: Generate clarifying questions if enabled
       let clarifyingQuestions = [];
+      let enhancedQuery = query;
       if (options.generateClarifyingQuestions !== false) {
         try {
+          // Generate questions
           clarifyingQuestions = await claudeService.generateClarifyingQuestions(query);
           job.progress(20);
+
+          // If user answers are provided in options, enhance the query
+          if (options.clarificationAnswers && Object.keys(options.clarificationAnswers).length > 0) {
+            logger.info(`Enhancing query with ${Object.keys(options.clarificationAnswers).length} clarification answers`, { jobId: job.id });
+
+            // Create context from answers
+            const answersContext = [];
+            for (const question of clarifyingQuestions) {
+              const answer = options.clarificationAnswers[question] || "No specific preference.";
+              answersContext.push(`Question: ${question}\nAnswer: ${answer}`);
+            }
+
+            // Construct enhanced query with all context
+            enhancedQuery = `
+${query}
+
+Additional context from user:
+${answersContext.join("\n\n")}
+
+Based on all the above information, provide a comprehensive analysis.
+`;
+            logger.info('Query enhanced with clarification answers', { jobId: job.id });
+          }
         } catch (clarifyingError) {
           logger.error(`Error generating clarifying questions for job ${job.id}`, { 
             jobId: job.id, 
@@ -50,8 +75,8 @@ function registerJobProcessors() {
       logger.info(`Performing deep research for job ${job.id}`, { jobId: job.id });
       job.progress(30);
       
-      // Add a timeout wrapper around the deep research call
-      const researchPromise = perplexityService.performDeepResearch(query, {
+      // Add a timeout wrapper around the deep research call - use the enhanced query when available
+      const researchPromise = perplexityService.performDeepResearch(enhancedQuery, {
         ...options,
         jobId: job.id
       });
