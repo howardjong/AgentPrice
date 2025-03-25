@@ -1,0 +1,170 @@
+{
+  "visualizationType": "bar",
+  "plotlyConfig": {
+    "data": [
+      {
+        "type": "bar",
+        "x": [
+          "Category A",
+          "Category B",
+          "Category C",
+          "Category D",
+          "Category E"
+        ],
+        "y": [
+          23,
+          45,
+          32,
+          15,
+          37
+        ],
+        "marker": {
+          "color": [
+            "#4e79a7",
+            "#f28e2c",
+            "#e15759",
+            "#76b7b2",
+            "#59a14f"
+          ],
+          "line": {
+            "width": 1,
+            "color": "#ffffff"
+          }
+        },
+        "hovertemplate": "<b>%{x}</b><br>Value: %{y}<extra></extra>"
+      }
+    ],
+    "layout": {
+      "title": {
+        "text": "Category Performance Comparison",
+        "font": {
+          "size": 24,
+          "color": "#333333"
+        },
+        "x": 0.5
+      },
+      "xaxis": {
+        "title": {
+          "text": "Categories",
+          "font": {
+            "size": 16,
+            "color": "#333333"
+          }
+        },
+        "tickangle": -45,
+        "tickfont": {
+          "size": 14,
+          "color": "#333333"
+        },
+        "gridcolor": "#eeeeee"
+      },
+      "yaxis": {
+        "title": {
+          "text": "Values",
+          "font": {
+            "size": 16,
+            "color": "#333333"
+          }
+        },
+        "tickfont": {
+          "size": 14,
+          "color": "#333333"
+        },
+        "gridcolor": "#eeeeee",
+        "zeroline": true,
+        "zerolinecolor": "#cccccc",
+        "zerolinewidth": 1
+      },
+      "annotations": [
+        {
+          "x": "Category B",
+          "y": 45,
+          "text": "Highest",
+          "showarrow": true,
+          "arrowhead": 2,
+          "arrowsize": 1,
+          "arrowcolor": "#333333",
+          "ax": 0,
+          "ay": -30
+        },
+        {
+          "x": "Category D",
+          "y": 15,
+          "text": "Lowest",
+          "showarrow": true,
+          "arrowhead": 2,
+          "arrowsize": 1,
+          "arrowcolor": "#333333",
+          "ax": 0,
+          "ay": -30
+        }
+      ],
+      "margin": {
+        "l": 60,
+        "r": 30,
+        "t": 80,
+        "b": 80
+      },
+      "paper_bgcolor": "#ffffff",
+      "plot_bgcolor": "#ffffff",
+      "colorway": [
+        "#4e79a7",
+        "#f28e2c",
+        "#e15759",
+        "#76b7b2",
+        "#59a14f"
+      ],
+      "width": 800,
+      "height": 500,
+      "bargap": 0.2,
+      "hovermode": "closest"
+    },
+    "config": {
+      "responsive": true,
+      "displayModeBar": true,
+      "modeBarButtonsToRemove": [
+        "lasso2d",
+        "select2d"
+      ],
+      "displaylogo": false,
+      "toImageButtonOptions": {
+        "format": "png",
+        "filename": "category_performance",
+        "height": 500,
+        "width": 800,
+        "scale": 2
+      }
+    }
+  },
+  "insights": [
+    "Category B has the highest value (45), which is 3 times higher than the lowest value in Category D (15).",
+    "Categories B and E together account for nearly half (82/152 = 54%) of the total value across all categories.",
+    "There is significant variation across categories, with values ranging from 15 to 45, indicating uneven performance."
+  ],
+  "recommendations": [
+    "Investigate the factors contributing to Category B's success to potentially replicate them in lower-performing categories, especially Category D.",
+    "Consider allocating additional resources to improve Category D's performance, as it significantly lags behind other categories.",
+    "Develop balanced improvement strategies for Categories A and C, which show moderate performance and have potential for growth."
+  ],
+  "pricePoints": null,
+  "optimalCombination": null,
+  "title": "Sample Bar Chart",
+  "description": "Visualization of category performance",
+  "rawData": {
+    "categories": [
+      "Category A",
+      "Category B",
+      "Category C",
+      "Category D",
+      "Category E"
+    ],
+    "values": [
+      23,
+      45,
+      32,
+      15,
+      37
+    ]
+  },
+  "modelUsed": "claude-3-7-sonnet-20250219"
+}

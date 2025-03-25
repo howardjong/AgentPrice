@@ -1,0 +1,456 @@
+{
+  "visualizationType": "van_westendorp",
+  "plotlyConfig": {
+    "data": [
+      {
+        "x": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50
+        ],
+        "y": [
+          0.05,
+          0.1,
+          0.2,
+          0.35,
+          0.48,
+          0.65,
+          0.75,
+          0.85,
+          0.92,
+          0.96
+        ],
+        "type": "scatter",
+        "mode": "lines",
+        "name": "Too Expensive",
+        "line": {
+          "color": "red",
+          "width": 3
+        },
+        "hovertemplate": "Price: $%{x}<br>Too Expensive: %{y:.1%}<extra></extra>"
+      },
+      {
+        "x": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50
+        ],
+        "y": [
+          0.12,
+          0.25,
+          0.45,
+          0.58,
+          0.72,
+          0.65,
+          0.55,
+          0.42,
+          0.3,
+          0.2
+        ],
+        "type": "scatter",
+        "mode": "lines",
+        "name": "Expensive but Reasonable",
+        "line": {
+          "color": "orange",
+          "width": 3
+        },
+        "hovertemplate": "Price: $%{x}<br>Expensive but Reasonable: %{y:.1%}<extra></extra>"
+      },
+      {
+        "x": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50
+        ],
+        "y": [
+          0.8,
+          0.72,
+          0.6,
+          0.48,
+          0.4,
+          0.3,
+          0.25,
+          0.18,
+          0.12,
+          0.05
+        ],
+        "type": "scatter",
+        "mode": "lines",
+        "name": "Good Value",
+        "line": {
+          "color": "green",
+          "width": 3
+        },
+        "hovertemplate": "Price: $%{x}<br>Good Value: %{y:.1%}<extra></extra>"
+      },
+      {
+        "x": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50
+        ],
+        "y": [
+          0.85,
+          0.65,
+          0.45,
+          0.3,
+          0.18,
+          0.12,
+          0.08,
+          0.05,
+          0.03,
+          0.01
+        ],
+        "type": "scatter",
+        "mode": "lines",
+        "name": "Too Cheap",
+        "line": {
+          "color": "blue",
+          "width": 3
+        },
+        "hovertemplate": "Price: $%{x}<br>Too Cheap: %{y:.1%}<extra></extra>"
+      },
+      {
+        "x": [
+          19,
+          19
+        ],
+        "y": [
+          0,
+          0.32
+        ],
+        "type": "scatter",
+        "mode": "lines",
+        "name": "OPP",
+        "line": {
+          "color": "black",
+          "width": 2,
+          "dash": "dash"
+        },
+        "showlegend": false,
+        "hoverinfo": "none"
+      },
+      {
+        "x": [
+          15,
+          15
+        ],
+        "y": [
+          0,
+          0.45
+        ],
+        "type": "scatter",
+        "mode": "lines",
+        "name": "PMC",
+        "line": {
+          "color": "black",
+          "width": 2,
+          "dash": "dash"
+        },
+        "showlegend": false,
+        "hoverinfo": "none"
+      },
+      {
+        "x": [
+          33,
+          33
+        ],
+        "y": [
+          0,
+          0.7
+        ],
+        "type": "scatter",
+        "mode": "lines",
+        "name": "PME",
+        "line": {
+          "color": "black",
+          "width": 2,
+          "dash": "dash"
+        },
+        "showlegend": false,
+        "hoverinfo": "none"
+      },
+      {
+        "x": [
+          25,
+          25
+        ],
+        "y": [
+          0,
+          0.48
+        ],
+        "type": "scatter",
+        "mode": "lines",
+        "name": "IPP",
+        "line": {
+          "color": "black",
+          "width": 2,
+          "dash": "dash"
+        },
+        "showlegend": false,
+        "hoverinfo": "none"
+      }
+    ],
+    "layout": {
+      "title": {
+        "text": "Van Westendorp Price Sensitivity Meter",
+        "font": {
+          "size": 24
+        }
+      },
+      "xaxis": {
+        "title": {
+          "text": "Price ($)",
+          "font": {
+            "size": 16
+          }
+        },
+        "tickprefix": "$",
+        "range": [
+          0,
+          55
+        ]
+      },
+      "yaxis": {
+        "title": {
+          "text": "Cumulative Percentage of Respondents",
+          "font": {
+            "size": 16
+          }
+        },
+        "tickformat": ".0%",
+        "range": [
+          0,
+          1
+        ]
+      },
+      "legend": {
+        "x": 0.01,
+        "y": 0.99,
+        "bgcolor": "rgba(255, 255, 255, 0.8)",
+        "bordercolor": "rgba(0, 0, 0, 0.3)",
+        "borderwidth": 1
+      },
+      "shapes": [
+        {
+          "type": "rect",
+          "x0": 15,
+          "x1": 33,
+          "y0": 0,
+          "y1": 1,
+          "fillcolor": "rgba(173, 216, 230, 0.2)",
+          "line": {
+            "width": 0
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "x": 19,
+          "y": 0.32,
+          "xref": "x",
+          "yref": "y",
+          "text": "OPP: $19",
+          "showarrow": true,
+          "arrowhead": 2,
+          "ax": 50,
+          "ay": -40
+        },
+        {
+          "x": 15,
+          "y": 0.45,
+          "xref": "x",
+          "yref": "y",
+          "text": "PMC: $15",
+          "showarrow": true,
+          "arrowhead": 2,
+          "ax": -50,
+          "ay": -40
+        },
+        {
+          "x": 33,
+          "y": 0.7,
+          "xref": "x",
+          "yref": "y",
+          "text": "PME: $33",
+          "showarrow": true,
+          "arrowhead": 2,
+          "ax": 60,
+          "ay": -30
+        },
+        {
+          "x": 25,
+          "y": 0.48,
+          "xref": "x",
+          "yref": "y",
+          "text": "IPP: $25",
+          "showarrow": true,
+          "arrowhead": 2,
+          "ax": 50,
+          "ay": 30
+        },
+        {
+          "x": 24,
+          "y": 0.05,
+          "xref": "x",
+          "yref": "y",
+          "text": "Range of Acceptable Prices: $15-$33",
+          "showarrow": false,
+          "font": {
+            "size": 14,
+            "color": "rgba(0, 0, 100, 0.8)"
+          }
+        }
+      ],
+      "hovermode": "closest",
+      "dragmode": "zoom",
+      "margin": {
+        "l": 65,
+        "r": 50,
+        "b": 65,
+        "t": 90
+      }
+    },
+    "config": {
+      "responsive": true,
+      "displayModeBar": true,
+      "modeBarButtonsToRemove": [
+        "lasso2d",
+        "select2d",
+        "autoScale2d"
+      ],
+      "displaylogo": false,
+      "toImageButtonOptions": {
+        "format": "png",
+        "filename": "van_westendorp_price_analysis",
+        "height": 800,
+        "width": 1200,
+        "scale": 2
+      }
+    }
+  },
+  "insights": [
+    "The Optimal Price Point (OPP) is $19, indicating the price at which resistance to both high and low prices is equal.",
+    "The Range of Acceptable Prices spans from $15 to $33, providing a substantial pricing flexibility of $18.",
+    "At $25 (the Indifference Price Point), there's equal perception of value vs. expense, suggesting a potential premium pricing position.",
+    "Above $30, more than 65% of respondents consider the product too expensive, indicating a clear upper threshold.",
+    "Below $15, product quality perception begins to decline significantly, with 45% of respondents viewing it as too cheap."
+  ],
+  "recommendations": [
+    "Set the base product price between $19-$25 to optimize perception and revenue potential.",
+    "Consider a tiered pricing strategy with entry-level offerings at $15-$19 and premium versions at $25-$33 to capture different market segments.",
+    "If launching multiple product variations, use the $15-$33 range strategically to create good-better-best pricing ladders."
+  ],
+  "pricePoints": {
+    "pmc": {
+      "price": 15,
+      "description": "Point of Marginal Cheapness - the price point below which consumers begin to question the quality"
+    },
+    "pme": {
+      "price": 33,
+      "description": "Point of Marginal Expensiveness - the price point above which consumers begin to find the product too expensive"
+    },
+    "opp": {
+      "price": 19,
+      "description": "Optimal Price Point - the price at which the same number of consumers find the product too expensive and too cheap"
+    },
+    "ipp": {
+      "price": 25,
+      "description": "Indifference Price Point - the price at which the same number of consumers find the product expensive but reasonable and good value"
+    }
+  },
+  "optimalCombination": null,
+  "title": "Price Sensitivity Analysis",
+  "description": "Analysis of price sensitivity for our new product line",
+  "rawData": {
+    "prices": [
+      5,
+      10,
+      15,
+      20,
+      25,
+      30,
+      35,
+      40,
+      45,
+      50
+    ],
+    "tooExpensive": [
+      0.05,
+      0.1,
+      0.2,
+      0.35,
+      0.48,
+      0.65,
+      0.75,
+      0.85,
+      0.92,
+      0.96
+    ],
+    "expensiveButReasonable": [
+      0.12,
+      0.25,
+      0.45,
+      0.58,
+      0.72,
+      0.65,
+      0.55,
+      0.42,
+      0.3,
+      0.2
+    ],
+    "goodValue": [
+      0.8,
+      0.72,
+      0.6,
+      0.48,
+      0.4,
+      0.3,
+      0.25,
+      0.18,
+      0.12,
+      0.05
+    ],
+    "tooCheap": [
+      0.85,
+      0.65,
+      0.45,
+      0.3,
+      0.18,
+      0.12,
+      0.08,
+      0.05,
+      0.03,
+      0.01
+    ]
+  },
+  "modelUsed": "claude-3-7-sonnet-20250219"
+}
