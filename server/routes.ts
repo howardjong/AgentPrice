@@ -246,6 +246,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Van Westendorp visualization endpoint
   app.get('/api/test-visualization/van-westendorp', async (req: Request, res: Response) => {
+    // Add a timeout handler
+    const timeoutId = setTimeout(() => {
+      res.status(202).send(`
+        <html>
+          <head>
+            <title>Van Westendorp Visualization - Processing</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+            <meta http-equiv="refresh" content="5;url=/api/test-visualization/van-westendorp">
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                margin: 0 auto; 
+                padding: 15px; 
+                max-width: 600px;
+                text-align: center;
+              }
+              h1 { 
+                color: #2c3e50; 
+                font-size: 1.4rem;
+              }
+              .loading {
+                display: inline-block;
+                width: 50px;
+                height: 50px;
+                border: 3px solid rgba(0,0,0,.3);
+                border-radius: 50%;
+                border-top-color: #2c3e50;
+                animation: spin 1s ease-in-out infinite;
+              }
+              @keyframes spin {
+                to { transform: rotate(360deg); }
+              }
+              .back-link {
+                display: inline-block;
+                margin-top: 15px;
+                background: #f0f0f0;
+                padding: 8px 15px;
+                border-radius: 4px;
+                text-decoration: none;
+                color: #333;
+                font-weight: bold;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>Generating Van Westendorp Visualization</h1>
+            <p>This may take up to 90 seconds. The page will automatically refresh.</p>
+            <div class="loading"></div>
+            <p>Please wait...</p>
+            <a href="/" class="back-link">&laquo; Back to Dashboard</a>
+          </body>
+        </html>
+      `);
+    }, 5000); // Show loading page after 5 seconds
+
     try {
       // Sample data for van westendorp price sensitivity analysis
       const data = {
@@ -264,10 +319,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Sample price sensitivity data for product pricing analysis'
       );
 
+      // Clear the timeout since we have a result
+      clearTimeout(timeoutId);
+
       res.send(`
         <html>
           <head>
-            <title>Van Westendorp Visualization Test</title>
+            <title>Van Westendorp Visualization</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
             <style>
               body { 
@@ -343,13 +401,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </html>
       `);
     } catch (error) {
+      // Clear the timeout since we're sending an error
+      clearTimeout(timeoutId);
+      
       console.error('Error generating test visualization:', error);
-      res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
+      res.status(500).send(`
+        <html>
+          <head>
+            <title>Error - Van Westendorp Visualization</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                margin: 0 auto; 
+                padding: 15px; 
+                max-width: 600px;
+              }
+              h1 { 
+                color: #e74c3c; 
+                font-size: 1.4rem;
+              }
+              .error-box {
+                background: #fee;
+                border: 1px solid #e74c3c;
+                border-radius: 5px;
+                padding: 10px;
+                margin: 15px 0;
+              }
+              .back-link {
+                display: inline-block;
+                margin-top: 15px;
+                background: #f0f0f0;
+                padding: 8px 15px;
+                border-radius: 4px;
+                text-decoration: none;
+                color: #333;
+                font-weight: bold;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>Error Generating Visualization</h1>
+            <div class="error-box">
+              <p>${error.message || 'Unknown error occurred'}</p>
+            </div>
+            <p>Please try again later or contact support if the issue persists.</p>
+            <a href="/" class="back-link">&laquo; Back to Dashboard</a>
+          </body>
+        </html>
+      `);
     }
   });
   
   // Conjoint analysis visualization endpoint
   app.get('/api/test-visualization/conjoint', async (req: Request, res: Response) => {
+    // Add a timeout handler
+    const timeoutId = setTimeout(() => {
+      res.status(202).send(`
+        <html>
+          <head>
+            <title>Conjoint Analysis Visualization - Processing</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+            <meta http-equiv="refresh" content="5;url=/api/test-visualization/conjoint">
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                margin: 0 auto; 
+                padding: 15px; 
+                max-width: 600px;
+                text-align: center;
+              }
+              h1 { 
+                color: #2c3e50; 
+                font-size: 1.4rem;
+              }
+              .loading {
+                display: inline-block;
+                width: 50px;
+                height: 50px;
+                border: 3px solid rgba(0,0,0,.3);
+                border-radius: 50%;
+                border-top-color: #2c3e50;
+                animation: spin 1s ease-in-out infinite;
+              }
+              @keyframes spin {
+                to { transform: rotate(360deg); }
+              }
+              .back-link {
+                display: inline-block;
+                margin-top: 15px;
+                background: #f0f0f0;
+                padding: 8px 15px;
+                border-radius: 4px;
+                text-decoration: none;
+                color: #333;
+                font-weight: bold;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>Generating Conjoint Analysis Visualization</h1>
+            <p>This may take up to 90 seconds. The page will automatically refresh.</p>
+            <div class="loading"></div>
+            <p>Please wait...</p>
+            <a href="/" class="back-link">&laquo; Back to Dashboard</a>
+          </body>
+        </html>
+      `);
+    }, 5000); // Show loading page after 5 seconds
+
     try {
       // Sample data for conjoint analysis
       const data = {
@@ -404,10 +564,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'Analysis of consumer preferences for different product features and levels'
       );
 
+      // Clear the timeout since we have a result
+      clearTimeout(timeoutId);
+
       res.send(`
         <html>
           <head>
-            <title>Conjoint Analysis Visualization Test</title>
+            <title>Conjoint Analysis Visualization</title>
             <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
             <style>
               body { 
@@ -483,8 +646,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
         </html>
       `);
     } catch (error) {
+      // Clear the timeout since we're sending an error
+      clearTimeout(timeoutId);
+      
       console.error('Error generating test visualization:', error);
-      res.status(500).send(`<h1>Error</h1><p>${error.message}</p>`);
+      res.status(500).send(`
+        <html>
+          <head>
+            <title>Error - Conjoint Analysis Visualization</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+            <style>
+              body { 
+                font-family: Arial, sans-serif; 
+                margin: 0 auto; 
+                padding: 15px; 
+                max-width: 600px;
+              }
+              h1 { 
+                color: #e74c3c; 
+                font-size: 1.4rem;
+              }
+              .error-box {
+                background: #fee;
+                border: 1px solid #e74c3c;
+                border-radius: 5px;
+                padding: 10px;
+                margin: 15px 0;
+              }
+              .back-link {
+                display: inline-block;
+                margin-top: 15px;
+                background: #f0f0f0;
+                padding: 8px 15px;
+                border-radius: 4px;
+                text-decoration: none;
+                color: #333;
+                font-weight: bold;
+              }
+            </style>
+          </head>
+          <body>
+            <h1>Error Generating Visualization</h1>
+            <div class="error-box">
+              <p>${error.message || 'Unknown error occurred'}</p>
+            </div>
+            <p>Please try again later or contact support if the issue persists.</p>
+            <a href="/" class="back-link">&laquo; Back to Dashboard</a>
+          </body>
+        </html>
+      `);
     }
   });
 
