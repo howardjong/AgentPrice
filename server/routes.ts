@@ -268,11 +268,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         <html>
           <head>
             <title>Van Westendorp Visualization Test</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
             <style>
-              body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
-              h1 { color: #2c3e50; }
-              .visualization { border: 1px solid #ddd; padding: 20px; border-radius: 5px; }
-              .model-info { margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 5px; }
+              body { 
+                font-family: Arial, sans-serif; 
+                margin: 0 auto; 
+                padding: 12px; 
+                max-width: 100%;
+              }
+              h1 { 
+                color: #2c3e50; 
+                font-size: 1.4rem;
+                margin-bottom: 8px;
+              }
+              p {
+                font-size: 0.9rem;
+                line-height: 1.4;
+                margin: 8px 0;
+              }
+              .visualization { 
+                border: 1px solid #ddd; 
+                padding: 10px; 
+                border-radius: 5px;
+                overflow-x: auto;
+                margin: 10px 0;
+              }
+              svg {
+                max-width: 100%;
+                height: auto;
+              }
+              .model-info { 
+                margin-top: 15px; 
+                padding: 8px; 
+                background: #f8f9fa; 
+                border-radius: 5px;
+                font-size: 0.85rem;
+              }
+              .back-link {
+                display: inline-block;
+                margin-top: 15px;
+                background: #f0f0f0;
+                padding: 8px 15px;
+                border-radius: 4px;
+                text-decoration: none;
+                color: #333;
+                font-weight: bold;
+              }
+              @media (min-width: 768px) {
+                body {
+                  max-width: 900px;
+                  padding: 20px;
+                }
+                h1 {
+                  font-size: 1.8rem;
+                }
+                p {
+                  font-size: 1rem;
+                }
+              }
             </style>
           </head>
           <body>
@@ -285,6 +338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               <p><strong>Visualization Type:</strong> ${result.visualizationType}</p>
               <p><strong>Model Used:</strong> ${result.modelUsed}</p>
             </div>
+            <a href="/" class="back-link">&laquo; Back to Dashboard</a>
           </body>
         </html>
       `);
@@ -354,11 +408,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         <html>
           <head>
             <title>Conjoint Analysis Visualization Test</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
             <style>
-              body { font-family: Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; }
-              h1 { color: #2c3e50; }
-              .visualization { border: 1px solid #ddd; padding: 20px; border-radius: 5px; }
-              .model-info { margin-top: 20px; padding: 10px; background: #f8f9fa; border-radius: 5px; }
+              body { 
+                font-family: Arial, sans-serif; 
+                margin: 0 auto; 
+                padding: 12px; 
+                max-width: 100%;
+              }
+              h1 { 
+                color: #2c3e50; 
+                font-size: 1.4rem;
+                margin-bottom: 8px;
+              }
+              p {
+                font-size: 0.9rem;
+                line-height: 1.4;
+                margin: 8px 0;
+              }
+              .visualization { 
+                border: 1px solid #ddd; 
+                padding: 10px; 
+                border-radius: 5px;
+                overflow-x: auto;
+                margin: 10px 0;
+              }
+              svg {
+                max-width: 100%;
+                height: auto;
+              }
+              .model-info { 
+                margin-top: 15px; 
+                padding: 8px; 
+                background: #f8f9fa; 
+                border-radius: 5px;
+                font-size: 0.85rem;
+              }
+              .back-link {
+                display: inline-block;
+                margin-top: 15px;
+                background: #f0f0f0;
+                padding: 8px 15px;
+                border-radius: 4px;
+                text-decoration: none;
+                color: #333;
+                font-weight: bold;
+              }
+              @media (min-width: 768px) {
+                body {
+                  max-width: 900px;
+                  padding: 20px;
+                }
+                h1 {
+                  font-size: 1.8rem;
+                }
+                p {
+                  font-size: 1rem;
+                }
+              }
             </style>
           </head>
           <body>
@@ -371,6 +478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               <p><strong>Visualization Type:</strong> ${result.visualizationType}</p>
               <p><strong>Model Used:</strong> ${result.modelUsed}</p>
             </div>
+            <a href="/" class="back-link">&laquo; Back to Dashboard</a>
           </body>
         </html>
       `);
