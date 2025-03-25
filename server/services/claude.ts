@@ -106,8 +106,11 @@ export class ClaudeService {
    * Generate a visualization based on data and description
    */
   async generateVisualization(data: any, type: string, title?: string, description?: string): Promise<{
-    response: string;
-    visualizationData: any;
+    svg: string;
+    visualizationType: string;
+    title: string;
+    description: string;
+    modelUsed: string;
   }> {
     if (!this.isConnected) {
       throw new Error('Claude service is not connected. Please check API key.');
@@ -116,51 +119,54 @@ export class ClaudeService {
     try {
       // Create a prompt for visualization
       const prompt = `
-        I need a ${type} chart visualization for the following data:
+        I need an SVG visualization for the following ${type} data:
         
         ${JSON.stringify(data, null, 2)}
         
         ${title ? `Title: ${title}` : ''}
         ${description ? `Description: ${description}` : ''}
         
-        Please generate a visualization that best represents this data.
-        Return it as a JSON structure that can be used with a charting library like Chart.js or Recharts.
-        Format your response with the JSON inside a code block like this: \`\`\`json {...} \`\`\`
-        Then provide a brief description of the visualization.
+        Please generate an SVG visualization that best represents this data.
+        The SVG should be complete and valid, with appropriate dimensions, styling, and responsive design.
+        Include clear labels, a legend if appropriate, and ensure all data points are accurately represented.
+        
+        Return ONLY the SVG code without any additional explanation.
+        
+        At the very end of your SVG, please include your model name as a comment like this: <!-- model: your-model-name -->
       `;
 
       const response = await this.client.messages.create({
         model: this.model,
-        max_tokens: 2048,
+        max_tokens: 4000,
         messages: [{ role: 'user', content: prompt }],
         system: "You are an AI assistant created by Anthropic. Please identify yourself accurately and transparently in your responses. If you're asked about your model name or version, please state exactly which model you are."
       });
 
-      // Extract the JSON visualization data
-      let visualizationData = null;
+      // Extract SVG code from the response
       // Type assertion to handle content blocks properly
       const contentBlock = response.content[0] as TextContentBlock;
-      let responseText = contentBlock.text;
-      
-      const jsonMatch = responseText.match(/```json\n([\s\S]*?)\n```/);
-      if (jsonMatch && jsonMatch[1]) {
-        try {
-          visualizationData = JSON.parse(jsonMatch[1]);
-          // Remove the JSON block from the response text
-          responseText = responseText.replace(/```json\n[\s\S]*?\n```/, '');
-        } catch (e) {
-          console.error('Failed to parse visualization data:', e);
-        }
+      let svgContent = contentBlock.text;
+
+      // Basic validation that we got valid SVG
+      if (!svgContent.includes('<svg') || !svgContent.includes('</svg>')) {
+        throw new Error('Claude did not generate valid SVG visualization');
+      }
+
+      // Extract model information if present
+      let actualModel = this.model;
+      const modelMatch = svgContent.match(/<!-- model: (.*?) -->/);
+      if (modelMatch && modelMatch[1]) {
+        actualModel = modelMatch[1].trim();
+        // Remove the model identification from the SVG
+        svgContent = svgContent.replace(/<!-- model: (.*?) -->/, '');
       }
 
       return {
-        response: responseText.trim(),
-        visualizationData: visualizationData || {
-          type,
-          data,
-          title,
-          description
-        }
+        svg: svgContent,
+        visualizationType: type,
+        title: title || 'Data Visualization',
+        description: description || '',
+        modelUsed: actualModel
       };
     } catch (error: any) {
       console.error('Error generating visualization with Claude:', error);
