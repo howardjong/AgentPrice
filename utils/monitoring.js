@@ -130,11 +130,14 @@ export class CircuitBreaker {
       // Special handling for rate limit errors
       if (error.response?.status === 429) {
         this.onRateLimit(serviceKey, error);
+        throw new Error(`Service ${serviceKey} rate limited (HTTP 429). Please try again later.`);
+      } else if (error.code === 'ETIMEDOUT' || error.code === 'ESOCKETTIMEDOUT' || error.message.includes('timeout')) {
+        this.onFailure(serviceKey, error);
+        throw new Error(`Service ${serviceKey} request timed out after ${timeoutMs/1000} seconds. This may indicate server overload or connectivity issues.`);
       } else {
         this.onFailure(serviceKey, error);
+        throw error;
       }
-      
-      throw error;
     }
   }
 

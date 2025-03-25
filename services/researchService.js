@@ -24,6 +24,7 @@ function registerJobProcessors() {
   // Register deep research processor
   jobManager.registerProcessor('research-jobs', async (job) => {
     const { query, options = {} } = job.data;
+    const MAX_RESEARCH_TIME = 300000; // 5 minutes max for deep research
 
     try {
       job.progress(10);
@@ -32,14 +33,38 @@ function registerJobProcessors() {
       // Step 1: Generate clarifying questions if enabled
       let clarifyingQuestions = [];
       if (options.generateClarifyingQuestions !== false) {
-        clarifyingQuestions = await claudeService.generateClarifyingQuestions(query);
-        job.progress(20);
+        try {
+          clarifyingQuestions = await claudeService.generateClarifyingQuestions(query);
+          job.progress(20);
+        } catch (clarifyingError) {
+          logger.error(`Error generating clarifying questions for job ${job.id}`, { 
+            jobId: job.id, 
+            error: clarifyingError.message 
+          });
+          // Continue even if this step fails
+          job.progress(20);
+        }
       }
 
-      // Step 2: Perform deep research using Perplexity
+      // Step 2: Perform deep research using Perplexity with timeout
       logger.info(`Performing deep research for job ${job.id}`, { jobId: job.id });
       job.progress(30);
-      const researchResults = await perplexityService.performDeepResearch(query, job.id);
+      
+      // Add a timeout wrapper around the deep research call
+      const researchPromise = perplexityService.performDeepResearch(query, {
+        ...options,
+        jobId: job.id
+      });
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Deep research query timed out after ${MAX_RESEARCH_TIME/1000} seconds. The request to Perplexity API took too long to complete.`));
+        }, MAX_RESEARCH_TIME);
+      });
+      
+      // Race the research against the timeout
+      const researchResults = await Promise.race([researchPromise, timeoutPromise]);
       job.progress(70);
 
       // Step 3: Generate any requested chart data

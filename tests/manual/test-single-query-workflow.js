@@ -1,4 +1,3 @@
-
 /**
  * Test script for optimized workflow integration:
  * 1. Generate clarifying questions with Claude
@@ -32,16 +31,16 @@ const initialQuery = "What are the current market pricing models for subscriptio
 const prePopulatedAnswers = {
   "What specific industry or niche within the productivity space are you interested in?": 
     "Task and project management software for small to medium businesses.",
-  
+
   "Are you more interested in B2B or B2C pricing models?": 
     "Primarily B2B with some consideration for prosumers/small teams.",
-  
+
   "What price range are you considering for your product?": 
     "Thinking about tiered pricing with a free tier, $15/user/month for pro, and $35/user/month for enterprise.",
-  
+
   "Are you interested in specific pricing strategies like flat-rate, usage-based, or seat-based pricing?": 
     "Interested in comparing seat-based vs. usage-based models, with a focus on feature differentiation between tiers.",
-  
+
   "Would you like examples from specific leading companies in the space?": 
     "Yes, particularly interested in Asana, ClickUp, Monday.com and other project management tools."
 };
@@ -49,26 +48,26 @@ const prePopulatedAnswers = {
 async function runSingleQueryWorkflow() {
   console.log("\n==== STARTING OPTIMIZED SINGLE QUERY WORKFLOW TEST ====\n");
   await ensureOutputDirectory();
-  
+
   try {
     // Step 1: Generate clarifying questions with Claude
     console.log("Generating clarifying questions with Claude...");
     const clarifyingQuestions = await claudeService.generateClarifyingQuestions(initialQuery);
     console.log(`Generated ${clarifyingQuestions.length} clarifying questions:`);
     clarifyingQuestions.forEach((q, i) => console.log(`${i+1}. ${q}`));
-    
+
     // Step 2: In a real scenario, we would get answers from the user
     // Here we use pre-populated answers to simulate user responses
     console.log("\nCollecting answers to clarifying questions (pre-populated):");
     const answersContext = [];
-    
+
     for (const question of clarifyingQuestions) {
       const answer = prePopulatedAnswers[question] || "No specific preference.";
       console.log(`Q: ${question}`);
       console.log(`A: ${answer}`);
       answersContext.push(`Question: ${question}\nAnswer: ${answer}`);
     }
-    
+
     // Step 3: Combine initial query with answers to form a comprehensive research query
     const enhancedQuery = `
 ${initialQuery}
@@ -80,9 +79,9 @@ Based on all the above information, provide a comprehensive analysis of SaaS pri
 in the productivity space, focusing on task and project management software.
 Include specific examples from leading companies and provide detailed insights on tiered pricing strategies.
 `;
-    
+
     console.log("\nPrepared enhanced query with all context. Ready to send to Perplexity.");
-    
+
     // Step 4: Perform a single deep research query with the enhanced context
     console.log("\nPerforming deep research with Perplexity (single API call)...");
     console.time("Deep Research");
@@ -91,11 +90,11 @@ Include specific examples from leading companies and provide detailed insights o
       jobId: researchJobId
     });
     console.timeEnd("Deep Research");
-    
+
     // Log research results
     console.log(`\nResearch completed successfully with ${researchResults.sources.length} sources`);
     console.log(`Model used: ${researchResults.modelUsed}`);
-    
+
     // Save research results for future reference
     const researchOutputPath = path.join(OUTPUT_DIR, 'deep-research-results.json');
     await fs.writeFile(
@@ -108,18 +107,18 @@ Include specific examples from leading companies and provide detailed insights o
       }, null, 2)
     );
     console.log(`Research results saved to ${researchOutputPath}`);
-    
+
     // Step 5: Generate charts using Claude with the research results
     console.log("\nGenerating Plotly visualizations with Claude...");
-    
+
     const chartTypes = [
       'van_westendorp',
       'conjoint',
       'basic_bar'
     ];
-    
+
     console.log(`Generating ${chartTypes.length} different chart types...`);
-    
+
     for (const chartType of chartTypes) {
       console.log(`\nGenerating ${chartType} chart...`);
       try {
@@ -127,12 +126,12 @@ Include specific examples from leading companies and provide detailed insights o
           researchResults.content,
           chartType
         );
-        
+
         // Save chart data
         const chartOutputPath = path.join(OUTPUT_DIR, `${chartType}-chart.json`);
         await fs.writeFile(chartOutputPath, JSON.stringify(chartData, null, 2));
         console.log(`${chartType} chart data saved to ${chartOutputPath}`);
-        
+
         // Log insights
         if (chartData.insights && chartData.insights.length) {
           console.log(`\nInsights from ${chartType} chart:`);
@@ -142,7 +141,7 @@ Include specific examples from leading companies and provide detailed insights o
         console.error(`Error generating ${chartType} chart:`, error.message);
       }
     }
-    
+
     console.log("\n==== SINGLE QUERY WORKFLOW TEST COMPLETED SUCCESSFULLY ====");
   } catch (error) {
     console.error("Error in single query workflow test:", error);
