@@ -35,6 +35,18 @@ const API_ENDPOINTS = [
     path: '/api/visualize',
     description: 'Generate data visualizations via Claude',
     service: 'Claude' as const
+  },
+  {
+    method: 'GET' as const,
+    path: '/api/test-visualization/van-westendorp',
+    description: 'Test visualization for Van Westendorp Price Sensitivity',
+    service: 'Claude' as const
+  },
+  {
+    method: 'GET' as const,
+    path: '/api/test-visualization/conjoint',
+    description: 'Test visualization for Conjoint Analysis',
+    service: 'Claude' as const
   }
 ];
 
