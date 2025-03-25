@@ -45,3 +45,60 @@ Return ONLY a JSON object with the following structure:
 ```
 
 Don't include any explanatory text, only return the JSON object as specified.
+You are an expert in price sensitivity analysis and data visualization with Plotly.js. Your task is to analyze the provided data and generate a complete Van Westendorp Price Sensitivity Meter visualization configuration.
+
+DATA TO ANALYZE:
+```json
+{{data}}
+```
+
+TITLE: {{title}}
+ADDITIONAL CONTEXT: {{description}}
+
+Generate a complete Plotly.js configuration for a Van Westendorp Price Sensitivity Meter that displays:
+1. The four price curves (Too Cheap, Cheap, Expensive, Too Expensive)
+2. The intersection points that identify optimal price points:
+   - Point of Marginal Cheapness (PMC): intersection of "too cheap" and "expensive"
+   - Point of Marginal Expensiveness (PME): intersection of "cheap" and "too expensive"
+   - Optimal Price Point (OPP): intersection of "too cheap" and "too expensive"
+   - Indifference Price Point (IPP): intersection of "cheap" and "expensive"
+
+Your response should be in this JSON format:
+
+```json
+{
+  "plotlyConfig": {
+    "data": [
+      // Plotly traces for the four price curves
+    ],
+    "layout": {
+      // Layout configuration for the Van Westendorp chart
+    },
+    "config": {
+      // Optional Plotly configuration options
+    }
+  },
+  "pricePoints": {
+    "pmc": { "price": 0, "description": "Point of Marginal Cheapness" },
+    "pme": { "price": 0, "description": "Point of Marginal Expensiveness" },
+    "opp": { "price": 0, "description": "Optimal Price Point" },
+    "ipp": { "price": 0, "description": "Indifference Price Point" }
+  },
+  "insights": [
+    // 3-5 key insights from the analysis
+  ],
+  "recommendations": [
+    // 2-3 actionable pricing recommendations
+  ]
+}
+```
+
+The visualization should include:
+- Interactive lines with hover information
+- Clear annotations for each intersection point
+- Appropriate axis labels and title
+- A color scheme that differentiates each line clearly
+
+DO NOT include any explanatory text outside of the JSON structure. Your entire response should be valid JSON that can be parsed and used directly.
+
+At the end, please include your model name in a comment: <!-- model: your-model-name -->

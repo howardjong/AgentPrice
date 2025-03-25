@@ -453,97 +453,15 @@ Generate questions that would help narrow down exactly what information would be
       throw new Error('Claude service is not connected');
     }
 
+    // Forward to Plotly visualization generator
+    logger.info('Redirecting visualization request to Plotly generator', { 
+      visualizationType: type,
+      title: title 
+    });
+    
     try {
-      // Try to get the visualization prompt from promptManager
-      let prompt;
-      try {
-        const promptTemplate = await this.promptManager.getPrompt('claude', 'visualization');
-        prompt = this.promptManager.formatPrompt(promptTemplate, { 
-          type, 
-          data: JSON.stringify(data, null, 2),
-          title: title || '',
-          description: description || ''
-        });
-      } catch (error) {
-        logger.warn(`Failed to get visualization prompt, using default: ${error.message}`);
-        // Fallback to default prompt
-        prompt = `
-          Generate a ${type} visualization using the following data:
-          ${JSON.stringify(data, null, 2)}
-          ${title ? `The title should be: ${title}` : ''}
-          ${description ? `Additional context: ${description}` : ''}
-
-          Please provide a visualization in SVG format that best represents this data.
-          The SVG should be complete and valid, with appropriate dimensions, styling, and responsive design.
-          Include clear labels, a legend if appropriate, and ensure all data points are accurately represented.
-
-          Return ONLY the SVG code without any additional explanation.
-
-          At the very end of your SVG, please include your model name as a comment like this: <!-- model: your-model-name -->
-        `;
-      }
-
-      const response = await this.client.messages.create({
-        model: this.model,
-        max_tokens: 4000,
-        messages: [{ role: 'user', content: prompt }],
-        system: "You are an AI assistant created by Anthropic. Please identify yourself accurately and transparently in your responses. If you're asked about your model name or version, please state exactly which model you are."
-      });
-
-      this.lastUsed = new Date();
-
-      // Extract SVG code from the response
-      let svgContent = response.content[0].text;
-
-      // Basic validation that we got valid SVG
-      if (!svgContent.includes('<svg') || !svgContent.includes('</svg>')) {
-        throw new Error('Claude did not generate valid SVG visualization');
-      }
-
-      // Check for model information in the SVG comment
-      let actualModel = this.model;
-      const modelMatch = svgContent.match(/<!-- model: (.*?) -->/);
-      if (modelMatch && modelMatch[1]) {
-        actualModel = modelMatch[1].trim();
-
-        // Remove the model identification from the SVG
-        svgContent = svgContent.replace(/<!-- model: (.*?) -->/, '');
-
-        // Check for significant model mismatch (ignoring date variations)
-        const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
-        const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
-
-        if (actualModelBase !== requestedModelBase) {
-          // This is a serious mismatch - completely different model
-          logger.warn('Serious model mismatch in Claude visualization', {
-            requested: this.model,
-            actual: actualModel,
-            apiReported: response.model
-          });
-
-          // Add a prominent warning comment at the top of the SVG
-          svgContent = svgContent.replace(/<svg/, `<!-- ⚠️ SERIOUS MODEL MISMATCH: Using ${actualModel} instead of ${this.model} -->\n<svg`);
-        } else if (actualModel !== this.model) {
-          // Just a version/date mismatch but same base model - less concerning
-          logger.info('Model version mismatch in Claude visualization', {
-            requested: this.model,
-            actual: actualModel,
-            apiReported: response.model
-          });
-
-          // Add a subtle comment at the top of the SVG
-          svgContent = svgContent.replace(/<svg/, `<!-- Note: Using Claude ${actualModelBase} (version may differ from ${this.model}) -->\n<svg`);
-        }
-      }
-
-      return {
-        visualizationType: type,
-        svg: svgContent,
-        title: title || 'Data Visualization',
-        description: description || '',
-        rawData: data,
-        modelUsed: actualModel
-      };
+      // Use the Plotly visualization generator instead of SVG
+      return await this.generatePlotlyVisualization(data, type, title, description);
     } catch (error) {
       logger.error('Error in Claude visualization generation', { error: error.message });
       throw new Error(`Claude visualization error: ${error.message}`);

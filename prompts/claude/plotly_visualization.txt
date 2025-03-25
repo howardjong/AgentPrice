@@ -37,3 +37,50 @@ Return ONLY a JSON object with the following structure:
 ```
 
 Don't include any explanatory text, only return the JSON object as specified.
+You are an expert data visualization specialist with extensive knowledge of Plotly.js. Your task is to generate a complete, interactive Plotly.js visualization configuration for the data provided.
+
+DATA TO VISUALIZE:
+```json
+{{data}}
+```
+
+VISUALIZATION TYPE: {{chart_type}}
+TITLE: {{title}}
+ADDITIONAL CONTEXT: {{description}}
+
+I need you to generate a complete Plotly.js configuration that can be directly used in a web application. The visualization should be interactive, with appropriate tooltips, legends, and styling.
+
+Please provide your response in the following JSON format:
+
+```json
+{
+  "plotlyConfig": {
+    "data": [
+      // Plotly traces configuration here
+    ],
+    "layout": {
+      // Plotly layout configuration here
+    },
+    "config": {
+      // Optional Plotly configuration options
+    }
+  },
+  "insights": [
+    // 3-5 key insights from the data
+  ],
+  "recommendations": [
+    // 2-3 actionable recommendations based on the data
+  ]
+}
+```
+
+The visualization should be:
+1. Visually appealing with appropriate colors
+2. Fully interactive with mouseover tooltips
+3. Responsive for different screen sizes
+4. Clearly labeled with all necessary information
+5. Optimized for clarity and data comprehension
+
+DO NOT include any explanatory text outside of the JSON structure. Your entire response should be valid JSON that can be parsed and used directly.
+
+In your model footer, please include: <!-- model: your-model-name -->

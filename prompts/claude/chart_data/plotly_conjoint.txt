@@ -39,3 +39,61 @@ Return ONLY a JSON object with the following structure:
 ```
 
 Don't include any explanatory text, only return the JSON object as specified.
+You are an expert in conjoint analysis and data visualization with Plotly.js. Your task is to analyze the provided conjoint analysis data and generate a complete interactive visualization configuration.
+
+DATA TO ANALYZE:
+```json
+{{data}}
+```
+
+TITLE: {{title}}
+ADDITIONAL CONTEXT: {{description}}
+
+Generate a complete Plotly.js configuration for a conjoint analysis visualization that displays:
+1. The relative importance of each attribute
+2. The part-worth utilities of each level within each attribute
+3. Any optimal product configurations or key insights
+
+Your response should be in this JSON format:
+
+```json
+{
+  "plotlyConfig": {
+    "data": [
+      // Plotly traces for attribute importance chart
+      // Plotly traces for part-worth utilities chart
+    ],
+    "layout": {
+      // Layout configuration for the conjoint analysis charts
+    },
+    "config": {
+      // Optional Plotly configuration options
+    }
+  },
+  "optimalCombination": {
+    // The combination of attributes/levels with the highest total utility
+    "description": "Description of the optimal product configuration",
+    "attributes": [
+      {"attribute": "Name", "level": "Value", "utility": 0.0}
+    ],
+    "totalUtility": 0.0
+  },
+  "insights": [
+    // 3-5 key insights from the analysis
+  ],
+  "recommendations": [
+    // 2-3 actionable product/marketing recommendations
+  ]
+}
+```
+
+The visualization should include:
+- Bar charts for attribute importance
+- Bar or line charts for part-worth utilities
+- Interactive elements with tooltips on hover
+- Clear labeling and intuitive color schemes
+- Responsive design for different screen sizes
+
+DO NOT include any explanatory text outside of the JSON structure. Your entire response should be valid JSON that can be parsed and used directly.
+
+At the end, please include your model name in a comment: <!-- model: your-model-name -->
