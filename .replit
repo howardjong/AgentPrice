@@ -19,7 +19,7 @@ localPort = 6379
 externalPort = 3000
 
 [workflows]
-runButton = "Unit Tests"
+runButton = "Minimal Test Suite"
 
 [[workflows.workflow]]
 name = "Project"
@@ -422,3 +422,44 @@ args = "node tests/manual/promptManagerTest.js"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/redisConnectionTest.js"
+
+[[workflows.workflow]]
+name = "Minimal Test Suite"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Reset circuit breaker before tests"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/reset-circuit-breaker.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Test core utilities (no API calls)"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_OPTIONS=--experimental-vm-modules jest tests/unit/utils/circuitBreaker.test.js tests/unit/utils/logger.test.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Test prompt manager functionality (no API calls)"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/promptManagerTest.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Single validation test for each API (minimal calls)"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/verify-claude-haiku.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/perplexity-test.js --minimal"
