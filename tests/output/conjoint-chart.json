@@ -1,6 +1,99 @@
 {
-  "error": "No valid chart data found in response",
-  "modelMismatch": false,
-  "requestedModel": "claude-3-7-sonnet-20250219",
-  "actualModel": "claude-3-7-sonnet-20250219"
+  "study_name": "Specialty Coffee Market Preferences",
+  "attributes": [
+    {
+      "name": "Origin",
+      "levels": [
+        "Ethiopia",
+        "Colombia",
+        "Brazil",
+        "Guatemala",
+        "Costa Rica"
+      ]
+    },
+    {
+      "name": "Roast Level",
+      "levels": [
+        "Light",
+        "Medium",
+        "Medium-Dark",
+        "Dark"
+      ]
+    },
+    {
+      "name": "Price Per Pound",
+      "levels": [
+        "$12.99",
+        "$16.99",
+        "$21.99",
+        "$26.99"
+      ]
+    },
+    {
+      "name": "Certification",
+      "levels": [
+        "Fair Trade",
+        "Organic",
+        "Direct Trade",
+        "Rainforest Alliance",
+        "None"
+      ]
+    },
+    {
+      "name": "Packaging",
+      "levels": [
+        "Standard Bag",
+        "Compostable Bag",
+        "Reusable Container",
+        "Bulk/No Packaging"
+      ]
+    },
+    {
+      "name": "Flavor Profile",
+      "levels": [
+        "Fruity & Bright",
+        "Chocolate & Nutty",
+        "Floral & Delicate",
+        "Bold & Earthy"
+      ]
+    },
+    {
+      "name": "Purchase Format",
+      "levels": [
+        "One-Time Purchase",
+        "Monthly Subscription",
+        "Bi-Weekly Subscription"
+      ]
+    }
+  ],
+  "prohibitions": [
+    {
+      "attribute": "Origin",
+      "level": "Brazil",
+      "cannot_be_with": {
+        "attribute": "Flavor Profile",
+        "level": "Floral & Delicate"
+      }
+    },
+    {
+      "attribute": "Roast Level",
+      "level": "Dark",
+      "cannot_be_with": {
+        "attribute": "Flavor Profile",
+        "level": "Fruity & Bright"
+      }
+    }
+  ],
+  "respondent_segments": [
+    "Casual Coffee Drinkers",
+    "Coffee Enthusiasts",
+    "Price-Sensitive Buyers",
+    "Sustainability-Focused Consumers"
+  ],
+  "recommended_profiles_count": 16,
+  "recommended_tasks_per_respondent": 8,
+  "_modelInfo": {
+    "requested": "claude-3-7-sonnet-20250219",
+    "actual": "claude-3-opus-20240229"
+  }
 }

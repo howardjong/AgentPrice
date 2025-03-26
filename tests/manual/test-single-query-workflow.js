@@ -25,24 +25,24 @@ async function ensureOutputDirectory() {
 }
 
 // Sample initial query
-const initialQuery = "What are the current market pricing models for subscription SaaS products in the productivity space?";
+const initialQuery = "I'm thinking about starting a new specialty coffee busines but not sure what I should charge and if there's a market for it. Can you help me find out?";
 
 // Pre-populated answers to clarifying questions (mimicking user responses)
 const prePopulatedAnswers = {
-  "What specific industry or niche within the productivity space are you interested in?": 
-    "Task and project management software for small to medium businesses.",
+  "Can you briefly describe your product and the core problem it solves?": 
+    "We use advanced chemistry lab techniques to infuse coffees with unique natural flavors, offering enthusiasts distinctive tastes and experiences they can't find elsewhere.",
 
-  "Are you more interested in B2B or B2C pricing models?": 
-    "Primarily B2B with some consideration for prosumers/small teams.",
+  "Who is your target customer, and how do they currently address this problem?": 
+    "Our primary customers are Bay Area coffee connoisseurs and adventurous professionals aged 25-45, who currently frequent specialty cafes seeking premium or artisanal coffee experiences.",
 
-  "What price range are you considering for your product?": 
-    "Thinking about tiered pricing with a free tier, $15/user/month for pro, and $35/user/month for enterprise.",
+  "Who are your main competitors, and how is your product different?": 
+    "Blue Bottle Coffee: Popular but lacks experimental flavor infusions. Philz Coffee: Offers customization, but without our chemistry-driven innovations.",
 
-  "Are you interested in specific pricing strategies like flat-rate, usage-based, or seat-based pricing?": 
-    "Interested in comparing seat-based vs. usage-based models, with a focus on feature differentiation between tiers.",
+  "What price ranges or benchmarks exist in your market today?": 
+    "Specialty coffees typically range from $4.50-$7.50 per cup; premium specialty blends may reach up to $10-$12 per cup.",
 
-  "Would you like examples from specific leading companies in the space?": 
-    "Yes, particularly interested in Asana, ClickUp, Monday.com and other project management tools."
+  "Are there key financial or operational constraints affecting your pricing?": 
+    "We aim for at least a 35% profit margin due to high equipment costs and premium ingredients required for infusion techniques."
 };
 
 async function runSingleQueryWorkflow() {
