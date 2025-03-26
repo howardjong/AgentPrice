@@ -19,7 +19,7 @@ localPort = 6379
 externalPort = 3000
 
 [workflows]
-runButton = "Start Application with Charts"
+runButton = "Start Application"
 
 [[workflows.workflow]]
 name = "Project"
@@ -370,3 +370,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/compare-test-results.js"
+
+[[workflows.workflow]]
+name = "Start Application"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
