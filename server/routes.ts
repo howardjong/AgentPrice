@@ -18,7 +18,7 @@ import multer from 'multer';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Configure multer storage
-  const storage = multer.diskStorage({
+  const multerStorage = multer.diskStorage({
     destination: function (req, file, cb) {
       // Create uploads directory if it doesn't exist
       const uploadsDir = path.resolve('./uploads');
@@ -36,7 +36,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Create multer upload middleware
   const upload = multer({ 
-    storage: storage,
+    storage: multerStorage,
     limits: {
       fileSize: 1024 * 1024 * 10, // 10MB max file size
     },
@@ -74,6 +74,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const __filename = new URL(import.meta.url).pathname;
     const __dirname = path.dirname(__filename);
     res.sendFile(path.resolve(__dirname, '../public/view-charts.html'));
+  });
+  
+  // Content editor page for directly pasting content
+  app.get('/content-editor', (req: Request, res: Response) => {
+    const __filename = new URL(import.meta.url).pathname;
+    const __dirname = path.dirname(__filename);
+    res.sendFile(path.resolve(__dirname, '../public/content-editor.html'));
   });
   
   // Endpoint to test Claude's visualization capabilities with random data
