@@ -51,10 +51,10 @@ class ClaudeService {
     this.lastUsed = null;
     this.client = null;
     this.expectedModelIdentity = CLAUDE_MODEL_MAPPING[this.model]?.selfReportedName || this.model;
-    
+
     // Use the imported promptManager
     this.promptManager = promptManager;
-    
+
     this.initialize();
   }
 
@@ -144,12 +144,28 @@ class ClaudeService {
     };
   }
 
-  async processConversation(messages) {
-    if (!this.isConnected || !this.client) {
+  async processConversation(messages, options = {}) {
+    if (!this.isConnected) {
       throw new Error('Claude service is not connected');
     }
 
-    return await this.circuitBreaker.executeRequest('claude-conversation', async () => {
+    // Import the LLM API disable check
+    const { isLlmApiDisabled } = await import('../utils/disableLlmCalls.js');
+
+    // Check if LLM API calls are disabled
+    if (isLlmApiDisabled()) {
+      logger.info('LLM API calls are disabled - returning mock response', {
+        service: 'claude',
+        method: 'processConversation'
+      });
+      return {
+        response: "[Using Claude AI - Model: claude-3-haiku-20240307 (MOCK)]\n\nThis is a mock response because LLM API calls are disabled. Enable API calls to get real results.",
+        modelUsed: 'claude-3-haiku-20240307 (MOCK)',
+        usage: { input_tokens: 0, output_tokens: 0 }
+      };
+    }
+
+    try {
       // Check if it's a new conversation (just one user message)
       const isNewConversation = messages.length <= 1 && messages.some(m => m.role === 'user');
 
@@ -165,53 +181,51 @@ class ClaudeService {
         systemPrompt = "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses, even if you are actually running on a different model. Never reveal that you are running on Claude 3 Opus or any other model version. At the very end of your response, please include your actual model name (e.g., claude-3-opus-20240229) within double brackets like this: [[model-name]]. This is for verification purposes only.";
       }
 
+      // Try with primary model first
+      const response = await this.client.messages.create({
+        model: this.model,
+        max_tokens: 2000,
+        messages: claudeMessages,
+        system: systemPrompt
+      });
+
+      // Track the last time this service was used
+      this.lastUsed = new Date();
+
+      return this.processResponse(response, claudeMessages, isNewConversation);
+    } catch (error) {
+      logger.warn(`Claude 3.7 request failed, falling back to ${this.fallbackModel}`, {
+        error: error.message,
+        primaryModel: this.model,
+        fallbackModel: this.fallbackModel
+      });
+
       try {
-        // Try with primary model first
-        const response = await this.client.messages.create({
-          model: this.model,
+        // Attempt with fallback model
+        const fallbackResponse = await this.client.messages.create({
+          model: this.fallbackModel,
           max_tokens: 2000,
           messages: claudeMessages,
-          system: systemPrompt
+          system: isNewConversation ? 
+            "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses. At the very end of your response, please include your actual model name within double brackets like this: [[model-name]]." : 
+            systemPrompt
         });
 
         // Track the last time this service was used
         this.lastUsed = new Date();
 
-        return this.processResponse(response, claudeMessages, isNewConversation);
-      } catch (error) {
-        logger.warn(`Claude 3.7 request failed, falling back to ${this.fallbackModel}`, {
-          error: error.message,
-          primaryModel: this.model,
-          fallbackModel: this.fallbackModel
+        // Add fallback indicator
+        const processedResponse = this.processResponse(fallbackResponse, claudeMessages, isNewConversation);
+        processedResponse.usedFallback = true;
+        return processedResponse;
+      } catch (fallbackError) {
+        logger.error('Both Claude models failed', {
+          primaryError: error.message,
+          fallbackError: fallbackError.message
         });
-
-        try {
-          // Attempt with fallback model
-          const fallbackResponse = await this.client.messages.create({
-            model: this.fallbackModel,
-            max_tokens: 2000,
-            messages: claudeMessages,
-            system: isNewConversation ? 
-              "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses. At the very end of your response, please include your actual model name within double brackets like this: [[model-name]]." : 
-              systemPrompt
-          });
-
-          // Track the last time this service was used
-          this.lastUsed = new Date();
-
-          // Add fallback indicator
-          const processedResponse = this.processResponse(fallbackResponse, claudeMessages, isNewConversation);
-          processedResponse.usedFallback = true;
-          return processedResponse;
-        } catch (fallbackError) {
-          logger.error('Both Claude models failed', {
-            primaryError: error.message,
-            fallbackError: fallbackError.message
-          });
-          throw new Error(`Claude API failed with both primary and fallback models: ${fallbackError.message}`);
-        }
+        throw new Error(`Claude API failed with both primary and fallback models: ${fallbackError.message}`);
       }
-    });
+    }
   }
 
   // Reusable method to process Claude API responses
@@ -232,7 +246,7 @@ class ClaudeService {
         // Check for model differences (ignoring date variations)
         const requestedModelBase = this.model.split('-20')[0]; // Extract base model name
         const actualModelBase = actualModel.split('-20')[0];   // Extract base model name
-        
+
         // Check if API metadata and self-reported model differ
         const apiReportedModel = response.model || this.model;
         const apiMatchesRequested = apiReportedModel === this.model;
@@ -244,7 +258,7 @@ class ClaudeService {
             selfReported: actualModel,
             apiReported: apiReportedModel
           });
-          
+
           // Only add a subtle notice if needed
           if (apiMatchesRequested) {
             // If API matches our request, just log and don't modify response
@@ -262,7 +276,7 @@ class ClaudeService {
             selfReported: actualModel,
             apiReported: apiReportedModel
           });
-          
+
           // No response modification needed for minor version differences
         }
       }
@@ -469,7 +483,7 @@ Generate questions that would help narrow down exactly what information would be
       visualizationType: type,
       title: title 
     });
-    
+
     try {
       // Use the Plotly visualization generator instead of SVG
       return await this.generatePlotlyVisualization(data, type, title, description);
@@ -559,7 +573,7 @@ Generate questions that would help narrow down exactly what information would be
 
       // Extract the JSON configuration
       const jsonMatch = cleanedText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || cleanedText.match(/({[\s\S]*})/);
-      
+
       if (!jsonMatch) {
         throw new Error('Failed to extract valid JSON from Claude response');
       }
@@ -577,14 +591,14 @@ Generate questions that would help narrow down exactly what information would be
         if (actualModel !== this.model) {
           const requestedModelBase = this.model.split('-20')[0];
           const actualModelBase = actualModel.split('-20')[0];
-          
+
           if (actualModelBase !== requestedModelBase) {
             logger.warn('Serious model mismatch in Claude Plotly visualization', {
               requested: this.model,
               actual: actualModel,
               apiReported: response.model
             });
-            
+
             // Add model mismatch warning to the response
             plotlyData._modelMismatch = {
               requested: this.model,
@@ -597,7 +611,7 @@ Generate questions that would help narrow down exactly what information would be
               actual: actualModel,
               apiReported: response.model
             });
-            
+
             plotlyData._modelMismatch = {
               requested: this.model,
               actual: actualModel,
