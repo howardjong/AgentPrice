@@ -19,7 +19,7 @@ localPort = 6379
 externalPort = 3000
 
 [workflows]
-runButton = "Start Application"
+runButton = "Unit Tests"
 
 [[workflows.workflow]]
 name = "Project"
@@ -379,3 +379,46 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Unit Tests"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_OPTIONS=--experimental-vm-modules jest tests/unit/services/researchService.test.js"
+
+[[workflows.workflow]]
+name = "Integration Tests"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/reset-circuit-breaker.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/perplexity-test.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-claude-prompt-manager.js"
+
+[[workflows.workflow]]
+name = "Full Test Suite"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_OPTIONS=--experimental-vm-modules jest --config=jest.config.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/promptManagerTest.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/redisConnectionTest.js"
