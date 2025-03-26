@@ -610,7 +610,19 @@ mode = "sequential"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "# First generate the chart files"
+args = "# First create test output directory if needed"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "mkdir -p tests/output"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Generate the chart files (or create sample ones)"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
