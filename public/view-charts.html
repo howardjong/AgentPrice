@@ -66,6 +66,12 @@
         </div>
     </div>
 
+    <div style="margin: 20px 0; display: flex; justify-content: center;">
+        <button id="regenerate-button" style="padding: 10px 20px; background-color: #3498db; color: #fff; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+            Regenerate Random Data
+        </button>
+    </div>
+    
     <div id="file-selector" style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">
         <h3>Available Chart Files</h3>
         <div id="file-list" style="margin-top: 10px;">Loading chart files...</div>
@@ -147,47 +153,205 @@
             }
         }
         
+        // Utility functions for generating varied test data
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+        
+        function generateSmoothCurve(pointCount, startValue, endValue, noiseLevel = 0.1) {
+            const result = [];
+            for (let i = 0; i < pointCount; i++) {
+                // Base value with linear interpolation
+                const ratio = i / (pointCount - 1);
+                const baseValue = startValue + (endValue - startValue) * ratio;
+                
+                // Add some noise to make it look more realistic
+                const noise = (Math.random() - 0.5) * 2 * noiseLevel * (endValue - startValue);
+                const value = Math.max(0, Math.min(100, baseValue + noise));
+                
+                result.push(value);
+            }
+            return result;
+        }
+        
+        function generateVanWestendorpData() {
+            // Generate price points
+            const priceMin = getRandomInt(1, 20);
+            const priceMax = getRandomInt(80, 150);
+            const priceStep = (priceMax - priceMin) / 5;
+            const prices = Array.from({length: 6}, (_, i) => Math.round(priceMin + i * priceStep));
+            
+            // Generate curves with some variability
+            const tooExpensiveStart = getRandomInt(1, 10);
+            const tooExpensiveEnd = getRandomInt(85, 99);
+            const tooExpensive = generateSmoothCurve(6, tooExpensiveStart, tooExpensiveEnd);
+            
+            const expensiveButWorthStart = getRandomInt(5, 15);
+            const expensiveButWorthEnd = getRandomInt(75, 95);
+            const expensiveButWorth = generateSmoothCurve(6, expensiveButWorthStart, expensiveButWorthEnd);
+            
+            const goodValueStart = getRandomInt(75, 95);
+            const goodValueEnd = getRandomInt(1, 15);
+            const goodValue = generateSmoothCurve(6, goodValueStart, goodValueEnd);
+            
+            const tooCheapStart = getRandomInt(85, 99);
+            const tooCheapEnd = getRandomInt(1, 10);
+            const tooCheap = generateSmoothCurve(6, tooCheapStart, tooCheapEnd);
+            
+            // Approximate intersection point (optimal price point)
+            let optimalIndex = 0;
+            let minDiff = 100;
+            for (let i = 0; i < 6; i++) {
+                const diff = Math.abs(tooExpensive[i] - goodValue[i]);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    optimalIndex = i;
+                }
+            }
+            
+            const optimalPrice = prices[optimalIndex];
+            const optimalPercentage = Math.round((tooExpensive[optimalIndex] + goodValue[optimalIndex]) / 2);
+            
+            // Generate insights
+            const insights = [
+                `The optimal price point is around $${optimalPrice} where 'Too Expensive' and 'Good Value' curves intersect.`,
+                `At $${prices[1]}, ${Math.round(goodValue[1])}% of respondents consider the product a good value.`,
+                `The acceptable price range appears to be between $${prices[1]} and $${prices[4]}.`
+            ];
+            
+            return {
+                prices,
+                tooExpensive,
+                expensiveButWorth,
+                goodValue,
+                tooCheap,
+                optimalPrice,
+                optimalPercentage,
+                insights
+            };
+        }
+        
+        function generateConjointData() {
+            // Generate random number of features (3-5)
+            const featureCount = getRandomInt(3, 5);
+            
+            // Generate feature names
+            const featureTypes = ['Premium', 'Standard', 'Basic', 'Advanced', 'Entry-level'];
+            const features = featureTypes.slice(0, featureCount);
+            
+            // Generate importance values that sum to 1.0
+            let remaining = 1.0;
+            const values = [];
+            
+            for (let i = 0; i < featureCount - 1; i++) {
+                // For all but the last feature, assign a random portion of the remaining value
+                const portion = Math.round((Math.random() * 0.6 * remaining + 0.2 * remaining) * 100) / 100;
+                values.push(portion);
+                remaining -= portion;
+            }
+            
+            // Last feature gets whatever is left
+            values.push(Math.round(remaining * 100) / 100);
+            
+            // Sort in descending order for better visualization
+            const sortedData = features.map((feature, index) => ({ 
+                feature, 
+                value: values[index]
+            })).sort((a, b) => b.value - a.value);
+            
+            const sortedFeatures = sortedData.map(item => item.feature);
+            const sortedValues = sortedData.map(item => item.value);
+            
+            // Generate insights based on the data
+            const insights = [
+                `${sortedFeatures[0]} features have the highest relative importance at ${Math.round(sortedValues[0] * 100)}%.`,
+                `${sortedFeatures[1]} features are valued at ${Math.round(sortedValues[1] * 100)}% importance.`,
+                `${sortedFeatures[sortedFeatures.length-1]} features contribute ${Math.round(sortedValues[sortedValues.length-1] * 100)}% to the overall product value perception.`
+            ];
+            
+            return { 
+                features: sortedFeatures, 
+                values: sortedValues,
+                insights
+            };
+        }
+        
+        function generateBarChartData() {
+            // Generate random number of categories (3-6)
+            const categoryCount = getRandomInt(3, 6);
+            
+            // Generate category names
+            const categoryOptions = ['Category A', 'Category B', 'Category C', 'Category D', 'Category E', 'Category F'];
+            const categories = categoryOptions.slice(0, categoryCount);
+            
+            // Generate values
+            const values = categories.map(() => getRandomInt(5, 30));
+            
+            // Find max, min, and calculate average
+            const maxValue = Math.max(...values);
+            const maxCategory = categories[values.indexOf(maxValue)];
+            
+            const minValue = Math.min(...values);
+            const minCategory = categories[values.indexOf(minValue)];
+            
+            const avgValue = values.reduce((sum, val) => sum + val, 0) / values.length;
+            
+            // Generate insights
+            const insights = [
+                `${maxCategory} shows the highest value at ${maxValue}.`,
+                `${minCategory} has the lowest value at ${minValue}.`,
+                `The average value across all categories is ${avgValue.toFixed(2)}.`
+            ];
+            
+            return {
+                categories,
+                values,
+                insights
+            };
+        }
+        
         // Function to load and display a specific chart
         async function loadChart(url, chartElementId, insightsListId) {
             try {
                 console.log("Loading chart from URL:", url);
                 
-                // For now, let's use hardcoded paths for testing
-                // This is a temporary workaround until the API is working
+                // Generate variable data for testing
                 let chartData;
                 
                 if (url.includes('van_westendorp')) {
-                    // Hardcoded Van Westendorp data
+                    // Generate Van Westendorp data with variability
+                    const data = generateVanWestendorpData();
+                    
                     chartData = {
                         plotlyConfig: {
                             data: [
                                 {
-                                    x: [10, 30, 50, 70, 90, 110],
-                                    y: [5, 20, 50, 70, 90, 95],
+                                    x: data.prices,
+                                    y: data.tooExpensive,
                                     mode: 'lines+markers',
                                     name: 'Too Expensive',
                                     line: { color: '#e74c3c', width: 3 },
                                     marker: { size: 8 }
                                 },
                                 {
-                                    x: [10, 30, 50, 70, 90, 110],
-                                    y: [10, 35, 50, 65, 80, 90],
+                                    x: data.prices,
+                                    y: data.expensiveButWorth,
                                     mode: 'lines+markers',
                                     name: 'Expensive But Worth It',
                                     line: { color: '#f39c12', width: 3 },
                                     marker: { size: 8 }
                                 },
                                 {
-                                    x: [10, 30, 50, 70, 90, 110],
-                                    y: [80, 60, 50, 25, 10, 5],
+                                    x: data.prices,
+                                    y: data.goodValue,
                                     mode: 'lines+markers',
                                     name: 'Good Value',
                                     line: { color: '#2ecc71', width: 3 },
                                     marker: { size: 8 }
                                 },
                                 {
-                                    x: [10, 30, 50, 70, 90, 110],
-                                    y: [90, 50, 20, 15, 5, 2],
+                                    x: data.prices,
+                                    y: data.tooCheap,
                                     mode: 'lines+markers',
                                     name: 'Too Cheap',
                                     line: { color: '#3498db', width: 3 },
@@ -200,8 +364,8 @@
                                 yaxis: { title: 'Percentage of Respondents' },
                                 annotations: [
                                     {
-                                        x: 50,
-                                        y: 50,
+                                        x: data.optimalPrice,
+                                        y: data.optimalPercentage,
                                         text: 'Optimal Price Point',
                                         showarrow: true,
                                         arrowhead: 2,
@@ -214,20 +378,18 @@
                             },
                             config: { responsive: true }
                         },
-                        insights: [
-                            "The optimal price point is around $50 where 'Too Expensive' and 'Good Value' curves intersect.",
-                            "At $30, 60% of respondents consider the product a good value.",
-                            "The acceptable price range appears to be between $30 and $70."
-                        ]
+                        insights: data.insights
                     };
                 } else if (url.includes('conjoint')) {
-                    // Hardcoded Conjoint data
+                    // Generate Conjoint data with variability
+                    const data = generateConjointData();
+                    
                     chartData = {
                         plotlyConfig: {
                             data: [
                                 {
-                                    x: ['Premium', 'Standard', 'Basic'],
-                                    y: [0.45, 0.30, 0.25],
+                                    x: data.features,
+                                    y: data.values,
                                     type: 'bar',
                                     name: 'Feature Importance',
                                     marker: { color: '#3498db' }
@@ -236,24 +398,25 @@
                             layout: {
                                 title: 'Conjoint Analysis: Feature Importance',
                                 xaxis: { title: 'Feature Level' },
-                                yaxis: { title: 'Relative Importance' }
+                                yaxis: { 
+                                    title: 'Relative Importance',
+                                    tickformat: ',.0%' 
+                                }
                             },
                             config: { responsive: true }
                         },
-                        insights: [
-                            "Premium features have the highest relative importance at 45%.",
-                            "Standard features are valued at 30% importance.",
-                            "Basic features contribute 25% to the overall product value perception."
-                        ]
+                        insights: data.insights
                     };
                 } else if (url.includes('bar')) {
-                    // Hardcoded Bar chart data
+                    // Generate Bar chart data with variability
+                    const data = generateBarChartData();
+                    
                     chartData = {
                         plotlyConfig: {
                             data: [
                                 {
-                                    x: ['Category A', 'Category B', 'Category C', 'Category D'],
-                                    y: [20, 14, 23, 18],
+                                    x: data.categories,
+                                    y: data.values,
                                     type: 'bar',
                                     marker: { color: '#9b59b6' }
                                 }
@@ -265,11 +428,7 @@
                             },
                             config: { responsive: true }
                         },
-                        insights: [
-                            "Category C shows the highest value at 23.",
-                            "Category B has the lowest value at 14.",
-                            "The average value across all categories is 18.75."
-                        ]
+                        insights: data.insights
                     };
                 }
                 
@@ -290,6 +449,16 @@
                             insightsList.appendChild(li);
                         });
                     }
+                    
+                    // Add a note about randomized data
+                    const noteElement = document.createElement('div');
+                    noteElement.style.marginTop = '15px';
+                    noteElement.style.padding = '8px';
+                    noteElement.style.backgroundColor = '#f8f9fa';
+                    noteElement.style.borderLeft = '4px solid #3498db';
+                    noteElement.style.fontSize = '14px';
+                    noteElement.innerHTML = '<strong>Note:</strong> This is randomly generated test data. New data is generated each time you reload the page.';
+                    insightsList.parentNode.appendChild(noteElement);
                 } else {
                     throw new Error("Chart data not found or invalid format");
                 }
@@ -352,8 +521,31 @@
             }
         }
 
+        // Function to regenerate all charts with new random data
+        function regenerateAllCharts() {
+            // Add a small animation to show something is happening
+            const button = document.getElementById('regenerate-button');
+            button.textContent = 'Generating...';
+            button.style.backgroundColor = '#2980b9';
+            
+            // Add a small delay so the UI update is visible
+            setTimeout(() => {
+                // Load charts with new random data
+                loadChart('van_westendorp', 'van-westendorp-chart', 'van-westendorp-insights-list');
+                loadChart('conjoint', 'conjoint-chart', 'conjoint-insights-list');
+                loadChart('bar', 'bar-chart', 'bar-insights-list');
+                
+                // Reset button
+                button.textContent = 'Regenerate Random Data';
+                button.style.backgroundColor = '#3498db';
+            }, 300);
+        }
+        
         // Load chart files when page loads
         window.addEventListener('load', loadChartFiles);
+        
+        // Add event listener for regenerate button
+        document.getElementById('regenerate-button').addEventListener('click', regenerateAllCharts);
     </script>
 </body>
 </html>
