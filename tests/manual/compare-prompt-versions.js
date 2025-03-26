@@ -280,25 +280,64 @@ Additional focus areas:
     await promptVersioner.switchToVersion('perplexity', 'deep_research', versions.activeVersion);
     console.log(`\nRestored active version: ${versions.activeVersion}`);
 
-    // Compare versions directly
+    // Generate scorecards and compare versions
     if (comparisonResults.length >= 2) {
-      console.log("\n=== VERSION COMPARISON SUMMARY ===");
-
-      // Sort by quality score
-      comparisonResults.sort((a, b) => b.metrics.quality.totalScore - a.metrics.quality.totalScore);
-
-      console.log("Versions ranked by pricing analysis quality:");
-      comparisonResults.forEach((result, index) => {
-        console.log(`${index + 1}. Version ${result.version}: ${result.metrics.quality.qualityRating} (${result.metrics.quality.totalScore}/100)`);
-        console.log(`   - Van Westendorp mentions: ${result.metrics.vanWestendorp.mentions}`);
-        console.log(`   - Conjoint analysis mentions: ${result.metrics.conjoint.mentions}`);
-        console.log(`   - Pricing mentions: ${result.metrics.mentionsPricing}`);
-        console.log(`   - Sources: ${result.sources}`);
+      console.log("\n=== GENERATING SCORECARDS FOR VERSION COMPARISON ===");
+      
+      import('../../utils/promptScorecard.js').then(async (module) => {
+        const promptScorecard = module.default;
+        
+        // Generate scorecard for each result
+        const scorecards = [];
+        for (const result of comparisonResults) {
+          console.log(`Generating scorecard for version: ${result.version}`);
+          const scorecard = promptScorecard.generateScorecard(result);
+          scorecards.push(scorecard);
+          
+          // Save the individual scorecard
+          await promptScorecard.saveScorecard(
+            scorecard, 
+            result.version, 
+            'perplexity', 
+            'deep_research'
+          );
+        }
+        
+        // Compare scorecards
+        const comparison = promptScorecard.compareScorecards(scorecards);
+        
+        // Sort by quality score
+        scorecards.sort((a, b) => b.metrics.quality.totalScore - a.metrics.quality.totalScore);
+        
+        console.log("\n=== VERSION COMPARISON SUMMARY ===");
+        console.log("Versions ranked by pricing analysis quality:");
+        
+        scorecards.forEach((scorecard, index) => {
+          console.log(`${index + 1}. Version ${scorecard.version}: ${scorecard.metrics.quality.qualityRating} (${scorecard.metrics.quality.totalScore}/100)`);
+          console.log(`   - Van Westendorp mentions: ${scorecard.metrics.vanWestendorp.mentions}`);
+          console.log(`   - Conjoint analysis mentions: ${scorecard.metrics.conjoint.mentions}`);
+          console.log(`   - Pricing mentions: ${scorecard.metrics.mentionsPricing}`);
+          console.log(`   - Sources: ${scorecard.metrics.sources}`);
+        });
+        
+        // Determine which version is better for pricing analysis
+        const best = scorecards[0];
+        console.log(`\nVersion ${best.version} appears to provide the best pricing analysis with a score of ${best.metrics.quality.totalScore}/100`);
+        
+        // Save HTML report
+        const html = promptScorecard.generateHtmlReport(comparison);
+        const reportPath = path.join(OUTPUT_DIR, 'prompt-comparison', 'scorecard-comparison.html');
+        
+        try {
+          await fs.mkdir(path.dirname(reportPath), { recursive: true });
+          await fs.writeFile(reportPath, html);
+          console.log(`\nDetailed scorecard comparison saved to: ${reportPath}`);
+        } catch (err) {
+          console.error(`Error saving HTML report: ${err.message}`);
+        }
+      }).catch(err => {
+        console.error(`Error loading promptScorecard module: ${err.message}`);
       });
-
-      // Determine which version is better for pricing analysis
-      const best = comparisonResults[0];
-      console.log(`\nVersion ${best.version} appears to provide the best pricing analysis with a score of ${best.metrics.quality.totalScore}/100`);
     }
 
     console.log("\n==== PROMPT COMPARISON TEST COMPLETED ====");

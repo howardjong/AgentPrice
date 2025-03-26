@@ -361,3 +361,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/compare-cached-results.js"
+
+[[workflows.workflow]]
+name = "Compare Test Results"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/compare-test-results.js"
