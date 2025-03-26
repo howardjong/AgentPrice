@@ -547,8 +547,148 @@
         // Load chart files when page loads
         window.addEventListener('load', loadChartFiles);
         
+        // Function to test Claude's visualization capabilities
+        async function testWithClaude() {
+            try {
+                // Add a small animation to show something is happening
+                const button = document.getElementById('test-claude-button');
+                button.textContent = 'Testing with Claude...';
+                button.style.backgroundColor = '#8e44ad';
+                
+                // Get the current Van Westendorp data for testing
+                const vanWestendorpData = generateVanWestendorpData();
+                
+                // Prepare data for Claude in the expected format
+                const claudeData = {
+                    data: vanWestendorpData.prices.map((price, i) => ({
+                        price,
+                        tooExpensive: vanWestendorpData.tooExpensive[i],
+                        expensiveButWorth: vanWestendorpData.expensiveButWorth[i],
+                        goodValue: vanWestendorpData.goodValue[i],
+                        tooCheap: vanWestendorpData.tooCheap[i]
+                    })),
+                    type: 'van_westendorp',
+                    title: 'Van Westendorp Price Sensitivity Test',
+                    description: 'Testing Claude\'s ability to generate Plotly.js configurations from random data'
+                };
+                
+                // Send data to Claude
+                const response = await fetch('/api/test-claude-visualization', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(claudeData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                // Display the results
+                if (result.success) {
+                    // Create a modal to show the comparison
+                    const modal = document.createElement('div');
+                    modal.style.position = 'fixed';
+                    modal.style.top = '0';
+                    modal.style.left = '0';
+                    modal.style.width = '100%';
+                    modal.style.height = '100%';
+                    modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
+                    modal.style.zIndex = '1000';
+                    modal.style.display = 'flex';
+                    modal.style.flexDirection = 'column';
+                    modal.style.alignItems = 'center';
+                    modal.style.justifyContent = 'center';
+                    modal.style.padding = '20px';
+                    modal.style.overflow = 'auto';
+                    
+                    // Create content for the modal
+                    const content = document.createElement('div');
+                    content.style.backgroundColor = 'white';
+                    content.style.padding = '20px';
+                    content.style.borderRadius = '5px';
+                    content.style.width = '90%';
+                    content.style.maxWidth = '900px';
+                    content.style.maxHeight = '90%';
+                    content.style.overflow = 'auto';
+                    
+                    // Add a close button
+                    const closeBtn = document.createElement('button');
+                    closeBtn.innerText = 'Close';
+                    closeBtn.style.padding = '8px 16px';
+                    closeBtn.style.backgroundColor = '#e74c3c';
+                    closeBtn.style.color = 'white';
+                    closeBtn.style.border = 'none';
+                    closeBtn.style.borderRadius = '4px';
+                    closeBtn.style.cursor = 'pointer';
+                    closeBtn.style.float = 'right';
+                    closeBtn.onclick = () => document.body.removeChild(modal);
+                    
+                    // Add title
+                    const title = document.createElement('h2');
+                    title.innerText = 'Claude Visualization Test Results';
+                    
+                    // Add model info
+                    const modelInfo = document.createElement('p');
+                    modelInfo.innerText = `Model used: ${result.claudeResult.modelUsed || 'Unknown'}`;
+                    
+                    // Add success message
+                    const success = document.createElement('p');
+                    success.innerText = 'Claude successfully generated a Plotly.js configuration!';
+                    success.style.color = '#27ae60';
+                    success.style.fontWeight = 'bold';
+                    
+                    // Add the content to the modal
+                    content.appendChild(closeBtn);
+                    content.appendChild(title);
+                    content.appendChild(modelInfo);
+                    content.appendChild(success);
+                    
+                    // Add code display
+                    const codeHeader = document.createElement('h3');
+                    codeHeader.innerText = 'Generated Plotly Configuration:';
+                    
+                    const codePre = document.createElement('pre');
+                    codePre.style.backgroundColor = '#f8f9fa';
+                    codePre.style.padding = '10px';
+                    codePre.style.borderRadius = '4px';
+                    codePre.style.overflowX = 'auto';
+                    codePre.style.fontSize = '14px';
+                    
+                    // Stringify the configuration with formatting
+                    codePre.innerText = JSON.stringify(result.claudeResult.plotlyConfig, null, 2);
+                    
+                    content.appendChild(codeHeader);
+                    content.appendChild(codePre);
+                    
+                    // Add the modal to the document
+                    modal.appendChild(content);
+                    document.body.appendChild(modal);
+                } else {
+                    alert(`Failed to test Claude: ${result.error}`);
+                }
+                
+                // Reset button
+                button.textContent = 'Test With Claude';
+                button.style.backgroundColor = '#9b59b6';
+            } catch (error) {
+                console.error('Error testing with Claude:', error);
+                alert(`Error testing with Claude: ${error.message}`);
+                
+                // Reset button
+                document.getElementById('test-claude-button').textContent = 'Test With Claude';
+                document.getElementById('test-claude-button').style.backgroundColor = '#9b59b6';
+            }
+        }
+        
         // Add event listener for regenerate button
         document.getElementById('regenerate-button').addEventListener('click', regenerateAllCharts);
+        
+        // Add event listener for test with Claude button
+        document.getElementById('test-claude-button').addEventListener('click', testWithClaude);
     </script>
 </body>
 </html>
