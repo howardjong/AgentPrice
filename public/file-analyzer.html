@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Content Analyzer</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        header {
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        h1 {
+            color: #2c3e50;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            font-size: 22px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        .intro {
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #555;
+            background-color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+        }
+        .main-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+        .file-panel {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .chart-container {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+        }
+        .chart-placeholder {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #95a5a6;
+            font-size: 18px;
+            text-align: center;
+            padding: 20px;
+        }
+        #chart-container {
+            flex-grow: 1;
+            min-height: 500px;
+        }
+        .insights {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #27ae60;
+        }
+        .insights h3 {
+            margin-top: 0;
+            color: #27ae60;
+        }
+        .insights ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .insights li {
+            margin-bottom: 5px;
+        }
+        .loading {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .file-input {
+            margin-bottom: 15px;
+        }
+        .file-input label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 5px;
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+        .error {
+            color: #e74c3c;
+            background-color: #fadbd8;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+        textarea {
+            width: 100%;
+            min-height: 300px;
+            font-family: monospace;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            resize: vertical;
+        }
+        .content-preview {
+            margin-top: 15px;
+            overflow: auto;
+            max-height: 300px;
+        }
+        .chart-type-selector {
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>File Content Analyzer</h1>
+        <p class="intro">
+            Analyze text files to extract data and generate visualizations. Upload a file or paste content directly.
+        </p>
+    </header>
+
+    <div class="main-layout">
+        <div class="file-panel">
+            <h2>Content Input</h2>
+            
+            <div class="file-input">
+                <label for="file-upload">Upload a file:</label>
+                <input type="file" id="file-upload" accept=".txt,.csv,.json,.md">
+            </div>
+            
+            <div class="chart-type-selector">
+                <label for="chart-type">Chart Type:</label>
+                <select id="chart-type">
+                    <option value="auto">Auto-detect Chart Type</option>
+                    <option value="van_westendorp">Van Westendorp</option>
+                    <option value="conjoint">Conjoint Analysis</option>
+                    <option value="bar">Bar Chart</option>
+                    <option value="line">Line Chart</option>
+                    <option value="pie">Pie Chart</option>
+                </select>
+            </div>
+            
+            <div class="content-preview">
+                <label for="content-text">Content Preview / Direct Input:</label>
+                <textarea id="content-text" placeholder="File content will appear here. You can also paste content directly."></textarea>
+            </div>
+            
+            <div class="controls">
+                <button id="analyze-btn" onclick="analyzeContent()">Analyze & Visualize</button>
+                <button id="clear-btn" onclick="clearContent()">Clear</button>
+            </div>
+            
+            <div id="error-message" class="error"></div>
+            
+            <div id="loading" class="loading">
+                <div class="loading-spinner"></div>
+                <span>Processing with Claude...</span>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <h2>Visualization</h2>
+            <div id="chart-placeholder" class="chart-placeholder">
+                Your visualization will appear here after analysis
+            </div>
+            <div id="chart-container"></div>
+            <div id="insights" class="insights" style="display: none;">
+                <h3>Data Insights</h3>
+                <ul id="insights-list"></ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Handle file upload
+        document.getElementById('file-upload').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('content-text').value = e.target.result;
+            };
+            reader.readAsText(file);
+        });
+        
+        // Clear content
+        function clearContent() {
+            document.getElementById('file-upload').value = '';
+            document.getElementById('content-text').value = '';
+            document.getElementById('error-message').style.display = 'none';
+            document.getElementById('chart-placeholder').style.display = 'flex';
+            document.getElementById('chart-container').innerHTML = '';
+            document.getElementById('insights').style.display = 'none';
+        }
+        
+        // Analyze content
+        async function analyzeContent() {
+            const content = document.getElementById('content-text').value.trim();
+            const chartType = document.getElementById('chart-type').value;
+            
+            if (!content) {
+                document.getElementById('error-message').textContent = 'Please upload a file or enter content to analyze.';
+                document.getElementById('error-message').style.display = 'block';
+                return;
+            }
+            
+            // Show loading state
+            document.getElementById('loading').style.display = 'flex';
+            document.getElementById('analyze-btn').disabled = true;
+            document.getElementById('error-message').style.display = 'none';
+            
+            try {
+                // Send content to Claude for analysis
+                const response = await analyzeWithClaude(content, chartType);
+                
+                // Hide placeholder and show chart
+                document.getElementById('chart-placeholder').style.display = 'none';
+                
+                // Render the visualization using Plotly
+                Plotly.newPlot('chart-container', response.plotlyConfig.data, response.plotlyConfig.layout, response.plotlyConfig.config);
+                
+                // Display insights
+                if (response.insights && response.insights.length > 0) {
+                    const insightsList = document.getElementById('insights-list');
+                    insightsList.innerHTML = '';
+                    
+                    response.insights.forEach(insight => {
+                        const li = document.createElement('li');
+                        li.textContent = insight;
+                        insightsList.appendChild(li);
+                    });
+                    
+                    document.getElementById('insights').style.display = 'block';
+                } else {
+                    document.getElementById('insights').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error analyzing content:', error);
+                document.getElementById('error-message').textContent = error.message;
+                document.getElementById('error-message').style.display = 'block';
+                
+                // Reset the chart container
+                document.getElementById('chart-placeholder').style.display = 'flex';
+                document.getElementById('chart-container').innerHTML = '';
+                document.getElementById('insights').style.display = 'none';
+            } finally {
+                // Hide loading state
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('analyze-btn').disabled = false;
+            }
+        }
+        
+        // Function to call Claude API for analysis
+        async function analyzeWithClaude(content, chartType) {
+            // This is a client-side function that simulates analysis
+            // In a real implementation, this would call a backend API
+            
+            // For demonstration purposes, let's simulate the Claude API response
+            // based on certain keywords in the content
+            
+            try {
+                // Call our backend API
+                const response = await fetch('/api/analyze-file', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content,
+                        chartType,
+                        contentType: 'text'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to analyze content.');
+                }
+                
+                return result;
+            } catch (error) {
+                console.error('Error in analyzeWithClaude:', error);
+                throw new Error(`Failed to analyze content: ${error.message}`);
+            }
+        }
+    </script>
+</body>
+</html>

@@ -83,6 +83,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.resolve(__dirname, '../public/content-editor.html'));
   });
   
+  // Simple file analyzer page
+  app.get('/file-analyzer', (req: Request, res: Response) => {
+    const __filename = new URL(import.meta.url).pathname;
+    const __dirname = path.dirname(__filename);
+    res.sendFile(path.resolve(__dirname, '../public/file-analyzer.html'));
+  });
+  
+  // API endpoint to analyze file content
+  app.post('/api/analyze-file', async (req: Request, res: Response) => {
+    try {
+      const { content, chartType, contentType } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({
+          success: false,
+          error: 'Content is required'
+        });
+      }
+      
+      // Save content to file in the content-uploads directory
+      const timestamp = Date.now();
+      const filename = `content-${timestamp}.txt`;
+      const filePath = path.resolve('./content-uploads', filename);
+      
+      // Ensure directory exists
+      if (!fs.existsSync('./content-uploads')) {
+        fs.mkdirSync('./content-uploads', { recursive: true });
+      }
+      
+      // Write content to file
+      fs.writeFileSync(filePath, content);
+      
+      // Read the content analysis prompt
+      const __filename = new URL(import.meta.url).pathname;
+      const __dirname = path.dirname(__filename);
+      const promptPath = path.resolve(__dirname, '../prompts/claude/content_analysis/default.txt');
+      
+      let prompt = '';
+      try {
+        prompt = fs.readFileSync(promptPath, 'utf8');
+      } catch (error) {
+        console.error('Error reading content analysis prompt:', error);
+        prompt = 'Analyze the following content and extract data for visualization. Create a Plotly.js configuration that best represents the data.';
+      }
+      
+      // Create system message with prompt
+      const messages = [
+        {
+          role: 'system',
+          content: prompt
+        },
+        {
+          role: 'user',
+          content: `Content Type: ${contentType}\nRequested Chart Type: ${chartType}\n\nContent to analyze:\n\n${content}`
+        }
+      ];
+      
+      // Call Claude's API to analyze the content
+      const result = await claudeService.processConversation(messages);
+      
+      // Try to parse the response as JSON
+      let parsedResult;
+      try {
+        // First, try to find JSON in code blocks
+        const jsonCodeBlockMatch = result.response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (jsonCodeBlockMatch && jsonCodeBlockMatch[1]) {
+          try {
+            parsedResult = JSON.parse(jsonCodeBlockMatch[1]);
+          } catch (e) {
+            console.warn('Found JSON code block but failed to parse it:', e);
+          }
+        }
+        
+        // If code block approach failed, try to extract any JSON object
+        if (!parsedResult) {
+          const jsonMatch = result.response.match(/\{[\s\S]*?\}/);
+          if (jsonMatch) {
+            try {
+              parsedResult = JSON.parse(jsonMatch[0]);
+            } catch (e) {
+              console.warn('Found potential JSON but failed to parse it:', e);
+            }
+          }
+        }
+        
+        // If both approaches failed, generate a default response
+        if (!parsedResult) {
+          // Create a default Plotly config with a message
+          parsedResult = {
+            plotlyConfig: {
+              data: [{
+                type: 'scatter',
+                x: [1, 2, 3, 4],
+                y: [0, 0, 0, 0],
+                mode: 'lines',
+                name: 'No data'
+              }],
+              layout: {
+                title: 'No data found for visualization',
+                annotations: [{
+                  text: 'Claude could not extract data from the provided content. Please try with content containing numerical data.',
+                  showarrow: false,
+                  x: 0.5,
+                  y: 0.5,
+                  xref: 'paper',
+                  yref: 'paper'
+                }]
+              },
+              config: { responsive: true }
+            },
+            insights: [
+              "No structured data was found in the provided content.",
+              "Claude analyzed the content but couldn't extract visualization-ready data.",
+              "Try providing content with tables, statistics, or numerical data."
+            ]
+          };
+        }
+      } catch (parseError) {
+        console.error('Error parsing Claude response as JSON:', parseError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to parse analysis result as JSON',
+          rawResponse: result.response
+        });
+      }
+      
+      // Save the file path in the result for reference
+      parsedResult.sourceFile = filename;
+      
+      res.json({
+        success: true,
+        ...parsedResult,
+        modelUsed: result.modelUsed || 'claude'
+      });
+    } catch (error) {
+      console.error('Error analyzing file content:', error);
+      res.status(500).json({
+        success: false,
+        error: `Failed to analyze file content: ${error.message}`
+      });
+    }
+  });
+  
   // Endpoint to test Claude's visualization capabilities with random data
   app.post('/api/test-claude-visualization', async (req: Request, res: Response) => {
     try {
