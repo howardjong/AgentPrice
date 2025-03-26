@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Plotly Visualizations Viewer</title>
+    <title>Chart Viewer</title>
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <style>
         body {
@@ -14,10 +13,8 @@
             padding: 20px;
             background-color: #f5f7f9;
         }
-        header {
-            margin-bottom: 30px;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 15px;
+        h1, h2 {
+            color: #333;
         }
         .status-banner {
             padding: 10px 15px;
@@ -35,356 +32,303 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
-        .warning {
-            background-color: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeeba;
-        }
         .loading {
             background-color: #e2e3e5;
             color: #383d41;
             border: 1px solid #d6d8db;
         }
         .chart-container {
-            margin-bottom: 40px;
-            border: 1px solid #ddd;
-            padding: 20px;
-            border-radius: 5px;
             background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 30px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        }
-        h1, h2 {
-            color: #333;
         }
         .insights {
             background-color: #f8f9fa;
             padding: 15px;
             border-radius: 5px;
-            margin-top: 20px;
+            margin-top: 15px;
         }
-        .insights h3 {
-            margin-top: 0;
-        }
-        .back-button {
-            display: inline-block;
-            margin-top: 20px;
+        .button {
             padding: 8px 16px;
+            margin: 10px 0;
             background-color: #007bff;
             color: white;
-            text-decoration: none;
+            border: none;
             border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
         }
-        .back-button:hover {
+        .button:hover {
             background-color: #0069d9;
         }
-        .debug-info {
-            margin-top: 40px;
+        .debug-panel {
+            margin-top: 20px;
             padding: 15px;
             background-color: #f8f9fa;
             border: 1px solid #ddd;
             border-radius: 5px;
             font-family: monospace;
             font-size: 12px;
-            max-height: 200px;
+        }
+        .debug-log {
+            max-height: 150px;
             overflow-y: auto;
-        }
-        .retry-button {
-            padding: 8px 16px;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        .retry-button:hover {
-            background-color: #218838;
-        }
-        .count-badge {
-            display: inline-block;
-            padding: 3px 8px;
-            border-radius: 10px;
-            background-color: #17a2b8;
-            color: white;
-            font-size: 12px;
-            margin-left: 10px;
+            white-space: pre-wrap;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #eee;
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Plotly Visualizations Viewer</h1>
-        <div id="status-banner" class="status-banner loading">Loading visualizations... Please wait.</div>
-    </header>
-    
-    <div id="charts-summary"></div>
-    
+    <h1>Chart Viewer</h1>
+    <div id="status-banner" class="status-banner loading">Loading charts... Please wait.</div>
+
+    <div id="actions">
+        <button class="button" id="reload-button">Reload Charts</button>
+        <button class="button" id="create-samples-button">Create Sample Charts</button>
+        <button class="button" id="toggle-debug-button">Toggle Debug Panel</button>
+    </div>
+
     <div class="chart-container">
-        <h2>Van Westendorp Price Sensitivity Analysis <span id="vw-status" class="count-badge">Loading...</span></h2>
+        <h2>Van Westendorp Price Sensitivity Analysis</h2>
         <div id="van-westendorp-chart" style="height: 500px;"></div>
-        <div id="van-westendorp-insights" class="insights">
+        <div class="insights">
             <h3>Insights</h3>
             <ul id="van-westendorp-insights-list"></ul>
         </div>
     </div>
-    
+
     <div class="chart-container">
-        <h2>Conjoint Analysis <span id="conjoint-status" class="count-badge">Loading...</span></h2>
+        <h2>Conjoint Analysis</h2>
         <div id="conjoint-chart" style="height: 500px;"></div>
-        <div id="conjoint-insights" class="insights">
+        <div class="insights">
             <h3>Insights</h3>
             <ul id="conjoint-insights-list"></ul>
         </div>
     </div>
-    
+
     <div class="chart-container">
-        <h2>Basic Bar Chart <span id="bar-status" class="count-badge">Loading...</span></h2>
+        <h2>Basic Bar Chart</h2>
         <div id="bar-chart" style="height: 500px;"></div>
-        <div id="bar-insights" class="insights">
+        <div class="insights">
             <h3>Insights</h3>
             <ul id="bar-insights-list"></ul>
         </div>
     </div>
 
-    <button id="retry-button" class="retry-button" style="display: none;">Retry Loading Charts</button>
-    <a href="/" class="back-button">Back to Dashboard</a>
-    
-    <div id="debug-info" class="debug-info" style="display: none;"></div>
+    <div id="debug-panel" class="debug-panel" style="display: none;">
+        <h3>Debug Information</h3>
+        <div id="debug-log" class="debug-log"></div>
+    </div>
 
     <script>
-        // Store chart loading state
-        const chartState = {
-            vanWestendorp: { loaded: false, error: null },
-            conjoint: { loaded: false, error: null },
-            barChart: { loaded: false, error: null }
+        // Debugging utilities
+        const debug = {
+            log: function(message, data = null) {
+                const timestamp = new Date().toISOString();
+                let fullMessage = `[${timestamp}] ${message}`;
+
+                if (data) {
+                    try {
+                        if (typeof data === 'object') {
+                            fullMessage += `\n${JSON.stringify(data, null, 2)}`;
+                        } else {
+                            fullMessage += `\n${data}`;
+                        }
+                    } catch (e) {
+                        fullMessage += `\n[Data could not be stringified: ${e.message}]`;
+                    }
+                }
+
+                const debugLog = document.getElementById('debug-log');
+                debugLog.textContent += fullMessage + '\n\n';
+                debugLog.scrollTop = debugLog.scrollHeight;
+                console.log(message, data);
+            },
+
+            error: function(message, error) {
+                const timestamp = new Date().toISOString();
+                let fullMessage = `[${timestamp}] ERROR: ${message}`;
+
+                if (error) {
+                    fullMessage += `\n${error.message}\n${error.stack || ''}`;
+                }
+
+                const debugLog = document.getElementById('debug-log');
+                debugLog.textContent += fullMessage + '\n\n';
+                debugLog.scrollTop = debugLog.scrollHeight;
+                console.error(message, error);
+            }
         };
-        
+
         // Update status banner
-        function updateStatusBanner() {
+        function updateStatus(type, message) {
             const statusBanner = document.getElementById('status-banner');
-            const chartsCount = Object.values(chartState).filter(state => state.loaded).length;
-            const totalCharts = Object.keys(chartState).length;
-            const hasErrors = Object.values(chartState).some(state => state.error);
-            
-            document.getElementById('charts-summary').textContent = 
-                `Charts loaded: ${chartsCount} of ${totalCharts}`;
-            
-            if (chartsCount === totalCharts) {
-                statusBanner.className = 'status-banner success';
-                statusBanner.textContent = 'All visualizations loaded successfully!';
-                document.getElementById('retry-button').style.display = 'none';
-            } else if (hasErrors) {
-                statusBanner.className = 'status-banner error';
-                statusBanner.textContent = `Error loading some visualizations. ${chartsCount} of ${totalCharts} loaded.`;
-                document.getElementById('retry-button').style.display = 'inline-block';
-            } else {
-                statusBanner.className = 'status-banner loading';
-                statusBanner.textContent = `Loading visualizations... ${chartsCount} of ${totalCharts} loaded.`;
-            }
+            statusBanner.className = `status-banner ${type}`;
+            statusBanner.textContent = message;
         }
 
-        // Update individual chart status badges
-        function updateChartStatus(chartId, isLoaded, errorMsg = null) {
-            const statusElement = document.getElementById(`${chartId}-status`);
-            
-            if (isLoaded) {
-                statusElement.textContent = "Loaded ✓";
-                statusElement.style.backgroundColor = "#28a745";
-            } else if (errorMsg) {
-                statusElement.textContent = "Error ✗";
-                statusElement.style.backgroundColor = "#dc3545";
-                statusElement.title = errorMsg;
-            } else {
-                statusElement.textContent = "Loading...";
-                statusElement.style.backgroundColor = "#17a2b8";
-            }
-        }
-        
-        // Log debug info
-        function logDebug(message, data = null) {
-            const debugInfo = document.getElementById('debug-info');
-            const timestamp = new Date().toISOString();
-            
-            let logMessage = `[${timestamp}] ${message}`;
-            if (data) {
-                try {
-                    logMessage += `\n${JSON.stringify(data, null, 2)}`;
-                } catch (e) {
-                    logMessage += `\n[Data could not be stringified]`;
-                }
-            }
-            
-            debugInfo.textContent += logMessage + '\n\n';
-            debugInfo.scrollTop = debugInfo.scrollHeight;
-            debugInfo.style.display = 'block';
-        }
+        // Load and render a chart
+        async function loadChart(chartId, filePath, containerId, insightsListId) {
+            debug.log(`Loading chart from ${filePath}`);
 
-        // Load and render charts
-        async function loadAndRenderCharts() {
-            // Reset chart states
-            Object.keys(chartState).forEach(key => {
-                chartState[key] = { loaded: false, error: null };
-            });
-            
             try {
-                // Load Van Westendorp chart
-                updateChartStatus('vw', false);
-                try {
-                    logDebug('Attempting to fetch Van Westendorp chart data');
-                    const vanWestendorpResponse = await fetch('/tests/output/van_westendorp_plotly.json');
-                    
-                    if (!vanWestendorpResponse.ok) {
-                        throw new Error(`HTTP error! status: ${vanWestendorpResponse.status}`);
-                    }
-                    
-                    const vanWestendorpData = await vanWestendorpResponse.json();
-                    logDebug('Van Westendorp data loaded', { status: vanWestendorpResponse.status });
-                    
-                    if (vanWestendorpData && vanWestendorpData.plotlyConfig) {
-                        Plotly.newPlot('van-westendorp-chart', 
-                            vanWestendorpData.plotlyConfig.data, 
-                            vanWestendorpData.plotlyConfig.layout,
-                            vanWestendorpData.plotlyConfig.config || {});
-                            
-                        // Display insights
-                        const insightsList = document.getElementById('van-westendorp-insights-list');
-                        insightsList.innerHTML = ''; // Clear previous insights
-                        
-                        if (vanWestendorpData.insights && vanWestendorpData.insights.length > 0) {
-                            vanWestendorpData.insights.forEach(insight => {
-                                const li = document.createElement('li');
-                                li.textContent = insight;
-                                insightsList.appendChild(li);
-                            });
-                        } else {
-                            const li = document.createElement('li');
-                            li.textContent = 'No insights available';
-                            insightsList.appendChild(li);
-                        }
-                        
-                        chartState.vanWestendorp.loaded = true;
-                        updateChartStatus('vw', true);
-                    } else {
-                        throw new Error('Invalid chart data format');
-                    }
-                } catch (error) {
-                    logDebug('Error loading Van Westendorp chart', { error: error.message });
-                    chartState.vanWestendorp.error = error.message;
-                    updateChartStatus('vw', false, error.message);
+                const response = await fetch(filePath);
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load chart: HTTP ${response.status}`);
                 }
 
-                // Load Conjoint chart
-                updateChartStatus('conjoint', false);
-                try {
-                    const conjointResponse = await fetch('/tests/output/conjoint_plotly.json');
-                    
-                    if (!conjointResponse.ok) {
-                        throw new Error(`HTTP error! status: ${conjointResponse.status}`);
-                    }
-                    
-                    const conjointData = await conjointResponse.json();
-                    logDebug('Conjoint data loaded', { status: conjointResponse.status });
-                    
-                    if (conjointData && conjointData.plotlyConfig) {
-                        Plotly.newPlot('conjoint-chart', 
-                            conjointData.plotlyConfig.data, 
-                            conjointData.plotlyConfig.layout,
-                            conjointData.plotlyConfig.config || {});
-                            
-                        // Display insights
-                        const insightsList = document.getElementById('conjoint-insights-list');
-                        insightsList.innerHTML = ''; // Clear previous insights
-                        
-                        if (conjointData.insights && conjointData.insights.length > 0) {
-                            conjointData.insights.forEach(insight => {
-                                const li = document.createElement('li');
-                                li.textContent = insight;
-                                insightsList.appendChild(li);
-                            });
-                        } else {
-                            const li = document.createElement('li');
-                            li.textContent = 'No insights available';
-                            insightsList.appendChild(li);
-                        }
-                        
-                        chartState.conjoint.loaded = true;
-                        updateChartStatus('conjoint', true);
-                    } else {
-                        throw new Error('Invalid chart data format');
-                    }
-                } catch (error) {
-                    logDebug('Error loading Conjoint chart', { error: error.message });
-                    chartState.conjoint.error = error.message;
-                    updateChartStatus('conjoint', false, error.message);
-                }
+                const chartData = await response.json();
+                debug.log(`Successfully loaded chart data for ${chartId}`, { 
+                    status: response.status,
+                    dataSize: JSON.stringify(chartData).length
+                });
 
-                // Load Bar chart
-                updateChartStatus('bar', false);
-                try {
-                    const barChartResponse = await fetch('/tests/output/bar_chart_plotly.json');
-                    
-                    if (!barChartResponse.ok) {
-                        throw new Error(`HTTP error! status: ${barChartResponse.status}`);
-                    }
-                    
-                    const barChartData = await barChartResponse.json();
-                    logDebug('Bar chart data loaded', { status: barChartResponse.status });
-                    
-                    if (barChartData && barChartData.plotlyConfig) {
-                        Plotly.newPlot('bar-chart', 
-                            barChartData.plotlyConfig.data, 
-                            barChartData.plotlyConfig.layout,
-                            barChartData.plotlyConfig.config || {});
-                            
-                        // Display insights
-                        const insightsList = document.getElementById('bar-insights-list');
-                        insightsList.innerHTML = ''; // Clear previous insights
-                        
-                        if (barChartData.insights && barChartData.insights.length > 0) {
-                            barChartData.insights.forEach(insight => {
-                                const li = document.createElement('li');
-                                li.textContent = insight;
-                                insightsList.appendChild(li);
-                            });
-                        } else {
+                if (chartData && chartData.plotlyConfig) {
+                    // Render chart
+                    Plotly.newPlot(
+                        containerId, 
+                        chartData.plotlyConfig.data, 
+                        chartData.plotlyConfig.layout || {}, 
+                        chartData.plotlyConfig.config || {}
+                    );
+
+                    // Display insights
+                    const insightsList = document.getElementById(insightsListId);
+                    insightsList.innerHTML = '';
+
+                    if (chartData.insights && chartData.insights.length > 0) {
+                        chartData.insights.forEach(insight => {
                             const li = document.createElement('li');
-                            li.textContent = 'No insights available';
+                            li.textContent = insight;
                             insightsList.appendChild(li);
-                        }
-                        
-                        chartState.barChart.loaded = true;
-                        updateChartStatus('bar', true);
+                        });
                     } else {
-                        throw new Error('Invalid chart data format');
+                        const li = document.createElement('li');
+                        li.textContent = 'No insights available';
+                        insightsList.appendChild(li);
                     }
-                } catch (error) {
-                    logDebug('Error loading Bar chart', { error: error.message });
-                    chartState.barChart.error = error.message;
-                    updateChartStatus('bar', false, error.message);
+
+                    return true;
+                } else {
+                    throw new Error('Invalid chart data format');
                 }
             } catch (error) {
-                logDebug('General error loading charts', { error: error.message });
-                document.body.innerHTML += `<div style="color: red; padding: 20px;">Error loading charts: ${error.message}</div>`;
+                debug.error(`Error loading ${chartId} chart`, error);
+
+                // Create a placeholder to show the error
+                Plotly.newPlot(
+                    containerId, 
+                    [], 
+                    {
+                        title: `Error loading chart: ${error.message}`,
+                        annotations: [{
+                            text: 'Chart data could not be loaded',
+                            showarrow: false,
+                            font: { size: 20 }
+                        }]
+                    }
+                );
+
+                // Show error in insights
+                const insightsList = document.getElementById(insightsListId);
+                insightsList.innerHTML = '';
+                const li = document.createElement('li');
+                li.textContent = `Error: ${error.message}`;
+                li.style.color = 'red';
+                insightsList.appendChild(li);
+
+                return false;
             }
-            
-            // Update overall status
-            updateStatusBanner();
         }
 
-        // Add retry button functionality
-        document.getElementById('retry-button').addEventListener('click', () => {
-            logDebug('Retrying chart load...');
-            loadAndRenderCharts();
+        // Load all charts
+        async function loadAllCharts() {
+            debug.log('Loading all charts');
+            updateStatus('loading', 'Loading charts... Please wait.');
+
+            try {
+                const charts = [
+                    { 
+                        id: 'van-westendorp', 
+                        file: '/tests/output/van_westendorp_plotly.json',
+                        container: 'van-westendorp-chart',
+                        insights: 'van-westendorp-insights-list'
+                    },
+                    { 
+                        id: 'conjoint', 
+                        file: '/tests/output/conjoint_plotly.json',
+                        container: 'conjoint-chart',
+                        insights: 'conjoint-insights-list'
+                    },
+                    { 
+                        id: 'bar-chart', 
+                        file: '/tests/output/bar_chart_plotly.json',
+                        container: 'bar-chart',
+                        insights: 'bar-insights-list'
+                    }
+                ];
+
+                const results = await Promise.all(charts.map(chart => 
+                    loadChart(chart.id, chart.file, chart.container, chart.insights)
+                ));
+
+                const successCount = results.filter(result => result).length;
+
+                if (successCount === charts.length) {
+                    updateStatus('success', 'All charts loaded successfully!');
+                } else if (successCount === 0) {
+                    updateStatus('error', 'Failed to load any charts. Check the debug panel for details.');
+                } else {
+                    updateStatus('error', `Partially loaded ${successCount} of ${charts.length} charts.`);
+                }
+            } catch (error) {
+                debug.error('Error in loadAllCharts', error);
+                updateStatus('error', `Error loading charts: ${error.message}`);
+            }
+        }
+
+        // Create sample charts
+        async function createSampleCharts() {
+            debug.log('Creating sample charts');
+            updateStatus('loading', 'Creating sample charts... Please wait.');
+
+            try {
+                const response = await fetch('/api/create-samples');
+
+                if (!response.ok) {
+                    throw new Error(`Failed to create samples: HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                debug.log('Sample chart creation result', result);
+
+                updateStatus('success', 'Sample charts created. Reloading...');
+                setTimeout(loadAllCharts, 1000);
+            } catch (error) {
+                debug.error('Error creating sample charts', error);
+                updateStatus('error', `Error creating samples: ${error.message}`);
+            }
+        }
+
+        // Add event listeners
+        document.getElementById('reload-button').addEventListener('click', loadAllCharts);
+        document.getElementById('create-samples-button').addEventListener('click', createSampleCharts);
+        document.getElementById('toggle-debug-button').addEventListener('click', () => {
+            const debugPanel = document.getElementById('debug-panel');
+            debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
         });
 
-        // Toggle debug info when clicking on the status banner
-        document.getElementById('status-banner').addEventListener('click', () => {
-            const debugInfo = document.getElementById('debug-info');
-            debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+        // Initial load
+        document.addEventListener('DOMContentLoaded', function() {
+            debug.log('Page loaded, loading charts');
+            loadAllCharts();
         });
-
-        // Load charts when page loads
-        window.addEventListener('load', loadAndRenderCharts);
     </script>
 </body>
 </html>
