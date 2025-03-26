@@ -1,109 +1,272 @@
 {
-  "product_name": "SaaS Project Management Tool",
-  "survey_date": "2023-04-15",
-  "sample_size": 250,
-  "respondent_segments": [
-    "Small Business",
-    "Enterprise",
-    "Freelancer"
-  ],
-  "price_points": {
-    "too_cheap": [
-      {
-        "price": 5,
-        "cumulative_percentage": 10
-      },
-      {
-        "price": 7.5,
-        "cumulative_percentage": 25
-      },
-      {
-        "price": 10,
-        "cumulative_percentage": 65
-      },
-      {
-        "price": 12.5,
-        "cumulative_percentage": 90
-      },
-      {
-        "price": 15,
-        "cumulative_percentage": 98
-      }
-    ],
-    "cheap": [
-      {
-        "price": 7.5,
-        "cumulative_percentage": 5
-      },
-      {
-        "price": 10,
-        "cumulative_percentage": 15
-      },
-      {
-        "price": 12.5,
-        "cumulative_percentage": 40
-      },
-      {
-        "price": 15,
-        "cumulative_percentage": 75
-      },
-      {
-        "price": 17.5,
-        "cumulative_percentage": 95
-      }
-    ],
-    "expensive": [
-      {
-        "price": 15,
-        "cumulative_percentage": 5
-      },
-      {
-        "price": 17.5,
-        "cumulative_percentage": 25
-      },
-      {
-        "price": 20,
-        "cumulative_percentage": 60
-      },
-      {
-        "price": 22.5,
-        "cumulative_percentage": 85
-      },
-      {
-        "price": 25,
-        "cumulative_percentage": 98
-      }
-    ],
-    "too_expensive": [
-      {
-        "price": 20,
-        "cumulative_percentage": 10
-      },
-      {
-        "price": 22.5,
-        "cumulative_percentage": 30
-      },
-      {
-        "price": 25,
-        "cumulative_percentage": 70
-      },
-      {
-        "price": 27.5,
-        "cumulative_percentage": 90
-      },
-      {
-        "price": 30,
-        "cumulative_percentage": 99
-      }
-    ]
-  },
-  "optimal_price_points": {
-    "indifference_price": 17.5,
-    "optimal_price_point": 18.75,
-    "price_stress": 7.5,
-    "range_of_acceptable_prices": {
-      "min": 12.5,
-      "max": 22.5
+  "study_metadata": {
+    "title": "Van Westendorp Price Sensitivity Analysis",
+    "date": "2025-03-15",
+    "sample_size": 425,
+    "target_audience": "Project management software users",
+    "demographics": {
+      "age_range": "25-55",
+      "business_types": [
+        "SMB",
+        "Mid-market",
+        "Enterprise"
+      ],
+      "roles": [
+        "Project Managers",
+        "Team Leads",
+        "Individual Contributors"
+      ]
     }
+  },
+  "price_points": {
+    "too_cheap": {
+      "mean": 4.5,
+      "median": 4,
+      "mode": 5,
+      "distribution": [
+        {
+          "price": 0,
+          "percentage": 0
+        },
+        {
+          "price": 2,
+          "percentage": 7
+        },
+        {
+          "price": 3,
+          "percentage": 15
+        },
+        {
+          "price": 4,
+          "percentage": 23
+        },
+        {
+          "price": 5,
+          "percentage": 26
+        },
+        {
+          "price": 6,
+          "percentage": 18
+        },
+        {
+          "price": 7,
+          "percentage": 8
+        },
+        {
+          "price": 8,
+          "percentage": 3
+        }
+      ]
+    },
+    "cheap": {
+      "mean": 7.25,
+      "median": 7,
+      "mode": 7,
+      "distribution": [
+        {
+          "price": 3,
+          "percentage": 2
+        },
+        {
+          "price": 4,
+          "percentage": 5
+        },
+        {
+          "price": 5,
+          "percentage": 11
+        },
+        {
+          "price": 6,
+          "percentage": 19
+        },
+        {
+          "price": 7,
+          "percentage": 26
+        },
+        {
+          "price": 8,
+          "percentage": 21
+        },
+        {
+          "price": 9,
+          "percentage": 12
+        },
+        {
+          "price": 10,
+          "percentage": 4
+        }
+      ]
+    },
+    "expensive": {
+      "mean": 12.75,
+      "median": 12,
+      "mode": 12,
+      "distribution": [
+        {
+          "price": 9,
+          "percentage": 3
+        },
+        {
+          "price": 10,
+          "percentage": 9
+        },
+        {
+          "price": 11,
+          "percentage": 14
+        },
+        {
+          "price": 12,
+          "percentage": 25
+        },
+        {
+          "price": 13,
+          "percentage": 21
+        },
+        {
+          "price": 14,
+          "percentage": 15
+        },
+        {
+          "price": 15,
+          "percentage": 9
+        },
+        {
+          "price": 16,
+          "percentage": 4
+        }
+      ]
+    },
+    "too_expensive": {
+      "mean": 17.85,
+      "median": 18,
+      "mode": 20,
+      "distribution": [
+        {
+          "price": 14,
+          "percentage": 5
+        },
+        {
+          "price": 15,
+          "percentage": 10
+        },
+        {
+          "price": 16,
+          "percentage": 13
+        },
+        {
+          "price": 17,
+          "percentage": 17
+        },
+        {
+          "price": 18,
+          "percentage": 19
+        },
+        {
+          "price": 19,
+          "percentage": 15
+        },
+        {
+          "price": 20,
+          "percentage": 14
+        },
+        {
+          "price": 25,
+          "percentage": 7
+        }
+      ]
+    }
+  },
+  "price_thresholds": {
+    "point_of_marginal_cheapness": 6.75,
+    "optimal_price_point": 9.5,
+    "point_of_marginal_expensiveness": 13.25,
+    "price_stress": 6.5
+  },
+  "acceptable_price_range": {
+    "lower_bound": 6.75,
+    "upper_bound": 13.25,
+    "range_width": 6.5
+  },
+  "segment_analysis": {
+    "by_business_size": {
+      "SMB": {
+        "optimal_price": 7.75,
+        "acceptable_range": [
+          5.5,
+          11.25
+        ]
+      },
+      "Mid-market": {
+        "optimal_price": 9.5,
+        "acceptable_range": [
+          7,
+          13.25
+        ]
+      },
+      "Enterprise": {
+        "optimal_price": 11.25,
+        "acceptable_range": [
+          8.25,
+          15.5
+        ]
+      }
+    },
+    "by_user_role": {
+      "Project_Managers": {
+        "optimal_price": 10.25,
+        "acceptable_range": [
+          7.75,
+          14
+        ]
+      },
+      "Team_Leads": {
+        "optimal_price": 9.5,
+        "acceptable_range": [
+          7,
+          13
+        ]
+      },
+      "Individual_Contributors": {
+        "optimal_price": 8.75,
+        "acceptable_range": [
+          6.5,
+          12.25
+        ]
+      }
+    }
+  },
+  "competitor_price_comparison": {
+    "competitor_A": 8.99,
+    "competitor_B": 12.99,
+    "competitor_C": 7.49,
+    "competitor_D": 14.99,
+    "market_average": 11.12
+  },
+  "recommendations": {
+    "primary_price_point": 9.99,
+    "tiered_pricing": {
+      "basic": {
+        "price": 7.99,
+        "target_segment": "Price-sensitive users, Individual Contributors"
+      },
+      "professional": {
+        "price": 12.99,
+        "target_segment": "Mid-market, Team Leads"
+      },
+      "enterprise": {
+        "price": 16.99,
+        "target_segment": "Enterprise clients, Project Managers"
+      }
+    },
+    "expected_conversion_rates": {
+      "at_7_99": 0.32,
+      "at_9_99": 0.28,
+      "at_12_99": 0.21,
+      "at_16_99": 0.12
+    }
+  },
+  "_modelInfo": {
+    "requested": "claude-3-7-sonnet-20250219",
+    "actual": "claude-3-opus-20240229"
   }
 }
