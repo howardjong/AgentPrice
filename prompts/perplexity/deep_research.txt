@@ -15,8 +15,6 @@ Research query: {{query}}
 
 IMPORTANT: This query may include clarification answers provided by the user in response to questions. These answers provide critical context for your research. Please consider all user-provided clarifications when conducting your research and tailoring your response.
 
-# Optimized Research Prompt for Perplexity
-
 ## Research Objective
 Provide comprehensive analysis on {{query}} with focus on pricing data, market positioning, and consumer value perceptions.
 
