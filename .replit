@@ -34,7 +34,7 @@ task = "shell.exec"
 args = "NODE_OPTIONS=--experimental-vm-modules npm test"
 
 [workflows]
-runButton = "Simple Chart Viewer"
+runButton = "Chart Server"
 
 [[workflows.workflow]]
 name = "Project"
@@ -732,6 +732,23 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "# Create and start a simple chart server"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/serve-charts.js"
+
+[[workflows.workflow]]
+name = "Chart Server"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Ensure output directory exists and create chart server"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "mkdir -p tests/output"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"

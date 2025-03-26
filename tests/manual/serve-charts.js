@@ -1,144 +1,101 @@
-
-// Simple chart server with explicit path mappings
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Enable detailed request logging
+// Enable CORS for all routes
 app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
-// Serve the chart viewer HTML directly
-app.get('/', (req, res) => {
-  res.sendFile(path.join(process.cwd(), 'public', 'chart-viewer.html'));
-});
+// Serve static files from the root directory
+app.use(express.static(path.join(process.cwd())));
 
-// Serve static files with explicit CORS headers
-app.use('/public', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  express.static(path.join(process.cwd(), 'public'))(req, res, next);
-});
+// Check if output directory exists, create it if not
+const outputDir = path.join(process.cwd(), 'tests', 'output');
+if (!fs.existsSync(outputDir)) {
+  fs.mkdirSync(outputDir, { recursive: true });
+  console.log(`Created output directory: ${outputDir}`);
+}
 
-// Serve the output directory with explicit CORS headers
-app.use('/tests/output', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  express.static(path.join(process.cwd(), 'tests', 'output'))(req, res, next);
-});
-
-// Create test files API endpoint
-app.get('/api/create-samples', (req, res) => {
-  console.log('Creating sample chart files...');
-  const outputDir = path.join(process.cwd(), 'tests', 'output');
-  const created = [];
-  
-  // Ensure directory exists
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-    console.log(`Created directory: ${outputDir}`);
-  }
-  
-  // Create sample files
+// Create sample files if they don't exist
+const createSampleFiles = () => {
   const files = ['van_westendorp_plotly.json', 'conjoint_plotly.json', 'bar_chart_plotly.json'];
   const sampleData = {
     plotlyConfig: {
-      data: [{x: [1, 2, 3], y: [1, 2, 3], type: 'scatter', name: 'Sample Data'}],
-      layout: {title: 'Sample Chart', width: 800, height: 500},
+      data: [{x: [1, 2, 3], y: [3, 1, 5], type: 'scatter', name: 'Sample Data'}],
+      layout: {title: 'Sample Chart'},
       config: {responsive: true}
     },
-    insights: ['This is a sample insight']
+    insights: ['This is a sample insight', 'Another insight point']
   };
-  
-  files.forEach(file => {
-    const filePath = path.join(outputDir, file);
-    fs.writeFileSync(filePath, JSON.stringify(sampleData, null, 2));
-    created.push(file);
-    console.log(`Created/updated file: ${file}`);
-  });
-  
-  res.json({ success: true, files: created });
-});
 
-// API to check what files exist
-app.get('/api/files', (req, res) => {
-  const outputDir = path.join(process.cwd(), 'tests', 'output');
-  const files = [];
-  
-  try {
-    if (fs.existsSync(outputDir)) {
-      fs.readdirSync(outputDir).forEach(file => {
-        const filePath = path.join(outputDir, file);
-        const stats = fs.statSync(filePath);
-        files.push({
-          name: file,
-          path: `/tests/output/${file}`,
-          size: stats.size,
-          modifiedAt: stats.mtime
-        });
-      });
+  let createdCount = 0;
+  for (const file of files) {
+    const filePath = path.join(outputDir, file);
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, JSON.stringify(sampleData, null, 2));
+      createdCount++;
     }
-    
-    res.json({ 
-      success: true, 
-      directory: outputDir,
-      directoryExists: fs.existsSync(outputDir),
-      files 
+  }
+
+  if (createdCount > 0) {
+    console.log(`Created ${createdCount} sample chart files`);
+  }
+};
+
+createSampleFiles();
+
+// Debug API for checking files
+app.get('/api/debug/files', (req, res) => {
+  try {
+    const files = fs.readdirSync(outputDir);
+    const fileInfo = files.map(file => {
+      const filePath = path.join(outputDir, file);
+      const stats = fs.statSync(filePath);
+      return {
+        name: file,
+        size: stats.size,
+        path: `/tests/output/${file}`,
+        exists: true,
+        url: `${req.protocol}://${req.get('host')}/tests/output/${file}`
+      };
+    });
+
+    res.json({
+      success: true,
+      outputDir,
+      files: fileInfo
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error.message,
-      stack: error.stack
+      error: error.message
     });
   }
 });
 
-// Start the server and create sample files
+// Redirect root to chart viewer
+app.get('/', (req, res) => {
+  res.redirect('/public/chart-viewer.html');
+});
+
+// Start the server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`
-=============================================
-       Chart Viewer Server Running
-=============================================
+=== Chart Viewer Server ===
+Server running at http://0.0.0.0:${PORT}
 
-Server started on http://0.0.0.0:${PORT}
+Chart files location: ${outputDir}
+Available endpoints:
+- Chart Viewer: http://0.0.0.0:${PORT}/public/chart-viewer.html
+- Debug API: http://0.0.0.0:${PORT}/api/debug/files
 
-You can access:
-- Chart viewer: http://0.0.0.0:${PORT}/
-- Files list: http://0.0.0.0:${PORT}/api/files
-- Create samples: http://0.0.0.0:${PORT}/api/create-samples
-
-=============================================
-`);
-
-  // Create sample files on startup
-  const outputDir = path.join(process.cwd(), 'tests', 'output');
-  
-  if (!fs.existsSync(outputDir)) {
-    fs.mkdirSync(outputDir, { recursive: true });
-    console.log(`Created output directory: ${outputDir}`);
-  }
-  
-  const files = ['van_westendorp_plotly.json', 'conjoint_plotly.json', 'bar_chart_plotly.json'];
-  const sampleData = {
-    plotlyConfig: {
-      data: [{x: [1, 2, 3], y: [1, 2, 3], type: 'scatter', name: 'Sample Data'}],
-      layout: {title: 'Sample Chart', width: 800, height: 500},
-      config: {responsive: true}
-    },
-    insights: ['This is a sample insight']
-  };
-  
-  files.forEach(file => {
-    const filePath = path.join(outputDir, file);
-    fs.writeFileSync(filePath, JSON.stringify(sampleData, null, 2));
-    console.log(`Created/updated sample file: ${file}`);
-  });
+Sample chart files have been created if they didn't exist.
+  `);
 });
