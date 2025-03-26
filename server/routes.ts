@@ -14,8 +14,45 @@ import { initializeAllMockResearch } from '../services/initializeMockResearch.js
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
+import multer from 'multer';
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Configure multer storage
+  const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+      // Create uploads directory if it doesn't exist
+      const uploadsDir = path.resolve('./uploads');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+      cb(null, uploadsDir);
+    },
+    filename: function (req, file, cb) {
+      // Generate unique filename with timestamp
+      const uniqueFilename = `${Date.now()}-${uuidv4().slice(0, 8)}-${file.originalname}`;
+      cb(null, uniqueFilename);
+    }
+  });
+  
+  // Create multer upload middleware
+  const upload = multer({ 
+    storage: storage,
+    limits: {
+      fileSize: 1024 * 1024 * 10, // 10MB max file size
+    },
+    fileFilter: function (req, file, cb) {
+      // Accept text files and CSVs only
+      const filetypes = /text|txt|csv|json|md/;
+      const mimetype = filetypes.test(file.mimetype);
+      const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
+      
+      if (mimetype && extname) {
+        return cb(null, true);
+      }
+      cb(new Error('Only text, CSV, JSON, and Markdown files are allowed'));
+    }
+  });
+  
   // Initialize services
   const claudeStatus = claudeService.getStatus();
   const perplexityStatus = perplexityService.getStatus();
