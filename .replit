@@ -352,3 +352,12 @@ args = "node tests/reset-circuit-breaker.js perplexity"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/compare-prompt-versions.js"
+
+[[workflows.workflow]]
+name = "Compare Cached Prompt Results"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/compare-cached-results.js"
