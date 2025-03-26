@@ -27,7 +27,8 @@ const child = spawn(npmCmd, ['run', 'dev'], {
     ...process.env,
     DISABLE_LLM_API_CALLS: 'true',
     INIT_MOCK_DATA: 'false',
-    USE_MOCK_LLM: 'true'
+    USE_MOCK_LLM: 'true',
+    PORT: '5001'  // Use a different port to avoid conflicts
   }
 });
 
