@@ -7,14 +7,18 @@ process.env.INIT_MOCK_DATA = 'false';
 process.env.USE_MOCK_LLM = 'true';
 
 // Load env configuration before importing other modules
-require('../config/env.js');
+import '../config/env.js';
 
 // Import and run the start command
-const { spawn } = require('child_process');
-const path = require('path');
+import { spawn } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 console.log('🚫 Starting server with LLM API calls disabled');
 console.log('ℹ️ This is for development/testing UI without making external API calls');
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const child = spawn(npmCmd, ['run', 'dev'], {
