@@ -71,7 +71,7 @@
         async function loadAndRenderCharts() {
             try {
                 // Load Van Westendorp chart
-                const vanWestendorpResponse = await fetch('/tests/output/van_westendorp_plotly.json');
+                const vanWestendorpResponse = await fetch('../tests/output/van_westendorp_plotly.json');
                 const vanWestendorpData = await vanWestendorpResponse.json();
                 
                 if (vanWestendorpData && vanWestendorpData.plotlyConfig) {
@@ -92,7 +92,7 @@
                 }
 
                 // Load Conjoint chart
-                const conjointResponse = await fetch('/tests/output/conjoint_plotly.json');
+                const conjointResponse = await fetch('../tests/output/conjoint_plotly.json');
                 const conjointData = await conjointResponse.json();
                 
                 if (conjointData && conjointData.plotlyConfig) {
@@ -113,7 +113,7 @@
                 }
 
                 // Load Bar chart
-                const barChartResponse = await fetch('/tests/output/bar_chart_plotly.json');
+                const barChartResponse = await fetch('../tests/output/bar_chart_plotly.json');
                 const barChartData = await barChartResponse.json();
                 
                 if (barChartData && barChartData.plotlyConfig) {
