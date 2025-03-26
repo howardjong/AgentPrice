@@ -491,7 +491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   border-radius: 4px;
 
 // Two-stage research endpoint - first gets clarifying questions, then performs research with answers
-router.post('/api/two-stage-research', async (req: Request, res: Response) => {
+app.post('/api/two-stage-research', async (req: Request, res: Response) => {
   try {
     const { query, options = {} } = req.body;
     
