@@ -10,21 +10,51 @@ For this deep research task:
 6. Identify any limitations or gaps in the available information
 7. Pay careful attention to any clarification answers provided by the user
 
-Begin your research with the following query:
-{{query}}
-Please conduct in-depth research on the following topic and provide a comprehensive, well-structured response with citations.
-
 Research query: {{query}}
 {{#if context}}Additional context: {{context}}{{/if}}
 
 IMPORTANT: This query may include clarification answers provided by the user in response to questions. These answers provide critical context for your research. Please consider all user-provided clarifications when conducting your research and tailoring your response.
 
-Please include the most up-to-date information available, with particular attention to recent developments and reliable sources. Format your response in a clear, organized manner with appropriate headings and citation references where applicable.
+# Optimized Research Prompt for Perplexity
 
-When providing citations, please ensure they are from diverse, authoritative sources. Include direct quotes where especially relevant, properly attributed.
+## Research Objective
+Provide comprehensive analysis on {{query}} with focus on pricing data, market positioning, and consumer value perceptions.
 
-Structure your findings with:
-1. A concise executive summary at the beginning
-2. Key findings organized under clear headings
-3. Important data points highlighted
-4. A brief conclusion summarizing the most important takeaways
+## Data Requirements
+1. **Authoritative Sources**: Academic publications, industry reports, expert opinions
+2. **Competitive Intelligence**: Collect pricing structures from:
+   - Direct/indirect competitors
+   - Regional variations
+   - Feature-based pricing tiers
+
+3. **Consumer Sentiment**: From reviews, forums, social media
+
+## Analysis Frameworks
+1. **Price Sensitivity (Van Westendorp)**:
+   - Too cheap (quality concerns)
+   - Bargain (good value)
+   - Upper threshold (expensive but acceptable)
+   - Rejection point (too expensive)
+
+2. **Conjoint Analysis Data**:
+   - Customer preferences by attribute
+   - Willingness-to-pay metrics
+   - Price impact on purchasing decisions
+   - Segment-specific elasticity
+
+## Response Structure
+1. **Executive Summary**: Key findings
+2. **Market Overview**: Current pricing landscape
+3. **Competitive Analysis**: Competitor strategies
+4. **Consumer Insights**: Price sensitivity data
+5. **Recommendations**: Evidence-based price points
+
+## Requirements
+- Cite sources inline after each claim
+- Prioritize recent sources (last 12-24 months)
+- Verify key data through multiple sources
+- Highlight contradictory findings
+- Present multiple perspectives on subjective questions
+- Focus on actionable pricing intelligence
+
+Deliver comprehensive analysis that balances breadth with depth, prioritizing accuracy and citing authoritative sources throughout.
