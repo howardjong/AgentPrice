@@ -32,6 +32,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.resolve(__dirname, '../public/view-charts.html'));
   });
   
+  // Additional endpoint for better URL structure
+  app.get('/view-charts', (req: Request, res: Response) => {
+    const __filename = new URL(import.meta.url).pathname;
+    const __dirname = path.dirname(__filename);
+    res.sendFile(path.resolve(__dirname, '../public/view-charts.html'));
+  });
+  
   // Serve chart files from tests/output directory
   app.get('/chart-data/:filename', (req: Request, res: Response) => {
     const filename = req.params.filename;
