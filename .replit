@@ -26,6 +26,13 @@ externalPort = 3000
 localPort = 33065
 externalPort = 3002
 
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+task = "shell.exec"
+args = "NODE_OPTIONS=--experimental-vm-modules npm test"
+
 [workflows]
 runButton = "Perplexity Minimal Tests"
 
@@ -570,3 +577,28 @@ args = "# Start server to view charts"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx serve . -l 3000"
+
+[[workflows.workflow]]
+name = "View Charts"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First run the test to generate chart files"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-plotly-integration-minimal.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then start the server on 0.0.0.0"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/serve-charts.js"
