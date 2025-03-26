@@ -34,7 +34,7 @@ task = "shell.exec"
 args = "NODE_OPTIONS=--experimental-vm-modules npm test"
 
 [workflows]
-runButton = "Chart Server"
+runButton = "Start App - No API Calls"
 
 [[workflows.workflow]]
 name = "Project"
@@ -753,3 +753,25 @@ args = "mkdir -p tests/output"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/serve-charts.js"
+
+[[workflows.workflow]]
+name = "Start Dev Without API Calls"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Set environment variable to disable automatic initialization"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "INIT_MOCK_DATA=false npm run dev"
+
+[[workflows.workflow]]
+name = "Start App - No API Calls"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev:no-api"
