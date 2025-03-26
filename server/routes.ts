@@ -415,12 +415,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Try to parse the response as JSON
       let parsedResult;
       try {
-        // Extract JSON from the response
-        const jsonMatch = result.response.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          parsedResult = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error('No JSON found in response');
+        // First, try to find JSON in code blocks
+        const jsonCodeBlockMatch = result.response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (jsonCodeBlockMatch && jsonCodeBlockMatch[1]) {
+          try {
+            parsedResult = JSON.parse(jsonCodeBlockMatch[1]);
+          } catch (e) {
+            console.warn('Found JSON code block but failed to parse it:', e);
+          }
+        }
+        
+        // If code block approach failed, try to extract any JSON object
+        if (!parsedResult) {
+          const jsonMatch = result.response.match(/\{[\s\S]*?\}/);
+          if (jsonMatch) {
+            try {
+              parsedResult = JSON.parse(jsonMatch[0]);
+            } catch (e) {
+              console.warn('Found potential JSON but failed to parse it:', e);
+            }
+          }
+        }
+        
+        // If both approaches failed, generate a default response
+        if (!parsedResult) {
+          // Create a default Plotly config with a message
+          parsedResult = {
+            plotlyConfig: {
+              data: [{
+                type: 'scatter',
+                x: [1, 2, 3, 4],
+                y: [0, 0, 0, 0],
+                mode: 'lines',
+                name: 'No data'
+              }],
+              layout: {
+                title: 'No data found for visualization',
+                annotations: [{
+                  text: 'Claude could not extract data from the provided content. Please try with content containing numerical data.',
+                  showarrow: false,
+                  x: 0.5,
+                  y: 0.5,
+                  xref: 'paper',
+                  yref: 'paper'
+                }]
+              },
+              config: { responsive: true }
+            },
+            insights: [
+              "No structured data was found in the provided content.",
+              "Claude analyzed the content but couldn't extract visualization-ready data.",
+              "Try providing content with tables, statistics, or numerical data."
+            ]
+          };
         }
       } catch (parseError) {
         console.error('Error parsing Claude response as JSON:', parseError);
