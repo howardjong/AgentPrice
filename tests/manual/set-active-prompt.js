@@ -33,7 +33,7 @@ async function setActivePromptVersion() {
     }
     
     // Set the active version
-    const result = await promptVersioner.setActiveVersion(engine, promptType, versionName);
+    const result = await promptVersioner.switchToVersion(engine, promptType, versionName);
     
     if (result.success) {
       console.log(`✅ Successfully set active version to "${versionName}"`);
