@@ -7,56 +7,58 @@ const fs = require('fs');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Add logging middleware
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-  next();
-});
-
 // Serve static files from the root directory
 app.use(express.static(path.join(process.cwd())));
 
-// Specific route for chart viewer
+// Add specific route for chart viewer
 app.get('/view-charts', (req, res) => {
   res.sendFile(path.join(process.cwd(), 'public', 'chart-viewer.html'));
 });
 
-// Debug route to check if files exist
+// Root route to redirect to chart viewer
+app.get('/', (req, res) => {
+  res.redirect('/public/chart-viewer.html');
+});
+
+// Debug endpoint to check file availability
 app.get('/debug/files', (req, res) => {
-  const files = [
-    '/tests/output/van_westendorp_plotly.json',
-    '/tests/output/conjoint_plotly.json',
-    '/tests/output/bar_chart_plotly.json'
-  ];
+  const outputDir = path.join(process.cwd(), 'tests', 'output');
+  const results = { outputDir, files: [] };
   
-  const results = {};
-  
-  for (const file of files) {
-    const filePath = path.join(process.cwd(), file.substring(1));
-    try {
-      const stats = fs.statSync(filePath);
-      results[file] = {
-        exists: true,
-        size: stats.size,
-        lastModified: stats.mtime
-      };
-    } catch (err) {
-      results[file] = {
-        exists: false,
-        error: err.message
-      };
+  try {
+    if (fs.existsSync(outputDir)) {
+      results.outputDirExists = true;
+      const files = fs.readdirSync(outputDir);
+      
+      files.forEach(file => {
+        try {
+          const filePath = path.join(outputDir, file);
+          const stats = fs.statSync(filePath);
+          results.files.push({
+            name: file,
+            size: stats.size,
+            isDirectory: stats.isDirectory(),
+            exists: true
+          });
+        } catch (err) {
+          results.files.push({
+            name: file,
+            exists: false,
+            error: err.message
+          });
+        }
+      });
+    } else {
+      results.outputDirExists = false;
     }
+  } catch (err) {
+    results.error = err.message;
   }
   
   res.json(results);
 });
 
-// Create redirect at root to the chart viewer
-app.get('/', (req, res) => {
-  res.redirect('/view-charts');
-});
-
-// Create empty chart files if they don't exist (for testing)
+// Create test files endpoint
 app.get('/create-test-files', (req, res) => {
   const outputDir = path.join(process.cwd(), 'tests', 'output');
   
@@ -97,8 +99,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`
 === Chart Viewer Server ===
 
+Server running at http://0.0.0.0:${PORT}
+
 View your charts at:
-- http://0.0.0.0:${PORT}/view-charts
+- http://0.0.0.0:${PORT}/public/chart-viewer.html
 - Direct link: http://0.0.0.0:${PORT}/
 
 Debug file availability at:
@@ -106,8 +110,5 @@ Debug file availability at:
 
 Create test files if needed:
 - http://0.0.0.0:${PORT}/create-test-files
-
-The Replit webview should automatically open to show the charts.
-If not, click the "Open Website" button in the Replit UI.
-`);
+  `);
 });

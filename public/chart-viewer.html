@@ -230,6 +230,7 @@
                 // Load Van Westendorp chart
                 updateChartStatus('vw', false);
                 try {
+                    logDebug('Attempting to fetch Van Westendorp chart data');
                     const vanWestendorpResponse = await fetch('/tests/output/van_westendorp_plotly.json');
                     
                     if (!vanWestendorpResponse.ok) {
