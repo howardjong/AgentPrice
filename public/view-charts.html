@@ -66,66 +66,114 @@
         </div>
     </div>
 
+    <div id="file-selector" style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">
+        <h3>Available Chart Files</h3>
+        <div id="file-list" style="margin-top: 10px;">Loading chart files...</div>
+    </div>
+
     <script>
-        // Function to load and render charts
-        async function loadAndRenderCharts() {
+        // Function to load and display available chart files
+        async function loadChartFiles() {
             try {
-                // Load Van Westendorp chart
-                const vanWestendorpResponse = await fetch('../tests/output/van_westendorp_plotly.json');
-                const vanWestendorpData = await vanWestendorpResponse.json();
+                const response = await fetch('/api/chart-files');
+                const data = await response.json();
                 
-                if (vanWestendorpData && vanWestendorpData.plotlyConfig) {
-                    Plotly.newPlot('van-westendorp-chart', 
-                        vanWestendorpData.plotlyConfig.data, 
-                        vanWestendorpData.plotlyConfig.layout,
-                        vanWestendorpData.plotlyConfig.config || {});
-                        
-                    // Display insights
-                    const insightsList = document.getElementById('van-westendorp-insights-list');
-                    if (vanWestendorpData.insights && vanWestendorpData.insights.length > 0) {
-                        vanWestendorpData.insights.forEach(insight => {
-                            const li = document.createElement('li');
-                            li.textContent = insight;
-                            insightsList.appendChild(li);
-                        });
+                const fileListElement = document.getElementById('file-list');
+                
+                if (data.success && data.files && data.files.length > 0) {
+                    fileListElement.innerHTML = '<ul style="list-style-type: none; padding: 0;">';
+                    
+                    // Group files by type
+                    const vanWestendorpFiles = data.files.filter(file => file.name.includes('van_westendorp'));
+                    const conjointFiles = data.files.filter(file => file.name.includes('conjoint'));
+                    const barChartFiles = data.files.filter(file => file.name.includes('bar'));
+                    const otherFiles = data.files.filter(file => 
+                        !file.name.includes('van_westendorp') && 
+                        !file.name.includes('conjoint') && 
+                        !file.name.includes('bar')
+                    );
+                    
+                    // Load the default charts
+                    if (vanWestendorpFiles.length > 0) {
+                        loadChart(vanWestendorpFiles[0].url, 'van-westendorp-chart', 'van-westendorp-insights-list');
                     }
-                }
-
-                // Load Conjoint chart
-                const conjointResponse = await fetch('../tests/output/conjoint_plotly.json');
-                const conjointData = await conjointResponse.json();
-                
-                if (conjointData && conjointData.plotlyConfig) {
-                    Plotly.newPlot('conjoint-chart', 
-                        conjointData.plotlyConfig.data, 
-                        conjointData.plotlyConfig.layout,
-                        conjointData.plotlyConfig.config || {});
-                        
-                    // Display insights
-                    const insightsList = document.getElementById('conjoint-insights-list');
-                    if (conjointData.insights && conjointData.insights.length > 0) {
-                        conjointData.insights.forEach(insight => {
-                            const li = document.createElement('li');
-                            li.textContent = insight;
-                            insightsList.appendChild(li);
-                        });
+                    
+                    if (conjointFiles.length > 0) {
+                        loadChart(conjointFiles[0].url, 'conjoint-chart', 'conjoint-insights-list');
                     }
+                    
+                    if (barChartFiles.length > 0) {
+                        loadChart(barChartFiles[0].url, 'bar-chart', 'bar-insights-list');
+                    }
+                    
+                    // Display file list
+                    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">';
+                    
+                    // Van Westendorp files
+                    if (vanWestendorpFiles.length > 0) {
+                        html += '<div><h4>Van Westendorp Files</h4><ul>';
+                        vanWestendorpFiles.forEach(file => {
+                            html += `<li><a href="#" onclick="loadChart('${file.url}', 'van-westendorp-chart', 'van-westendorp-insights-list'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+                    
+                    // Conjoint files
+                    if (conjointFiles.length > 0) {
+                        html += '<div><h4>Conjoint Analysis Files</h4><ul>';
+                        conjointFiles.forEach(file => {
+                            html += `<li><a href="#" onclick="loadChart('${file.url}', 'conjoint-chart', 'conjoint-insights-list'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+                    
+                    // Bar chart files
+                    if (barChartFiles.length > 0) {
+                        html += '<div><h4>Bar Chart Files</h4><ul>';
+                        barChartFiles.forEach(file => {
+                            html += `<li><a href="#" onclick="loadChart('${file.url}', 'bar-chart', 'bar-insights-list'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+                    
+                    // Other files
+                    if (otherFiles.length > 0) {
+                        html += '<div><h4>Other Charts</h4><ul>';
+                        otherFiles.forEach(file => {
+                            html += `<li><a href="#" onclick="viewJsonFile('${file.url}'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
+                        });
+                        html += '</ul></div>';
+                    }
+                    
+                    html += '</div>';
+                    fileListElement.innerHTML = html;
+                } else {
+                    fileListElement.innerHTML = '<p>No chart files found.</p>';
                 }
-
-                // Load Bar chart
-                const barChartResponse = await fetch('../tests/output/bar_chart_plotly.json');
-                const barChartData = await barChartResponse.json();
+            } catch (error) {
+                console.error('Error loading chart files:', error);
+                document.getElementById('file-list').innerHTML = `<p style="color: red;">Error loading chart files: ${error.message}</p>`;
+            }
+        }
+        
+        // Function to load and display a specific chart
+        async function loadChart(url, chartElementId, insightsListId) {
+            try {
+                const response = await fetch(url);
+                const chartData = await response.json();
                 
-                if (barChartData && barChartData.plotlyConfig) {
-                    Plotly.newPlot('bar-chart', 
-                        barChartData.plotlyConfig.data, 
-                        barChartData.plotlyConfig.layout,
-                        barChartData.plotlyConfig.config || {});
+                if (chartData && chartData.plotlyConfig) {
+                    Plotly.newPlot(chartElementId, 
+                        chartData.plotlyConfig.data, 
+                        chartData.plotlyConfig.layout,
+                        chartData.plotlyConfig.config || {});
                         
                     // Display insights
-                    const insightsList = document.getElementById('bar-insights-list');
-                    if (barChartData.insights && barChartData.insights.length > 0) {
-                        barChartData.insights.forEach(insight => {
+                    const insightsList = document.getElementById(insightsListId);
+                    insightsList.innerHTML = ''; // Clear previous insights
+                    
+                    if (chartData.insights && chartData.insights.length > 0) {
+                        chartData.insights.forEach(insight => {
                             const li = document.createElement('li');
                             li.textContent = insight;
                             insightsList.appendChild(li);
@@ -133,13 +181,66 @@
                     }
                 }
             } catch (error) {
-                console.error('Error loading charts:', error);
-                document.body.innerHTML += `<div style="color: red; padding: 20px;">Error loading charts: ${error.message}</div>`;
+                console.error('Error loading chart:', error);
+                document.getElementById(chartElementId).innerHTML = `<div style="color: red; padding: 20px;">Error loading chart: ${error.message}</div>`;
+            }
+        }
+        
+        // Function to view a JSON file in a readable format
+        async function viewJsonFile(url) {
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                // Create a modal to display the JSON
+                const modal = document.createElement('div');
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.width = '100%';
+                modal.style.height = '100%';
+                modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
+                modal.style.zIndex = '1000';
+                modal.style.display = 'flex';
+                modal.style.justifyContent = 'center';
+                modal.style.alignItems = 'center';
+                
+                const content = document.createElement('div');
+                content.style.backgroundColor = '#fff';
+                content.style.padding = '20px';
+                content.style.borderRadius = '5px';
+                content.style.maxWidth = '90%';
+                content.style.maxHeight = '90%';
+                content.style.overflow = 'auto';
+                
+                const closeButton = document.createElement('button');
+                closeButton.textContent = 'Close';
+                closeButton.style.padding = '8px 16px';
+                closeButton.style.backgroundColor = '#e74c3c';
+                closeButton.style.color = '#fff';
+                closeButton.style.border = 'none';
+                closeButton.style.borderRadius = '4px';
+                closeButton.style.cursor = 'pointer';
+                closeButton.style.marginBottom = '10px';
+                closeButton.onclick = () => document.body.removeChild(modal);
+                
+                const pre = document.createElement('pre');
+                pre.style.whiteSpace = 'pre-wrap';
+                pre.style.fontSize = '14px';
+                pre.textContent = JSON.stringify(data, null, 2);
+                
+                content.appendChild(closeButton);
+                content.appendChild(pre);
+                modal.appendChild(content);
+                document.body.appendChild(modal);
+            } catch (error) {
+                console.error('Error viewing JSON file:', error);
+                alert(`Error viewing JSON file: ${error.message}`);
             }
         }
 
-        // Load charts when page loads
-        window.addEventListener('load', loadAndRenderCharts);
+        // Load chart files when page loads
+        window.addEventListener('load', loadChartFiles);
     </script>
 </body>
 </html>

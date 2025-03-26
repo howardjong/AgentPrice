@@ -13,6 +13,7 @@ import {
 import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
+import fs from 'fs';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize services
@@ -29,6 +30,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const __filename = new URL(import.meta.url).pathname;
     const __dirname = path.dirname(__filename);
     res.sendFile(path.resolve(__dirname, '../public/view-charts.html'));
+  });
+  
+  // Serve chart files from tests/output directory
+  app.get('/chart-data/:filename', (req: Request, res: Response) => {
+    const filename = req.params.filename;
+    const __filename = new URL(import.meta.url).pathname;
+    const __dirname = path.dirname(__filename);
+    const filePath = path.resolve(__dirname, `../tests/output/${filename}`);
+    res.sendFile(filePath);
+  });
+  
+  // API to list available chart files
+  app.get('/api/chart-files', (req: Request, res: Response) => {
+    try {
+      const __filename = new URL(import.meta.url).pathname;
+      const __dirname = path.dirname(__filename);
+      const outputDir = path.resolve(__dirname, '../tests/output');
+      const files = fs.readdirSync(outputDir)
+        .filter(file => file.endsWith('.json'))
+        .map(file => ({
+          name: file,
+          url: `/chart-data/${file}`
+        }));
+      res.json({ success: true, files });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
   });
 
   // API Status Endpoint
