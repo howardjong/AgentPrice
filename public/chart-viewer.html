@@ -230,7 +230,7 @@
                 // Load Van Westendorp chart
                 updateChartStatus('vw', false);
                 try {
-                    const vanWestendorpResponse = await fetch('../tests/output/van_westendorp_plotly.json');
+                    const vanWestendorpResponse = await fetch('/tests/output/van_westendorp_plotly.json');
                     
                     if (!vanWestendorpResponse.ok) {
                         throw new Error(`HTTP error! status: ${vanWestendorpResponse.status}`);
@@ -275,7 +275,7 @@
                 // Load Conjoint chart
                 updateChartStatus('conjoint', false);
                 try {
-                    const conjointResponse = await fetch('../tests/output/conjoint_plotly.json');
+                    const conjointResponse = await fetch('/tests/output/conjoint_plotly.json');
                     
                     if (!conjointResponse.ok) {
                         throw new Error(`HTTP error! status: ${conjointResponse.status}`);
@@ -320,7 +320,7 @@
                 // Load Bar chart
                 updateChartStatus('bar', false);
                 try {
-                    const barChartResponse = await fetch('../tests/output/bar_chart_plotly.json');
+                    const barChartResponse = await fetch('/tests/output/bar_chart_plotly.json');
                     
                     if (!barChartResponse.ok) {
                         throw new Error(`HTTP error! status: ${barChartResponse.status}`);

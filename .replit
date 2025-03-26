@@ -34,7 +34,7 @@ task = "shell.exec"
 args = "NODE_OPTIONS=--experimental-vm-modules npm test"
 
 [workflows]
-runButton = "Perplexity Minimal Tests"
+runButton = "Chart Viewer"
 
 [[workflows.workflow]]
 name = "Project"
@@ -598,6 +598,31 @@ args = ""
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "# Then start the server on 0.0.0.0"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/serve-charts.js"
+
+[[workflows.workflow]]
+name = "Chart Viewer"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First generate the chart files"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-plotly-integration-minimal.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Start the chart server"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
