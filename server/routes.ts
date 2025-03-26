@@ -39,6 +39,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.resolve(__dirname, '../public/view-charts.html'));
   });
   
+  // Endpoint to test Claude's visualization capabilities with random data
+  app.post('/api/test-claude-visualization', async (req: Request, res: Response) => {
+    try {
+      const { data, type, title, description } = req.body;
+      
+      if (!data || !type) {
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Data and type are required' 
+        });
+      }
+      
+      // Send the data to Claude for visualization generation
+      const result = await claudeService.generateVisualization(
+        data,
+        type,
+        title || 'Test Visualization',
+        description || 'Generated from test data'
+      );
+      
+      // Return both Claude's results and the input data for comparison
+      res.json({
+        success: true,
+        claudeResult: result,
+        inputData: {
+          data,
+          type,
+          title,
+          description
+        }
+      });
+    } catch (error) {
+      console.error('Error testing Claude visualization:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: `Failed to test Claude visualization: ${error.message}`
+      });
+    }
+  });
+  
   // Serve chart files from tests/output directory
   app.get('/chart-data/:filename', (req: Request, res: Response) => {
     const filename = req.params.filename;
