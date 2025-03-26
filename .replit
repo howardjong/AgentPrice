@@ -533,3 +533,40 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/test-plotly-integration-minimal.js"
+
+[[workflows.workflow]]
+name = "Test and View Charts"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First run the minimal Plotly test to generate chart files"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-plotly-integration-minimal.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then verify chart viewer setup"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-chart-viewer.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Start server to view charts"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx serve . -l 3000"
