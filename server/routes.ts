@@ -372,6 +372,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Test Visualization endpoints
   
+  // Content Analysis Endpoint
+  app.post('/api/analyze-content', async (req: Request, res: Response) => {
+    try {
+      const { content, contentType, chartType } = req.body;
+      
+      if (!content) {
+        return res.status(400).json({
+          success: false,
+          error: 'Content is required'
+        });
+      }
+      
+      // Read the content analysis prompt
+      const __filename = new URL(import.meta.url).pathname;
+      const __dirname = path.dirname(__filename);
+      const promptPath = path.resolve(__dirname, '../prompts/claude/content_analysis/default.txt');
+      
+      let prompt = '';
+      try {
+        prompt = fs.readFileSync(promptPath, 'utf8');
+      } catch (error) {
+        console.error('Error reading content analysis prompt:', error);
+        prompt = 'Analyze the following content and extract data for visualization. Create a Plotly.js configuration that best represents the data.';
+      }
+      
+      // Create system message with prompt
+      const messages = [
+        {
+          role: 'system',
+          content: prompt
+        },
+        {
+          role: 'user',
+          content: `Content Type: ${contentType}\nRequested Chart Type: ${chartType}\n\nContent to analyze:\n\n${content}`
+        }
+      ];
+      
+      // Call Claude's API to analyze the content
+      const result = await claudeService.processConversation(messages);
+      
+      // Try to parse the response as JSON
+      let parsedResult;
+      try {
+        // Extract JSON from the response
+        const jsonMatch = result.response.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsedResult = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error('No JSON found in response');
+        }
+      } catch (parseError) {
+        console.error('Error parsing Claude response as JSON:', parseError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to parse analysis result as JSON',
+          rawResponse: result.response
+        });
+      }
+      
+      res.json({
+        success: true,
+        ...parsedResult,
+        modelUsed: result.modelUsed || 'claude'
+      });
+    } catch (error) {
+      console.error('Error analyzing content:', error);
+      res.status(500).json({
+        success: false,
+        error: `Failed to analyze content: ${error.message}`
+      });
+    }
+  });
+
   // Van Westendorp visualization endpoint
   app.get('/api/test-visualization/van-westendorp', async (req: Request, res: Response) => {
     let hasResponded = false;
