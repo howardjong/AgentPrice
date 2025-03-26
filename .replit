@@ -34,7 +34,7 @@ task = "shell.exec"
 args = "NODE_OPTIONS=--experimental-vm-modules npm test"
 
 [workflows]
-runButton = "Chart Viewer"
+runButton = "Simple Chart Viewer"
 
 [[workflows.workflow]]
 name = "Project"
@@ -723,3 +723,16 @@ args = "npx express-generator"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx nodemon tests/manual/serve-charts.js"
+
+[[workflows.workflow]]
+name = "Simple Chart Viewer"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Create and start a simple chart server"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/serve-charts.js"
