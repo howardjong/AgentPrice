@@ -516,3 +516,12 @@ args = "node tests/reset-circuit-breaker.js perplexity --skip-test"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/testPerplexityModelExtraction.js"
+
+[[workflows.workflow]]
+name = "Test Plotly Integration Minimal"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-plotly-integration-minimal.js"
