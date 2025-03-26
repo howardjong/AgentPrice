@@ -75,81 +75,72 @@
         // Function to load and display available chart files
         async function loadChartFiles() {
             try {
-                const response = await fetch('/api/chart-files');
-                const data = await response.json();
-                
+                // Instead of getting from API, we'll use hardcoded options for now
                 const fileListElement = document.getElementById('file-list');
                 
-                if (data.success && data.files && data.files.length > 0) {
-                    fileListElement.innerHTML = '<ul style="list-style-type: none; padding: 0;">';
-                    
-                    // Group files by type
-                    const vanWestendorpFiles = data.files.filter(file => file.name.includes('van_westendorp'));
-                    const conjointFiles = data.files.filter(file => file.name.includes('conjoint'));
-                    const barChartFiles = data.files.filter(file => file.name.includes('bar'));
-                    const otherFiles = data.files.filter(file => 
-                        !file.name.includes('van_westendorp') && 
-                        !file.name.includes('conjoint') && 
-                        !file.name.includes('bar')
-                    );
-                    
-                    // Load the default charts
-                    if (vanWestendorpFiles.length > 0) {
-                        loadChart(vanWestendorpFiles[0].url, 'van-westendorp-chart', 'van-westendorp-insights-list');
-                    }
-                    
-                    if (conjointFiles.length > 0) {
-                        loadChart(conjointFiles[0].url, 'conjoint-chart', 'conjoint-insights-list');
-                    }
-                    
-                    if (barChartFiles.length > 0) {
-                        loadChart(barChartFiles[0].url, 'bar-chart', 'bar-insights-list');
-                    }
-                    
-                    // Display file list
-                    let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">';
-                    
-                    // Van Westendorp files
-                    if (vanWestendorpFiles.length > 0) {
-                        html += '<div><h4>Van Westendorp Files</h4><ul>';
-                        vanWestendorpFiles.forEach(file => {
-                            html += `<li><a href="#" onclick="loadChart('${file.url}', 'van-westendorp-chart', 'van-westendorp-insights-list'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
-                        });
-                        html += '</ul></div>';
-                    }
-                    
-                    // Conjoint files
-                    if (conjointFiles.length > 0) {
-                        html += '<div><h4>Conjoint Analysis Files</h4><ul>';
-                        conjointFiles.forEach(file => {
-                            html += `<li><a href="#" onclick="loadChart('${file.url}', 'conjoint-chart', 'conjoint-insights-list'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
-                        });
-                        html += '</ul></div>';
-                    }
-                    
-                    // Bar chart files
-                    if (barChartFiles.length > 0) {
-                        html += '<div><h4>Bar Chart Files</h4><ul>';
-                        barChartFiles.forEach(file => {
-                            html += `<li><a href="#" onclick="loadChart('${file.url}', 'bar-chart', 'bar-insights-list'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
-                        });
-                        html += '</ul></div>';
-                    }
-                    
-                    // Other files
-                    if (otherFiles.length > 0) {
-                        html += '<div><h4>Other Charts</h4><ul>';
-                        otherFiles.forEach(file => {
-                            html += `<li><a href="#" onclick="viewJsonFile('${file.url}'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
-                        });
-                        html += '</ul></div>';
-                    }
-                    
-                    html += '</div>';
-                    fileListElement.innerHTML = html;
-                } else {
-                    fileListElement.innerHTML = '<p>No chart files found.</p>';
+                // Create mock files data
+                const mockFiles = [
+                    { name: 'van_westendorp_plotly.json', url: 'van_westendorp' },
+                    { name: 'conjoint_plotly.json', url: 'conjoint' },
+                    { name: 'bar_chart_plotly.json', url: 'bar' }
+                ];
+                
+                // Group files by type
+                const vanWestendorpFiles = mockFiles.filter(file => file.name.includes('van_westendorp'));
+                const conjointFiles = mockFiles.filter(file => file.name.includes('conjoint'));
+                const barChartFiles = mockFiles.filter(file => file.name.includes('bar'));
+                
+                // Load the default charts
+                if (vanWestendorpFiles.length > 0) {
+                    loadChart(vanWestendorpFiles[0].url, 'van-westendorp-chart', 'van-westendorp-insights-list');
                 }
+                
+                if (conjointFiles.length > 0) {
+                    loadChart(conjointFiles[0].url, 'conjoint-chart', 'conjoint-insights-list');
+                }
+                
+                if (barChartFiles.length > 0) {
+                    loadChart(barChartFiles[0].url, 'bar-chart', 'bar-insights-list');
+                }
+                
+                // Display file list
+                let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">';
+                
+                // Add heading for mock data
+                html += '<div style="grid-column: 1 / -1; padding: 10px; background-color: #f8f9fa; border-radius: 5px; margin-bottom: 15px;">';
+                html += '<h3 style="margin: 0; color: #2c3e50;">Mock Chart Data</h3>';
+                html += '<p style="margin: 5px 0 0 0;">This is showing hardcoded example data for demonstration purposes.</p>';
+                html += '</div>';
+                
+                // Van Westendorp files
+                if (vanWestendorpFiles.length > 0) {
+                    html += '<div><h4>Van Westendorp Files</h4><ul>';
+                    vanWestendorpFiles.forEach(file => {
+                        html += `<li><a href="#" onclick="loadChart('${file.url}', 'van-westendorp-chart', 'van-westendorp-insights-list'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
+                    });
+                    html += '</ul></div>';
+                }
+                
+                // Conjoint files
+                if (conjointFiles.length > 0) {
+                    html += '<div><h4>Conjoint Analysis Files</h4><ul>';
+                    conjointFiles.forEach(file => {
+                        html += `<li><a href="#" onclick="loadChart('${file.url}', 'conjoint-chart', 'conjoint-insights-list'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
+                    });
+                    html += '</ul></div>';
+                }
+                
+                // Bar chart files
+                if (barChartFiles.length > 0) {
+                    html += '<div><h4>Bar Chart Files</h4><ul>';
+                    barChartFiles.forEach(file => {
+                        html += `<li><a href="#" onclick="loadChart('${file.url}', 'bar-chart', 'bar-insights-list'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
+                    });
+                    html += '</ul></div>';
+                }
+                
+                html += '</div>';
+                fileListElement.innerHTML = html;
             } catch (error) {
                 console.error('Error loading chart files:', error);
                 document.getElementById('file-list').innerHTML = `<p style="color: red;">Error loading chart files: ${error.message}</p>`;
@@ -159,8 +150,128 @@
         // Function to load and display a specific chart
         async function loadChart(url, chartElementId, insightsListId) {
             try {
-                const response = await fetch(url);
-                const chartData = await response.json();
+                console.log("Loading chart from URL:", url);
+                
+                // For now, let's use hardcoded paths for testing
+                // This is a temporary workaround until the API is working
+                let chartData;
+                
+                if (url.includes('van_westendorp')) {
+                    // Hardcoded Van Westendorp data
+                    chartData = {
+                        plotlyConfig: {
+                            data: [
+                                {
+                                    x: [10, 30, 50, 70, 90, 110],
+                                    y: [5, 20, 50, 70, 90, 95],
+                                    mode: 'lines+markers',
+                                    name: 'Too Expensive',
+                                    line: { color: '#e74c3c', width: 3 },
+                                    marker: { size: 8 }
+                                },
+                                {
+                                    x: [10, 30, 50, 70, 90, 110],
+                                    y: [10, 35, 50, 65, 80, 90],
+                                    mode: 'lines+markers',
+                                    name: 'Expensive But Worth It',
+                                    line: { color: '#f39c12', width: 3 },
+                                    marker: { size: 8 }
+                                },
+                                {
+                                    x: [10, 30, 50, 70, 90, 110],
+                                    y: [80, 60, 50, 25, 10, 5],
+                                    mode: 'lines+markers',
+                                    name: 'Good Value',
+                                    line: { color: '#2ecc71', width: 3 },
+                                    marker: { size: 8 }
+                                },
+                                {
+                                    x: [10, 30, 50, 70, 90, 110],
+                                    y: [90, 50, 20, 15, 5, 2],
+                                    mode: 'lines+markers',
+                                    name: 'Too Cheap',
+                                    line: { color: '#3498db', width: 3 },
+                                    marker: { size: 8 }
+                                }
+                            ],
+                            layout: {
+                                title: 'Van Westendorp Price Sensitivity Analysis',
+                                xaxis: { title: 'Price ($)' },
+                                yaxis: { title: 'Percentage of Respondents' },
+                                annotations: [
+                                    {
+                                        x: 50,
+                                        y: 50,
+                                        text: 'Optimal Price Point',
+                                        showarrow: true,
+                                        arrowhead: 2,
+                                        arrowsize: 1,
+                                        arrowwidth: 2,
+                                        ax: 40,
+                                        ay: -40
+                                    }
+                                ]
+                            },
+                            config: { responsive: true }
+                        },
+                        insights: [
+                            "The optimal price point is around $50 where 'Too Expensive' and 'Good Value' curves intersect.",
+                            "At $30, 60% of respondents consider the product a good value.",
+                            "The acceptable price range appears to be between $30 and $70."
+                        ]
+                    };
+                } else if (url.includes('conjoint')) {
+                    // Hardcoded Conjoint data
+                    chartData = {
+                        plotlyConfig: {
+                            data: [
+                                {
+                                    x: ['Premium', 'Standard', 'Basic'],
+                                    y: [0.45, 0.30, 0.25],
+                                    type: 'bar',
+                                    name: 'Feature Importance',
+                                    marker: { color: '#3498db' }
+                                }
+                            ],
+                            layout: {
+                                title: 'Conjoint Analysis: Feature Importance',
+                                xaxis: { title: 'Feature Level' },
+                                yaxis: { title: 'Relative Importance' }
+                            },
+                            config: { responsive: true }
+                        },
+                        insights: [
+                            "Premium features have the highest relative importance at 45%.",
+                            "Standard features are valued at 30% importance.",
+                            "Basic features contribute 25% to the overall product value perception."
+                        ]
+                    };
+                } else if (url.includes('bar')) {
+                    // Hardcoded Bar chart data
+                    chartData = {
+                        plotlyConfig: {
+                            data: [
+                                {
+                                    x: ['Category A', 'Category B', 'Category C', 'Category D'],
+                                    y: [20, 14, 23, 18],
+                                    type: 'bar',
+                                    marker: { color: '#9b59b6' }
+                                }
+                            ],
+                            layout: {
+                                title: 'Sample Bar Chart',
+                                xaxis: { title: 'Categories' },
+                                yaxis: { title: 'Values' }
+                            },
+                            config: { responsive: true }
+                        },
+                        insights: [
+                            "Category C shows the highest value at 23.",
+                            "Category B has the lowest value at 14.",
+                            "The average value across all categories is 18.75."
+                        ]
+                    };
+                }
                 
                 if (chartData && chartData.plotlyConfig) {
                     Plotly.newPlot(chartElementId, 
@@ -179,6 +290,8 @@
                             insightsList.appendChild(li);
                         });
                     }
+                } else {
+                    throw new Error("Chart data not found or invalid format");
                 }
             } catch (error) {
                 console.error('Error loading chart:', error);
