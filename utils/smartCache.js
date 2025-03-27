@@ -46,6 +46,68 @@ class SmartCache {
   }
   
   /**
+   * Configure the cache with new options
+   * @param {Object} options - Configuration options
+   * @returns {SmartCache} this instance for chaining
+   */
+  configure(options = {}) {
+    // Update cache size
+    if (options.maxSize !== undefined) {
+      this.maxSize = options.maxSize;
+    }
+    
+    // Update TTL
+    if (options.ttl !== undefined) {
+      this.defaultTTL = options.ttl;
+    }
+    
+    // Update cleanup interval
+    if (options.cleanInterval !== undefined) {
+      if (this.cleanupInterval) {
+        clearInterval(this.cleanupInterval);
+      }
+      this.cleanupInterval = setInterval(() => this.removeExpiredItems(), options.cleanInterval);
+    }
+    
+    // Update fuzzy matching
+    if (options.fuzzyMatchThreshold !== undefined) {
+      this.fuzzyMatchThreshold = options.fuzzyMatchThreshold;
+    }
+    
+    if (options.enableFuzzyMatch !== undefined) {
+      this.enableFuzzyMatch = options.enableFuzzyMatch;
+    }
+    
+    // Update memory settings
+    if (options.memoryLimitMB !== undefined) {
+      this.memoryLimitMB = options.memoryLimitMB;
+    }
+    
+    if (options.lowMemoryMode !== undefined) {
+      this.lowMemoryMode = options.lowMemoryMode;
+      
+      // If switching to low memory mode, force cleanup
+      if (options.lowMemoryMode === true) {
+        this.checkMemoryUsage();
+      }
+    }
+    
+    if (options.aggressiveEviction !== undefined) {
+      this.aggressiveEviction = options.aggressiveEviction;
+    }
+    
+    logger.info('Smart cache configured', {
+      maxSize: this.maxSize,
+      defaultTTL: `${Math.round(this.defaultTTL / 1000 / 60)} minutes`,
+      enableFuzzyMatch: this.enableFuzzyMatch,
+      memoryLimitMB: this.memoryLimitMB,
+      lowMemoryMode: this.lowMemoryMode
+    });
+    
+    return this;
+  }
+  
+  /**
    * Set a cache item with optional TTL
    * @param {string} key - Cache key
    * @param {any} value - Value to cache

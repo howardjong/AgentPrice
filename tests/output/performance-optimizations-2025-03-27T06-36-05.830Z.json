@@ -1,0 +1,34 @@
+{
+  "timestamp": "2025-03-27T06-36-05.830Z",
+  "resourceManager": {
+    "memory": {
+      "heapLimitMB": 200,
+      "rssLimitMB": 300,
+      "gcThresholdMB": 150
+    },
+    "cpu": {
+      "maxUtilization": 60
+    }
+  },
+  "smartCache": {
+    "maxSize": 100,
+    "ttl": 1800000,
+    "cleanInterval": 300000
+  },
+  "memoryLeakDetector": {
+    "enabled": true,
+    "checkInterval": 300000,
+    "alertThreshold": 20,
+    "gcBeforeCheck": true
+  },
+  "componentLoader": {
+    "lazyLoad": true,
+    "preloadCritical": true,
+    "unloadThreshold": 300000
+  },
+  "environment": {
+    "maxOldSpaceSize": 256,
+    "exposeGC": true,
+    "cleanupInterval": 600000
+  }
+}
