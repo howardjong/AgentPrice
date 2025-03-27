@@ -6,6 +6,8 @@ import logger from '../utils/logger.js';
 import { RobustAPIClient } from '../utils/apiClient.js';
 import { CircuitBreaker } from '../utils/monitoring.js';
 import promptManager from './promptManager.js';
+import { cacheLlmCall } from '../utils/llmCacheOptimizer.js';
+import cacheMonitor from '../utils/cacheMonitor.js';
 
 class PerplexityService {
   constructor() {
@@ -85,10 +87,10 @@ class PerplexityService {
     }
     
     // Import the LLM API disable check
-    const { isLlmApiDisabled } = await import('../utils/disableLlmCalls.js');
+    const { areLlmCallsDisabled } = await import('../utils/disableLlmCalls.js');
     
     // Check if LLM API calls are disabled
-    if (isLlmApiDisabled()) {
+    if (areLlmCallsDisabled()) {
       logger.info('LLM API calls are disabled - returning mock response', {
         service: 'perplexity',
         method: 'performResearch'
@@ -146,81 +148,119 @@ class PerplexityService {
         validatedMessages[lastMsgIndex].content = `${validatedMessages[lastMsgIndex].content}\n\nPlease provide the most up-to-date information available as of today, March 24, 2025. I need CURRENT information.`;
       }
 
-      // No special pattern detection - we'll use the basic model by default
-
-      // Enhanced request options
       // Determine which model to use based on query complexity
       const selectedModel = this.determineModelForQuery(userQuery, options);
+      
+      // Generate a cache key based on the validated messages and selected model
+      const messagesFingerprint = JSON.stringify(validatedMessages).slice(0, 100);
+      const cacheKey = `perplexity:${selectedModel}:${messagesFingerprint}`;
+      
+      // Create API call function for caching
+      const apiCallFn = async () => {
+        const requestOptions = {
+          method: 'POST',
+          url: 'https://api.perplexity.ai/chat/completions',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.apiKey}`
+          },
+          data: {
+            model: selectedModel,
+            messages: validatedMessages,
+            temperature: options.temperature || 0.1,
+            max_tokens: options.maxTokens || 1024,
+            top_p: options.topP || 0.9,
+            search_domain_filter: options.domainFilter || [],
+            search_recency_filter: "day",
+            top_k: options.topK || 15,
+            return_citations: true,
+            frequency_penalty: 0.5,
+            search_context_mode: options.searchContextMode || this.getSearchModeForModel(selectedModel)
+          }
+        };
 
-      const requestOptions = {
-        method: 'POST',
-        url: 'https://api.perplexity.ai/chat/completions',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
-        },
-        data: {
-          model: selectedModel,
-          messages: validatedMessages,
-          temperature: options.temperature || 0.1,
-          max_tokens: options.maxTokens || 1024,
-          top_p: options.topP || 0.9,
-          search_domain_filter: options.domainFilter || [],
-          search_recency_filter: "day",
-          top_k: options.topK || 15,
-          return_citations: true,
-          frequency_penalty: 0.5,
-          search_context_mode: options.searchContextMode || this.getSearchModeForModel(selectedModel)
-        }
-      };
+        // Log the request with detailed model selection info
+        logger.info('Sending enhanced request to Perplexity', {
+          messageCount: requestOptions.data.messages.length,
+          model: selectedModel, 
+          recencyFilter: requestOptions.data.search_recency_filter,
+          queryLength: userQuery.length,
+          searchContextMode: requestOptions.data.search_context_mode
+        });
 
-      // Log the request with detailed model selection info
-      logger.info('Sending enhanced request to Perplexity', {
-        messageCount: requestOptions.data.messages.length,
-        model: selectedModel, 
-        recencyFilter: requestOptions.data.search_recency_filter,
-        queryLength: userQuery.length,
-        searchContextMode: requestOptions.data.search_context_mode
-      });
+        let response;
+        try {
+          response = await this.apiClient.request(requestOptions);
+        } catch (error) {
+          // Handle rate limits and service unavailable errors with fallback models
+          if (error.response?.status === 429 || error.response?.status === 503) {
+            const currentModel = requestOptions.data.model;
+            const fallbacks = this.fallbackConfig[currentModel] || [];
 
-      let response;
-      try {
-        response = await this.apiClient.request(requestOptions);
-      } catch (error) {
-        // Handle rate limits and service unavailable errors with fallback models
-        if (error.response?.status === 429 || error.response?.status === 503) {
-          const currentModel = requestOptions.data.model;
-          const fallbacks = this.fallbackConfig[currentModel] || [];
+            // Log that we're falling back due to rate limiting
+            logger.warn(`Rate limit or service unavailable (${error.response.status}) encountered for ${currentModel}. Attempting fallbacks.`);
 
-          // Log that we're falling back due to rate limiting
-          logger.warn(`Rate limit or service unavailable (${error.response.status}) encountered for ${currentModel}. Attempting fallbacks.`);
-
-          for (const fallbackModel of fallbacks) {
-            logger.info(`Attempting fallback to model ${fallbackModel}`, { originalModel: currentModel });
-            requestOptions.data.model = fallbackModel;
-            try {
-              response = await this.apiClient.request(requestOptions);
-              logger.info(`Successfully fell back to ${fallbackModel} due to rate limits`);
-              break;
-            } catch (fallbackError) {
-              logger.error(`Fallback to ${fallbackModel} failed`, { 
-                error: fallbackError.message 
-              });
+            for (const fallbackModel of fallbacks) {
+              logger.info(`Attempting fallback to model ${fallbackModel}`, { originalModel: currentModel });
+              requestOptions.data.model = fallbackModel;
+              try {
+                response = await this.apiClient.request(requestOptions);
+                logger.info(`Successfully fell back to ${fallbackModel} due to rate limits`);
+                
+                // Mark response as using fallback model
+                response.usedFallback = true;
+                response.fallbackModel = fallbackModel;
+                
+                break;
+              } catch (fallbackError) {
+                logger.error(`Fallback to ${fallbackModel} failed`, { 
+                  error: fallbackError.message 
+                });
+              }
             }
-          }
 
-          if (!response) {
-            throw error; // If all fallbacks failed, throw original error
+            if (!response) {
+              throw error; // If all fallbacks failed, throw original error
+            }
+          } else {
+            throw error;
           }
-        } else {
-          throw error;
         }
-      }
 
-      this.lastUsed = new Date();
+        this.lastUsed = new Date();
+        return response;
+      };
+      
+      // Estimate token count for the request
+      const estimatedInputTokens = validatedMessages.reduce((acc, msg) => acc + msg.content.length / 4, 0);
+      const estimatedOutputTokens = 1500; // Higher default for research responses
+      
+      // Use LLM cache with appropriate parameters
+      // Note: Since research benefits from freshness, use a shorter cache TTL - 1 hour instead of 4
+      const cachedResponse = await cacheLlmCall(apiCallFn, {
+        cacheKey,
+        ttl: 1 * 60 * 60 * 1000, // 1 hour
+        model: selectedModel,
+        estimatedTokens: estimatedInputTokens + estimatedOutputTokens,
+        forceRefresh: options.forceRefresh || false // Allow forcing refresh
+      });
+      
+      // Record cache statistics 
+      if (cachedResponse.cached) {
+        cacheMonitor.recordCacheHit('perplexity', estimatedInputTokens + estimatedOutputTokens);
+        logger.info('Perplexity API cache hit', { cacheKey: cacheKey.substring(0, 30) });
+      } else {
+        cacheMonitor.recordCacheMiss('perplexity');
+        logger.info('Perplexity API cache miss', { cacheKey: cacheKey.substring(0, 30) });
+      }
+      
+      // Now process the response
+      const response = cachedResponse;
+      const usedFallback = response.usedFallback || false;
+      const fallbackModel = response.fallbackModel;
 
       // Log detailed information about the response
-      const actualModel = response.data.model || selectedModel;
+      const actualModel = response.data.model || (usedFallback ? fallbackModel : selectedModel);
       logger.info('Perplexity API response received', { 
         citationsCount: (response.data.citations || []).length,
         contentLength: response.data.choices[0].message.content.length,
@@ -228,25 +268,28 @@ class PerplexityService {
         completionTokens: response.data.usage?.completion_tokens,
         requestedModel: selectedModel,
         actualModel: actualModel,
-        modelMatch: actualModel === selectedModel ? 'match' : 'mismatch'
+        modelMatch: actualModel === selectedModel ? 'match' : 'mismatch',
+        cachedResponse: cachedResponse.cached || false
       });
       
-      // Track API cost if usage information is available
-      try {
-        // Dynamically import cost tracker to avoid circular dependencies
-        const costTracker = (await import('../utils/costTracker.js')).default;
-        
-        // Track cost based on token usage
-        costTracker.trackCost({
-          service: 'perplexity',
-          model: actualModel,
-          inputTokens: response.data.usage?.prompt_tokens || 0,
-          outputTokens: response.data.usage?.completion_tokens || 0,
-          totalTokens: response.data.usage?.total_tokens || 0,
-          tokensOptimized: optimizationResult?.tokenSavings || 0
-        });
-      } catch (error) {
-        logger.warn('Failed to track API cost', { error: error.message });
+      // Track API cost if usage information is available and this wasn't a cache hit
+      if (!cachedResponse.cached) {
+        try {
+          // Dynamically import cost tracker to avoid circular dependencies
+          const costTracker = (await import('../utils/costTracker.js')).default;
+          
+          // Track cost based on token usage
+          costTracker.trackCost({
+            service: 'perplexity',
+            model: actualModel,
+            inputTokens: response.data.usage?.prompt_tokens || 0,
+            outputTokens: response.data.usage?.completion_tokens || 0,
+            totalTokens: response.data.usage?.total_tokens || 0,
+            tokensOptimized: optimizationResult?.tokenSavings || 0
+          });
+        } catch (error) {
+          logger.warn('Failed to track API cost', { error: error.message });
+        }
       }
 
       // If there are no citations, log a warning
@@ -262,14 +305,15 @@ class PerplexityService {
       // Add explicit model information to the beginning of the response
       const originalResponse = response.data.choices[0].message.content;
       // Use the actual model from the response payload rather than the requested model
-      const responseModel = response.data.model || requestOptions.data.model;
-      const modelInfo = `[Using Perplexity AI - Model: ${responseModel}]\n\n`;
+      const responseModel = response.data.model || (usedFallback ? fallbackModel : selectedModel);
+      const modelInfo = `[Using Perplexity AI - Model: ${responseModel}${cachedResponse.cached ? ' (Cached)' : ''}]\n\n`;
       const enhancedResponse = modelInfo + originalResponse;
 
       return {
         response: enhancedResponse,
         citations: response.data.citations || [],
         modelUsed: responseModel,
+        cached: cachedResponse.cached || false,
         usage: response.data.usage || { total_tokens: 0 }
       };
     } catch (error) {
@@ -301,13 +345,13 @@ class PerplexityService {
     }
     
     // Import needed utilities
-    const { isLlmApiDisabled } = await import('../utils/disableLlmCalls.js');
+    const { areLlmCallsDisabled } = await import('../utils/disableLlmCalls.js');
     const enhancedCache = (await import('../utils/enhancedCache.js')).default;
     const contentChunker = (await import('../utils/contentChunker.js')).default;
     const batchProcessor = (await import('../utils/batchProcessor.js')).default;
     
     // Check if LLM calls are disabled
-    if (isLlmApiDisabled()) {
+    if (areLlmCallsDisabled()) {
       logger.info('LLM API calls are disabled - returning mock response for deep research', {
         service: 'perplexity',
         method: 'performDeepResearch'

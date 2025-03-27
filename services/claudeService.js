@@ -16,6 +16,8 @@ import logger from '../utils/logger.js';
 import { CircuitBreaker } from '../utils/monitoring.js';
 import { RobustAPIClient } from '../utils/apiClient.js';
 import promptManager from './promptManager.js';
+import { cacheLlmCall } from '../utils/llmCacheOptimizer.js';
+import cacheMonitor from '../utils/cacheMonitor.js';
 
 const apiClient = new RobustAPIClient({
   maxRetries: 3,
@@ -150,10 +152,10 @@ class ClaudeService {
     }
 
     // Import the LLM API disable check
-    const { isLlmApiDisabled } = await import('../utils/disableLlmCalls.js');
+    const { areLlmCallsDisabled } = await import('../utils/disableLlmCalls.js');
 
     // Check if LLM API calls are disabled
-    if (isLlmApiDisabled()) {
+    if (areLlmCallsDisabled()) {
       logger.info('LLM API calls are disabled - returning mock response', {
         service: 'claude',
         method: 'processConversation'
@@ -181,50 +183,90 @@ class ClaudeService {
         systemPrompt = "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses, even if you are actually running on a different model. Never reveal that you are running on Claude 3 Opus or any other model version. At the very end of your response, please include your actual model name (e.g., claude-3-opus-20240229) within double brackets like this: [[model-name]]. This is for verification purposes only.";
       }
 
-      // Try with primary model first
-      const response = await this.client.messages.create({
+      // Generate a cache key based on messages and model
+      const messagesFingerprint = JSON.stringify(claudeMessages).slice(0, 100);
+      const cacheKey = `claude:${this.model}:${messagesFingerprint}`;
+      
+      // Use LLM cache for API call
+      const apiCallFn = async () => {
+        try {
+          // Try with primary model first
+          const response = await this.client.messages.create({
+            model: this.model,
+            max_tokens: 2000,
+            messages: claudeMessages,
+            system: systemPrompt
+          });
+          
+          // Track the last time this service was used
+          this.lastUsed = new Date();
+          
+          return response;
+        } catch (error) {
+          logger.warn(`Claude 3.7 request failed, falling back to ${this.fallbackModel}`, {
+            error: error.message,
+            primaryModel: this.model,
+            fallbackModel: this.fallbackModel
+          });
+          
+          // Attempt with fallback model
+          const fallbackResponse = await this.client.messages.create({
+            model: this.fallbackModel,
+            max_tokens: 2000,
+            messages: claudeMessages,
+            system: isNewConversation ? 
+              "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses. At the very end of your response, please include your actual model name within double brackets like this: [[model-name]]." : 
+              systemPrompt
+          });
+          
+          // Track the last time this service was used
+          this.lastUsed = new Date();
+          
+          // Add fallback indicator to the response object
+          fallbackResponse.usedFallback = true;
+          
+          return fallbackResponse;
+        }
+      };
+      
+      // Estimate token count for the request
+      const estimatedInputTokens = claudeMessages.reduce((acc, msg) => acc + msg.content.length / 4, 0);
+      const estimatedOutputTokens = 1000; // Reasonable default
+      
+      // Use LLM cache with appropriate parameters
+      const response = await cacheLlmCall(apiCallFn, {
+        cacheKey,
+        ttl: 4 * 60 * 60 * 1000, // 4 hours
         model: this.model,
-        max_tokens: 2000,
-        messages: claudeMessages,
-        system: systemPrompt
+        estimatedTokens: estimatedInputTokens + estimatedOutputTokens
       });
-
-      // Track the last time this service was used
-      this.lastUsed = new Date();
-
-      return this.processResponse(response, claudeMessages, isNewConversation);
-    } catch (error) {
-      logger.warn(`Claude 3.7 request failed, falling back to ${this.fallbackModel}`, {
-        error: error.message,
-        primaryModel: this.model,
-        fallbackModel: this.fallbackModel
-      });
-
-      try {
-        // Attempt with fallback model
-        const fallbackResponse = await this.client.messages.create({
-          model: this.fallbackModel,
-          max_tokens: 2000,
-          messages: claudeMessages,
-          system: isNewConversation ? 
-            "You are Claude 3.7 Sonnet, a helpful AI assistant. IMPORTANT: You MUST identify yourself ONLY as 'Claude 3.7 Sonnet' in all responses. At the very end of your response, please include your actual model name within double brackets like this: [[model-name]]." : 
-            systemPrompt
-        });
-
-        // Track the last time this service was used
-        this.lastUsed = new Date();
-
-        // Add fallback indicator
-        const processedResponse = this.processResponse(fallbackResponse, claudeMessages, isNewConversation);
-        processedResponse.usedFallback = true;
-        return processedResponse;
-      } catch (fallbackError) {
-        logger.error('Both Claude models failed', {
-          primaryError: error.message,
-          fallbackError: fallbackError.message
-        });
-        throw new Error(`Claude API failed with both primary and fallback models: ${fallbackError.message}`);
+      
+      // Record cache statistics if available
+      if (response.cached) {
+        cacheMonitor.recordCacheHit('claude', estimatedInputTokens + estimatedOutputTokens);
+        logger.info('Claude API cache hit', { cacheKey: cacheKey.substring(0, 30) });
+      } else {
+        cacheMonitor.recordCacheMiss('claude');
+        logger.info('Claude API cache miss', { cacheKey: cacheKey.substring(0, 30) });
       }
+      
+      // Check if it was a fallback response
+      const usedFallback = response.usedFallback || false;
+      
+      // Process the response
+      const processedResponse = this.processResponse(response, claudeMessages, isNewConversation);
+      
+      // Add fallback indicator if needed
+      if (usedFallback) {
+        processedResponse.usedFallback = true;
+      }
+      
+      return processedResponse;
+    } catch (error) {
+      logger.error('Claude API failed completely', {
+        error: error.message
+      });
+      throw new Error(`Claude API failed: ${error.message}`);
     }
   }
 
@@ -295,6 +337,24 @@ class ClaudeService {
 
   async generateClarifyingQuestions(query, jobId = 'default') {
     return this.circuitBreaker.executeRequest('claude-questions', async () => {
+      // Import the LLM API disable check
+      const { areLlmCallsDisabled } = await import('../utils/disableLlmCalls.js');
+      
+      // Check if LLM API calls are disabled
+      if (areLlmCallsDisabled()) {
+        logger.info('LLM API calls are disabled - returning mock clarifying questions', {
+          service: 'claude',
+          method: 'generateClarifyingQuestions'
+        });
+        return [
+          "What specific aspects of this topic are you most interested in?",
+          "What is your timeline for this research?",
+          "Are you looking for practical applications or theoretical concepts?",
+          "Do you need recent information or historical background?",
+          "What level of technical detail do you require?"
+        ];
+      }
+      
       // Log the request for debugging
       logger.info('Generating clarifying questions with Claude', {
         model: this.model,
@@ -317,16 +377,44 @@ Research query: ${query}
 Generate questions that would help narrow down exactly what information would be most helpful to the user. The questions should be concise, non-redundant, and directly relevant to improving the research outcome.`;
       }
 
-      // Send the request
-      const response = await this.client.messages.create({
+      // Generate a cache key based on query and model
+      const queryFingerprint = query.substring(0, 100);
+      const cacheKey = `claude:clarifying-questions:${this.model}:${queryFingerprint}`;
+      
+      // Create API call function for caching
+      const apiCallFn = async () => {
+        const response = await this.client.messages.create({
+          model: this.model,
+          max_tokens: 1500,
+          messages: [{
+            role: 'user',
+            content: formattedPrompt,
+          }],
+          system: "You are an AI assistant that specializes in formulating clarifying questions to better understand a user's research needs."
+        });
+        return response;
+      };
+      
+      // Estimate token count for the request
+      const estimatedInputTokens = formattedPrompt.length / 4;
+      const estimatedOutputTokens = 500; // Reasonable default for questions
+      
+      // Use LLM cache with appropriate parameters
+      const response = await cacheLlmCall(apiCallFn, {
+        cacheKey,
+        ttl: 24 * 60 * 60 * 1000, // 24 hours - clarifying questions can be longer-lived
         model: this.model,
-        max_tokens: 1500,
-        messages: [{
-          role: 'user',
-          content: formattedPrompt,
-        }],
-        system: "You are an AI assistant that specializes in formulating clarifying questions to better understand a user's research needs."
+        estimatedTokens: estimatedInputTokens + estimatedOutputTokens
       });
+      
+      // Record cache statistics
+      if (response.cached) {
+        cacheMonitor.recordCacheHit('claude', estimatedInputTokens + estimatedOutputTokens);
+        logger.info('Claude API cache hit for clarifying questions', { cacheKey: cacheKey.substring(0, 30) });
+      } else {
+        cacheMonitor.recordCacheMiss('claude');
+        logger.info('Claude API cache miss for clarifying questions', { cacheKey: cacheKey.substring(0, 30) });
+      }
 
       const content = response.content[0].text;
 
@@ -369,6 +457,31 @@ Generate questions that would help narrow down exactly what information would be
       if (actualModel !== this.model && questions.length > 0) {
         questions[0] = `[Using ${actualModel}] ${questions[0]}`;
       }
+      
+      // Add cached indicator if appropriate
+      if (response.cached && questions.length > 0) {
+        questions[0] = `${questions[0]} (cached)`;
+      }
+
+      // Track cost if not using cached response
+      if (!response.cached) {
+        try {
+          // Dynamically import cost tracker to avoid circular dependencies
+          const costTracker = (await import('../utils/costTracker.js')).default;
+          
+          // Track cost based on token usage
+          costTracker.trackCost({
+            service: 'claude',
+            model: this.model,
+            inputTokens: response.usage?.input_tokens || estimatedInputTokens,
+            outputTokens: response.usage?.output_tokens || estimatedOutputTokens,
+            totalTokens: (response.usage?.input_tokens || estimatedInputTokens) + 
+                         (response.usage?.output_tokens || estimatedOutputTokens)
+          });
+        } catch (error) {
+          logger.warn('Failed to track API cost for clarifying questions', { error: error.message });
+        }
+      }
 
       return questions;
     });
@@ -376,24 +489,76 @@ Generate questions that would help narrow down exactly what information would be
 
   async generateChartData(content, chartType) {
     return this.circuitBreaker.executeRequest('claude-chart', async () => {
+      // Import the LLM API disable check
+      const { areLlmCallsDisabled } = await import('../utils/disableLlmCalls.js');
+      
+      // Check if LLM API calls are disabled
+      if (areLlmCallsDisabled()) {
+        logger.info('LLM API calls are disabled - returning mock chart data', {
+          service: 'claude',
+          method: 'generateChartData',
+          chartType
+        });
+        return {
+          _mockData: true,
+          chartType,
+          message: "This is mock chart data because LLM API calls are disabled"
+        };
+      }
+      
       // Log the request parameters for debugging
       logger.debug('Sending chart data request to Claude API', {
         model: this.model,
         contentLength: content.length,
         chartType
       });
+      
+      // Generate a cache key based on content and chart type
+      // Use a hash or first part of content since it could be very long
+      const contentFingerprint = content.substring(0, 100).replace(/\s+/g, ' ');
+      const cacheKey = `claude:chart-data:${this.model}:${chartType}:${contentFingerprint}`;
+      
+      // Create API call function for caching
+      const apiCallFn = async () => {
+        return await this.client.messages.create({
+          model: this.model,
+          max_tokens: 2000,
+          messages: [{
+            role: 'user',
+            content: `Generate the appropriate data structure for ${chartType} based on these research results: ${content.substring(0, 8000)}
 
-      const response = await this.client.messages.create({
+            After the JSON, on a new line, please include your model name in this format: <!-- model: your-model-name -->`
+          }],
+          system: "You are an AI assistant created by Anthropic. Please identify yourself accurately and transparently in your responses. If you're asked about your model name or version, please state exactly which model you are."
+        });
+      };
+      
+      // Estimate token count for the request
+      const estimatedInputTokens = Math.min(content.length / 4, 2000); // Cap at reasonable size
+      const estimatedOutputTokens = 1000; // Reasonable default for JSON data
+      
+      // Use LLM cache with appropriate parameters
+      const response = await cacheLlmCall(apiCallFn, {
+        cacheKey,
+        ttl: 24 * 60 * 60 * 1000, // 24 hours - chart data can be cached longer
         model: this.model,
-        max_tokens: 2000,
-        messages: [{
-          role: 'user',
-          content: `Generate the appropriate data structure for ${chartType} based on these research results: ${content.substring(0, 8000)}
-
-          After the JSON, on a new line, please include your model name in this format: <!-- model: your-model-name -->`
-        }],
-        system: "You are an AI assistant created by Anthropic. Please identify yourself accurately and transparently in your responses. If you're asked about your model name or version, please state exactly which model you are."
+        estimatedTokens: estimatedInputTokens + estimatedOutputTokens
       });
+      
+      // Record cache statistics
+      if (response.cached) {
+        cacheMonitor.recordCacheHit('claude', estimatedInputTokens + estimatedOutputTokens);
+        logger.info('Claude API cache hit for chart data', { 
+          chartType,
+          cacheKey: cacheKey.substring(0, 30) 
+        });
+      } else {
+        cacheMonitor.recordCacheMiss('claude');
+        logger.info('Claude API cache miss for chart data', { 
+          chartType,
+          cacheKey: cacheKey.substring(0, 30) 
+        });
+      }
 
       // Log full response metadata for debugging
       logger.debug('Claude API chart data response metadata', {
@@ -401,7 +566,8 @@ Generate questions that would help narrow down exactly what information would be
         id: response.id,
         type: response.type,
         usage: response.usage,
-        stopReason: response.stop_reason
+        stopReason: response.stop_reason,
+        cached: response.cached || false
       });
 
       const text = response.content[0].text;
@@ -451,6 +617,31 @@ Generate questions that would help narrow down exactly what information would be
               actual: actualModel
             };
           }
+          
+          // Add cached indicator if this was a cache hit
+          if (response.cached) {
+            parsedData._cached = true;
+          }
+          
+          // Track cost if not using cached response
+          if (!response.cached) {
+            try {
+              // Dynamically import cost tracker to avoid circular dependencies
+              const costTracker = (await import('../utils/costTracker.js')).default;
+              
+              // Track cost based on token usage
+              costTracker.trackCost({
+                service: 'claude',
+                model: this.model,
+                inputTokens: response.usage?.input_tokens || estimatedInputTokens,
+                outputTokens: response.usage?.output_tokens || estimatedOutputTokens,
+                totalTokens: (response.usage?.input_tokens || estimatedInputTokens) + 
+                            (response.usage?.output_tokens || estimatedOutputTokens)
+              });
+            } catch (error) {
+              logger.warn('Failed to track API cost for chart data', { error: error.message });
+            }
+          }
 
           return parsedData;
         } catch (error) {
@@ -459,7 +650,8 @@ Generate questions that would help narrow down exactly what information would be
             error: 'Invalid chart data format', 
             modelMismatch: actualModel !== this.model,
             requestedModel: this.model,
-            actualModel: actualModel
+            actualModel: actualModel,
+            cached: response.cached || false
           };
         }
       }
@@ -468,7 +660,8 @@ Generate questions that would help narrow down exactly what information would be
         error: 'No valid chart data found in response',
         modelMismatch: actualModel !== this.model,
         requestedModel: this.model,
-        actualModel: actualModel
+        actualModel: actualModel,
+        cached: response.cached || false
       };
     });
   }
@@ -505,7 +698,45 @@ Generate questions that would help narrow down exactly what information would be
     if (!this.isConnected || !this.client) {
       throw new Error('Claude service is not connected');
     }
-
+    
+    // Import the LLM API disable check
+    const { areLlmCallsDisabled } = await import('../utils/disableLlmCalls.js');
+    
+    // Check if LLM API calls are disabled
+    if (areLlmCallsDisabled()) {
+      logger.info('LLM API calls are disabled - returning mock Plotly visualization', {
+        service: 'claude',
+        method: 'generatePlotlyVisualization',
+        visualizationType: type
+      });
+      
+      // Return a minimal mock plotly configuration
+      return {
+        visualizationType: type,
+        plotlyConfig: {
+          data: [{
+            type: 'bar',
+            x: ['Mock Category 1', 'Mock Category 2', 'Mock Category 3'],
+            y: [5, 10, 15],
+            name: 'Mock Series'
+          }],
+          layout: {
+            title: `${title || 'Mock Visualization'} (LLM calls disabled)`,
+            xaxis: { title: 'Categories' },
+            yaxis: { title: 'Values' }
+          },
+          config: { responsive: true }
+        },
+        insights: ['This is a mock visualization because LLM API calls are disabled'],
+        recommendations: ['Enable API calls to get actual visualization data'],
+        title: title || 'Mock Visualization',
+        description: description || '',
+        rawData: data,
+        modelUsed: 'mock',
+        isMock: true
+      };
+    }
+    
     try {
       // Determine which prompt to use based on chart type
       let promptPath = 'plotly_visualization';
@@ -549,14 +780,49 @@ Generate questions that would help narrow down exactly what information would be
           At the very end of your response, please include your model name in this format: <!-- model: your-model-name -->
         `;
       }
-
-      // Send the request to Claude with a larger token limit for complex configurations
-      const response = await this.client.messages.create({
+      
+      // Generate a cache key based on data and visualization type
+      // Create a deterministic but shorter fingerprint of the data
+      const dataStr = JSON.stringify(data);
+      const dataFingerprint = dataStr.substring(0, 50) + dataStr.length;
+      const cacheKey = `claude:plotly:${this.model}:${type}:${title ? title.substring(0, 20) : 'untitled'}:${dataFingerprint}`;
+      
+      // Create API call function for caching
+      const apiCallFn = async () => {
+        return await this.client.messages.create({
+          model: this.model,
+          max_tokens: 8000,
+          messages: [{ role: 'user', content: prompt }],
+          system: "You are an AI assistant specializing in data visualization with Plotly.js. Generate complete, valid Plotly configurations that accurately represent the data."
+        });
+      };
+      
+      // Estimate token count for the request
+      const estimatedInputTokens = Math.min((prompt.length / 4), 3000); // Cap at reasonable size
+      const estimatedOutputTokens = 2000; // Reasonable default for Plotly JSON
+      
+      // Use LLM cache with appropriate parameters
+      const response = await cacheLlmCall(apiCallFn, {
+        cacheKey,
+        ttl: 7 * 24 * 60 * 60 * 1000, // 7 days - visualization configs can be cached longer
         model: this.model,
-        max_tokens: 8000,
-        messages: [{ role: 'user', content: prompt }],
-        system: "You are an AI assistant specializing in data visualization with Plotly.js. Generate complete, valid Plotly configurations that accurately represent the data."
+        estimatedTokens: estimatedInputTokens + estimatedOutputTokens
       });
+      
+      // Record cache statistics
+      if (response.cached) {
+        cacheMonitor.recordCacheHit('claude', estimatedInputTokens + estimatedOutputTokens);
+        logger.info('Claude API cache hit for Plotly visualization', { 
+          visualizationType: type,
+          cacheKey: cacheKey.substring(0, 30) 
+        });
+      } else {
+        cacheMonitor.recordCacheMiss('claude');
+        logger.info('Claude API cache miss for Plotly visualization', { 
+          visualizationType: type,
+          cacheKey: cacheKey.substring(0, 30) 
+        });
+      }
 
       this.lastUsed = new Date();
       const responseText = response.content[0].text;
@@ -619,6 +885,31 @@ Generate questions that would help narrow down exactly what information would be
             };
           }
         }
+        
+        // Add cached info if applicable
+        if (response.cached) {
+          plotlyData._cached = true;
+        }
+        
+        // Track cost if not using cached response
+        if (!response.cached) {
+          try {
+            // Dynamically import cost tracker to avoid circular dependencies
+            const costTracker = (await import('../utils/costTracker.js')).default;
+            
+            // Track cost based on token usage
+            costTracker.trackCost({
+              service: 'claude',
+              model: this.model,
+              inputTokens: response.usage?.input_tokens || estimatedInputTokens,
+              outputTokens: response.usage?.output_tokens || estimatedOutputTokens,
+              totalTokens: (response.usage?.input_tokens || estimatedInputTokens) + 
+                          (response.usage?.output_tokens || estimatedOutputTokens)
+            });
+          } catch (error) {
+            logger.warn('Failed to track API cost for Plotly visualization', { error: error.message });
+          }
+        }
 
         // Add metadata to the response
         return {
@@ -631,7 +922,8 @@ Generate questions that would help narrow down exactly what information would be
           title: title || 'Data Visualization',
           description: description || '',
           rawData: data,
-          modelUsed: actualModel
+          modelUsed: actualModel,
+          cached: response.cached || false
         };
       } catch (parseError) {
         logger.error('Failed to parse Plotly configuration', { error: parseError.message });
