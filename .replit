@@ -934,3 +934,104 @@ args = "# Run the API call optimization test"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/apiCallOptimization.js"
+
+[[workflows.workflow]]
+name = "Run All Health Checks"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run all health checks in sequence"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"      RUNNING ALL HEALTH CHECKS\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Main system health check"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n[1/4] Running system health check..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/system-health-check.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# File system check"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n[2/4] Running file system check..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/fileSystemCheck.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Redis service test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n[3/4] Testing Redis service..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/redisServiceTest.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# API optimization test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n[4/4] Testing API optimization..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/apiCallOptimization.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"      ALL HEALTH CHECKS COMPLETE\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
