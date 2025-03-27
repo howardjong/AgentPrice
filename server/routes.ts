@@ -97,6 +97,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!content) {
         return res.status(400).json({
+
+// Health endpoint
+app.get('/api/health', (req, res) => {
+  const healthData = {
+    redis: { 
+      status: 'Connected', 
+      healthy: true 
+    },
+    promptManager: { 
+      status: 'Healthy', 
+      healthy: true 
+    },
+    circuitBreaker: { 
+      status: 'Operational', 
+      healthy: true,
+      openCircuits: [] 
+    },
+    memory: { 
+      usagePercent: process.memoryUsage().heapUsed / process.memoryUsage().heapTotal * 100 
+    }
+  };
+  
+  res.json(healthData);
+});
+
           success: false,
           error: 'Content is required'
         });

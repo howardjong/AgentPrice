@@ -50,6 +50,19 @@ async function checkSystemHealth() {
         const enginePath = path.join(promptsDir, engine);
         const files = await fs.readdir(enginePath);
         const promptTypes = files.filter(f => f.endsWith('.txt')).map(f => f.replace('.txt', ''));
+        
+        if (promptTypes.length > 0) {
+          console.log(`  - ${engine}: ${promptTypes.join(', ')}`);
+        }
+      } catch (error) {
+        console.log(`  - Error reading engine ${engine}: ${error.message}`);
+      }
+    }
+  } catch (error) {
+    console.error(`- ❌ Error initializing prompt manager: ${error.message}`);
+    healthStatus.promptManager.ok = false;
+    healthStatus.promptManager.issues.push(error.message);
+  }
 
         if (promptTypes.length > 0) {
           console.log(`  ${engine}: ${promptTypes.join(', ')}`);
@@ -256,7 +269,7 @@ async function checkSystemHealth() {
     const stats = cacheMonitor.default.getStats();
     console.log(`- ✅ Cache monitor is functioning - Hit rate: ${stats.hitRate}`);
     console.log(`- Total lookups: ${stats.totalLookups}, Hits: ${stats.hits}, Misses: ${stats.misses}`);
-    console.log(`- Estimated savings: ${stats.estimatedSavings}`);
+    console.log(`- Estimated savings: ${stats.estimatedSavings || 'not calculated'}`);e.log(`- Estimated savings: ${stats.estimatedSavings}`);
 
     healthStatus.apiOptimization.hitRate = stats.hitRate;
     healthStatus.apiOptimization.savings = stats.estimatedSavings;
@@ -287,6 +300,9 @@ async function checkSystemHealth() {
 
 // Run the health check
 checkSystemHealth().catch(error => {
-  console.error('Health check failed:', error);
+  console.error(`Health check failed: ${error.message}`);
+  console.error(error.stack);
+  process.exit(1);
+});e.error('Health check failed:', error);
   process.exit(1);
 });
