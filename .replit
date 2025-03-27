@@ -789,3 +789,44 @@ args = "# Run the system health check"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/system-health-check.js"
+
+[[workflows.workflow]]
+name = "Regular Health Check"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the system health check every 30 minutes"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "while true; do"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = '  echo "\n\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  echo \"SCHEDULED HEALTH CHECK: $(date)\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  node tests/manual/system-health-check.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = '  echo "\nWaiting 30 minutes before next check..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  sleep 1800"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "done"
