@@ -35,7 +35,7 @@ localPort = 33065
 externalPort = 3002
 
 [workflows]
-runButton = "Optimize Performance"
+runButton = "Check and Apply Optimizations"
 
 [[workflows.workflow]]
 name = "Project"
@@ -1732,3 +1732,40 @@ args = "# Test the advanced optimization features"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/testAdvancedOptimizations.js"
+
+[[workflows.workflow]]
+name = "Check and Apply Optimizations"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First check current optimization settings"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/check-optimization-settings.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then apply optimizations"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/apply-optimizations.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Check if optimizations were applied successfully"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/check-optimization-settings.js"

@@ -1,3 +1,4 @@
+
 /**
  * Optimization Settings Check
  * 
@@ -27,13 +28,14 @@ function formatDuration(ms) {
   return `${(ms / 1000 / 60 / 60).toFixed(1)}h`;
 }
 
+// Check current memory usage and format it
 function checkCurrentMemoryUsage() {
-  const mem = process.memoryUsage();
+  const memUsage = process.memoryUsage();
   return {
-    heapUsed: formatMemory(mem.heapUsed),
-    heapTotal: formatMemory(mem.heapTotal),
-    rss: formatMemory(mem.rss),
-    external: formatMemory(mem.external)
+    heapUsed: formatMemory(memUsage.heapUsed),
+    heapTotal: formatMemory(memUsage.heapTotal),
+    rss: formatMemory(memUsage.rss),
+    external: formatMemory(memUsage.external)
   };
 }
 
@@ -52,88 +54,96 @@ async function checkOptimizationSettings() {
   
   // Check Resource Manager settings
   console.log('\n1. Resource Manager Configuration');
-  console.log(`- Cleanup interval: ${formatDuration(resourceManager.cleanupInterval)}`);
-  console.log(`- Monitoring interval: ${formatDuration(resourceManager.monitoringInterval)}`);
-  console.log(`- Heap usage threshold: ${resourceManager.heapUsageThreshold} MB`);
-  console.log(`- CPU usage threshold: ${resourceManager.cpuUsageThreshold}%`);
-  console.log(`- GC interval: ${formatDuration(resourceManager.gcInterval)}`);
+  try {
+    console.log(`- Cleanup interval: ${formatDuration(resourceManager.cleanupInterval || 0)}`);
+    console.log(`- Monitoring interval: ${formatDuration(resourceManager.monitoringInterval || 0)}`);
+    console.log(`- Heap usage threshold: ${resourceManager.heapUsageThreshold || 'N/A'} MB`);
+    console.log(`- CPU usage threshold: ${resourceManager.cpuUsageThreshold || 'N/A'}%`);
+    console.log(`- GC interval: ${formatDuration(resourceManager.gcInterval || 0)}`);
+    console.log(`- Is Active: ${resourceManager.isActive ? 'Yes' : 'No'}`);
+  } catch (err) {
+    console.log(`- ❌ Error checking Resource Manager: ${err.message}`);
+  }
   
   // Check Smart Cache settings
   console.log('\n2. Smart Cache Configuration');
-  console.log(`- Maximum size: ${smartCache.maxSize} items`);
-  console.log(`- Default TTL: ${formatDuration(smartCache.defaultTTL)}`);
-  console.log(`- Enable fuzzy matching: ${smartCache.enableFuzzyMatch}`);
-  console.log(`- Memory limit: ${smartCache.memoryLimitMB} MB`);
-  console.log(`- Low memory mode: ${smartCache.lowMemoryMode}`);
-  console.log(`- Aggressive eviction: ${smartCache.aggressiveEviction || false}`);
-  
-  // Get cache stats
-  const cacheStats = smartCache.getStats();
-  console.log('\n   Cache Statistics:');
-  console.log(`   - Items in cache: ${cacheStats.size}/${cacheStats.maxSize} (${cacheStats.utilization} utilized)`);
-  console.log(`   - Hit rate: ${cacheStats.hitRate}`);
-  console.log(`   - Total evictions: ${Object.values(cacheStats.evictions).reduce((a, b) => a + b, 0)}`);
+  try {
+    console.log(`- Maximum size: ${smartCache.maxSize || 'N/A'} items`);
+    console.log(`- Default TTL: ${formatDuration(smartCache.defaultTTL || 0)}`);
+    console.log(`- Enable fuzzy matching: ${smartCache.enableFuzzyMatch ? 'Yes' : 'No'}`);
+    console.log(`- Memory limit: ${smartCache.memoryLimitMB || 'N/A'} MB`);
+    console.log(`- Low memory mode: ${smartCache.lowMemoryMode ? 'Yes' : 'No'}`);
+    console.log(`- Current cache size: ${smartCache.cache ? smartCache.cache.size : 'N/A'} items`);
+  } catch (err) {
+    console.log(`- ❌ Error checking Smart Cache: ${err.message}`);
+  }
   
   // Check Memory Leak Detector settings
   console.log('\n3. Memory Leak Detector Configuration');
-  console.log(`- Sample interval: ${formatDuration(memoryLeakDetector.sampleInterval)}`);
-  console.log(`- Growth threshold: ${memoryLeakDetector.growthThreshold}%`);
-  console.log(`- Consecutive growth limit: ${memoryLeakDetector.consecutiveGrowthLimit}`);
-  console.log(`- GC trigger threshold: ${memoryLeakDetector.gcTriggerThreshold} MB`);
-  console.log(`- Resource-saving mode: ${memoryLeakDetector.resourceSavingMode}`);
-  console.log(`- Monitoring active: ${memoryLeakDetector.isMonitoring}`);
+  try {
+    console.log(`- Enabled: ${memoryLeakDetector.enabled ? 'Yes' : 'No'}`);
+    console.log(`- Check interval: ${formatDuration(memoryLeakDetector.checkInterval || 0)}`);
+    console.log(`- Alert threshold: ${memoryLeakDetector.alertThreshold || 'N/A'}%`);
+    console.log(`- GC before check: ${memoryLeakDetector.gcBeforeCheck ? 'Yes' : 'No'}`);
+    console.log(`- Maximum samples: ${memoryLeakDetector.maxSamples || 'N/A'}`);
+    console.log(`- Resource saving mode: ${memoryLeakDetector.resourceSavingMode ? 'Yes' : 'No'}`);
+    console.log(`- Is monitoring: ${memoryLeakDetector.isMonitoring ? 'Yes' : 'No'}`);
+  } catch (err) {
+    console.log(`- ❌ Error checking Memory Leak Detector: ${err.message}`);
+  }
   
   // Check Component Loader settings
   console.log('\n4. Component Loader Configuration');
-  console.log(`- Lazy loading: ${componentLoader.lazyLoad}`);
-  console.log(`- Unload threshold: ${formatDuration(componentLoader.unloadThreshold)}`);
-  console.log(`- Preload critical components: ${componentLoader.preloadCritical}`);
+  try {
+    console.log(`- Lazy loading enabled: ${componentLoader.lazyLoadingEnabled ? 'Yes' : 'No'}`);
+    console.log(`- Cache components: ${componentLoader.cacheComponents ? 'Yes' : 'No'}`);
+    console.log(`- Maximum cache age: ${formatDuration(componentLoader.maxCacheAge || 0)}`);
+    console.log(`- Preload critical components: ${componentLoader.preloadCritical ? 'Yes' : 'No'}`);
+  } catch (err) {
+    console.log(`- ❌ Error checking Component Loader: ${err.message}`);
+  }
   
-  // Component Stats
-  const componentStats = componentLoader.getStats();
-  console.log('\n   Component Statistics:');
-  console.log(`   - Components loaded: ${componentStats.loaded || 0}`);
-  console.log(`   - Total loaded since start: ${componentStats.totalLoaded || 0}`);
-  console.log(`   - Critical components: ${componentStats.critical || 0}`);
-  console.log(`   - Load errors: ${componentStats.loadErrors || 0}`);
+  // Check if optimizations are applied
+  console.log('\n5. Optimization Status Check');
+  try {
+    const resourceManagerOptimized = 
+      resourceManager.isActive && 
+      resourceManager.heapUsageThreshold && 
+      resourceManager.heapUsageThreshold <= 75;
+    
+    const smartCacheOptimized = 
+      smartCache.maxSize && 
+      smartCache.maxSize <= 100 && 
+      smartCache.lowMemoryMode;
+    
+    const memoryLeakDetectorOptimized = 
+      memoryLeakDetector.enabled && 
+      memoryLeakDetector.isMonitoring && 
+      memoryLeakDetector.resourceSavingMode;
+    
+    const componentLoaderOptimized = 
+      componentLoader.lazyLoadingEnabled && 
+      componentLoader.cacheComponents;
+    
+    console.log(`- Resource Manager: ${resourceManagerOptimized ? '✅ Optimized' : '❌ Not Optimized'}`);
+    console.log(`- Smart Cache: ${smartCacheOptimized ? '✅ Optimized' : '❌ Not Optimized'}`);
+    console.log(`- Memory Leak Detector: ${memoryLeakDetectorOptimized ? '✅ Optimized' : '❌ Not Optimized'}`);
+    console.log(`- Component Loader: ${componentLoaderOptimized ? '✅ Optimized' : '❌ Not Optimized'}`);
+    
+    console.log('\nOverall system optimization: ' + 
+      (resourceManagerOptimized && smartCacheOptimized && 
+       memoryLeakDetectorOptimized && componentLoaderOptimized ?
+       '✅ OPTIMIZED' : '❌ NOT FULLY OPTIMIZED'));
+  } catch (err) {
+    console.log(`- ❌ Error checking optimization status: ${err.message}`);
+  }
   
   console.log('\n======================================');
-  
-  // Optimization verification
-  console.log('\nOptimization Status Check:');
-  
-  // Resource Manager optimized?
-  const resourceManagerOptimized = 
-    resourceManager.options.cleanupInterval <= 30 * 60 * 1000 && // <= 30 minutes
-    resourceManager.options.heapUsageThreshold <= 250; // <= 250 MB
-  
-  // Smart Cache optimized?
-  const smartCacheOptimized = 
-    smartCache.maxSize <= 250 && // <= 250 items
-    smartCache.defaultTTL <= 6 * 60 * 60 * 1000; // <= 6 hours
-  
-  // Memory Leak Detector optimized?
-  const memoryLeakDetectorOptimized =
-    memoryLeakDetector.resourceSavingMode === true &&
-    memoryLeakDetector.sampleInterval <= 5 * 60 * 1000; // <= 5 minutes
-  
-  // Component Loader optimized?
-  const componentLoaderOptimized =
-    componentLoader.lazyLoad;
-  
-  console.log(`- Resource Manager: ${resourceManagerOptimized ? '✅ Optimized' : '❌ Not Optimized'}`);
-  console.log(`- Smart Cache: ${smartCacheOptimized ? '✅ Optimized' : '❌ Not Optimized'}`);
-  console.log(`- Memory Leak Detector: ${memoryLeakDetectorOptimized ? '✅ Optimized' : '❌ Not Optimized'}`);
-  console.log(`- Component Loader: ${componentLoaderOptimized ? '✅ Optimized' : '❌ Not Optimized'}`);
-  
-  console.log('\nOverall system optimization: ' + 
-    (resourceManagerOptimized && smartCacheOptimized && 
-     memoryLeakDetectorOptimized && componentLoaderOptimized ?
-     '✅ OPTIMIZED' : '❌ NOT FULLY OPTIMIZED'));
-  
-  console.log('\n======================================\n');
+  console.log('         OPTIMIZATION CHECK COMPLETE        ');
+  console.log('======================================');
 }
 
 checkOptimizationSettings().catch(error => {
   console.error('Error checking optimization settings:', error);
+  process.exit(1);
 });
