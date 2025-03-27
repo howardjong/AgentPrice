@@ -830,3 +830,25 @@ args = "  sleep 1800"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "done"
+
+[[workflows.workflow]]
+name = "Run System Health"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the system health check"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/system-health-check.js"
+
+[[workflows.workflow]]
+name = "Test Redis Service"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/redisServiceTest.js"

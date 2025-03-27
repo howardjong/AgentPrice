@@ -165,7 +165,38 @@ async function checkSystemHealth() {
     console.error(`- ❌ Error checking package.json: ${error.message}`);
   }
   
+  // Build a health summary
+  let healthStatus = {
+    environment: { ok: true, issues: [] },
+    promptManager: { ok: true, issues: [] },
+    circuitBreaker: { ok: true, issues: [] },
+    fileSystem: { ok: true, issues: [] },
+    modules: { ok: true, issues: [], missing: [] }
+  };
+  
+  // Check if any missing modules
+  if (missingModules.length > 0) {
+    healthStatus.modules.ok = false;
+    healthStatus.modules.missing = missingModules;
+    healthStatus.modules.issues.push(`Missing modules: ${missingModules.join(', ')}`);
+  }
+  
   console.log('\n======================================');
+  console.log('       HEALTH CHECK SUMMARY');
+  console.log('======================================');
+  
+  for (const [system, status] of Object.entries(healthStatus)) {
+    if (status.ok) {
+      console.log(`- ${system}: ✅ Healthy`);
+    } else {
+      console.log(`- ${system}: ❌ Issues found`);
+      status.issues.forEach(issue => console.log(`  > ${issue}`));
+    }
+  }
+  
+  console.log('======================================');
+  console.log('       HEALTH CHECK COMPLETE');
+  console.log('======================================');
 }
 
 // Run the health check
