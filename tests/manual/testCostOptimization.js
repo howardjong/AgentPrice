@@ -19,7 +19,9 @@ logger.transports.forEach(t => {
 });
 
 // Enable test console output
-const consoleLog = console.log;
+function consoleLog(message) {
+  console.log(message);
+}
 
 async function testCostOptimization() {
   consoleLog('\n======================================');
@@ -59,46 +61,41 @@ async function testCostOptimization() {
     consoleLog(`❌ Token optimization test failed: ${error.message}`);
   }
   
-  // Test 2: Smart Cache
+  // Test 2: LLM Caching
   consoleLog('\n[2] Testing LLM Caching...');
   
-  const mockApiCall = async () => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return {
-      content: 'This is a test response',
-      usage: { total_tokens: 150, prompt_tokens: 50, completion_tokens: 100 }
-    };
-  };
-  
   try {
-    // First call - should miss cache
-    consoleLog('- Making first API call (should miss cache)...');
-    const start1 = Date.now();
-    const result1 = await cacheLlmCall(mockApiCall, {
-      cacheKey: 'test-cache-key',
-      ttl: 3600000,
-      estimatedTokens: 150,
-      model: 'test-model'
-    });
-    consoleLog(`  Response time: ${Date.now() - start1}ms`);
+    // Create a mock API call function
+    const mockApiCall = async () => {
+      // Simulate API response
+      return {
+        content: "This is a test response",
+        usage: { total_tokens: 50 }
+      };
+    };
     
-    // Second call - should hit cache
-    consoleLog('- Making second API call (should hit cache)...');
-    const start2 = Date.now();
-    const result2 = await cacheLlmCall(mockApiCall, {
+    // First call (cache miss)
+    const firstCall = await cacheLlmCall(mockApiCall, {
       cacheKey: 'test-cache-key',
-      ttl: 3600000,
-      estimatedTokens: 150,
-      model: 'test-model'
+      ttl: 3600000, // 1 hour
+      model: 'sonar'
     });
-    consoleLog(`  Response time: ${Date.now() - start2}ms`);
     
+    // Second call (should be cache hit)
+    const secondCall = await cacheLlmCall(mockApiCall, {
+      cacheKey: 'test-cache-key',
+      ttl: 3600000, // 1 hour
+      model: 'sonar'
+    });
+    
+    consoleLog(`- First call content: "${firstCall.content.substring(0, 20)}..."`);
+    consoleLog(`- Second call content: "${secondCall.content.substring(0, 20)}..."`);
+    
+    // Check if cache is working by inspecting the results
     const cacheStats = smartCache.getStats();
-    consoleLog(`- Cache hit rate: ${cacheStats.hitRate}`);
-    consoleLog(`- Cache size: ${cacheStats.size} items`);
+    consoleLog(`- Cache stats: hits=${cacheStats.hits}, misses=${cacheStats.misses}`);
     
-    if (Date.now() - start2 < 100) {
+    if (cacheStats.hits > 0) {
       consoleLog('✅ LLM caching working correctly');
     } else {
       consoleLog('❌ LLM caching not effective');
@@ -165,9 +162,8 @@ async function testCostOptimization() {
   consoleLog('\n[4] Testing Tiered Response Strategy...');
   
   try {
-    // Set up tiered strategy
+    // Configure tiered strategy with test budget
     tieredResponseStrategy.configure({
-      defaultTier: 'standard',
       budget: {
         daily: 5.0, // $5 daily budget
         monthly: 100.0 // $100 monthly budget
@@ -175,27 +171,28 @@ async function testCostOptimization() {
     });
     
     // Get options for different tiers
-    const basicOptions = tieredResponseStrategy.getRequestOptions({
+    const minimalOptions = tieredResponseStrategy.getRequestOptions({
       service: 'perplexity',
-      query: 'What is the capital of France?',
+      query: 'Simple query',
       forceTier: 'minimal'
     });
     
     const standardOptions = tieredResponseStrategy.getRequestOptions({
       service: 'perplexity',
-      query: 'Can you explain how neural networks work?'
+      query: 'Medium complexity query with some specific details',
+      forceTier: 'standard'
     });
     
     const premiumOptions = tieredResponseStrategy.getRequestOptions({
       service: 'perplexity',
-      query: 'I need a comprehensive analysis of renewable energy solutions for urban environments, including cost-benefit analysis and implementation strategies.',
+      query: 'Highly complex detailed analysis request with multiple requirements and deep research needs',
       forceTier: 'premium'
     });
     
     consoleLog('- Minimal tier options:');
-    consoleLog(`  - Model: ${basicOptions.model}`);
-    consoleLog(`  - Token limit: ${basicOptions.tokenLimit}`);
-    consoleLog(`  - Cache TTL: ${basicOptions.cacheSettings.ttl / (60 * 60 * 1000)} hours`);
+    consoleLog(`  - Model: ${minimalOptions.model}`);
+    consoleLog(`  - Token limit: ${minimalOptions.tokenLimit}`);
+    consoleLog(`  - Cache TTL: ${minimalOptions.cacheSettings.ttl / (60 * 60 * 1000)} hours`);
     
     consoleLog('- Standard tier options:');
     consoleLog(`  - Model: ${standardOptions.model}`);
