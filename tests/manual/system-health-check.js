@@ -251,7 +251,7 @@ async function checkSystemHealth() {
 
   // Check if API calls are disabled (cost saving mode)
   const disableLlmCalls = await import('../../utils/disableLlmCalls.js');
-  const apiCallsDisabled = disableLlmCalls.isLlmApiDisabled();
+  const apiCallsDisabled = disableLlmCalls.areLlmCallsDisabled();
   if (apiCallsDisabled) {
     console.log('- ✅ LLM API calls disabled - running in cost saving mode');
     healthStatus.apiOptimization.status = 'disabled';
@@ -279,7 +279,7 @@ async function checkSystemHealth() {
 
 
   console.log('\n======================================');
-  console.log('       HEALTH CHECK SUMMARY');
+  console.log('       HEALTH CHECK SUMMARY');');
   console.log('======================================');
 
   for (const [system, status] of Object.entries(healthStatus)) {
@@ -293,13 +293,14 @@ async function checkSystemHealth() {
 
   console.log('======================================');
   console.log('       HEALTH CHECK COMPLETE');
-  console.log('======================================');TE');
   console.log('======================================');
 }
 
 // Run the health check
 checkSystemHealth().catch(error => {
   console.error(`Health check failed: ${error.message}`);
+  process.exit(1);
+});message}`);
   console.error(error.stack);
   process.exit(1);
 });
