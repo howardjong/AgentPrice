@@ -7,18 +7,23 @@ import logger from './logger.js';
 
 class MemoryLeakDetector {
   constructor(options = {}) {
-    this.sampleInterval = options.sampleInterval || 60000; // 1 minute
-    this.growthThreshold = options.growthThreshold || 10; // 10% growth threshold
-    this.consecutiveGrowthLimit = options.consecutiveGrowthLimit || 5;
+    this.sampleInterval = options.sampleInterval || 180000; // 3 minutes (increased from 1 minute)
+    this.growthThreshold = options.growthThreshold || 15; // 15% growth threshold (more tolerant)
+    this.consecutiveGrowthLimit = options.consecutiveGrowthLimit || 3;
+    this.maxSamples = options.maxSamples || 20; // Limit sample history size
     this.samples = [];
     this.consecutiveGrowths = 0;
     this.isMonitoring = false;
     this.monitorInterval = null;
-    this.gcTriggerThreshold = options.gcTriggerThreshold || 100; // MB
+    this.gcTriggerThreshold = options.gcTriggerThreshold || 80; // MB (reduced threshold)
     this.lastGcTime = Date.now();
+    this.isLowMemoryMode = options.isLowMemoryMode || false;
     
-    // Minimum time between forced GCs (15 minutes)
-    this.minGcInterval = options.minGcInterval || 15 * 60 * 1000;
+    // Minimum time between forced GCs (10 minutes)
+    this.minGcInterval = options.minGcInterval || 10 * 60 * 1000;
+    
+    // Resource-saving mode for lightweight operation
+    this.resourceSavingMode = options.resourceSavingMode || false;
   }
   
   /**
@@ -63,24 +68,30 @@ class MemoryLeakDetector {
       timestamp: Date.now(),
       heapUsed: memoryUsage.heapUsed,
       heapTotal: memoryUsage.heapTotal,
-      external: memoryUsage.external,
-      rss: memoryUsage.rss
+      // Only store essential metrics in resource-saving mode
+      ...(this.resourceSavingMode ? {} : {
+        external: memoryUsage.external,
+        rss: memoryUsage.rss
+      })
     };
     
     this.samples.push(sample);
     
-    // Keep only the last 60 samples (1 hour with default interval)
-    if (this.samples.length > 60) {
+    // Keep only the limited number of samples to reduce memory footprint
+    if (this.samples.length > this.maxSamples) {
       this.samples.shift();
     }
     
-    // Analyze for potential leaks if we have enough samples
-    if (this.samples.length >= 3) {
+    // Only analyze if we have enough samples and not in resource-saving mode
+    if (this.samples.length >= 3 && (!this.resourceSavingMode || this.samples.length % 2 === 0)) {
       this.analyzeMemoryGrowth();
     }
     
     // Check if we should suggest a garbage collection
-    this.checkForGarbageCollection();
+    // Skip every other check in resource-saving mode
+    if (!this.resourceSavingMode || this.samples.length % 2 === 0) {
+      this.checkForGarbageCollection();
+    }
   }
   
   /**
@@ -164,6 +175,28 @@ class MemoryLeakDetector {
         heapUsedMB: `${heapUsedMB}MB`,
         recommendation: 'Consider manual garbage collection or application restart'
       });
+      
+      // Attempt to perform garbage collection automatically if available
+      if (global.gc && typeof global.gc === 'function') {
+        try {
+          logger.info('Performing automatic garbage collection');
+          const beforeMem = process.memoryUsage().heapUsed;
+          
+          // Run garbage collection
+          global.gc();
+          
+          // Calculate freed memory
+          const afterMem = process.memoryUsage().heapUsed;
+          const freedMB = Math.round((beforeMem - afterMem) / 1024 / 1024);
+          
+          logger.info('Garbage collection completed', {
+            freedMemory: `${freedMB}MB`,
+            currentHeapUsed: `${Math.round(afterMem / 1024 / 1024)}MB`
+          });
+        } catch (error) {
+          logger.error('Error during garbage collection', { error: error.message });
+        }
+      }
       
       this.lastGcTime = now;
     }

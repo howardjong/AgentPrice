@@ -213,3 +213,223 @@ class ComponentLoader {
 
 const componentLoader = new ComponentLoader();
 export default componentLoader;
+/**
+ * Component Loader Utility
+ * Provides lazy loading for service components to reduce memory usage
+ */
+import logger from './logger.js';
+
+class ComponentLoader {
+  constructor() {
+    this.components = new Map();
+    this.loadedComponents = new Set();
+    this.loadTimes = new Map();
+  }
+  
+  /**
+   * Register a component for lazy loading
+   * @param {string} name - Component name
+   * @param {Function} factory - Factory function to create the component
+   * @param {Object} options - Configuration options
+   */
+  register(name, factory, options = {}) {
+    this.components.set(name, {
+      factory,
+      instance: null,
+      options: {
+        lazy: options.lazy !== false,
+        singleton: options.singleton !== false,
+        timeout: options.timeout || 30 * 60 * 1000, // Default unload after 30 minutes
+        critical: options.critical || false,
+        ...options
+      }
+    });
+    
+    logger.debug(`Component '${name}' registered for ${options.lazy !== false ? 'lazy' : 'immediate'} loading`);
+    
+    // If not lazy, initialize immediately
+    if (options.lazy === false) {
+      this.get(name);
+    }
+    
+    return this;
+  }
+  
+  /**
+   * Get or create a component instance
+   * @param {string} name - Component name
+   * @returns {Object} The component instance
+   */
+  get(name) {
+    if (!this.components.has(name)) {
+      throw new Error(`Component '${name}' is not registered`);
+    }
+    
+    const component = this.components.get(name);
+    
+    // If already instantiated and singleton, return the instance
+    if (component.instance && component.options.singleton) {
+      this.updateLastAccess(name);
+      return component.instance;
+    }
+    
+    // Create new instance
+    const startTime = Date.now();
+    try {
+      const instance = component.factory();
+      
+      // If singleton, store the instance
+      if (component.options.singleton) {
+        component.instance = instance;
+        this.loadedComponents.add(name);
+      }
+      
+      // Record load time
+      const loadTime = Date.now() - startTime;
+      this.loadTimes.set(name, loadTime);
+      
+      logger.debug(`Component '${name}' loaded in ${loadTime}ms`);
+      this.updateLastAccess(name);
+      
+      return instance;
+    } catch (error) {
+      logger.error(`Error loading component '${name}'`, { error: error.message });
+      throw error;
+    }
+  }
+  
+  /**
+   * Update the last access time for a component
+   * @param {string} name - Component name
+   */
+  updateLastAccess(name) {
+    const component = this.components.get(name);
+    if (component) {
+      component.lastAccess = Date.now();
+    }
+  }
+  
+  /**
+   * Unload non-critical components to free memory
+   * @param {Array<string>} exclude - Components to exclude from unloading
+   * @returns {number} Number of components unloaded
+   */
+  unloadInactive(exclude = []) {
+    const now = Date.now();
+    let unloaded = 0;
+    
+    for (const [name, component] of this.components.entries()) {
+      // Skip if explicitly excluded
+      if (exclude.includes(name)) continue;
+      
+      // Skip critical components
+      if (component.options.critical) continue;
+      
+      // Skip if no instance
+      if (!component.instance) continue;
+      
+      // Skip if still in use
+      const lastAccess = component.lastAccess || 0;
+      if (now - lastAccess < component.options.timeout) continue;
+      
+      // Unload the component
+      this.unload(name);
+      unloaded++;
+    }
+    
+    if (unloaded > 0) {
+      logger.info(`Unloaded ${unloaded} inactive components`);
+    }
+    
+    return unloaded;
+  }
+  
+  /**
+   * Unload a specific component
+   * @param {string} name - Component name
+   * @returns {boolean} True if unloaded, false if not found or critical
+   */
+  unload(name) {
+    if (!this.components.has(name)) return false;
+    
+    const component = this.components.get(name);
+    
+    // Cannot unload critical components
+    if (component.options.critical) {
+      logger.warn(`Cannot unload critical component '${name}'`);
+      return false;
+    }
+    
+    // If it has a destroy method, call it
+    if (component.instance && typeof component.instance.destroy === 'function') {
+      try {
+        component.instance.destroy();
+      } catch (error) {
+        logger.error(`Error destroying component '${name}'`, { error: error.message });
+      }
+    }
+    
+    // Remove the instance
+    component.instance = null;
+    this.loadedComponents.delete(name);
+    
+    logger.debug(`Component '${name}' unloaded`);
+    return true;
+  }
+  
+  /**
+   * Get statistics about loaded components
+   * @returns {Object} Component statistics
+   */
+  getStats() {
+    const stats = {
+      registered: this.components.size,
+      loaded: this.loadedComponents.size,
+      loadTimes: {},
+      critical: 0
+    };
+    
+    // Count critical components and collect load times
+    for (const [name, component] of this.components.entries()) {
+      if (component.options.critical) {
+        stats.critical++;
+      }
+      
+      const loadTime = this.loadTimes.get(name);
+      if (loadTime) {
+        stats.loadTimes[name] = `${loadTime}ms`;
+      }
+    }
+    
+    return stats;
+  }
+  
+  /**
+   * Preload specific components
+   * @param {Array<string>} names - Component names to preload
+   */
+  preload(names) {
+    const preloaded = [];
+    
+    for (const name of names) {
+      if (!this.components.has(name)) {
+        logger.warn(`Cannot preload unknown component '${name}'`);
+        continue;
+      }
+      
+      if (!this.loadedComponents.has(name)) {
+        this.get(name);
+        preloaded.push(name);
+      }
+    }
+    
+    if (preloaded.length > 0) {
+      logger.info(`Preloaded ${preloaded.length} components: ${preloaded.join(', ')}`);
+    }
+    
+    return preloaded;
+  }
+}
+
+const componentLoader = new ComponentLoader();
+export default componentLoader;

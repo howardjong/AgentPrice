@@ -10,14 +10,20 @@ import logger from './logger.js';
 
 class SmartCache {
   constructor(options = {}) {
-    this.maxSize = options.maxSize || 500; // Maximum number of items
-    this.defaultTTL = options.defaultTTL || 24 * 60 * 60 * 1000; // 24 hours in ms
+    this.maxSize = options.maxSize || 250; // Reduced maximum number of items
+    this.defaultTTL = options.defaultTTL || 4 * 60 * 60 * 1000; // 4 hours in ms (reduced from 24)
     this.cache = new Map();
     this.keyTimestamps = new Map(); // For LRU tracking
     this.hitCount = 0;
     this.missCount = 0;
     this.fuzzyMatchThreshold = options.fuzzyMatchThreshold || 0.85; // Similarity threshold
     this.enableFuzzyMatch = options.enableFuzzyMatch !== false;
+    
+    // Add memory-sensitive options
+    this.memoryLimitMB = options.memoryLimitMB || 50; // Memory limit in MB
+    this.lowMemoryMode = options.lowMemoryMode || false; // Disable extra features in low memory
+    this.aggressiveEviction = options.aggressiveEviction || false; // Evict more items when memory is low
+    
     this.stats = {
       created: Date.now(),
       exactHits: 0,
@@ -26,12 +32,17 @@ class SmartCache {
       evictions: {
         lru: 0,
         expired: 0,
-        manual: 0
+        manual: 0,
+        memory: 0
       }
     };
     
-    // Clean expired items every hour
-    this.cleanupInterval = setInterval(() => this.removeExpiredItems(), 60 * 60 * 1000);
+    // More frequent cleanup in low memory mode
+    const cleanupInterval = this.lowMemoryMode ? 15 * 60 * 1000 : 60 * 60 * 1000;
+    this.cleanupInterval = setInterval(() => this.removeExpiredItems(), cleanupInterval);
+    
+    // Add memory check interval (every 5 minutes)
+    this.memoryCheckInterval = setInterval(() => this.checkMemoryUsage(), 5 * 60 * 1000);
   }
   
   /**
@@ -361,6 +372,59 @@ class SmartCache {
    * Clear the cache
    * @returns {number} Number of items cleared
    */
+
+  /**
+   * Check memory usage and evict items if necessary
+   */
+  checkMemoryUsage() {
+    try {
+      // Get current memory usage
+      const memUsage = process.memoryUsage();
+      const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+      
+      // Calculate total cache size estimate
+      let totalSizeBytes = 0;
+      for (const item of this.cache.values()) {
+        totalSizeBytes += item.size;
+      }
+      const cacheSizeMB = Math.round(totalSizeBytes / 1024 / 1024);
+      
+      // If total heap usage is high or cache size is above limit
+      if (cacheSizeMB > this.memoryLimitMB || heapUsedMB > 150) {
+        const itemsToEvict = Math.max(
+          5,
+          Math.ceil(this.cache.size * 0.2) // Evict at least 20% of items
+        );
+        
+        logger.info('Cache memory limit reached, evicting items', {
+          cacheSizeMB,
+          heapUsedMB,
+          itemsToEvict,
+          totalItems: this.cache.size
+        });
+        
+        this.evictLRU(itemsToEvict);
+        this.stats.evictions.memory += itemsToEvict;
+        
+        // Disable fuzzy matching temporarily if memory is critically high
+        if (heapUsedMB > 200) {
+          const wasEnabled = this.enableFuzzyMatch;
+          this.enableFuzzyMatch = false;
+          
+          // Re-enable after 5 minutes
+          if (wasEnabled) {
+            setTimeout(() => {
+              this.enableFuzzyMatch = true;
+              logger.info('Re-enabled fuzzy matching after memory pressure decreased');
+            }, 5 * 60 * 1000);
+          }
+        }
+      }
+    } catch (error) {
+      logger.error('Error checking memory usage', { error: error.message });
+    }
+  }
+
   clear() {
     const size = this.cache.size;
     this.cache.clear();
@@ -373,13 +437,24 @@ class SmartCache {
   }
   
   /**
-   * Stop the cache cleanup
+   * Stop the cache cleanup and release resources
    */
   destroy() {
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
       this.cleanupInterval = null;
     }
+    
+    if (this.memoryCheckInterval) {
+      clearInterval(this.memoryCheckInterval);
+      this.memoryCheckInterval = null;
+    }
+    
+    // Clear all cache data to free memory
+    this.cache.clear();
+    this.keyTimestamps.clear();
+    
+    logger.info('Cache destroyed, all resources released');
   }
 }
 

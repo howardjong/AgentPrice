@@ -7,6 +7,18 @@ process.on('unhandledRejection', (reason, promise) => {
   // Not terminating the process, just logging for now
 });
 
+// Enable garbage collection hints if available
+try {
+  // Check if node was started with --expose-gc
+  if (typeof global.gc !== 'function') {
+    logger.warn('Garbage collection unavailable - start with --expose-gc for better memory management');
+  } else {
+    logger.info('Garbage collection available and enabled');
+  }
+} catch (e) {
+  logger.warn('Unable to check garbage collection status');
+}
+
 
 
 // Load environment variables first
@@ -47,9 +59,16 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Initialize required services
+// Import resource manager
+import resourceManager from '../utils/resourceManager.js';
+
+// Initialize required services with resource optimization
 async function initializeServices() {
   try {
+    // Start resource management
+    resourceManager.start();
+    logger.info('Resource manager started');
+    
     // Check API keys without making API calls
     const apiStatus = checkApiKeys();
     logger.info('API key status checked', apiStatus);
@@ -71,6 +90,10 @@ async function initializeServices() {
     
     // Disable automatic initialization of mock research data
     logger.info('Skipping mock research data initialization to avoid API calls');
+    
+    // Log initial resource usage
+    const resources = resourceManager.getResourceUsage();
+    logger.info('Initial resource usage', resources);
   } catch (error: any) {
     logger.error('Error initializing services', { error: error.message });
   }

@@ -35,7 +35,7 @@ localPort = 33065
 externalPort = 3002
 
 [workflows]
-runButton = "Run Performance Analysis"
+runButton = "Apply Performance Optimizations"
 
 [[workflows.workflow]]
 name = "Project"
@@ -1431,3 +1431,57 @@ args = "# Then start the performance monitoring dashboard"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/systemHealthDashboard.js"
+
+[[workflows.workflow]]
+name = "Apply Performance Optimizations"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the performance optimization script"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/optimizeSystemPerformance.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then run the system health dashboard"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/systemHealthDashboard.js"
+
+[[workflows.workflow]]
+name = "Start Low Memory App"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Start the application with memory optimizations"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export NODE_ENV=development"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export PORT=5000"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export OPTIMIZE_MEMORY=true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export DISABLE_LLM_CALLS=true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node --expose-gc --max-old-space-size=256 scripts/start-dev-no-api.js"
