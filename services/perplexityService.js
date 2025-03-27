@@ -281,20 +281,32 @@ class PerplexityService {
   /**
    * Perform deep research using Perplexity
    * @param {string} query - Research query
-   * @param {string} jobId - Unique job identifier
+   * @param {Object} options - Additional options for research
    * @returns {Promise<Object>} Research results with sources
    */
   async performDeepResearch(query, options = {}) {
-    const { context = '', maxCitations = 15, sessionId = 'default', circuitBreaker = true } = options;
+    const { 
+      context = '', 
+      maxCitations = 15, 
+      sessionId = 'default', 
+      circuitBreaker = true,
+      useCache = true,
+      forceRefresh = false,
+      enableChunking = true,
+      enableFingerprinting = true
+    } = options;
 
     if (!query || typeof query !== 'string') {
       throw new Error('Query must be a non-empty string');
     }
     
-    // Import the LLM API disable check
+    // Import needed utilities
     const { isLlmApiDisabled } = await import('../utils/disableLlmCalls.js');
+    const enhancedCache = (await import('../utils/enhancedCache.js')).default;
+    const contentChunker = (await import('../utils/contentChunker.js')).default;
+    const batchProcessor = (await import('../utils/batchProcessor.js')).default;
     
-    // Check if LLM API calls are disabled
+    // Check if LLM calls are disabled
     if (isLlmApiDisabled()) {
       logger.info('LLM API calls are disabled - returning mock response for deep research', {
         service: 'perplexity',
@@ -311,6 +323,9 @@ class PerplexityService {
       };
     }
 
+    // Generate cache key
+    const cacheKey = `perplexity:deep-research:${query.substring(0, 100)}`;
+    
     // Import the rate limiter
     const perplexityRateLimiter = (await import('../utils/rateLimiter.js')).default;
 
@@ -327,6 +342,43 @@ class PerplexityService {
       nextAvailableSlot: rateLimiterStatus.nextAvailableSlot
     });
 
+    // Try to get from cache first if caching is enabled
+    if (useCache && !forceRefresh) {
+      try {
+        // Use document fingerprinting for more accurate similarity matching
+        const cacheResult = await enhancedCache.getWithSimilarityMatch(cacheKey, {
+          enableSimilarityMatch: enableFingerprinting,
+          queryContent: query,
+          similarityThreshold: 0.85
+        });
+        
+        if (cacheResult && cacheResult.value) {
+          logger.info(`Cache ${cacheResult.source} for deep research query`, {
+            service: 'perplexity',
+            method: 'performDeepResearch',
+            similarity: cacheResult.source === 'similarity-match' ? 
+              `${(cacheResult.similarity * 100).toFixed(1)}%` : 'exact'
+          });
+          
+          const result = cacheResult.value;
+          
+          // Add cache source metadata
+          result.cached = true;
+          result.cacheSource = cacheResult.source;
+          if (cacheResult.similarity) {
+            result.cacheSimilarity = cacheResult.similarity;
+          }
+          
+          return result;
+        }
+      } catch (error) {
+        logger.warn('Error checking cache for deep research', { 
+          error: error.message
+        });
+        // Continue with API call on cache error
+      }
+    }
+
     // Schedule the request through the rate limiter
     return perplexityRateLimiter.schedule(async () => {
       try {
@@ -334,6 +386,25 @@ class PerplexityService {
           service: 'multi-llm-research',
           modelRequested: 'sonar-deep-research'
         });
+
+        // Check if query is large and needs chunking
+        const needsChunking = enableChunking && query.length > 6000;
+        
+        if (needsChunking) {
+          logger.info(`Large query detected (${query.length} chars), using chunking strategy`, {
+            service: 'multi-llm-research',
+            method: 'performDeepResearch'
+          });
+          
+          // Use chunking to handle large queries
+          return await this.performChunkedDeepResearch(query, {
+            ...options,
+            context,
+            sessionId,
+            circuitBreaker: breaker,
+            contentChunker
+          });
+        }
 
         // Use a default prompt if promptManager fails
         let formattedPrompt;
@@ -352,7 +423,7 @@ Please include the most up-to-date information available, with particular attent
         }
 
         // Use circuit breaker pattern for the API call
-        return await breaker.executeRequest('perplexity-deep', async () => {
+        const result = await breaker.executeRequest('perplexity-deep', async () => {
           // Enhanced request settings for better search capabilities
           const requestOptions = {
             method: 'POST',
@@ -485,6 +556,27 @@ Please include the most up-to-date information available, with particular attent
             usage: response.data.usage || { total_tokens: 0 }
           };
         });
+        
+        // Cache the result if caching is enabled
+        if (useCache && result) {
+          try {
+            enhancedCache.setWithFingerprint(cacheKey, result, {
+              ttl: 24 * 60 * 60 * 1000, // 24 hours
+              fingerprintField: 'content',
+              tags: ['perplexity', 'deep-research']
+            });
+            
+            logger.debug('Cached deep research result', {
+              service: 'perplexity',
+              method: 'performDeepResearch',
+              cacheKey: cacheKey.substring(0, 50)
+            });
+          } catch (error) {
+            logger.warn('Error caching deep research result', { error: error.message });
+          }
+        }
+        
+        return result;
       } catch (error) {
         logger.error('Error performing deep research', {
           service: 'multi-llm-research',
@@ -493,6 +585,167 @@ Please include the most up-to-date information available, with particular attent
         throw error;
       }
     });
+  }
+  
+  /**
+   * Perform deep research on large queries by chunking
+   * @param {string} query - Research query
+   * @param {Object} options - Research options
+   * @returns {Promise<Object>} Reassembled research results
+   */
+  async performChunkedDeepResearch(query, options = {}) {
+    const { 
+      contentChunker, 
+      context = '', 
+      sessionId = 'default',
+      circuitBreaker
+    } = options;
+    
+    try {
+      logger.info(`Starting chunked deep research for query (${query.length} chars)`, {
+        service: 'perplexity',
+        method: 'performChunkedDeepResearch'
+      });
+      
+      // Chunk the query
+      const chunks = contentChunker.chunkContent(query, {
+        chunkSize: 5000,  // Smaller chunks for better search quality
+        overlap: 300,     // Generous overlap
+        preserveCodeBlocks: true,
+        preserveParagraphs: true
+      });
+      
+      logger.info(`Split query into ${chunks.length} chunks for processing`, {
+        service: 'perplexity',
+        method: 'performChunkedDeepResearch',
+        chunkCount: chunks.length
+      });
+      
+      // Process each chunk
+      const chunkResponses = [];
+      
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        
+        logger.info(`Processing chunk ${i+1}/${chunks.length} (${chunk.content.length} chars)`, {
+          service: 'perplexity',
+          method: 'performChunkedDeepResearch'
+        });
+        
+        try {
+          // Add additional context about chunking
+          const chunkContext = `${context ? context + '\n\n' : ''}NOTE: This is part ${i+1} of ${chunks.length} of a larger query. Focus on researching specifically this part.`;
+          
+          // Process chunk
+          const chunkResult = await this.performDeepResearch(chunk.content, {
+            context: chunkContext,
+            sessionId: `${sessionId}-chunk-${i+1}`,
+            circuitBreaker,
+            useCache: true,
+            enableChunking: false  // Prevent recursive chunking
+          });
+          
+          // Add chunk metadata
+          chunkResult.chunkIndex = i;
+          chunkResult.totalChunks = chunks.length;
+          
+          chunkResponses.push(chunkResult);
+          
+          logger.info(`Completed chunk ${i+1}/${chunks.length}`, {
+            service: 'perplexity',
+            method: 'performChunkedDeepResearch',
+            citationsCount: chunkResult.sources?.length || 0
+          });
+        } catch (error) {
+          logger.error(`Error processing chunk ${i+1}/${chunks.length}`, {
+            service: 'perplexity',
+            method: 'performChunkedDeepResearch',
+            error: error.message
+          });
+          
+          // Continue with other chunks
+          chunkResponses.push({
+            chunkIndex: i,
+            totalChunks: chunks.length,
+            content: `[Error processing this section: ${error.message}]`,
+            sources: []
+          });
+        }
+      }
+      
+      // Reassemble chunks
+      const reassembledContent = contentChunker.reassembleChunks(
+        chunkResponses.map(response => {
+          // Extract just the content, removing model info prefix from chunks after the first
+          let content = response.content;
+          if (response.chunkIndex > 0) {
+            const modelPrefixMatch = content.match(/^\[Using Perplexity AI - Model: .*?\]\s*\n+/);
+            if (modelPrefixMatch) {
+              content = content.substring(modelPrefixMatch[0].length);
+            }
+          }
+          return { 
+            content,
+            chunkIndex: response.chunkIndex
+          };
+        })
+      );
+      
+      // Combine sources from all chunks, removing duplicates
+      const allSources = [];
+      const seenSourceUrls = new Set();
+      
+      for (const response of chunkResponses) {
+        if (response.sources && Array.isArray(response.sources)) {
+          for (const source of response.sources) {
+            // Simple deduplication by URL
+            if (source.url && !seenSourceUrls.has(source.url)) {
+              seenSourceUrls.add(source.url);
+              allSources.push(source);
+            } else if (!source.url) {
+              allSources.push(source);
+            }
+          }
+        }
+      }
+      
+      // Gather usage statistics
+      const totalUsage = chunkResponses.reduce((acc, response) => {
+        if (response.usage) {
+          acc.prompt_tokens += response.usage.prompt_tokens || 0;
+          acc.completion_tokens += response.usage.completion_tokens || 0;
+          acc.total_tokens += response.usage.total_tokens || 0;
+        }
+        return acc;
+      }, { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 });
+      
+      logger.info(`Completed chunked deep research with ${allSources.length} unique sources`, {
+        service: 'perplexity',
+        method: 'performChunkedDeepResearch',
+        chunksProcessed: chunkResponses.length,
+        tokenUsage: totalUsage.total_tokens
+      });
+      
+      // Create final result
+      return {
+        query,
+        timestamp: new Date().toISOString(),
+        content: reassembledContent.content,
+        sources: allSources,
+        modelUsed: chunkResponses[0]?.modelUsed || 'sonar-deep-research',
+        requestedModel: this.models.deepResearch,
+        usage: totalUsage,
+        processingMethod: 'chunked',
+        chunksProcessed: chunks.length
+      };
+    } catch (error) {
+      logger.error('Error in chunked deep research', {
+        service: 'perplexity',
+        method: 'performChunkedDeepResearch',
+        error: error.message
+      });
+      throw error;
+    }
   }
 
   /**
