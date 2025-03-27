@@ -30,6 +30,55 @@ class ResourceManager {
     this.monitorResources = this.monitorResources.bind(this);
     this.runCleanup = this.runCleanup.bind(this);
     this.forceCleanup = this.forceCleanup.bind(this);
+    this.configure = this.configure.bind(this);
+  }
+  
+  /**
+   * Configure resource manager with new options
+   * @param {Object} config - Configuration options
+   */
+  configure(config = {}) {
+    // Update memory options
+    if (config.memory) {
+      if (config.memory.heapLimitMB) {
+        this.options.heapUsageThreshold = config.memory.heapLimitMB;
+      }
+      if (config.memory.gcThresholdMB) {
+        this.options.gcThreshold = config.memory.gcThresholdMB;
+      }
+    }
+    
+    // Update CPU options
+    if (config.cpu && config.cpu.maxUtilization) {
+      this.options.cpuUsageThreshold = config.cpu.maxUtilization;
+    }
+    
+    // Update intervals
+    if (config.gcInterval) {
+      this.options.gcInterval = config.gcInterval;
+    }
+    if (config.monitoringInterval) {
+      this.options.monitoringInterval = config.monitoringInterval;
+    }
+    if (config.cleanupInterval) {
+      this.options.cleanupInterval = config.cleanupInterval;
+    }
+    
+    logger.info('Resource manager configured', {
+      heapUsageThreshold: `${this.options.heapUsageThreshold}MB`,
+      cpuUsageThreshold: `${this.options.cpuUsageThreshold}%`,
+      gcInterval: `${this.options.gcInterval / 1000}s`,
+      monitoringInterval: `${this.options.monitoringInterval / 1000}s`,
+      cleanupInterval: `${this.options.cleanupInterval / 1000}s`
+    });
+    
+    // Restart if active
+    if (this.isActive) {
+      this.stop();
+      this.start();
+    }
+    
+    return this;
   }
   
   /**

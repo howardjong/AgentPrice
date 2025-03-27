@@ -27,6 +27,64 @@ class MemoryLeakDetector {
   }
   
   /**
+   * Configure memory leak detector with new options
+   * @param {Object} options - Configuration options
+   */
+  configure(options = {}) {
+    if (options.enabled !== undefined) {
+      // If enabling and not already running, start monitoring
+      if (options.enabled && !this.isMonitoring) {
+        this.start();
+      } 
+      // If disabling and currently running, stop monitoring
+      else if (!options.enabled && this.isMonitoring) {
+        this.stop();
+      }
+    }
+    
+    if (options.checkInterval) {
+      const newInterval = options.checkInterval;
+      this.sampleInterval = newInterval;
+      
+      // Restart the interval if monitoring
+      if (this.isMonitoring && this.monitorInterval) {
+        clearInterval(this.monitorInterval);
+        this.monitorInterval = setInterval(() => this.takeSample(), this.sampleInterval);
+      }
+    }
+    
+    if (options.alertThreshold) {
+      this.growthThreshold = options.alertThreshold;
+    }
+    
+    if (options.gcBeforeCheck !== undefined) {
+      this.gcBeforeCheck = options.gcBeforeCheck;
+    }
+    
+    if (options.maxSamples) {
+      this.maxSamples = options.maxSamples;
+      // Trim samples if needed
+      if (this.samples.length > this.maxSamples) {
+        this.samples = this.samples.slice(-this.maxSamples);
+      }
+    }
+    
+    if (options.resourceSavingMode !== undefined) {
+      this.resourceSavingMode = options.resourceSavingMode;
+    }
+    
+    logger.info('Memory leak detector configured', {
+      sampleInterval: `${this.sampleInterval / 1000}s`,
+      growthThreshold: `${this.growthThreshold}%`,
+      gcTriggerThreshold: `${this.gcTriggerThreshold}MB`,
+      isMonitoring: this.isMonitoring,
+      resourceSavingMode: this.resourceSavingMode
+    });
+    
+    return this;
+  }
+  
+  /**
    * Start monitoring for memory leaks
    */
   start() {
