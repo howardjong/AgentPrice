@@ -99,13 +99,14 @@ console.log('======================================');
  * rate limiting, and API call disabling.
  */
 
-import logger from '../../utils/logger.js';
+// Using logger imported at the top of file
 import cacheMonitor from '../../utils/cacheMonitor.js';
-import { isLlmApiDisabled, enableLlmApiCalls, disableLlmApiCalls } from '../../utils/disableLlmCalls.js';
+import { areLlmCallsDisabled as isLlmApiDisabled } from '../../utils/disableLlmCalls.js';
 
-const fs = require('fs').promises;
-const path = require('path');
-const { isLlmApiDisabled: isLlmApiDisabled2 } = require('../../utils/disableLlmCalls'); // Added to avoid naming conflict.
+import { promises as fs } from 'fs';
+import path from 'path';
+// Using the ES modules version to be consistent
+import { areLlmCallsDisabled as isLlmApiDisabled2 } from '../../utils/disableLlmCalls.js';
 
 async function testApiCallOptimization() {
   console.log('======================================');
@@ -124,14 +125,12 @@ async function testApiCallOptimization() {
 
   // Check cache monitor statistics
   console.log('\n[2] Checking cache monitor statistics...');
-  const stats = await cacheMonitor.getStatistics();
+  const stats = cacheMonitor.getCacheHitRateStats();
   console.log(`- Total cache lookups: ${stats.totalLookups}`);
   console.log(`- Cache hits: ${stats.hits}`);
   console.log(`- Cache misses: ${stats.misses}`);
 
-  const hitRate = stats.totalLookups > 0 
-    ? ((stats.hits / stats.totalLookups) * 100).toFixed(2) 
-    : 0;
+  const hitRate = stats.hitRate ? stats.hitRate.toFixed(2) : 0;
   console.log(`- Cache hit rate: ${hitRate}%`);
 
   // Calculate estimated token savings
@@ -191,8 +190,8 @@ testApiCallOptimization().catch(err => {
  */
 
 import cacheMonitor2 from '../../utils/cacheMonitor.js'; // Added to avoid naming conflict
-import { isLlmApiDisabled: isLlmApiDisabled3 } from '../../utils/disableLlmCalls.js'; // Added to avoid naming conflict
-import { createClient } from '../../services/redisService.js';
+import { areLlmCallsDisabled as isLlmApiDisabled3 } from '../../utils/disableLlmCalls.js'; // Added to avoid naming conflict
+import redisClient from '../../services/redisService.js';
 import logger2 from '../../utils/logger.js'; // Added to avoid naming conflict
 
 async function runApiCallOptimizationTest() {
@@ -207,7 +206,7 @@ async function runApiCallOptimizationTest() {
 
   // 2. Test cache monitoring system
   console.log('\n[2] Testing cache monitoring system...');
-  cacheMonitor2.reset();
+  cacheMonitor2.resetCacheStats();
   logger2.info('Cache statistics reset', { previousSavings: '$0.0000', service: 'multi-llm-research' });
   console.log('- Cache statistics reset');
 
@@ -216,9 +215,9 @@ async function runApiCallOptimizationTest() {
     // Simulate cache hits and misses for perplexity
     for (let i = 0; i < 7; i++) {
       if (i < 5) {
-        cacheMonitor2.recordHit('perplexity');
+        cacheMonitor2.recordCacheHit('perplexity');
       } else {
-        cacheMonitor2.recordMiss('perplexity');
+        cacheMonitor2.recordCacheMiss('perplexity');
       }
     }
   } catch (error) {
@@ -230,9 +229,9 @@ async function runApiCallOptimizationTest() {
     // Simulate cache hits and misses for claude
     for (let i = 0; i < 7; i++) {
       if (i < 5) {
-        cacheMonitor2.recordHit('claude');
+        cacheMonitor2.recordCacheHit('claude');
       } else {
-        cacheMonitor2.recordMiss('claude');
+        cacheMonitor2.recordCacheMiss('claude');
       }
     }
   } catch (error) {
@@ -240,7 +239,7 @@ async function runApiCallOptimizationTest() {
   }
 
   // Display cache monitoring stats
-  const stats = cacheMonitor2.getStats();
+  const stats = cacheMonitor2.getCacheHitRateStats();
   console.log('\n- Cache effectiveness statistics:');
   console.log(`  - Total lookups: ${stats.totalLookups}`);
   console.log(`  - Hits: ${stats.hits}`);
@@ -261,7 +260,7 @@ async function runApiCallOptimizationTest() {
 
   // 3. Test cache key existence check
   console.log('\n[3] Testing cache key existence check...');
-  const client = await createClient();
+  const client = await redisClient.getClient();
 
   // Test with a key that exists
   const testKey = 'test:api:optimization:key';
@@ -357,7 +356,9 @@ async function runApiCallOptimizationTest() {
   // 7. Test Prompt Optimization
   console.log('\n[7] Testing Prompt Optimization:');
   try {
-    const promptManager = require('../../utils/promptManager');
+    // Using dynamic import for ESM compatibility
+    const promptManagerModule = await import('../../utils/promptManager.js');
+    const promptManager = promptManagerModule.default;
     const totalPrompts = promptManager.countPrompts();
     console.log(`- ✅ Total prompts available: ${totalPrompts}`);
 

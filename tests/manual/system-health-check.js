@@ -278,29 +278,31 @@ async function checkSystemHealth() {
   try {
     const cacheMonitor = await import('../../utils/cacheMonitor.js');
     
-    // Check if getStats exists directly or as part of default export
+    // Check if getCacheHitRateStats exists directly or as part of default export
     let stats;
-    if (typeof cacheMonitor.getStats === 'function') {
-      stats = cacheMonitor.getStats();
-    } else if (cacheMonitor.default && typeof cacheMonitor.default.getStats === 'function') {
-      stats = cacheMonitor.default.getStats();
+    if (typeof cacheMonitor.getCacheHitRateStats === 'function') {
+      stats = cacheMonitor.getCacheHitRateStats();
+    } else if (cacheMonitor.default && typeof cacheMonitor.default.getCacheHitRateStats === 'function') {
+      stats = cacheMonitor.default.getCacheHitRateStats();
     } else {
       // If the function doesn't exist, create placeholder stats
       console.log('- ℹ️ Cache monitor stats function not found - using default values');
       stats = {
-        hitRate: '0%',
+        hitRate: 0,
         totalLookups: 0,
         hits: 0,
         misses: 0,
-        estimatedSavings: '0 tokens'
+        estimatedCostSavings: 0,
+        estimatedTokensSaved: 0
       };
     }
     
-    console.log(`- ✅ Cache monitor check complete - Hit rate: ${stats.hitRate}`);
+    console.log(`- ✅ Cache monitor check complete - Hit rate: ${stats.hitRate}%`);
     console.log(`- Total lookups: ${stats.totalLookups}, Hits: ${stats.hits}, Misses: ${stats.misses}`);
-    console.log(`- Estimated savings: ${stats.estimatedSavings || 'not calculated'}`);
+    console.log(`- Estimated token savings: ${stats.estimatedTokensSaved || 0} tokens`);
+    console.log(`- Estimated cost savings: $${stats.estimatedCostSavings?.toFixed(4) || '0.0000'}`);
     healthStatus.apiOptimization.hitRate = stats.hitRate;
-    healthStatus.apiOptimization.savings = stats.estimatedSavings;
+    healthStatus.apiOptimization.savings = `$${stats.estimatedCostSavings?.toFixed(4) || '0.0000'}`;
   } catch (error) {
     console.error(`- ❌ Error checking cache monitor: ${error.message}`);
     healthStatus.apiOptimization.ok = false;
