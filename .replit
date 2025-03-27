@@ -1305,3 +1305,104 @@ args = "# Start performance monitoring dashboard"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/systemPerformanceDashboard.js"
+
+[[workflows.workflow]]
+name = "Performance Optimization Suite"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run performance optimization test suite"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"   PERFORMANCE OPTIMIZATION SUITE\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First run the system health dashboard to collect metrics"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n[1/4] Starting system health dashboard..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/systemHealthDashboard.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run memory leak detection"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n[2/4] Running memory leak detection..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/memoryLeakAnalysis.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run API optimization tests"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n[3/4] Testing API optimization..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/apiCallOptimization.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run component loading optimization test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n[4/4] Testing component lazy loading..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/testComponentLoader.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"   OPTIMIZATION SUITE COMPLETE\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
