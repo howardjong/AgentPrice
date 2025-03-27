@@ -35,7 +35,7 @@ localPort = 33065
 externalPort = 3002
 
 [workflows]
-runButton = "Apply Performance Optimizations"
+runButton = "Run Lightweight Performance Optimizer"
 
 [[workflows.workflow]]
 name = "Project"
@@ -1485,3 +1485,44 @@ args = "export DISABLE_LLM_CALLS=true"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node --expose-gc --max-old-space-size=256 scripts/start-dev-no-api.js"
+
+[[workflows.workflow]]
+name = "Run Lightweight Performance Optimizer"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First run system health check to establish baseline"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/system-health-check.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then apply performance optimizations"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/optimizeSystemPerformance.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Display resource usage after optimizations"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo -e "\n\nResource usage after optimizations:"'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node -e \"console.table(process.memoryUsage())\""
