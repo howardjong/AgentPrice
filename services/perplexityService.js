@@ -100,6 +100,30 @@ class PerplexityService {
         usage: { total_tokens: 0 }
       };
     }
+    
+    // Import token optimizer
+    const tokenOptimizer = await import('../utils/tokenOptimizer.js').then(module => module.default);
+    
+    // Apply token optimization to messages to reduce costs
+    const optimizationResult = tokenOptimizer.optimizeMessages(messages, {
+      removeRepetition: true,
+      simplifyVerbose: true,
+      removeFillers: true,
+      fixRedundancy: true,
+      // Don't optimize system messages by default
+      optimizeSystem: false
+    });
+    
+    // Use optimized messages
+    const optimizedMessages = optimizationResult.messages;
+    
+    // Log token savings if significant
+    if (optimizationResult.tokenSavings > 10) {
+      logger.info('Token optimization applied to Perplexity request', {
+        tokenSavings: optimizationResult.tokenSavings,
+        optimizations: optimizationResult.optimizations
+      });
+    }
 
     try {
       // Get the user query from the last message
@@ -107,7 +131,7 @@ class PerplexityService {
       logger.info('Perplexity received query', { queryLength: userQuery.length });
 
       // Validate and prepare messages for the Perplexity API
-      const validatedMessages = this.validateMessages(messages);
+      const validatedMessages = this.validateMessages(optimizedMessages || messages);
 
       // Add a more explicit system message for internet search
       validatedMessages.unshift({
@@ -206,6 +230,24 @@ class PerplexityService {
         actualModel: actualModel,
         modelMatch: actualModel === selectedModel ? 'match' : 'mismatch'
       });
+      
+      // Track API cost if usage information is available
+      try {
+        // Dynamically import cost tracker to avoid circular dependencies
+        const costTracker = (await import('../utils/costTracker.js')).default;
+        
+        // Track cost based on token usage
+        costTracker.trackCost({
+          service: 'perplexity',
+          model: actualModel,
+          inputTokens: response.data.usage?.prompt_tokens || 0,
+          outputTokens: response.data.usage?.completion_tokens || 0,
+          totalTokens: response.data.usage?.total_tokens || 0,
+          tokensOptimized: optimizationResult?.tokenSavings || 0
+        });
+      } catch (error) {
+        logger.warn('Failed to track API cost', { error: error.message });
+      }
 
       // If there are no citations, log a warning
       if (!response.data.citations || response.data.citations.length === 0) {
