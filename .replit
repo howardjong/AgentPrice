@@ -909,3 +909,16 @@ args = ""
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "echo \"All health checks completed!\""
+
+[[workflows.workflow]]
+name = "API Optimization Test"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the API call optimization test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/apiCallOptimization.js"

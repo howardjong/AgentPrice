@@ -233,8 +233,20 @@ async function checkSystemHealth() {
     circuitBreaker: { ok: true, issues: [] },
     redisService: { ok: true, issues: [] },
     fileSystem: { ok: true, issues: [] },
-    modules: { ok: missingModules.length === 0, issues: [], missing: missingModules }
+    modules: { ok: missingModules.length === 0, issues: [], missing: missingModules },
+    apiOptimization: { ok: true, issues: [], status: 'optimized' }
   };
+
+  // Check if API calls are disabled (cost saving mode)
+  const { isLlmApiDisabled } = await import('../../utils/disableLlmCalls.js');
+  const apiCallsDisabled = isLlmApiDisabled();
+  if (apiCallsDisabled) {
+    console.log('- ✅ LLM API calls disabled - running in cost saving mode');
+    healthStatus.apiOptimization.status = 'disabled';
+  } else {
+    console.log('- ℹ️ LLM API calls enabled - potential costs may be incurred');
+    healthStatus.apiOptimization.status = 'enabled';
+  }
 
 
   console.log('\n======================================');
