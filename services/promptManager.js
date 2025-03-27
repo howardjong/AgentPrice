@@ -19,9 +19,11 @@ class PromptManager {
       await this.loadPromptConfig();
       await this.validatePromptStructure();
       logger.info('Prompt manager initialized successfully');
+      return true;
     } catch (error) {
-      logger.error('Failed to initialize prompt manager', { error: error.message });
-      throw error;
+      logger.error('Failed to initialize prompt manager', { error: error.message, stack: error.stack });
+      // Don't throw the error, just return false to indicate failure
+      return false;
     }
   }
   

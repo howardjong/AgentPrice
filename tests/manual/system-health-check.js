@@ -10,7 +10,7 @@ import logger from '../../utils/logger.js';
 import promptManager from '../../services/promptManager.js';
 import { CircuitBreaker } from '../../utils/monitoring.js';
 import { isLlmApiDisabled } from '../../utils/disableLlmCalls.js';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -134,12 +134,8 @@ async function checkSystemHealth() {
     'uuid', 'tailwind-merge'
   ];
   
-  // Check from package.json directly
-  const fs = await import('fs/promises');
-  const path = await import('path');
-  
   try {
-    const packageJsonPath = path.resolve('./package.json');
+    const packageJsonPath = path.join(__dirname, '../../package.json');
     const packageJsonContent = await fs.readFile(packageJsonPath, 'utf8');
     const packageJson = JSON.parse(packageJsonContent);
     
@@ -155,7 +151,7 @@ async function checkSystemHealth() {
         console.log(`- ✅ ${module} is installed (found in package.json)`);
         
         // Additionally verify the module directory exists
-        const modulePath = path.resolve('./node_modules/', module);
+        const modulePath = path.join(__dirname, '../../node_modules/', module);
         try {
           await fs.access(modulePath);
         } catch (err) {
@@ -170,8 +166,6 @@ async function checkSystemHealth() {
   }
   
   console.log('\n======================================');
-  console.log('       HEALTH CHECK COMPLETE');
-  console.log('======================================');
 }
 
 // Run the health check
