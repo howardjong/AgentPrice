@@ -326,5 +326,13 @@ class MemoryLeakDetector {
   }
 }
 
-const memoryLeakDetector = new MemoryLeakDetector();
+// Create a singleton instance only if it doesn't already exist
+let memoryLeakDetector;
+if (typeof global.memoryLeakDetector === 'undefined') {
+  memoryLeakDetector = new MemoryLeakDetector();
+  global.memoryLeakDetector = memoryLeakDetector;
+} else {
+  memoryLeakDetector = global.memoryLeakDetector;
+}
+
 export default memoryLeakDetector;
