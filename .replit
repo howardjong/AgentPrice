@@ -1292,3 +1292,16 @@ args = "export DISABLE_LLM_CALLS=true"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev"
+
+[[workflows.workflow]]
+name = "Performance Monitoring"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Start performance monitoring dashboard"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/systemPerformanceDashboard.js"
