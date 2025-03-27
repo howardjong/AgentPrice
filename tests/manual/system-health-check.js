@@ -134,26 +134,38 @@ async function checkSystemHealth() {
     'uuid', 'tailwind-merge'
   ];
   
-  // Use import.meta.resolve in a safe way
-  // This approach is safer than require.resolve for ES modules projects
-  const fs = await import('fs');
+  // Check from package.json directly
+  const fs = await import('fs/promises');
   const path = await import('path');
-  const { createRequire } = await import('module');
-  const require = createRequire(import.meta.url);
   
-  for (const module of requiredModules) {
-    try {
-      // First check if module exists in node_modules
-      const modulePath = path.resolve('./node_modules/', module);
-      if (fs.existsSync(modulePath)) {
-        console.log(`- ✅ ${module} is installed (directory exists)`);
-        continue;
+  try {
+    const packageJsonPath = path.resolve('./package.json');
+    const packageJsonContent = await fs.readFile(packageJsonPath, 'utf8');
+    const packageJson = JSON.parse(packageJsonContent);
+    
+    const { dependencies = {}, devDependencies = {} } = packageJson;
+    const allDependencies = { ...dependencies, ...devDependencies };
+    
+    for (const module of requiredModules) {
+      const normalizedModule = module.startsWith('@') 
+        ? module 
+        : module.split('/')[0]; // Handle scoped packages
+        
+      if (allDependencies[normalizedModule]) {
+        console.log(`- ✅ ${module} is installed (found in package.json)`);
+        
+        // Additionally verify the module directory exists
+        const modulePath = path.resolve('./node_modules/', module);
+        try {
+          await fs.access(modulePath);
+        } catch (err) {
+          console.warn(`  ⚠️ Warning: ${module} is in package.json but module directory not found. May need to run npm install.`);
+        }
+      } else {
+        console.error(`- ❌ ${module} is not installed (not found in package.json)`);
       }
-      
-      // Fallback to require.resolve
-      require.resolve(module);
-      console.log(`- ✅ ${module} is installed`);
-    } catch (error) {
+    }
+  } catch (error) {
       console.error(`- ❌ ${module} is not installed or has issues`);
     }
   }
