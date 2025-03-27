@@ -852,3 +852,60 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/redisServiceTest.js"
+
+[[workflows.workflow]]
+name = "Complete System Health Check"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the complete system health check"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"Running complete system health check...\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First run the standard health check"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/system-health-check.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then check the file system"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/fileSystemCheck.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Finally test Redis service"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/redisServiceTest.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"All health checks completed!\""
