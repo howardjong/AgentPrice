@@ -122,8 +122,8 @@ app.get('/api/health', (req, res) => {
   res.json(healthData);
 });
 
-// Handle missing content in analyze-file endpoint
-app.use((req, res, next) => {
+  // Handle missing content in analyze-file endpoint
+  app.use((req, res, next) => {
   if (req.path === '/api/analyze-file' && !req.body?.content) {
     return res.status(400).json({
       success: false,
