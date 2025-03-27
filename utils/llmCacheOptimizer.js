@@ -6,6 +6,7 @@
 import smartCache from './smartCache.js';
 import logger from './logger.js';
 import { areLlmCallsDisabled } from './disableLlmCalls.js';
+import { recordCacheHit, recordCacheMiss } from './cacheMonitor.js';
 
 /**
  * Wrapper function to cache LLM API calls
@@ -66,11 +67,7 @@ export async function cacheLlmCall(apiCallFn, options = {}) {
     const cacheResult = await smartCache.getOrCreate(
       cacheKey,
       apiCallFn,
-      {
-        ttl,
-        estimatedTokens,
-        model
-      }
+      ttl
     );
     
     // Log cache hit/miss
@@ -79,11 +76,19 @@ export async function cacheLlmCall(apiCallFn, options = {}) {
         service: 'llmCacheOptimizer',
         cacheKey: cacheKey.substring(0, 30)
       });
+      
+      // Record the cache hit in the monitor
+      const service = options.service || model.includes('claude') ? 'claude' : 'perplexity';
+      recordCacheHit(service, estimatedTokens);
     } else {
       logger.info('LLM cache miss', {
         service: 'llmCacheOptimizer',
         cacheKey: cacheKey.substring(0, 30)
       });
+      
+      // Record the cache miss in the monitor
+      const service = options.service || model.includes('claude') ? 'claude' : 'perplexity';
+      recordCacheMiss(service);
     }
     
     return cacheResult.value;
@@ -104,9 +109,15 @@ export async function cacheLlmCall(apiCallFn, options = {}) {
  * @returns {number} Number of keys cleared
  */
 export function clearLlmCache(keyPattern) {
-  // Implementation will depend on how smartCache handles clearing
-  // This is a placeholder for now
-  return 0;
+  if (!keyPattern) {
+    // Clear entire cache if no pattern provided
+    return smartCache.clear();
+  }
+  
+  // If we had a more sophisticated implementation, we would search through
+  // all cache keys and delete those matching the pattern.
+  // For now, we just clear the whole cache
+  return smartCache.clear();
 }
 
 export default {

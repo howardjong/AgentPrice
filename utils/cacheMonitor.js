@@ -74,9 +74,10 @@ function recordCacheMiss(service = 'unknown') {
 
 /**
  * Get cache hit rate statistics
+ * @param {boolean} detailed - Whether to include detailed stats
  * @returns {Object} Cache statistics including hit rate
  */
-function getCacheHitRateStats() {
+function getCacheHitRateStats(detailed = false) {
   const hitRate = cacheStats.totalLookups === 0 
     ? 0 
     : (cacheStats.hits / cacheStats.totalLookups) * 100;
@@ -86,7 +87,7 @@ function getCacheHitRateStats() {
     (cacheStats.serviceStats.claude.tokensSaved / 1000) * cacheStats.costRates.claude +
     (cacheStats.serviceStats.perplexity.tokensSaved / 1000) * cacheStats.costRates.perplexity;
   
-  return {
+  const stats = {
     hits: cacheStats.hits,
     misses: cacheStats.misses,
     totalLookups: cacheStats.totalLookups,
@@ -95,6 +96,27 @@ function getCacheHitRateStats() {
     estimatedCostSavings,
     serviceBreakdown: cacheStats.serviceStats
   };
+  
+  if (detailed) {
+    // Add more detailed statistics
+    stats.detailed = {
+      costRates: cacheStats.costRates,
+      savingsByService: {
+        claude: (cacheStats.serviceStats.claude.tokensSaved / 1000) * cacheStats.costRates.claude,
+        perplexity: (cacheStats.serviceStats.perplexity.tokensSaved / 1000) * cacheStats.costRates.perplexity
+      },
+      hitRateByService: {
+        claude: cacheStats.serviceStats.claude.hits + cacheStats.serviceStats.claude.misses > 0 
+          ? (cacheStats.serviceStats.claude.hits / (cacheStats.serviceStats.claude.hits + cacheStats.serviceStats.claude.misses)) * 100 
+          : 0,
+        perplexity: cacheStats.serviceStats.perplexity.hits + cacheStats.serviceStats.perplexity.misses > 0 
+          ? (cacheStats.serviceStats.perplexity.hits / (cacheStats.serviceStats.perplexity.hits + cacheStats.serviceStats.perplexity.misses)) * 100 
+          : 0
+      }
+    };
+  }
+  
+  return stats;
 }
 
 /**
