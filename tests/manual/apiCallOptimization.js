@@ -1,4 +1,98 @@
 /**
+ * Test for API Call Optimization
+ * This test checks that our cost-saving measures are working correctly
+ */
+
+import { areLlmCallsDisabled } from '../../utils/disableLlmCalls.js';
+import { getCacheHitRateStats } from '../../utils/cacheMonitor.js';
+import logger from '../../utils/logger.js';
+
+console.log('======================================');
+console.log('       API CALL OPTIMIZATION TEST');
+console.log('======================================');
+
+// Test 1: Check if LLM calls are disabled by default
+const llmCallsDisabled = areLlmCallsDisabled();
+console.log('\n[1] Checking LLM API call status...');
+if (llmCallsDisabled) {
+  console.log('- ✅ LLM API calls are disabled to save costs');
+} else {
+  console.log('- ⚠️ LLM API calls are enabled - costs may be incurred');
+  console.log('  To disable API calls, set ENABLE_LLM_CALLS=false');
+}
+
+// Test 2: Check circuit breaker status
+console.log('\n[2] Checking circuit breaker configuration...');
+try {
+  // Import dynamically to avoid circular dependencies
+  const { default: circuitBreaker } = await import('../../utils/circuitBreaker.js');
+
+  console.log('- ✅ Circuit breaker is configured');
+  console.log(`- Failure threshold: ${circuitBreaker.failureThreshold}`);
+  console.log(`- Reset timeout: ${circuitBreaker.resetTimeout}ms`);
+
+  // Check if any circuits are open
+  const openCircuits = circuitBreaker.getOpenCircuits();
+  if (openCircuits.length === 0) {
+    console.log('- ✅ No open circuits');
+  } else {
+    console.log(`- ⚠️ Open circuits detected: ${openCircuits.join(', ')}`);
+    console.log('  These services are temporarily unavailable');
+  }
+} catch (error) {
+  console.log('- ❌ Failed to check circuit breaker:', error.message);
+}
+
+// Test 3: Check cache monitoring
+console.log('\n[3] Checking cache monitor...');
+try {
+  const stats = getCacheHitRateStats();
+
+  console.log(`- Total lookups: ${stats.totalLookups}`);
+  console.log(`- Cache hits: ${stats.hits}`);
+  console.log(`- Cache misses: ${stats.misses}`);
+  console.log(`- Cache hit rate: ${stats.hitRate.toFixed(2)}%`);
+  console.log(`- Estimated token savings: ${stats.estimatedTokensSaved.toFixed(0)}`);
+  console.log(`- Estimated cost savings: $${stats.estimatedCostSavings.toFixed(4)}`);
+
+  if (stats.hitRate > 0) {
+    console.log('- ✅ Cache is working effectively');
+  } else if (stats.totalLookups === 0) {
+    console.log('- ℹ️ No cache lookups recorded yet');
+  } else {
+    console.log('- ⚠️ Cache hit rate is 0% - consider expanding cache usage');
+  }
+} catch (error) {
+  console.log('- ❌ Failed to check cache monitor:', error.message);
+}
+
+// Test 4: Check rate limiter
+console.log('\n[4] Checking rate limiter...');
+try {
+  // Import dynamically to avoid circular dependencies
+  const { default: rateLimiter } = await import('../../utils/rateLimiter.js');
+
+  console.log('- ✅ Rate limiter is configured');
+  console.log(`- Default limit: ${rateLimiter.defaultLimit} requests per minute`);
+  console.log(`- Burst limit: ${rateLimiter.burstLimit || 'Not configured'}`);
+
+  // Check current usage
+  const usage = rateLimiter.getCurrentUsage('system');
+  if (usage) {
+    console.log(`- Current system usage: ${usage.count}/${usage.limit}`);
+  } else {
+    console.log('- No current usage data');
+  }
+} catch (error) {
+  console.log('- ℹ️ Rate limiter not configured:', error.message);
+}
+
+console.log('\n======================================');
+console.log('    API CALL OPTIMIZATION TEST COMPLETE');
+console.log('======================================');
+
+
+/**
  * API Call Optimization Test
  * 
  * Tests the system's API call optimization features including caching,
@@ -83,6 +177,7 @@ testApiCallOptimization().catch(err => {
   console.error('Error in API call optimization test:', err);
   process.exit(1);
 });
+
 
 
 /**

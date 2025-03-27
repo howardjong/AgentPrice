@@ -1,49 +1,43 @@
+
 /**
- * LLM API Call Disable Utility
- * 
- * This module provides a way to globally disable LLM API calls to save costs
- * during development and testing.
+ * Utility to disable LLM API calls to save costs
+ * This file provides helper functions to disable or control LLM API calls
  */
 
 import logger from './logger.js';
 
-// Default to disabled if environment variable is set
-let llmApiCallsDisabled = process.env.DISABLE_LLM_API_CALLS === 'true';
+// Set to true by default to save costs unless explicitly enabled
+const LLM_CALLS_DISABLED = process.env.ENABLE_LLM_CALLS !== 'true';
 
 /**
- * Check if LLM API calls are currently disabled
- * @returns {boolean} True if LLM API calls are disabled
+ * Check if LLM API calls are disabled
+ * @returns {boolean} True if LLM calls are disabled
  */
-export function isLlmApiDisabled() {
-  return llmApiCallsDisabled;
+export function areLlmCallsDisabled() {
+  return LLM_CALLS_DISABLED;
 }
 
 /**
- * Enable LLM API calls
+ * Log the LLM call status on startup
  */
-export function enableLlmApiCalls() {
-  if (llmApiCallsDisabled) {
-    logger.info('LLM API calls have been enabled');
-    llmApiCallsDisabled = false;
+function logLlmCallStatus() {
+  if (LLM_CALLS_DISABLED) {
+    logger.info('LLM API calls are disabled to save costs', {
+      service: 'multi-llm-research',
+      component: 'apiOptimization'
+    });
+  } else {
+    logger.warn('LLM API calls are enabled - costs may be incurred', {
+      service: 'multi-llm-research',
+      component: 'apiOptimization'
+    });
   }
 }
 
-/**
- * Disable LLM API calls
- */
-export function disableLlmApiCalls() {
-  if (!llmApiCallsDisabled) {
-    logger.info('LLM API calls have been disabled');
-    llmApiCallsDisabled = true;
-  }
-}
+// Log status on module load
+logLlmCallStatus();
 
-/**
- * Toggle the current state of LLM API calls
- * @returns {boolean} The new state (true if disabled)
- */
-export function toggleLlmApiCalls() {
-  llmApiCallsDisabled = !llmApiCallsDisabled;
-  logger.info(`LLM API calls have been ${llmApiCallsDisabled ? 'disabled' : 'enabled'}`);
-  return llmApiCallsDisabled;
-}
+export default {
+  areLlmCallsDisabled,
+  LLM_CALLS_DISABLED
+};

@@ -1,99 +1,133 @@
+
 /**
  * Cache Monitor Utility
  * 
- * This module tracks cache usage statistics and estimates cost savings from cache hits.
+ * Provides tracking and statistics for cache performance to optimize API usage
+ * and reduce costs.
  */
 
-class CacheMonitor {
-  constructor() {
-    this.hits = 0;
-    this.misses = 0;
-    this.totalLookups = 0;
-    // Cost estimate per API call (in cents)
-    this.apiCallCost = 0.5;
-  }
+import logger from './logger.js';
 
-  recordHit(service = 'default') {
-    this.hits++;
-    this.totalLookups++;
-
-    // Track per-service statistics
-    if (!this.serviceStats) {
-      this.serviceStats = {};
-    }
-
-    if (!this.serviceStats[service]) {
-      this.serviceStats[service] = { hits: 0, misses: 0 };
-    }
-
-    this.serviceStats[service].hits++;
-    return true;
-  }
-
-  recordMiss(service = 'default') {
-    this.misses++;
-    this.totalLookups++;
-
-    // Track per-service statistics
-    if (!this.serviceStats) {
-      this.serviceStats = {};
-    }
-
-    if (!this.serviceStats[service]) {
-      this.serviceStats[service] = { hits: 0, misses: 0 };
-    }
-
-    this.serviceStats[service].misses++;
-    return false;
-  }
-
-  getStats() {
-    const hitRate = this.totalLookups === 0 
-      ? 0 
-      : (this.hits / this.totalLookups * 100).toFixed(2) + '%';
-
-    // Calculate estimated cost savings (hits × cost per call)
-    const estimatedSavings = `$${((this.hits * this.apiCallCost) / 100).toFixed(4)}`;
-
-    return {
-      hits: this.hits,
-      misses: this.misses,
-      totalLookups: this.totalLookups,
-      hitRate,
-      estimatedSavings,
-      serviceStats: this.serviceStats || {}
-    };
-  }
-
-  reset() {
-    this.hits = 0;
-    this.misses = 0;
-    this.totalLookups = 0;
-    this.serviceStats = {};
-  }
-}
-
-// Export a singleton instance
-export default new CacheMonitor();
-
-// Implementation of prompt management statistics
-const promptManager = {
-  countPrompts: function() {
-    try {
-      // This would typically scan the prompts directory and count files
-      // But for simplicity, we'll return a hard-coded value that matches our test
-      return { 
-        count: 8,
-        tokenSavings: 240,
-        optimizedCount: 4,
-        defaultCount: 4
-      };
-    } catch (error) {
-      console.error('Error counting prompts:', error);
-      return { count: 0, tokenSavings: 0, optimizedCount: 0, defaultCount: 0 };
-    }
+// Cache statistics
+const cacheStats = {
+  hits: 0,
+  misses: 0,
+  totalLookups: 0,
+  
+  // Token tracking for cost estimation
+  tokensSaved: 0,
+  
+  // Service-specific stats
+  serviceStats: {
+    claude: { hits: 0, misses: 0, tokensSaved: 0 },
+    perplexity: { hits: 0, misses: 0, tokensSaved: 0 }
+  },
+  
+  // Cost estimation rates ($/1K tokens)
+  costRates: {
+    claude: 0.025, // $0.025 per 1K tokens for Claude 3.5 Haiku (output)
+    perplexity: 0.015 // $0.015 per 1K tokens for Perplexity
   }
 };
 
-// Export the prompt manager to make it available to tests
-module.exports.promptManager = promptManager;
+/**
+ * Record a cache hit
+ * @param {string} service - Service name (claude, perplexity)
+ * @param {number} tokensSaved - Estimated tokens saved (optional)
+ */
+function recordCacheHit(service = 'unknown', tokensSaved = 0) {
+  cacheStats.hits++;
+  cacheStats.totalLookups++;
+  cacheStats.tokensSaved += tokensSaved;
+  
+  // Record service-specific stats
+  if (cacheStats.serviceStats[service]) {
+    cacheStats.serviceStats[service].hits++;
+    cacheStats.serviceStats[service].tokensSaved += tokensSaved;
+  }
+  
+  logger.debug(`Cache hit recorded for ${service}`, {
+    service: 'multi-llm-research',
+    component: 'cacheMonitor',
+    tokensSaved
+  });
+}
+
+/**
+ * Record a cache miss
+ * @param {string} service - Service name (claude, perplexity)
+ */
+function recordCacheMiss(service = 'unknown') {
+  cacheStats.misses++;
+  cacheStats.totalLookups++;
+  
+  // Record service-specific stats
+  if (cacheStats.serviceStats[service]) {
+    cacheStats.serviceStats[service].misses++;
+  }
+  
+  logger.debug(`Cache miss recorded for ${service}`, {
+    service: 'multi-llm-research',
+    component: 'cacheMonitor'
+  });
+}
+
+/**
+ * Get cache hit rate statistics
+ * @returns {Object} Cache statistics including hit rate
+ */
+function getCacheHitRateStats() {
+  const hitRate = cacheStats.totalLookups === 0 
+    ? 0 
+    : (cacheStats.hits / cacheStats.totalLookups) * 100;
+  
+  // Calculate estimated cost savings
+  const estimatedCostSavings = 
+    (cacheStats.serviceStats.claude.tokensSaved / 1000) * cacheStats.costRates.claude +
+    (cacheStats.serviceStats.perplexity.tokensSaved / 1000) * cacheStats.costRates.perplexity;
+  
+  return {
+    hits: cacheStats.hits,
+    misses: cacheStats.misses,
+    totalLookups: cacheStats.totalLookups,
+    hitRate,
+    estimatedTokensSaved: cacheStats.tokensSaved,
+    estimatedCostSavings,
+    serviceBreakdown: cacheStats.serviceStats
+  };
+}
+
+/**
+ * Reset cache statistics
+ */
+function resetCacheStats() {
+  cacheStats.hits = 0;
+  cacheStats.misses = 0;
+  cacheStats.totalLookups = 0;
+  cacheStats.tokensSaved = 0;
+  
+  // Reset service-specific stats
+  Object.keys(cacheStats.serviceStats).forEach(service => {
+    cacheStats.serviceStats[service] = { hits: 0, misses: 0, tokensSaved: 0 };
+  });
+  
+  logger.info('Cache statistics reset', {
+    service: 'multi-llm-research',
+    component: 'cacheMonitor'
+  });
+}
+
+// Initialize and export
+export {
+  recordCacheHit,
+  recordCacheMiss,
+  getCacheHitRateStats,
+  resetCacheStats
+};
+
+export default {
+  recordCacheHit,
+  recordCacheMiss,
+  getCacheHitRateStats,
+  resetCacheStats
+};

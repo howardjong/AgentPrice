@@ -35,7 +35,7 @@ localPort = 33065
 externalPort = 3002
 
 [workflows]
-runButton = "Run All System Checks"
+runButton = "Run Full Health Suite"
 
 [[workflows.workflow]]
 name = "Project"
@@ -1162,3 +1162,133 @@ args = "node tests/manual/system-health-check.js"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/apiCallOptimization.js"
+
+[[workflows.workflow]]
+name = "Run Full Health Suite"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run complete health check suite"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"      RUNNING COMPLETE HEALTH SUITE\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# System health check"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n[1/3] Running system health check..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/system-health-check.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# File system health check"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n[2/3] Running file system check..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/fileSystemCheck.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Redis service test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n[3/3] Testing Redis service..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/redisServiceTest.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"      API OPTIMIZATION TEST\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/apiCallOptimization.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"      ALL CHECKS COMPLETE\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow]]
+name = "Start Optimized App"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Start the application with API call optimization enabled"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export NODE_ENV=development"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export PORT=5000"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export DISABLE_LLM_CALLS=true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev"
