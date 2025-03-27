@@ -1554,23 +1554,11 @@ args = ""
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "# First run system health check to establish baseline"
+args = "# Apply optimizations with memory limits"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "node tests/manual/system-health-check.js || echo \"Health check failed but continuing...\""
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = ""
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "# Apply optimizations with shorter timeout"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "node --max-old-space-size=256 tests/manual/apply-optimizations.js"
+args = "node --max-old-space-size=512 tests/manual/apply-optimizations.js"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
@@ -1731,3 +1719,16 @@ args = 'echo -e "\n\nCurrent memory usage after optimizations:"'
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node -e \"console.table(process.memoryUsage())\""
+
+[[workflows.workflow]]
+name = "Test Advanced Optimizations"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Test the advanced optimization features"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/testAdvancedOptimizations.js"

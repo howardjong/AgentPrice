@@ -241,3 +241,105 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export default applyOptimizations;
+/**
+ * Performance Optimization Script
+ * 
+ * This script applies various optimizations to improve system performance
+ * and reduce memory usage, especially for LLM API calls.
+ */
+
+import logger from '../../utils/logger.js';
+import enhancedCache from '../../utils/enhancedCache.js';
+import batchProcessor from '../../utils/batchProcessor.js';
+import documentFingerprinter from '../../utils/documentFingerprinter.js';
+import contentChunker from '../../utils/contentChunker.js';
+
+// Set a timeout to prevent the script from running indefinitely
+const SCRIPT_TIMEOUT = 30000; // 30 seconds
+const timeoutId = setTimeout(() => {
+  logger.warn('Apply optimizations script timed out, exiting');
+  process.exit(0);
+}, SCRIPT_TIMEOUT);
+
+// Ensure the timeout is cleared if the script completes normally
+timeoutId.unref();
+
+/**
+ * Main optimization function
+ */
+async function applyOptimizations() {
+  console.log('=================================================');
+  console.log('   APPLYING PERFORMANCE OPTIMIZATIONS');
+  console.log('=================================================');
+  
+  try {
+    // 1. Optimize memory usage by cleaning up caches
+    console.log('\n[1/4] Optimizing memory usage...');
+    const cacheStats = enhancedCache.getStats();
+    console.log(`Cache before cleanup: ${cacheStats.size} items, ${cacheStats.sizeInBytes} bytes`);
+    
+    // Clean old items from the cache
+    const cleanedItems = enhancedCache.prune();
+    console.log(`Cleaned ${cleanedItems} stale items from cache`);
+    
+    // Clear fingerprint cache to reduce memory footprint
+    documentFingerprinter.clearCache();
+    console.log('Cleared document fingerprint cache');
+    
+    // 2. Optimize batch processor settings
+    console.log('\n[2/4] Optimizing batch processor...');
+    const batchStats = batchProcessor.getStats();
+    console.log(`Batch processor stats: ${batchStats.processed} items processed, ${batchStats.activeBatches} active batches`);
+    
+    // If memory usage is high, adjust batch settings
+    const memUsage = process.memoryUsage();
+    const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    
+    if (heapUsedMB > 200) { // If using more than 200MB
+      console.log(`High memory usage detected (${heapUsedMB}MB), reducing batch size`);
+      batchProcessor.options.maxBatchSize = Math.max(1, Math.floor(batchProcessor.options.maxBatchSize / 2));
+      console.log(`Adjusted batch size to ${batchProcessor.options.maxBatchSize}`);
+    }
+    
+    // 3. Optimize content chunker settings
+    console.log('\n[3/4] Optimizing content chunker...');
+    // Adjust chunking settings for better performance
+    contentChunker.options.defaultChunkSize = 6000; // Reduce default chunk size
+    contentChunker.options.defaultOverlap = 150;    // Reduce default overlap
+    console.log('Adjusted content chunker settings for better performance');
+    
+    // 4. Run global garbage collection if available
+    console.log('\n[4/4] Running memory cleanup...');
+    if (global.gc) {
+      console.log('Running garbage collection');
+      global.gc();
+    } else {
+      console.log('Manual garbage collection not available (run with --expose-gc to enable)');
+    }
+    
+    // Display current memory usage
+    const currentMemUsage = process.memoryUsage();
+    console.log('\nCurrent memory usage:');
+    console.log(`- RSS: ${Math.round(currentMemUsage.rss / 1024 / 1024)}MB`);
+    console.log(`- Heap Total: ${Math.round(currentMemUsage.heapTotal / 1024 / 1024)}MB`);
+    console.log(`- Heap Used: ${Math.round(currentMemUsage.heapUsed / 1024 / 1024)}MB`);
+    console.log(`- External: ${Math.round(currentMemUsage.external / 1024 / 1024)}MB`);
+    
+    console.log('\n=================================================');
+    console.log('   OPTIMIZATIONS SUCCESSFULLY APPLIED');
+    console.log('=================================================');
+    
+  } catch (error) {
+    console.error(`Error applying optimizations: ${error.message}`);
+    logger.error('Optimization error', { error: error.message, stack: error.stack });
+  } finally {
+    // Clear the timeout
+    clearTimeout(timeoutId);
+  }
+}
+
+// Run the optimization function
+applyOptimizations().catch(err => {
+  console.error('Fatal error in optimization script:', err);
+  process.exit(1);
+});
