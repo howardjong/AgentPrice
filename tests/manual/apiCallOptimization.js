@@ -271,45 +271,20 @@ async function runApiCallOptimizationTest() {
 
   // 7. Test Prompt Optimization
   console.log('\n[7] Testing Prompt Optimization:');
-  // Initialize a basic prompt manager with counting functionality
-  const promptManager = {
-    prompts: {
-      'perplexity': {
-        'default': 'Default perplexity prompt',
-        'optimized': 'Optimized perplexity prompt with reduced token count',
-      },
-      'claude': {
-        'default': 'Default claude prompt',
-        'optimized': 'Optimized claude prompt with reduced token count',
-      }
-    },
-    countPrompts: function() {
-      let count = 0;
-      let tokenSavings = 0;
+  try {
+    const promptManager = require('../../utils/promptManager');
+    const totalPrompts = promptManager.countPrompts();
+    console.log(`- ✅ Total prompts available: ${totalPrompts}`);
 
-      // Count total prompts and estimate token savings
-      for (const service in this.prompts) {
-        for (const promptType in this.prompts[service]) {
-          count++;
-          if (promptType === 'optimized') {
-            // Estimate token savings (just for demonstration)
-            const originalLength = this.prompts[service]['default']?.length || 0;
-            const optimizedLength = this.prompts[service][promptType]?.length || 0;
-            if (originalLength > optimizedLength) {
-              tokenSavings += (originalLength - optimizedLength) / 4; // Rough token estimate
-            }
-          }
-        }
-      }
-
-      return { count, tokenSavings };
+    // Get most used prompts if any have been used
+    const mostUsed = promptManager.getMostUsedPrompts(3);
+    if (mostUsed.length > 0) {
+      console.log('- Top 3 most used prompts:');
+      mostUsed.forEach((p, i) => console.log(`  ${i+1}. ${p.prompt}: ${p.usageCount} uses`));
     }
-  };
-
-  // Run the test
-  const promptStats = promptManager.countPrompts();
-  console.log(`- Found ${promptStats.count} prompts with estimated token savings of ${promptStats.tokenSavings.toFixed(0)} tokens`);
-  console.log('- ✅ Prompt optimization test passed');
+  } catch (err) {
+    console.log(`- ❌ Prompt optimization test failed: ${err.message}`);
+  }
 
   // 8. Optimization recommendations
   console.log('\n[8] Optimization recommendations:');

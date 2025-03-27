@@ -121,10 +121,17 @@ app.get('/api/health', (req, res) => {
   
   res.json(healthData);
 });
-          success: false,
-          error: 'Content is required'
-        });
-      }
+
+// Handle missing content in analyze-file endpoint
+app.use((req, res, next) => {
+  if (req.path === '/api/analyze-file' && !req.body?.content) {
+    return res.status(400).json({
+      success: false,
+      error: 'Content is required'
+    });
+  }
+  next();
+});
 
       // Save content to file in the content-uploads directory
       const timestamp = Date.now();
