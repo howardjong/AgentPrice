@@ -35,7 +35,7 @@ localPort = 33065
 externalPort = 3002
 
 [workflows]
-runButton = "Start Fixed App"
+runButton = "Run All System Checks"
 
 [[workflows.workflow]]
 name = "Project"
@@ -1145,3 +1145,20 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev:no-api"
+
+[[workflows.workflow]]
+name = "Run All System Checks"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run system health checks and API optimization test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/system-health-check.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/apiCallOptimization.js"
