@@ -1678,3 +1678,56 @@ args = "# Run the cost optimization test suite"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/testCostOptimization.js"
+
+[[workflows.workflow]]
+name = "Test Cost Optimizations"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the cost optimization test suite"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/testCostOptimization.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Wait a moment"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "sleep 2"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then run the advanced optimization tests"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/testAdvancedOptimizations.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Show current memory usage after tests"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo -e "\n\nCurrent memory usage after optimizations:"'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node -e \"console.table(process.memoryUsage())\""
