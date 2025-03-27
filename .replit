@@ -35,7 +35,7 @@ localPort = 33065
 externalPort = 3002
 
 [workflows]
-runButton = "Run Full Health Suite"
+runButton = "Run Performance Analysis"
 
 [[workflows.workflow]]
 name = "Project"
@@ -1406,3 +1406,28 @@ args = "echo \"   OPTIMIZATION SUITE COMPLETE\""
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "echo \"=======================================\""
+
+[[workflows.workflow]]
+name = "Run Performance Analysis"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First run system health check to confirm everything is working"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/system-health-check.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then start the performance monitoring dashboard"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/systemHealthDashboard.js"
