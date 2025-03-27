@@ -1624,3 +1624,44 @@ args = 'echo -e "\n\nCurrent memory usage after optimizations:"'
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node -e \"console.table(process.memoryUsage())\""
+
+[[workflows.workflow]]
+name = "Check Optimization Status"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Check memory usage before running optimizations"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"Current memory usage:\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node -e \"console.table(process.memoryUsage())\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run system health check"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"     SYSTEM OPTIMIZATION STATUS    \""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/system-health-check.js"
