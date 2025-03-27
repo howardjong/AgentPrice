@@ -11,6 +11,7 @@ import {
   insertMessageSchema 
 } from "@shared/schema";
 import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
+import { checkSystemHealth } from './services/healthCheck';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
@@ -62,27 +63,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await storage.updateServiceStatus('perplexity', perplexityStatus);
 
   // Health endpoint
-  app.get('/api/health', (req: Request, res: Response) => {
-    const healthData = {
-      redis: { 
-        status: 'Connected', 
-        healthy: true 
-      },
-      promptManager: { 
-        status: 'Healthy', 
-        healthy: true 
-      },
-      circuitBreaker: { 
-        status: 'Operational', 
-        healthy: true,
-        openCircuits: [] 
-      },
-      memory: { 
-        usagePercent: process.memoryUsage().heapUsed / process.memoryUsage().heapTotal * 100 
-      }
-    };
-    
-    res.json(healthData);
+  app.get('/api/health', async (req: Request, res: Response) => {
+    try {
+      // Check API status from storage
+      const apiStatus = await storage.getApiStatus();
+      
+      const healthData = {
+        redis: { 
+          status: 'Connected', 
+          healthy: true 
+        },
+        promptManager: { 
+          status: 'Healthy', 
+          healthy: true 
+        },
+        circuitBreaker: { 
+          status: 'Operational', 
+          healthy: true,
+          openCircuits: [] 
+        },
+        memory: { 
+          usagePercent: process.memoryUsage().heapUsed / process.memoryUsage().heapTotal * 100 
+        },
+        apiServices: {
+          claude: apiStatus.claude,
+          perplexity: apiStatus.perplexity,
+          server: apiStatus.server
+        }
+      };
+      
+      const allHealthy = 
+        healthData.redis.healthy && 
+        healthData.promptManager.healthy && 
+        healthData.circuitBreaker.healthy;
+      
+      const statusCode = allHealthy ? 200 : 503;
+      res.status(statusCode).json(healthData);
+    } catch (error: any) {
+      console.error('Health check failed:', error);
+      res.status(500).json({
+        status: 'error',
+        message: `Health check failed: ${error.message}`,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+  
+  // Assistant health check endpoint - simplified version for external health checkers
+  // This endpoint DOES NOT make real API calls to minimize costs
+  app.get('/api/assistant/health', async (req: Request, res: Response) => {
+    try {
+      // Use the health check service to check system health without making API calls
+      const healthStatus = checkSystemHealth();
+      
+      // Map the status to HTTP status code
+      const statusCode = healthStatus.status === 'healthy' ? 200 : 
+                        healthStatus.status === 'degraded' ? 200 : 503;
+      
+      // Create a simplified response
+      const responseBody = {
+        status: healthStatus.status,
+        apiKeys: {
+          allPresent: healthStatus.apiKeys.allKeysPresent
+        },
+        system: {
+          memory: {
+            usagePercent: Math.round(healthStatus.memory.usagePercent * 100) / 100,
+            healthy: healthStatus.memory.healthy
+          },
+          fileSystem: healthStatus.fileSystem.allDirsExist
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      res.status(statusCode).json(responseBody);
+    } catch (error: any) {
+      console.error('Assistant health check failed:', error);
+      res.status(500).json({ 
+        status: 'error',
+        message: `Health check failed: ${error.message}`,
+        timestamp: new Date().toISOString() 
+      });
+    }
   });
 
   // Serve the charts view page
