@@ -66,80 +66,629 @@
         </div>
     </div>
 
+    <div style="margin: 20px 0; display: flex; justify-content: center; gap: 20px;">
+        <button id="regenerate-button" style="padding: 10px 20px; background-color: #3498db; color: #fff; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+            Regenerate Random Data
+        </button>
+        <button id="test-claude-button" style="padding: 10px 20px; background-color: #9b59b6; color: #fff; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+            Test With Claude
+        </button>
+    </div>
+    
+    <div id="file-selector" style="margin: 20px 0; padding: 15px; background-color: #f5f5f5; border-radius: 5px;">
+        <h3>Available Chart Files</h3>
+        <div id="file-list" style="margin-top: 10px;">Loading chart files...</div>
+    </div>
+
     <script>
-        // Function to load and render charts
-        async function loadAndRenderCharts() {
+        // Function to load and display available chart files
+        async function loadChartFiles() {
             try {
-                // Load Van Westendorp chart
-                const vanWestendorpResponse = await fetch('/tests/output/van_westendorp_plotly.json');
-                const vanWestendorpData = await vanWestendorpResponse.json();
+                // Instead of getting from API, we'll use hardcoded options for now
+                const fileListElement = document.getElementById('file-list');
                 
-                if (vanWestendorpData && vanWestendorpData.plotlyConfig) {
-                    Plotly.newPlot('van-westendorp-chart', 
-                        vanWestendorpData.plotlyConfig.data, 
-                        vanWestendorpData.plotlyConfig.layout,
-                        vanWestendorpData.plotlyConfig.config || {});
-                        
-                    // Display insights
-                    const insightsList = document.getElementById('van-westendorp-insights-list');
-                    if (vanWestendorpData.insights && vanWestendorpData.insights.length > 0) {
-                        vanWestendorpData.insights.forEach(insight => {
-                            const li = document.createElement('li');
-                            li.textContent = insight;
-                            insightsList.appendChild(li);
-                        });
-                    }
+                // Create mock files data
+                const mockFiles = [
+                    { name: 'van_westendorp_plotly.json', url: 'van_westendorp' },
+                    { name: 'conjoint_plotly.json', url: 'conjoint' },
+                    { name: 'bar_chart_plotly.json', url: 'bar' }
+                ];
+                
+                // Group files by type
+                const vanWestendorpFiles = mockFiles.filter(file => file.name.includes('van_westendorp'));
+                const conjointFiles = mockFiles.filter(file => file.name.includes('conjoint'));
+                const barChartFiles = mockFiles.filter(file => file.name.includes('bar'));
+                
+                // Load the default charts
+                if (vanWestendorpFiles.length > 0) {
+                    loadChart(vanWestendorpFiles[0].url, 'van-westendorp-chart', 'van-westendorp-insights-list');
                 }
-
-                // Load Conjoint chart
-                const conjointResponse = await fetch('/tests/output/conjoint_plotly.json');
-                const conjointData = await conjointResponse.json();
                 
-                if (conjointData && conjointData.plotlyConfig) {
-                    Plotly.newPlot('conjoint-chart', 
-                        conjointData.plotlyConfig.data, 
-                        conjointData.plotlyConfig.layout,
-                        conjointData.plotlyConfig.config || {});
-                        
-                    // Display insights
-                    const insightsList = document.getElementById('conjoint-insights-list');
-                    if (conjointData.insights && conjointData.insights.length > 0) {
-                        conjointData.insights.forEach(insight => {
-                            const li = document.createElement('li');
-                            li.textContent = insight;
-                            insightsList.appendChild(li);
-                        });
-                    }
+                if (conjointFiles.length > 0) {
+                    loadChart(conjointFiles[0].url, 'conjoint-chart', 'conjoint-insights-list');
                 }
-
-                // Load Bar chart
-                const barChartResponse = await fetch('/tests/output/bar_chart_plotly.json');
-                const barChartData = await barChartResponse.json();
                 
-                if (barChartData && barChartData.plotlyConfig) {
-                    Plotly.newPlot('bar-chart', 
-                        barChartData.plotlyConfig.data, 
-                        barChartData.plotlyConfig.layout,
-                        barChartData.plotlyConfig.config || {});
+                if (barChartFiles.length > 0) {
+                    loadChart(barChartFiles[0].url, 'bar-chart', 'bar-insights-list');
+                }
+                
+                // Display file list
+                let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px;">';
+                
+                // Add heading for mock data
+                html += '<div style="grid-column: 1 / -1; padding: 10px; background-color: #f8f9fa; border-radius: 5px; margin-bottom: 15px;">';
+                html += '<h3 style="margin: 0; color: #2c3e50;">Mock Chart Data</h3>';
+                html += '<p style="margin: 5px 0 0 0;">This is showing hardcoded example data for demonstration purposes.</p>';
+                html += '</div>';
+                
+                // Van Westendorp files
+                if (vanWestendorpFiles.length > 0) {
+                    html += '<div><h4>Van Westendorp Files</h4><ul>';
+                    vanWestendorpFiles.forEach(file => {
+                        html += `<li><a href="#" onclick="loadChart('${file.url}', 'van-westendorp-chart', 'van-westendorp-insights-list'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
+                    });
+                    html += '</ul></div>';
+                }
+                
+                // Conjoint files
+                if (conjointFiles.length > 0) {
+                    html += '<div><h4>Conjoint Analysis Files</h4><ul>';
+                    conjointFiles.forEach(file => {
+                        html += `<li><a href="#" onclick="loadChart('${file.url}', 'conjoint-chart', 'conjoint-insights-list'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
+                    });
+                    html += '</ul></div>';
+                }
+                
+                // Bar chart files
+                if (barChartFiles.length > 0) {
+                    html += '<div><h4>Bar Chart Files</h4><ul>';
+                    barChartFiles.forEach(file => {
+                        html += `<li><a href="#" onclick="loadChart('${file.url}', 'bar-chart', 'bar-insights-list'); return false;" style="text-decoration: none; color: #3498db;">${file.name}</a></li>`;
+                    });
+                    html += '</ul></div>';
+                }
+                
+                html += '</div>';
+                fileListElement.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading chart files:', error);
+                document.getElementById('file-list').innerHTML = `<p style="color: red;">Error loading chart files: ${error.message}</p>`;
+            }
+        }
+        
+        // Utility functions for generating varied test data
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+        
+        function generateSmoothCurve(pointCount, startValue, endValue, noiseLevel = 0.1) {
+            const result = [];
+            for (let i = 0; i < pointCount; i++) {
+                // Base value with linear interpolation
+                const ratio = i / (pointCount - 1);
+                const baseValue = startValue + (endValue - startValue) * ratio;
+                
+                // Add some noise to make it look more realistic
+                const noise = (Math.random() - 0.5) * 2 * noiseLevel * (endValue - startValue);
+                const value = Math.max(0, Math.min(100, baseValue + noise));
+                
+                result.push(value);
+            }
+            return result;
+        }
+        
+        function generateVanWestendorpData() {
+            // Generate price points
+            const priceMin = getRandomInt(1, 20);
+            const priceMax = getRandomInt(80, 150);
+            const priceStep = (priceMax - priceMin) / 5;
+            const prices = Array.from({length: 6}, (_, i) => Math.round(priceMin + i * priceStep));
+            
+            // Generate curves with some variability
+            const tooExpensiveStart = getRandomInt(1, 10);
+            const tooExpensiveEnd = getRandomInt(85, 99);
+            const tooExpensive = generateSmoothCurve(6, tooExpensiveStart, tooExpensiveEnd);
+            
+            const expensiveButWorthStart = getRandomInt(5, 15);
+            const expensiveButWorthEnd = getRandomInt(75, 95);
+            const expensiveButWorth = generateSmoothCurve(6, expensiveButWorthStart, expensiveButWorthEnd);
+            
+            const goodValueStart = getRandomInt(75, 95);
+            const goodValueEnd = getRandomInt(1, 15);
+            const goodValue = generateSmoothCurve(6, goodValueStart, goodValueEnd);
+            
+            const tooCheapStart = getRandomInt(85, 99);
+            const tooCheapEnd = getRandomInt(1, 10);
+            const tooCheap = generateSmoothCurve(6, tooCheapStart, tooCheapEnd);
+            
+            // Approximate intersection point (optimal price point)
+            let optimalIndex = 0;
+            let minDiff = 100;
+            for (let i = 0; i < 6; i++) {
+                const diff = Math.abs(tooExpensive[i] - goodValue[i]);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    optimalIndex = i;
+                }
+            }
+            
+            const optimalPrice = prices[optimalIndex];
+            const optimalPercentage = Math.round((tooExpensive[optimalIndex] + goodValue[optimalIndex]) / 2);
+            
+            // Generate insights
+            const insights = [
+                `The optimal price point is around $${optimalPrice} where 'Too Expensive' and 'Good Value' curves intersect.`,
+                `At $${prices[1]}, ${Math.round(goodValue[1])}% of respondents consider the product a good value.`,
+                `The acceptable price range appears to be between $${prices[1]} and $${prices[4]}.`
+            ];
+            
+            return {
+                prices,
+                tooExpensive,
+                expensiveButWorth,
+                goodValue,
+                tooCheap,
+                optimalPrice,
+                optimalPercentage,
+                insights
+            };
+        }
+        
+        function generateConjointData() {
+            // Generate random number of features (3-5)
+            const featureCount = getRandomInt(3, 5);
+            
+            // Generate feature names
+            const featureTypes = ['Premium', 'Standard', 'Basic', 'Advanced', 'Entry-level'];
+            const features = featureTypes.slice(0, featureCount);
+            
+            // Generate importance values that sum to 1.0
+            let remaining = 1.0;
+            const values = [];
+            
+            for (let i = 0; i < featureCount - 1; i++) {
+                // For all but the last feature, assign a random portion of the remaining value
+                const portion = Math.round((Math.random() * 0.6 * remaining + 0.2 * remaining) * 100) / 100;
+                values.push(portion);
+                remaining -= portion;
+            }
+            
+            // Last feature gets whatever is left
+            values.push(Math.round(remaining * 100) / 100);
+            
+            // Sort in descending order for better visualization
+            const sortedData = features.map((feature, index) => ({ 
+                feature, 
+                value: values[index]
+            })).sort((a, b) => b.value - a.value);
+            
+            const sortedFeatures = sortedData.map(item => item.feature);
+            const sortedValues = sortedData.map(item => item.value);
+            
+            // Generate insights based on the data
+            const insights = [
+                `${sortedFeatures[0]} features have the highest relative importance at ${Math.round(sortedValues[0] * 100)}%.`,
+                `${sortedFeatures[1]} features are valued at ${Math.round(sortedValues[1] * 100)}% importance.`,
+                `${sortedFeatures[sortedFeatures.length-1]} features contribute ${Math.round(sortedValues[sortedValues.length-1] * 100)}% to the overall product value perception.`
+            ];
+            
+            return { 
+                features: sortedFeatures, 
+                values: sortedValues,
+                insights
+            };
+        }
+        
+        function generateBarChartData() {
+            // Generate random number of categories (3-6)
+            const categoryCount = getRandomInt(3, 6);
+            
+            // Generate category names
+            const categoryOptions = ['Category A', 'Category B', 'Category C', 'Category D', 'Category E', 'Category F'];
+            const categories = categoryOptions.slice(0, categoryCount);
+            
+            // Generate values
+            const values = categories.map(() => getRandomInt(5, 30));
+            
+            // Find max, min, and calculate average
+            const maxValue = Math.max(...values);
+            const maxCategory = categories[values.indexOf(maxValue)];
+            
+            const minValue = Math.min(...values);
+            const minCategory = categories[values.indexOf(minValue)];
+            
+            const avgValue = values.reduce((sum, val) => sum + val, 0) / values.length;
+            
+            // Generate insights
+            const insights = [
+                `${maxCategory} shows the highest value at ${maxValue}.`,
+                `${minCategory} has the lowest value at ${minValue}.`,
+                `The average value across all categories is ${avgValue.toFixed(2)}.`
+            ];
+            
+            return {
+                categories,
+                values,
+                insights
+            };
+        }
+        
+        // Function to load and display a specific chart
+        async function loadChart(url, chartElementId, insightsListId) {
+            try {
+                console.log("Loading chart from URL:", url);
+                
+                // Generate variable data for testing
+                let chartData;
+                
+                if (url.includes('van_westendorp')) {
+                    // Generate Van Westendorp data with variability
+                    const data = generateVanWestendorpData();
+                    
+                    chartData = {
+                        plotlyConfig: {
+                            data: [
+                                {
+                                    x: data.prices,
+                                    y: data.tooExpensive,
+                                    mode: 'lines+markers',
+                                    name: 'Too Expensive',
+                                    line: { color: '#e74c3c', width: 3 },
+                                    marker: { size: 8 }
+                                },
+                                {
+                                    x: data.prices,
+                                    y: data.expensiveButWorth,
+                                    mode: 'lines+markers',
+                                    name: 'Expensive But Worth It',
+                                    line: { color: '#f39c12', width: 3 },
+                                    marker: { size: 8 }
+                                },
+                                {
+                                    x: data.prices,
+                                    y: data.goodValue,
+                                    mode: 'lines+markers',
+                                    name: 'Good Value',
+                                    line: { color: '#2ecc71', width: 3 },
+                                    marker: { size: 8 }
+                                },
+                                {
+                                    x: data.prices,
+                                    y: data.tooCheap,
+                                    mode: 'lines+markers',
+                                    name: 'Too Cheap',
+                                    line: { color: '#3498db', width: 3 },
+                                    marker: { size: 8 }
+                                }
+                            ],
+                            layout: {
+                                title: 'Van Westendorp Price Sensitivity Analysis',
+                                xaxis: { title: 'Price ($)' },
+                                yaxis: { title: 'Percentage of Respondents' },
+                                annotations: [
+                                    {
+                                        x: data.optimalPrice,
+                                        y: data.optimalPercentage,
+                                        text: 'Optimal Price Point',
+                                        showarrow: true,
+                                        arrowhead: 2,
+                                        arrowsize: 1,
+                                        arrowwidth: 2,
+                                        ax: 40,
+                                        ay: -40
+                                    }
+                                ]
+                            },
+                            config: { responsive: true }
+                        },
+                        insights: data.insights
+                    };
+                } else if (url.includes('conjoint')) {
+                    // Generate Conjoint data with variability
+                    const data = generateConjointData();
+                    
+                    chartData = {
+                        plotlyConfig: {
+                            data: [
+                                {
+                                    x: data.features,
+                                    y: data.values,
+                                    type: 'bar',
+                                    name: 'Feature Importance',
+                                    marker: { color: '#3498db' }
+                                }
+                            ],
+                            layout: {
+                                title: 'Conjoint Analysis: Feature Importance',
+                                xaxis: { title: 'Feature Level' },
+                                yaxis: { 
+                                    title: 'Relative Importance',
+                                    tickformat: ',.0%' 
+                                }
+                            },
+                            config: { responsive: true }
+                        },
+                        insights: data.insights
+                    };
+                } else if (url.includes('bar')) {
+                    // Generate Bar chart data with variability
+                    const data = generateBarChartData();
+                    
+                    chartData = {
+                        plotlyConfig: {
+                            data: [
+                                {
+                                    x: data.categories,
+                                    y: data.values,
+                                    type: 'bar',
+                                    marker: { color: '#9b59b6' }
+                                }
+                            ],
+                            layout: {
+                                title: 'Sample Bar Chart',
+                                xaxis: { title: 'Categories' },
+                                yaxis: { title: 'Values' }
+                            },
+                            config: { responsive: true }
+                        },
+                        insights: data.insights
+                    };
+                }
+                
+                if (chartData && chartData.plotlyConfig) {
+                    Plotly.newPlot(chartElementId, 
+                        chartData.plotlyConfig.data, 
+                        chartData.plotlyConfig.layout,
+                        chartData.plotlyConfig.config || {});
                         
                     // Display insights
-                    const insightsList = document.getElementById('bar-insights-list');
-                    if (barChartData.insights && barChartData.insights.length > 0) {
-                        barChartData.insights.forEach(insight => {
+                    const insightsList = document.getElementById(insightsListId);
+                    insightsList.innerHTML = ''; // Clear previous insights
+                    
+                    if (chartData.insights && chartData.insights.length > 0) {
+                        chartData.insights.forEach(insight => {
                             const li = document.createElement('li');
                             li.textContent = insight;
                             insightsList.appendChild(li);
                         });
                     }
+                    
+                    // Add a note about randomized data
+                    const noteElement = document.createElement('div');
+                    noteElement.style.marginTop = '15px';
+                    noteElement.style.padding = '8px';
+                    noteElement.style.backgroundColor = '#f8f9fa';
+                    noteElement.style.borderLeft = '4px solid #3498db';
+                    noteElement.style.fontSize = '14px';
+                    noteElement.innerHTML = '<strong>Note:</strong> This is randomly generated test data. New data is generated each time you reload the page.';
+                    insightsList.parentNode.appendChild(noteElement);
+                } else {
+                    throw new Error("Chart data not found or invalid format");
                 }
             } catch (error) {
-                console.error('Error loading charts:', error);
-                document.body.innerHTML += `<div style="color: red; padding: 20px;">Error loading charts: ${error.message}</div>`;
+                console.error('Error loading chart:', error);
+                document.getElementById(chartElementId).innerHTML = `<div style="color: red; padding: 20px;">Error loading chart: ${error.message}</div>`;
+            }
+        }
+        
+        // Function to view a JSON file in a readable format
+        async function viewJsonFile(url) {
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                // Create a modal to display the JSON
+                const modal = document.createElement('div');
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.width = '100%';
+                modal.style.height = '100%';
+                modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
+                modal.style.zIndex = '1000';
+                modal.style.display = 'flex';
+                modal.style.justifyContent = 'center';
+                modal.style.alignItems = 'center';
+                
+                const content = document.createElement('div');
+                content.style.backgroundColor = '#fff';
+                content.style.padding = '20px';
+                content.style.borderRadius = '5px';
+                content.style.maxWidth = '90%';
+                content.style.maxHeight = '90%';
+                content.style.overflow = 'auto';
+                
+                const closeButton = document.createElement('button');
+                closeButton.textContent = 'Close';
+                closeButton.style.padding = '8px 16px';
+                closeButton.style.backgroundColor = '#e74c3c';
+                closeButton.style.color = '#fff';
+                closeButton.style.border = 'none';
+                closeButton.style.borderRadius = '4px';
+                closeButton.style.cursor = 'pointer';
+                closeButton.style.marginBottom = '10px';
+                closeButton.onclick = () => document.body.removeChild(modal);
+                
+                const pre = document.createElement('pre');
+                pre.style.whiteSpace = 'pre-wrap';
+                pre.style.fontSize = '14px';
+                pre.textContent = JSON.stringify(data, null, 2);
+                
+                content.appendChild(closeButton);
+                content.appendChild(pre);
+                modal.appendChild(content);
+                document.body.appendChild(modal);
+            } catch (error) {
+                console.error('Error viewing JSON file:', error);
+                alert(`Error viewing JSON file: ${error.message}`);
             }
         }
 
-        // Load charts when page loads
-        window.addEventListener('load', loadAndRenderCharts);
+        // Function to regenerate all charts with new random data
+        function regenerateAllCharts() {
+            // Add a small animation to show something is happening
+            const button = document.getElementById('regenerate-button');
+            button.textContent = 'Generating...';
+            button.style.backgroundColor = '#2980b9';
+            
+            // Add a small delay so the UI update is visible
+            setTimeout(() => {
+                // Load charts with new random data
+                loadChart('van_westendorp', 'van-westendorp-chart', 'van-westendorp-insights-list');
+                loadChart('conjoint', 'conjoint-chart', 'conjoint-insights-list');
+                loadChart('bar', 'bar-chart', 'bar-insights-list');
+                
+                // Reset button
+                button.textContent = 'Regenerate Random Data';
+                button.style.backgroundColor = '#3498db';
+            }, 300);
+        }
+        
+        // Load chart files when page loads
+        window.addEventListener('load', loadChartFiles);
+        
+        // Function to test Claude's visualization capabilities
+        async function testWithClaude() {
+            try {
+                // Add a small animation to show something is happening
+                const button = document.getElementById('test-claude-button');
+                button.textContent = 'Testing with Claude...';
+                button.style.backgroundColor = '#8e44ad';
+                
+                // Get the current Van Westendorp data for testing
+                const vanWestendorpData = generateVanWestendorpData();
+                
+                // Prepare data for Claude in the expected format
+                const claudeData = {
+                    data: vanWestendorpData.prices.map((price, i) => ({
+                        price,
+                        tooExpensive: vanWestendorpData.tooExpensive[i],
+                        expensiveButWorth: vanWestendorpData.expensiveButWorth[i],
+                        goodValue: vanWestendorpData.goodValue[i],
+                        tooCheap: vanWestendorpData.tooCheap[i]
+                    })),
+                    type: 'van_westendorp',
+                    title: 'Van Westendorp Price Sensitivity Test',
+                    description: 'Testing Claude\'s ability to generate Plotly.js configurations from random data'
+                };
+                
+                // Send data to Claude
+                const response = await fetch('/api/test-claude-visualization', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(claudeData)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                
+                // Display the results
+                if (result.success) {
+                    // Create a modal to show the comparison
+                    const modal = document.createElement('div');
+                    modal.style.position = 'fixed';
+                    modal.style.top = '0';
+                    modal.style.left = '0';
+                    modal.style.width = '100%';
+                    modal.style.height = '100%';
+                    modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
+                    modal.style.zIndex = '1000';
+                    modal.style.display = 'flex';
+                    modal.style.flexDirection = 'column';
+                    modal.style.alignItems = 'center';
+                    modal.style.justifyContent = 'center';
+                    modal.style.padding = '20px';
+                    modal.style.overflow = 'auto';
+                    
+                    // Create content for the modal
+                    const content = document.createElement('div');
+                    content.style.backgroundColor = 'white';
+                    content.style.padding = '20px';
+                    content.style.borderRadius = '5px';
+                    content.style.width = '90%';
+                    content.style.maxWidth = '900px';
+                    content.style.maxHeight = '90%';
+                    content.style.overflow = 'auto';
+                    
+                    // Add a close button
+                    const closeBtn = document.createElement('button');
+                    closeBtn.innerText = 'Close';
+                    closeBtn.style.padding = '8px 16px';
+                    closeBtn.style.backgroundColor = '#e74c3c';
+                    closeBtn.style.color = 'white';
+                    closeBtn.style.border = 'none';
+                    closeBtn.style.borderRadius = '4px';
+                    closeBtn.style.cursor = 'pointer';
+                    closeBtn.style.float = 'right';
+                    closeBtn.onclick = () => document.body.removeChild(modal);
+                    
+                    // Add title
+                    const title = document.createElement('h2');
+                    title.innerText = 'Claude Visualization Test Results';
+                    
+                    // Add model info
+                    const modelInfo = document.createElement('p');
+                    modelInfo.innerText = `Model used: ${result.claudeResult.modelUsed || 'Unknown'}`;
+                    
+                    // Add success message
+                    const success = document.createElement('p');
+                    success.innerText = 'Claude successfully generated a Plotly.js configuration!';
+                    success.style.color = '#27ae60';
+                    success.style.fontWeight = 'bold';
+                    
+                    // Add the content to the modal
+                    content.appendChild(closeBtn);
+                    content.appendChild(title);
+                    content.appendChild(modelInfo);
+                    content.appendChild(success);
+                    
+                    // Add code display
+                    const codeHeader = document.createElement('h3');
+                    codeHeader.innerText = 'Generated Plotly Configuration:';
+                    
+                    const codePre = document.createElement('pre');
+                    codePre.style.backgroundColor = '#f8f9fa';
+                    codePre.style.padding = '10px';
+                    codePre.style.borderRadius = '4px';
+                    codePre.style.overflowX = 'auto';
+                    codePre.style.fontSize = '14px';
+                    
+                    // Stringify the configuration with formatting
+                    codePre.innerText = JSON.stringify(result.claudeResult.plotlyConfig, null, 2);
+                    
+                    content.appendChild(codeHeader);
+                    content.appendChild(codePre);
+                    
+                    // Add the modal to the document
+                    modal.appendChild(content);
+                    document.body.appendChild(modal);
+                } else {
+                    alert(`Failed to test Claude: ${result.error}`);
+                }
+                
+                // Reset button
+                button.textContent = 'Test With Claude';
+                button.style.backgroundColor = '#9b59b6';
+            } catch (error) {
+                console.error('Error testing with Claude:', error);
+                alert(`Error testing with Claude: ${error.message}`);
+                
+                // Reset button
+                document.getElementById('test-claude-button').textContent = 'Test With Claude';
+                document.getElementById('test-claude-button').style.backgroundColor = '#9b59b6';
+            }
+        }
+        
+        // Add event listener for regenerate button
+        document.getElementById('regenerate-button').addEventListener('click', regenerateAllCharts);
+        
+        // Add event listener for test with Claude button
+        document.getElementById('test-claude-button').addEventListener('click', testWithClaude);
     </script>
 </body>
 </html>

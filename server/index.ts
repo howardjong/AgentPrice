@@ -50,7 +50,7 @@ app.get('/health', (req, res) => {
 // Initialize required services
 async function initializeServices() {
   try {
-    // Check API keys first
+    // Check API keys without making API calls
     const apiStatus = checkApiKeys();
     logger.info('API key status checked', apiStatus);
 
@@ -58,14 +58,19 @@ async function initializeServices() {
       logger.warn('Some API keys are missing. This may affect functionality.');
     }
 
+    // Only connect to Redis and initialize prompt manager
+    // No API calls to external LLMs
     logger.info('Initializing Redis client');
     await redisClient.connect();
     logger.info('Redis client initialized successfully');
 
-    // Initialize prompt manager
+    // Initialize prompt manager without making API calls
     logger.info('Initializing prompt manager');
     await promptManager.initialize();
     logger.info('Prompt manager initialized successfully');
+    
+    // Disable automatic initialization of mock research data
+    logger.info('Skipping mock research data initialization to avoid API calls');
   } catch (error: any) {
     logger.error('Error initializing services', { error: error.message });
   }
@@ -90,31 +95,53 @@ async function initializeServices() {
     serveStatic(app);
   }
 
-  const port = process.env.PORT || 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-    keepAliveTimeout: 65000,
-    headersTimeout: 66000,
-  }, async () => {
-    logger.info(`Server running on port ${port}`);
-
-    // Initialize mock research data if in development mode or if INIT_MOCK_DATA env variable is set
-    if (app.get("env") === "development" || process.env.INIT_MOCK_DATA === "true") {
-      try {
-        logger.info("Starting mock research data initialization");
-        const result = await initializeAllMockResearch();
-        logger.info("Mock research data initialized successfully", { 
-          totalJobs: result.total,
-          productQuestions: result.productQuestions.length,
-          researchTopics: result.researchTopics.length
-        });
-      } catch (error: any) {
-        logger.error("Failed to initialize mock research data", { error: error.message });
-      }
+  // Try multiple ports starting with the specified one
+  const startPort = parseInt(process.env.PORT || "5000", 10);
+  const tryPorts = [startPort, 5001, 5002, 5003, 5004];
+  
+  const startServer = async (portIndex = 0) => {
+    if (portIndex >= tryPorts.length) {
+      logger.error("Failed to bind to any port. All ports are busy.");
+      process.exit(1);
+      return;
     }
-  });
+    
+    const port = tryPorts[portIndex];
+    
+    try {
+      server.listen({
+        port,
+        host: "0.0.0.0",
+        reusePort: true,
+        keepAliveTimeout: 65000,
+        headersTimeout: 66000,
+      })
+      .on('listening', () => {
+        logger.info(`Server running on port ${port}`);
+        
+        // Skip automatic initialization of mock data to avoid API calls
+        // User can manually initialize data if needed via API endpoint
+        logger.info("Skipping automatic mock research data initialization to avoid unwanted API calls");
+        logger.info("To initialize mock data manually, use the /api/mock-init endpoint when needed");
+      })
+      .on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          logger.warn(`Port ${port} is already in use, trying next port...`);
+          // Try the next port
+          startServer(portIndex + 1);
+        } else {
+          logger.error(`Failed to start server: ${err.message}`);
+          process.exit(1);
+        }
+      });
+    } catch (error) {
+      logger.error(`Error starting server: ${error.message}`);
+      process.exit(1);
+    }
+  };
+  
+  // Start the server with the first port
+  startServer();
 })();
 
 export default app;

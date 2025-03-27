@@ -1,18 +1,6 @@
 {
-  "product": "Task Management SaaS",
-  "currency": "USD",
-  "unit": "per user per month",
-  "price_points": {
-    "too_cheap": 7,
-    "bargain": 9,
-    "expensive_but_acceptable": 14,
-    "too_expensive": 22
-  },
-  "optimal_price_point": 12,
-  "indifference_price_point": 11,
-  "price_stress": 13,
-  "sample_size": null,
-  "confidence_interval": null,
-  "market_segment": "General productivity users",
-  "data_source": "Grammarly research [5]"
+  "error": "No valid chart data found in response",
+  "modelMismatch": false,
+  "requestedModel": "claude-3-7-sonnet-20250219",
+  "actualModel": "claude-3-7-sonnet-20250219"
 }

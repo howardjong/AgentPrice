@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart Viewer</title>
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f7f9;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .status-banner {
+            padding: 10px 15px;
+            margin: 20px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            background-color: #e2e3e5;
+            color: #383d41;
+            border: 1px solid #d6d8db;
+        }
+        .chart-container {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .insights {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 15px;
+        }
+        .button {
+            padding: 8px 16px;
+            margin: 10px 0;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+        }
+        .button:hover {
+            background-color: #0069d9;
+        }
+        .debug-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .debug-log {
+            max-height: 150px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chart Viewer</h1>
+    <div id="status-banner" class="status-banner loading">Loading charts... Please wait.</div>
+
+    <div id="actions">
+        <button class="button" id="reload-button">Reload Charts</button>
+        <button class="button" id="create-samples-button">Create Sample Charts</button>
+        <button class="button" id="toggle-debug-button">Toggle Debug Panel</button>
+    </div>
+
+    <div class="chart-container">
+        <h2>Van Westendorp Price Sensitivity Analysis</h2>
+        <div id="van-westendorp-chart" style="height: 500px;"></div>
+        <div class="insights">
+            <h3>Insights</h3>
+            <ul id="van-westendorp-insights-list"></ul>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Conjoint Analysis</h2>
+        <div id="conjoint-chart" style="height: 500px;"></div>
+        <div class="insights">
+            <h3>Insights</h3>
+            <ul id="conjoint-insights-list"></ul>
+        </div>
+    </div>
+
+    <div class="chart-container">
+        <h2>Basic Bar Chart</h2>
+        <div id="bar-chart" style="height: 500px;"></div>
+        <div class="insights">
+            <h3>Insights</h3>
+            <ul id="bar-insights-list"></ul>
+        </div>
+    </div>
+
+    <div id="debug-panel" class="debug-panel" style="display: none;">
+        <h3>Debug Information</h3>
+        <div id="debug-log" class="debug-log"></div>
+    </div>
+
+    <script>
+        // Debugging utilities
+        const debug = {
+            log: function(message, data = null) {
+                const timestamp = new Date().toISOString();
+                let fullMessage = `[${timestamp}] ${message}`;
+
+                if (data) {
+                    try {
+                        if (typeof data === 'object') {
+                            fullMessage += `\n${JSON.stringify(data, null, 2)}`;
+                        } else {
+                            fullMessage += `\n${data}`;
+                        }
+                    } catch (e) {
+                        fullMessage += `\n[Data could not be stringified: ${e.message}]`;
+                    }
+                }
+
+                const debugLog = document.getElementById('debug-log');
+                debugLog.textContent += fullMessage + '\n\n';
+                debugLog.scrollTop = debugLog.scrollHeight;
+                console.log(message, data);
+            },
+
+            error: function(message, error) {
+                const timestamp = new Date().toISOString();
+                let fullMessage = `[${timestamp}] ERROR: ${message}`;
+
+                if (error) {
+                    fullMessage += `\n${error.message}\n${error.stack || ''}`;
+                }
+
+                const debugLog = document.getElementById('debug-log');
+                debugLog.textContent += fullMessage + '\n\n';
+                debugLog.scrollTop = debugLog.scrollHeight;
+                console.error(message, error);
+            }
+        };
+
+        // Update status banner
+        function updateStatus(type, message) {
+            const statusBanner = document.getElementById('status-banner');
+            statusBanner.className = `status-banner ${type}`;
+            statusBanner.textContent = message;
+        }
+
+        // Load and render a chart
+        async function loadChart(chartId, filePath, containerId, insightsListId) {
+            debug.log(`Loading chart from ${filePath}`);
+
+            try {
+                const response = await fetch(filePath);
+
+                if (!response.ok) {
+                    throw new Error(`Failed to load chart: HTTP ${response.status}`);
+                }
+
+                const chartData = await response.json();
+                debug.log(`Successfully loaded chart data for ${chartId}`, { 
+                    status: response.status,
+                    dataSize: JSON.stringify(chartData).length
+                });
+
+                if (chartData && chartData.plotlyConfig) {
+                    // Render chart
+                    Plotly.newPlot(
+                        containerId, 
+                        chartData.plotlyConfig.data, 
+                        chartData.plotlyConfig.layout || {}, 
+                        chartData.plotlyConfig.config || {}
+                    );
+
+                    // Display insights
+                    const insightsList = document.getElementById(insightsListId);
+                    insightsList.innerHTML = '';
+
+                    if (chartData.insights && chartData.insights.length > 0) {
+                        chartData.insights.forEach(insight => {
+                            const li = document.createElement('li');
+                            li.textContent = insight;
+                            insightsList.appendChild(li);
+                        });
+                    } else {
+                        const li = document.createElement('li');
+                        li.textContent = 'No insights available';
+                        insightsList.appendChild(li);
+                    }
+
+                    return true;
+                } else {
+                    throw new Error('Invalid chart data format');
+                }
+            } catch (error) {
+                debug.error(`Error loading ${chartId} chart`, error);
+
+                // Create a placeholder to show the error
+                Plotly.newPlot(
+                    containerId, 
+                    [], 
+                    {
+                        title: `Error loading chart: ${error.message}`,
+                        annotations: [{
+                            text: 'Chart data could not be loaded',
+                            showarrow: false,
+                            font: { size: 20 }
+                        }]
+                    }
+                );
+
+                // Show error in insights
+                const insightsList = document.getElementById(insightsListId);
+                insightsList.innerHTML = '';
+                const li = document.createElement('li');
+                li.textContent = `Error: ${error.message}`;
+                li.style.color = 'red';
+                insightsList.appendChild(li);
+
+                return false;
+            }
+        }
+
+        // Load all charts
+        async function loadAllCharts() {
+            debug.log('Loading all charts');
+            updateStatus('loading', 'Loading charts... Please wait.');
+
+            try {
+                const charts = [
+                    { 
+                        id: 'van-westendorp', 
+                        file: '/tests/output/van_westendorp_plotly.json',
+                        container: 'van-westendorp-chart',
+                        insights: 'van-westendorp-insights-list'
+                    },
+                    { 
+                        id: 'conjoint', 
+                        file: '/tests/output/conjoint_plotly.json',
+                        container: 'conjoint-chart',
+                        insights: 'conjoint-insights-list'
+                    },
+                    { 
+                        id: 'bar-chart', 
+                        file: '/tests/output/bar_chart_plotly.json',
+                        container: 'bar-chart',
+                        insights: 'bar-insights-list'
+                    }
+                ];
+
+                const results = await Promise.all(charts.map(chart => 
+                    loadChart(chart.id, chart.file, chart.container, chart.insights)
+                ));
+
+                const successCount = results.filter(result => result).length;
+
+                if (successCount === charts.length) {
+                    updateStatus('success', 'All charts loaded successfully!');
+                } else if (successCount === 0) {
+                    updateStatus('error', 'Failed to load any charts. Check the debug panel for details.');
+                } else {
+                    updateStatus('error', `Partially loaded ${successCount} of ${charts.length} charts.`);
+                }
+            } catch (error) {
+                debug.error('Error in loadAllCharts', error);
+                updateStatus('error', `Error loading charts: ${error.message}`);
+            }
+        }
+
+        // Create sample charts
+        async function createSampleCharts() {
+            debug.log('Creating sample charts');
+            updateStatus('loading', 'Creating sample charts... Please wait.');
+
+            try {
+                const response = await fetch('/api/create-samples');
+
+                if (!response.ok) {
+                    throw new Error(`Failed to create samples: HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                debug.log('Sample chart creation result', result);
+
+                updateStatus('success', 'Sample charts created. Reloading...');
+                setTimeout(loadAllCharts, 1000);
+            } catch (error) {
+                debug.error('Error creating sample charts', error);
+                updateStatus('error', `Error creating samples: ${error.message}`);
+            }
+        }
+
+        // Add event listeners
+        document.getElementById('reload-button').addEventListener('click', loadAllCharts);
+        document.getElementById('create-samples-button').addEventListener('click', createSampleCharts);
+        document.getElementById('toggle-debug-button').addEventListener('click', () => {
+            const debugPanel = document.getElementById('debug-panel');
+            debugPanel.style.display = debugPanel.style.display === 'none' ? 'block' : 'none';
+        });
+
+        // Initial load
+        document.addEventListener('DOMContentLoaded', function() {
+            debug.log('Page loaded, loading charts');
+            loadAllCharts();
+        });
+    </script>
+</body>
+</html>
