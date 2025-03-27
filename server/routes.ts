@@ -122,6 +122,8 @@ app.get('/api/health', (req, res) => {
   res.json(healthData);
 });
 
+      if (!content) {
+        return res.status(400).json({
           success: false,
           error: 'Content is required'
         });

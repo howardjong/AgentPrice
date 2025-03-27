@@ -13,15 +13,37 @@ class CacheMonitor {
     this.apiCallCost = 0.5;
   }
 
-  recordHit() {
+  recordHit(service = 'default') {
     this.hits++;
     this.totalLookups++;
+    
+    // Track per-service statistics
+    if (!this.serviceStats) {
+      this.serviceStats = {};
+    }
+    
+    if (!this.serviceStats[service]) {
+      this.serviceStats[service] = { hits: 0, misses: 0 };
+    }
+    
+    this.serviceStats[service].hits++;
     return true;
   }
 
-  recordMiss() {
+  recordMiss(service = 'default') {
     this.misses++;
     this.totalLookups++;
+    
+    // Track per-service statistics
+    if (!this.serviceStats) {
+      this.serviceStats = {};
+    }
+    
+    if (!this.serviceStats[service]) {
+      this.serviceStats[service] = { hits: 0, misses: 0 };
+    }
+    
+    this.serviceStats[service].misses++;
     return false;
   }
 
@@ -31,14 +53,15 @@ class CacheMonitor {
       : (this.hits / this.totalLookups * 100).toFixed(2) + '%';
 
     // Calculate estimated cost savings (hits × cost per call)
-    const estimatedSavings = `$${((this.hits * this.apiCallCost) / 100).toFixed(2)}`;
+    const estimatedSavings = `$${((this.hits * this.apiCallCost) / 100).toFixed(4)}`;
 
     return {
       hits: this.hits,
       misses: this.misses,
       totalLookups: this.totalLookups,
       hitRate,
-      estimatedSavings
+      estimatedSavings,
+      serviceStats: this.serviceStats || {}
     };
   }
 
@@ -46,6 +69,7 @@ class CacheMonitor {
     this.hits = 0;
     this.misses = 0;
     this.totalLookups = 0;
+    this.serviceStats = {};
   }
 }
 

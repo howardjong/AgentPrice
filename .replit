@@ -35,7 +35,7 @@ localPort = 33065
 externalPort = 3002
 
 [workflows]
-runButton = "Start App - No API Calls"
+runButton = "Start Fixed App"
 
 [[workflows.workflow]]
 name = "Project"
@@ -1136,3 +1136,12 @@ args = "echo \"      ALL HEALTH CHECKS COMPLETE\""
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "echo \"=======================================\""
+
+[[workflows.workflow]]
+name = "Start Fixed App"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev:no-api"
