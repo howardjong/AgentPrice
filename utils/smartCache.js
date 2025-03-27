@@ -45,6 +45,108 @@ class SmartCache {
   }
   
   /**
+   * Optimize cache for memory constraints
+   * @param {Object} options - Memory optimization options
+   * @returns {Object} Optimization results
+   */
+  optimizeForMemory(options = {}) {
+    const memoryUsage = process.memoryUsage();
+    const heapUsedMB = Math.round(memoryUsage.heapUsed / 1024 / 1024);
+    const rssMB = Math.round(memoryUsage.rss / 1024 / 1024);
+    
+    // Define memory thresholds
+    const highMemoryThreshold = options.highMemoryThreshold || 80; // 80MB
+    const criticalMemoryThreshold = options.criticalMemoryThreshold || 100; // 100MB
+    
+    // Calculate memory pressure (0-1 scale)
+    const memoryPressure = Math.min(1, heapUsedMB / criticalMemoryThreshold);
+    
+    // Original cache configuration
+    const originalConfig = {
+      maxSize: this.maxSize,
+      defaultTTL: this.defaultTTL,
+      fuzzyMatchThreshold: this.fuzzyMatchThreshold,
+      enableFuzzyMatch: this.enableFuzzyMatch
+    };
+    
+    // Determine if we need to enable low memory mode
+    const shouldEnableLowMemory = heapUsedMB >= highMemoryThreshold;
+    
+    // Determine if we need to reduce cache size
+    const targetCacheSize = shouldEnableLowMemory
+      ? Math.max(50, Math.floor(this.maxSize * (1 - memoryPressure)))
+      : this.maxSize;
+    
+    // Apply optimizations
+    this.lowMemoryMode = shouldEnableLowMemory;
+    
+    // In low memory mode, reduce TTL and disable fuzzy matching
+    if (shouldEnableLowMemory) {
+      // Reduce TTL in low memory mode (to 1/4 of original)
+      this.defaultTTL = Math.floor(this.defaultTTL / 4);
+      
+      // Disable fuzzy matching in critical memory situations
+      if (heapUsedMB >= criticalMemoryThreshold) {
+        this.enableFuzzyMatch = false;
+      }
+      
+      // Set a higher fuzzy match threshold (more strict)
+      this.fuzzyMatchThreshold = Math.min(0.95, this.fuzzyMatchThreshold + 0.1);
+    }
+    
+    // Adjust cache size if needed
+    if (targetCacheSize < this.maxSize) {
+      this.maxSize = targetCacheSize;
+      
+      // If we have more items than the new max, evict some
+      const excessItems = this.cache.size - this.maxSize;
+      if (excessItems > 0) {
+        this.evictLRU(excessItems);
+        this.stats.evictions.memory += excessItems;
+      }
+    }
+    
+    // Log changes
+    logger.info('Smart cache optimized for memory constraints', {
+      memoryUsage: `${heapUsedMB}MB`,
+      memoryPressure: memoryPressure.toFixed(2),
+      lowMemoryMode: this.lowMemoryMode,
+      cacheSize: `${this.cache.size}/${this.maxSize}`,
+      fuzzyMatching: this.enableFuzzyMatch ? 'enabled' : 'disabled',
+      ttl: `${Math.round(this.defaultTTL / (60 * 1000))} minutes`
+    });
+    
+    // Return optimization results
+    const evictedItems = targetCacheSize < this.maxSize && this.cache.size > targetCacheSize 
+      ? this.cache.size - targetCacheSize 
+      : 0;
+      
+    return {
+      memoryPressure,
+      lowMemoryMode: this.lowMemoryMode,
+      changes: {
+        maxSize: {
+          before: originalConfig.maxSize,
+          after: this.maxSize
+        },
+        defaultTTL: {
+          before: originalConfig.defaultTTL,
+          after: this.defaultTTL
+        },
+        fuzzyMatch: {
+          before: originalConfig.enableFuzzyMatch,
+          after: this.enableFuzzyMatch
+        },
+        fuzzyMatchThreshold: {
+          before: originalConfig.fuzzyMatchThreshold,
+          after: this.fuzzyMatchThreshold
+        }
+      },
+      evictedItems
+    };
+  }
+  
+  /**
    * Configure the cache with new options
    * @param {Object} options - Configuration options
    * @returns {SmartCache} this instance for chaining
@@ -547,6 +649,7 @@ class SmartCache {
     
     return {
       status: 'ACTIVE',
+      enabled: true,
       cachedItems: this.cache.size,
       memoryUsage: {
         estimatedSizeKB: Math.round(totalSizeBytes / 1024),

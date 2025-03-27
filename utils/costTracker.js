@@ -438,6 +438,55 @@ class CostTracker {
   }
   
   /**
+   * Reset daily usage statistics
+   * @returns {Object} Updated cost statistics
+   */
+  resetDailyUsage() {
+    // Store current day totals in history
+    const today = new Date().toISOString().split('T')[0];
+    
+    if (!this.costs.history) {
+      this.costs.history = {};
+    }
+    
+    // Save today's data before resetting
+    if (this.costs.dailyUsage && this.costs.dailyUsage.totalCost > 0) {
+      this.costs.history[today] = {
+        ...this.costs.dailyUsage
+      };
+      
+      logger.info(`Daily usage archived for ${today}`, {
+        dailyCost: `$${this.costs.dailyUsage.totalCost.toFixed(4)}`,
+        apiCalls: this.costs.dailyUsage.totalCalls
+      });
+    }
+    
+    // Reset daily usage
+    this.costs.dailyUsage = {
+      date: today,
+      totalCost: 0,
+      totalCalls: 0,
+      totalTokens: 0,
+      services: {
+        perplexity: {
+          calls: 0, 
+          tokens: {input: 0, output: 0, total: 0}, 
+          cost: 0
+        },
+        claude: {
+          calls: 0, 
+          tokens: {input: 0, output: 0, total: 0}, 
+          cost: 0
+        }
+      },
+      models: {},
+      startTime: Date.now()
+    };
+    
+    return this.costs.dailyUsage;
+  }
+  
+  /**
    * Get status of the cost tracker
    * @returns {Object} Status information
    */
@@ -461,6 +510,7 @@ class CostTracker {
     
     return {
       status: 'ACTIVE',
+      enabled: true,
       costTracking: {
         totalCost: parseFloat(stats.totalCost),
         totalSavings: parseFloat(stats.savings.toFixed(4)),

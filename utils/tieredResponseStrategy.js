@@ -412,6 +412,7 @@ class TieredResponseStrategy {
   getStatus() {
     return {
       status: 'ACTIVE',
+      enabled: true,
       currentTier: this.currentTier,
       availableTiers: Object.keys(this.tiers),
       budget: {

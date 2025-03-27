@@ -1,0 +1,279 @@
+{
+  "timestamp": "2025-03-27T23:47:51.509Z",
+  "memoryLeakDetection": {
+    "status": "ACTIVE",
+    "samplesCollected": 1,
+    "memoryUsage": {
+      "heapUsedMB": 8,
+      "heapTotalMB": 11,
+      "rssMB": 59
+    },
+    "settings": {
+      "sampleInterval": "300s",
+      "growthThreshold": "25%",
+      "consecutiveGrowthLimit": 3,
+      "resourceSavingMode": true,
+      "maxSamples": 10
+    },
+    "analysis": {
+      "consecutiveGrowths": 0,
+      "potentialLeakDetected": false,
+      "recommendation": "Insufficient data"
+    },
+    "gcInfo": {
+      "gcTriggerThreshold": "70MB",
+      "lastGcTime": "2025-03-27T23:47:51.494Z",
+      "minGcInterval": "15 minutes"
+    }
+  },
+  "resourceManagement": {
+    "status": "INACTIVE",
+    "memoryUsage": {
+      "heapTotal": "11MB",
+      "heapUsed": "8MB",
+      "rss": "59MB",
+      "external": "2MB"
+    },
+    "thresholds": {
+      "heapUsage": "80MB",
+      "cpuUsage": "60%"
+    },
+    "intervals": {
+      "monitoring": "300s",
+      "cleanup": "1200s",
+      "gc": "600s"
+    },
+    "settings": {
+      "aggressiveGcEnabled": true,
+      "lowMemoryMode": false
+    },
+    "uptime": "0 minutes"
+  },
+  "smartCache": {
+    "status": "ACTIVE",
+    "enabled": true,
+    "cachedItems": 0,
+    "memoryUsage": {
+      "estimatedSizeKB": 0,
+      "memoryLimitMB": 50
+    },
+    "settings": {
+      "maxSize": 1000,
+      "defaultTTL": "0 minutes",
+      "fuzzyMatchEnabled": true,
+      "fuzzyMatchThreshold": 0.85,
+      "lowMemoryMode": false,
+      "aggressiveEviction": false
+    },
+    "performance": {
+      "hitRate": "0.0%",
+      "exactHits": 0,
+      "fuzzyHits": 0,
+      "misses": 0
+    },
+    "evictions": {
+      "lru": 0,
+      "expired": 0,
+      "manual": 0,
+      "memory": 0
+    },
+    "keyAge": {
+      "minSeconds": 0,
+      "avgSeconds": 0,
+      "maxSeconds": 0
+    }
+  },
+  "componentLoader": {
+    "status": "ACTIVE",
+    "loadedComponents": 0,
+    "pendingLoads": 0,
+    "settings": {
+      "lazyLoad": true,
+      "unloadThreshold": "30 minutes",
+      "preloadCritical": true
+    },
+    "stats": {
+      "totalLoaded": 0,
+      "reused": 0,
+      "loadErrors": 0,
+      "criticalComponentsCount": 0
+    },
+    "oldestComponents": []
+  },
+  "batchProcessing": {
+    "status": "ACTIVE",
+    "pendingBatches": 0,
+    "activeBatches": [],
+    "activeProcessingCount": 0,
+    "memoryUsage": {
+      "heapUsed": "8MB",
+      "rss": "59MB"
+    },
+    "configuration": {
+      "maxBatchSize": 10,
+      "batchWindowMs": 100,
+      "maxBatchWaitMs": 2000,
+      "strictOrdering": true,
+      "memoryAware": true,
+      "memoryThresholdMB": 500,
+      "autoProcess": true
+    },
+    "metrics": {
+      "totalPendingItems": 0,
+      "averageProcessingTime": "N/A"
+    }
+  },
+  "documentFingerprinting": {
+    "status": "ACTIVE",
+    "cacheSize": 0,
+    "maxCacheSize": 100,
+    "cacheUtilization": "0.0%",
+    "configuration": {
+      "similarityThreshold": 0.85,
+      "signatureTermCount": 50,
+      "minTermFrequency": 2,
+      "hashAlgorithm": "sha256",
+      "enableTruncation": true,
+      "truncateLength": 1000
+    },
+    "stats": {
+      "totalFingerprints": 0,
+      "averageTermsPerFingerprint": 0,
+      "totalTerms": 0
+    }
+  },
+  "contentChunking": {
+    "status": "ACTIVE",
+    "enabled": true,
+    "configuration": {
+      "defaultChunkSize": 8000,
+      "defaultOverlap": 200,
+      "maintainSemanticBoundaries": true,
+      "preserveCodeBlocks": true,
+      "preserveParagraphs": true,
+      "trackSectionStructure": true
+    },
+    "patterns": {
+      "sectionPatterns": 3,
+      "blockBoundaries": 4,
+      "totalPatterns": 7
+    },
+    "capabilities": {
+      "chunkContent": true,
+      "reassembleChunks": true,
+      "intelligentBoundaryDetection": true,
+      "codePreservation": true
+    }
+  },
+  "costTracking": {
+    "status": "ACTIVE",
+    "enabled": true,
+    "costTracking": {
+      "totalCost": 0,
+      "totalSavings": 0,
+      "todayCost": 0,
+      "monthToDateCost": 0,
+      "totalCalls": 0,
+      "totalTokens": 0
+    },
+    "savingFeatures": {
+      "activeFeatures": [
+        "caching",
+        "tokenOptimization"
+      ],
+      "savings": {
+        "caching": 0,
+        "tokenOptimization": 0,
+        "modelDowngrading": 0,
+        "batchProcessing": 0,
+        "apiDisabling": 0
+      }
+    },
+    "serviceBreakdown": {
+      "perplexity": {
+        "calls": 0,
+        "cost": 0,
+        "tokens": 0
+      },
+      "claude": {
+        "calls": 0,
+        "cost": 0,
+        "tokens": 0
+      },
+      "other": {
+        "calls": 0,
+        "cost": 0,
+        "tokens": 0
+      }
+    }
+  },
+  "tokenOptimization": {
+    "status": "ACTIVE",
+    "enabled": true,
+    "tokensSaved": 0,
+    "optimizeSystemPrompts": true,
+    "optimizationPatterns": {
+      "repetitionPatterns": 2,
+      "verbosePhrases": 10,
+      "fillerPatterns": 1,
+      "redundancyPatterns": 1,
+      "totalPatterns": 14
+    },
+    "capabilities": {
+      "removeRepetition": true,
+      "simplifyVerbose": true,
+      "removeFillers": true,
+      "fixRedundancy": true,
+      "trimLongMessages": true,
+      "skipSystemMessages": false
+    },
+    "savings": {
+      "estimatedCost": 0,
+      "percentageReduction": "0%"
+    }
+  },
+  "tieredResponseStrategy": {
+    "status": "ACTIVE",
+    "enabled": true,
+    "currentTier": "standard",
+    "availableTiers": [
+      "minimal",
+      "standard",
+      "premium"
+    ],
+    "budget": {
+      "daily": null,
+      "monthly": null,
+      "currentDailyCost": 0,
+      "currentMonthlyCost": 0,
+      "dailyUsagePercentage": "N/A",
+      "monthlyUsagePercentage": "N/A"
+    },
+    "modelMappings": {
+      "lowest-cost": {
+        "default": "perplexity-sonar",
+        "perplexity": "sonar",
+        "claude": "claude-3-haiku"
+      },
+      "adaptive": {
+        "default": "perplexity-sonar",
+        "perplexity": "sonar",
+        "claude": "claude-3-haiku",
+        "complex": {
+          "perplexity": "sonar-pro",
+          "claude": "claude-3-sonnet"
+        }
+      },
+      "best-quality": {
+        "default": "claude-3-sonnet",
+        "perplexity": "sonar-deep-research",
+        "claude": "claude-3-opus",
+        "complex": {
+          "perplexity": "sonar-deep-research",
+          "claude": "claude-3-opus"
+        }
+      }
+    },
+    "lastTierChangeReason": "Not changed since initialization"
+  }
+}

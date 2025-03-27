@@ -7,6 +7,19 @@ import logger from './logger.js';
 
 class TokenOptimizer {
   constructor() {
+    this.tokensSaved = 0;
+    this.optimizeSystemPrompts = false;
+    this.enabledOptimizations = {
+      removeDuplicates: true,
+      simplifyPhrases: true,
+      removeFillers: true,
+      shortenUrls: true,
+      shortenNumbers: false
+    };
+    this.aggressiveMode = false;
+    this.preserveCodeBlocks = true;
+    this.preserveFormatting = true;
+    this.maxLengthReduction = 0.3; // Max 30% reduction to avoid changing meaning
     this.patterns = {
       // Repetitive content patterns
       repetition: [
@@ -105,12 +118,16 @@ class TokenOptimizer {
     
     // Log optimization results if significant
     if (percentageSaved > 5) {
+      // Update total tokens saved
+      this.tokensSaved += tokenSavings;
+      
       logger.info('Token optimization applied', {
         originalChars: originalLength,
         newChars: newLength,
         charSavings,
         estimatedTokenSavings: tokenSavings,
-        percentSaved: `${percentageSaved.toFixed(1)}%`
+        percentSaved: `${percentageSaved.toFixed(1)}%`,
+        totalTokensSaved: this.tokensSaved
       });
     }
     
@@ -159,6 +176,9 @@ class TokenOptimizer {
       };
     });
     
+    // Update the total tokens saved across all optimizations
+    this.tokensSaved += totalSavings;
+    
     return {
       messages: optimizedMessages,
       tokenSavings: totalSavings,
@@ -167,12 +187,99 @@ class TokenOptimizer {
   }
 
   /**
+   * Configure token optimizer settings
+   * @param {Object} config - Configuration options
+   * @returns {TokenOptimizer} This instance for chaining
+   */
+  configure(config = {}) {
+    // Update optimization feature flags
+    if (config.enabledOptimizations) {
+      Object.keys(config.enabledOptimizations).forEach(key => {
+        if (this.enabledOptimizations.hasOwnProperty(key)) {
+          this.enabledOptimizations[key] = !!config.enabledOptimizations[key];
+        }
+      });
+    }
+    
+    // Update general settings
+    if (config.optimizeSystemPrompts !== undefined) {
+      this.optimizeSystemPrompts = !!config.optimizeSystemPrompts;
+    }
+    
+    if (config.aggressiveMode !== undefined) {
+      this.aggressiveMode = !!config.aggressiveMode;
+    }
+    
+    if (config.preserveCodeBlocks !== undefined) {
+      this.preserveCodeBlocks = !!config.preserveCodeBlocks;
+    }
+    
+    if (config.preserveFormatting !== undefined) {
+      this.preserveFormatting = !!config.preserveFormatting;
+    }
+    
+    if (config.maxLengthReduction !== undefined && typeof config.maxLengthReduction === 'number') {
+      // Ensure it's between 0 and 0.5 (0-50% reduction)
+      this.maxLengthReduction = Math.max(0, Math.min(0.5, config.maxLengthReduction));
+    }
+    
+    // Add new patterns if provided
+    if (config.additionalPatterns) {
+      // Add repetition patterns
+      if (config.additionalPatterns.repetition && Array.isArray(config.additionalPatterns.repetition)) {
+        this.patterns.repetition = [
+          ...this.patterns.repetition,
+          ...config.additionalPatterns.repetition
+        ];
+      }
+      
+      // Add verbose phrase patterns
+      if (config.additionalPatterns.verbosePhrases && Array.isArray(config.additionalPatterns.verbosePhrases)) {
+        this.patterns.verbosePhrases = [
+          ...this.patterns.verbosePhrases,
+          ...config.additionalPatterns.verbosePhrases
+        ];
+      }
+      
+      // Add filler word patterns
+      if (config.additionalPatterns.fillerWords && Array.isArray(config.additionalPatterns.fillerWords)) {
+        this.patterns.fillerWords = [
+          ...this.patterns.fillerWords,
+          ...config.additionalPatterns.fillerWords
+        ];
+      }
+    }
+    
+    // Reset token savings counter if requested
+    if (config.resetSavings) {
+      this.tokensSaved = 0;
+    }
+    
+    logger.info('Token optimizer configured', {
+      optimizeSystemPrompts: this.optimizeSystemPrompts,
+      aggressiveMode: this.aggressiveMode,
+      enabledFeatures: Object.entries(this.enabledOptimizations)
+        .filter(([_, enabled]) => enabled)
+        .map(([name]) => name),
+      totalPatterns: Object.values(this.patterns)
+        .reduce((sum, patterns) => {
+          return sum + (Array.isArray(patterns) ? patterns.length : 0);
+        }, 0)
+    });
+    
+    return this;
+  }
+  
+  /**
    * Get status of the token optimizer
    * @returns {Object} Status information
    */
   getStatus() {
     return {
       status: 'ACTIVE',
+      enabled: true,
+      tokensSaved: this.tokensSaved,
+      optimizeSystemPrompts: this.optimizeSystemPrompts,
       optimizationPatterns: {
         repetitionPatterns: this.patterns.repetition.length,
         verbosePhrases: this.patterns.verbosePhrases.length,
@@ -189,7 +296,11 @@ class TokenOptimizer {
         removeFillers: true,
         fixRedundancy: true,
         trimLongMessages: true,
-        skipSystemMessages: true
+        skipSystemMessages: !this.optimizeSystemPrompts
+      },
+      savings: {
+        estimatedCost: (this.tokensSaved / 1000) * 0.01, // Assuming $0.01 per 1000 tokens
+        percentageReduction: this.tokensSaved > 0 ? "5-15%" : "0%"  // Typical range
       }
     };
   }

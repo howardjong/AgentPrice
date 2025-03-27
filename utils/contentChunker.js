@@ -41,6 +41,57 @@ class ContentChunker {
   }
   
   /**
+   * Configure the content chunker with new options
+   * @param {Object} config - Configuration options
+   * @returns {ContentChunker} This instance for chaining
+   */
+  configure(config = {}) {
+    // Update chunk size options
+    if (config.defaultChunkSize) {
+      this.options.defaultChunkSize = config.defaultChunkSize;
+    }
+    
+    if (config.defaultOverlap) {
+      this.options.defaultOverlap = config.defaultOverlap;
+    }
+    
+    // Update content preservation options
+    if (config.preserveCodeBlocks !== undefined) {
+      this.options.preserveCodeBlocks = config.preserveCodeBlocks;
+    }
+    
+    if (config.preserveParagraphs !== undefined) {
+      this.options.preserveParagraphs = config.preserveParagraphs;
+    }
+    
+    if (config.maintainSemanticBoundaries !== undefined) {
+      this.options.maintainSemanticBoundaries = config.maintainSemanticBoundaries;
+    }
+    
+    if (config.trackSectionStructure !== undefined) {
+      this.options.trackSectionStructure = config.trackSectionStructure;
+    }
+    
+    // Update patterns if provided
+    if (config.sectionPatterns && Array.isArray(config.sectionPatterns)) {
+      this.sectionPatterns = config.sectionPatterns;
+    }
+    
+    if (config.blockBoundaries && Array.isArray(config.blockBoundaries)) {
+      this.blockBoundaries = config.blockBoundaries;
+    }
+    
+    logger.info('Content chunker configured', {
+      defaultChunkSize: this.options.defaultChunkSize,
+      defaultOverlap: this.options.defaultOverlap,
+      preserveCodeBlocks: this.options.preserveCodeBlocks,
+      maintainSemanticBoundaries: this.options.maintainSemanticBoundaries
+    });
+    
+    return this;
+  }
+  
+  /**
    * Chunk content into processable pieces
    * @param {string} content - Content to chunk
    * @param {Object} options - Chunking options

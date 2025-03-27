@@ -137,6 +137,66 @@ class ResourceManager {
   }
   
   /**
+   * Optimize connection pools based on available system resources
+   * @param {Object} options - Connection optimization options
+   * @returns {Object} Optimization results
+   */
+  optimizeConnections(options = {}) {
+    const defaults = {
+      minPoolSize: 2,
+      maxPoolSize: 10,
+      timeout: 30000,
+      idleTimeout: 60000
+    };
+    
+    const config = { ...defaults, ...options };
+    
+    // Get current resource usage
+    const memUsage = process.memoryUsage();
+    const cpuUsage = performanceMonitor?.getReport()?.cpuUsage || 50; // Default to 50% if no data
+    
+    // Calculate optimal pool size based on resources
+    // For CPU-intensive operations, limit connections when CPU is high
+    const cpuFactor = Math.max(0.3, 1 - (cpuUsage / 100));
+    
+    // For memory-intensive operations, limit connections when memory is high
+    const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    const memoryFactor = Math.max(0.3, 1 - (heapUsedMB / this.options.heapUsageThreshold));
+    
+    // Combined factor (weighted average)
+    const resourceFactor = (cpuFactor * 0.4) + (memoryFactor * 0.6);
+    
+    // Calculate optimal pool size
+    const optimalPoolSize = Math.max(
+      config.minPoolSize,
+      Math.floor(config.maxPoolSize * resourceFactor)
+    );
+    
+    // Calculate optimal timeout based on resource pressure
+    const optimalTimeout = Math.max(
+      5000, // minimum 5 seconds
+      Math.floor(config.timeout * resourceFactor)
+    );
+    
+    // Calculate optimal idle timeout
+    const optimalIdleTimeout = Math.max(
+      10000, // minimum 10 seconds
+      Math.floor(config.idleTimeout * resourceFactor)
+    );
+    
+    const result = {
+      poolSize: optimalPoolSize,
+      timeout: optimalTimeout,
+      idleTimeout: optimalIdleTimeout,
+      resourceFactor
+    };
+    
+    logger.info('Connection pools optimized', result);
+    
+    return result;
+  }
+  
+  /**
    * Monitor system resources
    */
   monitorResources() {
