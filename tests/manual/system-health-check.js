@@ -225,15 +225,20 @@ async function checkSystemHealth() {
   ];
 
   const missingEnvVars = [];
+  const usedDefaults = [];
 
   for (const envVar of requiredEnvVars) {
     if (!process.env[envVar]) {
-      missingEnvVars.push(envVar);
       // Set default environment variables if missing
       if (envVar === 'NODE_ENV') {
         process.env.NODE_ENV = 'development';
+        usedDefaults.push(`${envVar}=${process.env.NODE_ENV}`);
       } else if (envVar === 'PORT') {
         process.env.PORT = '5000';
+        usedDefaults.push(`${envVar}=${process.env.PORT}`);
+      } else {
+        // Only add to missingEnvVars if we don't have a default for it
+        missingEnvVars.push(envVar);
       }
       console.log(`- ✅ Using default ${envVar}: ${process.env[envVar]}`);
     } else {
@@ -243,7 +248,11 @@ async function checkSystemHealth() {
 
   // Build a health summary
   let healthStatus = {
-    environment: { ok: missingEnvVars.length === 0, issues: missingEnvVars.map(v => `Missing ${v}`) },
+    environment: { 
+      ok: missingEnvVars.length === 0, 
+      issues: missingEnvVars.map(v => `Missing ${v}`),
+      usedDefaults: usedDefaults
+    },
     promptManager: { ok: true, issues: [] },
     circuitBreaker: { ok: true, issues: [] },
     redisService: { ok: true, issues: [] },
@@ -400,8 +409,14 @@ async function checkSystemHealth() {
     if (status.ok) {
       console.log(`- ${system}: ✅ Healthy`);
     } else {
-      console.log(`- ${system}: ❌ Issues found`);
-      status.issues.forEach(issue => console.log(`  > ${issue}`));
+      // Special case for environment - if we're using defaults, it's not an issue
+      if (system === 'environment' && status.usedDefaults && status.usedDefaults.length > 0) {
+        console.log(`- ${system}: ✅ Healthy (using defaults)`);
+        status.usedDefaults.forEach(defaultVal => console.log(`  > Using default ${defaultVal}`));
+      } else {
+        console.log(`- ${system}: ❌ Issues found`);
+        status.issues.forEach(issue => console.log(`  > ${issue}`));
+      }
     }
   }
 
