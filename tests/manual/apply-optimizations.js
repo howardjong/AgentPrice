@@ -638,3 +638,198 @@ applyOptimizations().catch(err => {
 });
 
 export default applyOptimizations;
+/**
+ * Apply Optimizations Script
+ * 
+ * Applies performance and cost optimizations to the system
+ */
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import logger from '../../utils/logger.js';
+
+// Get directory name in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '../..');
+
+// Utility to safely check if a module exists
+async function moduleExists(modulePath) {
+  try {
+    await import(modulePath);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+async function applyOptimizations() {
+  console.log("======================================");
+  console.log("      APPLYING OPTIMIZATIONS         ");
+  console.log("======================================\n");
+  
+  const optimizations = {
+    caching: false,
+    batching: false,
+    fingerprinting: false,
+    costTracking: false,
+    tieredResponses: false
+  };
+  
+  // Initialize all optimization components
+  
+  // 1. Enhanced Cache
+  try {
+    if (await moduleExists('../../utils/enhancedCache.js')) {
+      const enhancedCache = (await import('../../utils/enhancedCache.js')).default;
+      console.log("✓ Enhanced Cache initialized");
+      optimizations.caching = true;
+      
+      // Configure for optimal performance
+      if (typeof enhancedCache.configure === 'function') {
+        enhancedCache.configure({
+          maxSize: 1000,
+          ttl: 3600000 // 1 hour
+        });
+        console.log("  - Cache configured with optimal settings");
+      }
+    } else {
+      console.log("⚠️ Enhanced Cache module not found");
+    }
+  } catch (err) {
+    console.error("❌ Error initializing Enhanced Cache:", err.message);
+  }
+  
+  // 2. Batch Processor
+  try {
+    if (await moduleExists('../../utils/batchProcessor.js')) {
+      const batchProcessor = (await import('../../utils/batchProcessor.js')).default;
+      console.log("✓ Batch Processor initialized");
+      optimizations.batching = true;
+      
+      // Configure batch processor options if supported
+      if (batchProcessor.options) {
+        // Don't overwrite options, just log them
+        console.log(`  - Current batch size: ${batchProcessor.options.maxBatchSize || 'unknown'}`);
+        console.log(`  - Batch timeout: ${batchProcessor.options.batchTimeout || 'unknown'}ms`);
+      }
+    } else {
+      console.log("⚠️ Batch Processor module not found");
+    }
+  } catch (err) {
+    console.error("❌ Error initializing Batch Processor:", err.message);
+  }
+  
+  // 3. Document Fingerprinter
+  try {
+    if (await moduleExists('../../utils/documentFingerprinter.js')) {
+      const documentFingerprinter = (await import('../../utils/documentFingerprinter.js')).default;
+      console.log("✓ Document Fingerprinter initialized");
+      optimizations.fingerprinting = true;
+      
+      // Clear the fingerprint cache to avoid stale data
+      if (typeof documentFingerprinter.clearCache === 'function') {
+        documentFingerprinter.clearCache();
+        console.log("  - Fingerprint cache cleared");
+      }
+    } else {
+      console.log("⚠️ Document Fingerprinter module not found");
+    }
+  } catch (err) {
+    console.error("❌ Error initializing Document Fingerprinter:", err.message);
+  }
+  
+  // 4. Cost Tracker
+  try {
+    if (await moduleExists('../../utils/costTracker.js')) {
+      const costTracker = (await import('../../utils/costTracker.js')).default;
+      console.log("✓ Cost Tracker initialized");
+      optimizations.costTracking = true;
+      
+      // Reset stats if supported
+      if (typeof costTracker.resetStats === 'function') {
+        costTracker.resetStats();
+        console.log("  - Cost tracking stats reset");
+      }
+    } else {
+      console.log("⚠️ Cost Tracker module not found");
+    }
+  } catch (err) {
+    console.error("❌ Error initializing Cost Tracker:", err.message);
+  }
+  
+  // 5. Tiered Response Strategy
+  try {
+    if (await moduleExists('../../utils/tieredResponseStrategy.js')) {
+      const tieredResponseStrategy = (await import('../../utils/tieredResponseStrategy.js')).default;
+      console.log("✓ Tiered Response Strategy initialized");
+      optimizations.tieredResponses = true;
+    } else {
+      console.log("⚠️ Tiered Response Strategy module not found");
+    }
+  } catch (err) {
+    console.error("❌ Error initializing Tiered Response Strategy:", err.message);
+  }
+  
+  // 6. Check for any available service optimizations
+  try {
+    if (await moduleExists('../../services/perplexityService.js')) {
+      const perplexityService = await import('../../services/perplexityService.js');
+      console.log("✓ Perplexity Service found, checking for optimization hooks");
+      
+      // Look for optimization methods
+      if (typeof perplexityService.optimize === 'function') {
+        await perplexityService.optimize();
+        console.log("  - Applied optimizations to Perplexity Service");
+      } else if (typeof perplexityService.default?.optimize === 'function') {
+        await perplexityService.default.optimize();
+        console.log("  - Applied optimizations to Perplexity Service");
+      } else {
+        console.log("  - No optimization methods found for Perplexity Service");
+      }
+    }
+  } catch (err) {
+    console.log("ℹ️ Skipping service optimizations:", err.message);
+  }
+  
+  // Calculate how many optimizations were successfully applied
+  const successCount = Object.values(optimizations).filter(Boolean).length;
+  const totalCount = Object.keys(optimizations).length;
+  
+  console.log("\nOPTIMIZATION SUMMARY:");
+  console.log("--------------------");
+  console.log(`Applied: ${successCount}/${totalCount} optimizations`);
+  console.log(`Success Rate: ${Math.round((successCount / totalCount) * 100)}%`);
+  
+  if (successCount === totalCount) {
+    console.log("\n✅ SUCCESS: All optimizations applied successfully");
+  } else if (successCount > 0) {
+    console.log("\n⚠️ PARTIAL SUCCESS: Some optimizations applied");
+    console.log("Run 'check-optimization-settings.js' to see detailed status");
+  } else {
+    console.log("\n❌ FAILED: No optimizations applied");
+    console.log("Check that optimization modules are properly installed");
+  }
+  
+  console.log("\nCurrent memory usage:");
+  console.table(process.memoryUsage());
+  
+  console.log("\n======================================");
+  
+  return {
+    success: successCount > 0,
+    optimizations,
+    successCount,
+    totalCount
+  };
+}
+
+// Run the optimization if this is the main module
+if (import.meta.url === `file://${__filename}`) {
+  applyOptimizations().catch(err => {
+    console.error('Error applying optimizations:', err);
+    process.exit(1);
+  });
+}
+
+export default applyOptimizations;

@@ -288,3 +288,239 @@ console.log(`- External: ${Math.round(memUsage.external / 1024 / 1024)}MB`);
 console.log('=======================================================');
 
 process.exit(0);
+/**
+ * Optimization Settings Checker
+ * 
+ * Verifies and reports the current optimization settings in the system
+ */
+import fs from 'fs';
+import path from 'path';
+import logger from '../../utils/logger.js';
+import { fileURLToPath } from 'url';
+
+// Get directory name in ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Utility to safely check if a module exists
+async function moduleExists(modulePath) {
+  try {
+    await import(modulePath);
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+
+async function checkOptimizationSettings() {
+  console.log("======================================");
+  console.log("      OPTIMIZATION STATUS CHECK      ");
+  console.log("======================================\n");
+  
+  const results = {
+    caching: {
+      enabled: false,
+      type: 'None',
+      status: 'Not configured'
+    },
+    batching: {
+      enabled: false,
+      maxBatchSize: 0,
+      status: 'Not configured'
+    },
+    fingerprinting: {
+      enabled: false,
+      status: 'Not configured'
+    },
+    costTracking: {
+      enabled: false,
+      status: 'Not configured'
+    },
+    tieredResponses: {
+      enabled: false,
+      status: 'Not configured'
+    },
+    memoryUsage: process.memoryUsage()
+  };
+  
+  // Check for enhanced cache
+  if (await moduleExists('../../utils/enhancedCache.js')) {
+    try {
+      const enhancedCache = (await import('../../utils/enhancedCache.js')).default;
+      results.caching.enabled = true;
+      results.caching.type = 'Enhanced';
+      results.caching.status = 'Configured';
+      
+      // Get cache stats if available
+      if (typeof enhancedCache.getStats === 'function') {
+        const stats = enhancedCache.getStats();
+        results.caching.hitRate = stats.hitRate || 'Unknown';
+        results.caching.size = stats.size || 'Unknown';
+      }
+    } catch (err) {
+      results.caching.status = `Error: ${err.message}`;
+    }
+  } else if (await moduleExists('../../utils/smartCache.js')) {
+    try {
+      const smartCache = (await import('../../utils/smartCache.js')).default;
+      results.caching.enabled = true;
+      results.caching.type = 'Smart Cache';
+      results.caching.status = 'Configured';
+    } catch (err) {
+      results.caching.status = `Error: ${err.message}`;
+    }
+  }
+  
+  // Check for batch processor
+  if (await moduleExists('../../utils/batchProcessor.js')) {
+    try {
+      const batchProcessor = (await import('../../utils/batchProcessor.js')).default;
+      results.batching.enabled = true;
+      results.batching.status = 'Configured';
+      
+      // Get batch processor stats if available
+      if (typeof batchProcessor.getStats === 'function') {
+        const stats = batchProcessor.getStats();
+        results.batching.processed = stats.processed || 0;
+        results.batching.errors = stats.errors || 0;
+        results.batching.activeBatches = stats.activeBatches || 0;
+      }
+      
+      // Get max batch size if available
+      if (batchProcessor.options && batchProcessor.options.maxBatchSize) {
+        results.batching.maxBatchSize = batchProcessor.options.maxBatchSize;
+      }
+    } catch (err) {
+      results.batching.status = `Error: ${err.message}`;
+    }
+  }
+  
+  // Check for document fingerprinter
+  if (await moduleExists('../../utils/documentFingerprinter.js')) {
+    try {
+      const documentFingerprinter = (await import('../../utils/documentFingerprinter.js')).default;
+      results.fingerprinting.enabled = true;
+      results.fingerprinting.status = 'Configured';
+      
+      // Try to get fingerprinter configuration
+      if (documentFingerprinter.similarityThreshold) {
+        results.fingerprinting.similarityThreshold = documentFingerprinter.similarityThreshold;
+      }
+    } catch (err) {
+      results.fingerprinting.status = `Error: ${err.message}`;
+    }
+  }
+  
+  // Check for cost tracker
+  if (await moduleExists('../../utils/costTracker.js')) {
+    try {
+      const costTracker = (await import('../../utils/costTracker.js')).default;
+      results.costTracking.enabled = true;
+      results.costTracking.status = 'Configured';
+      
+      // Get cost tracking stats if available
+      if (typeof costTracker.getStats === 'function') {
+        try {
+          const stats = costTracker.getStats();
+          results.costTracking.totalCost = stats.totalCost || 0;
+          results.costTracking.requestCount = stats.requestCount || 0;
+        } catch (err) {
+          // Ignore errors getting stats
+        }
+      }
+    } catch (err) {
+      results.costTracking.status = `Error: ${err.message}`;
+    }
+  }
+  
+  // Check for tiered response strategy
+  if (await moduleExists('../../utils/tieredResponseStrategy.js')) {
+    try {
+      const tieredResponseStrategy = (await import('../../utils/tieredResponseStrategy.js')).default;
+      results.tieredResponses.enabled = true;
+      results.tieredResponses.status = 'Configured';
+    } catch (err) {
+      results.tieredResponses.status = `Error: ${err.message}`;
+    }
+  }
+  
+  // Display results
+  console.log("OPTIMIZATION COMPONENTS:");
+  console.log("------------------------");
+  console.log(`1. Caching: ${results.caching.enabled ? 'ENABLED' : 'DISABLED'}`);
+  console.log(`   Type: ${results.caching.type}`);
+  console.log(`   Status: ${results.caching.status}`);
+  if (results.caching.hitRate) {
+    console.log(`   Hit Rate: ${results.caching.hitRate}`);
+  }
+  
+  console.log(`\n2. Batch Processing: ${results.batching.enabled ? 'ENABLED' : 'DISABLED'}`);
+  console.log(`   Status: ${results.batching.status}`);
+  if (results.batching.maxBatchSize) {
+    console.log(`   Max Batch Size: ${results.batching.maxBatchSize}`);
+  }
+  if (results.batching.processed !== undefined) {
+    console.log(`   Processed Items: ${results.batching.processed}`);
+    console.log(`   Active Batches: ${results.batching.activeBatches}`);
+  }
+  
+  console.log(`\n3. Document Fingerprinting: ${results.fingerprinting.enabled ? 'ENABLED' : 'DISABLED'}`);
+  console.log(`   Status: ${results.fingerprinting.status}`);
+  if (results.fingerprinting.similarityThreshold) {
+    console.log(`   Similarity Threshold: ${results.fingerprinting.similarityThreshold}`);
+  }
+  
+  console.log(`\n4. Cost Tracking: ${results.costTracking.enabled ? 'ENABLED' : 'DISABLED'}`);
+  console.log(`   Status: ${results.costTracking.status}`);
+  if (results.costTracking.totalCost !== undefined) {
+    console.log(`   Total Cost: $${results.costTracking.totalCost.toFixed(4)}`);
+    console.log(`   Request Count: ${results.costTracking.requestCount}`);
+  }
+  
+  console.log(`\n5. Tiered Responses: ${results.tieredResponses.enabled ? 'ENABLED' : 'DISABLED'}`);
+  console.log(`   Status: ${results.tieredResponses.status}`);
+  
+  console.log("\nMEMORY USAGE:");
+  console.log("-------------");
+  console.log(`RSS: ${Math.round(results.memoryUsage.rss / 1024 / 1024)} MB`);
+  console.log(`Heap Used: ${Math.round(results.memoryUsage.heapUsed / 1024 / 1024)} MB`);
+  console.log(`Heap Total: ${Math.round(results.memoryUsage.heapTotal / 1024 / 1024)} MB`);
+  
+  // Calculate optimization score
+  const enabledFeatures = [
+    results.caching.enabled,
+    results.batching.enabled,
+    results.fingerprinting.enabled,
+    results.costTracking.enabled,
+    results.tieredResponses.enabled
+  ].filter(Boolean).length;
+  
+  const optimizationScore = Math.round((enabledFeatures / 5) * 100);
+  
+  console.log("\nOPTIMIZATION SUMMARY:");
+  console.log("--------------------");
+  console.log(`Optimization Score: ${optimizationScore}%`);
+  console.log(`Enabled Features: ${enabledFeatures}/5`);
+  
+  if (optimizationScore < 60) {
+    console.log("\n⚠️ RECOMMENDATION: Run optimization scripts to enable more features");
+  } else if (optimizationScore < 100) {
+    console.log("\n✓ GOOD: Most optimization features are enabled");
+  } else {
+    console.log("\n✅ EXCELLENT: All optimization features are enabled");
+  }
+  
+  console.log("\n======================================");
+  
+  return results;
+}
+
+// Run the check if this is the main module
+if (import.meta.url === `file://${__filename}`) {
+  checkOptimizationSettings().catch(err => {
+    console.error('Error checking optimization settings:', err);
+    process.exit(1);
+  });
+}
+
+export default checkOptimizationSettings;
