@@ -95,21 +95,53 @@ async function initializeServices() {
     serveStatic(app);
   }
 
-  const port = process.env.PORT || 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-    keepAliveTimeout: 65000,
-    headersTimeout: 66000,
-  }, async () => {
-    logger.info(`Server running on port ${port}`);
-
-    // Skip automatic initialization of mock data to avoid API calls
-    // User can manually initialize data if needed via API endpoint
-    logger.info("Skipping automatic mock research data initialization to avoid unwanted API calls");
-    logger.info("To initialize mock data manually, use the /api/mock-init endpoint when needed");
-  });
+  // Try multiple ports starting with the specified one
+  const startPort = parseInt(process.env.PORT || "5000", 10);
+  const tryPorts = [startPort, 5001, 5002, 5003, 5004];
+  
+  const startServer = async (portIndex = 0) => {
+    if (portIndex >= tryPorts.length) {
+      logger.error("Failed to bind to any port. All ports are busy.");
+      process.exit(1);
+      return;
+    }
+    
+    const port = tryPorts[portIndex];
+    
+    try {
+      server.listen({
+        port,
+        host: "0.0.0.0",
+        reusePort: true,
+        keepAliveTimeout: 65000,
+        headersTimeout: 66000,
+      })
+      .on('listening', () => {
+        logger.info(`Server running on port ${port}`);
+        
+        // Skip automatic initialization of mock data to avoid API calls
+        // User can manually initialize data if needed via API endpoint
+        logger.info("Skipping automatic mock research data initialization to avoid unwanted API calls");
+        logger.info("To initialize mock data manually, use the /api/mock-init endpoint when needed");
+      })
+      .on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          logger.warn(`Port ${port} is already in use, trying next port...`);
+          // Try the next port
+          startServer(portIndex + 1);
+        } else {
+          logger.error(`Failed to start server: ${err.message}`);
+          process.exit(1);
+        }
+      });
+    } catch (error) {
+      logger.error(`Error starting server: ${error.message}`);
+      process.exit(1);
+    }
+  };
+  
+  // Start the server with the first port
+  startServer();
 })();
 
 export default app;
