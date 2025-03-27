@@ -271,6 +271,38 @@ class ResourceManager {
       uptime: `${Math.round(process.uptime() / 60)} minutes`
     };
   }
+
+  /**
+   * Get status of the resource manager
+   * @returns {Object} Status information
+   */
+  getStatus() {
+    const memUsage = process.memoryUsage();
+    
+    return {
+      status: this.isActive ? 'ACTIVE' : 'INACTIVE',
+      memoryUsage: {
+        heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+        heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+        rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+        external: `${Math.round(memUsage.external / 1024 / 1024)}MB`
+      },
+      thresholds: {
+        heapUsage: `${this.options.heapUsageThreshold}MB`,
+        cpuUsage: `${this.options.cpuUsageThreshold}%`
+      },
+      intervals: {
+        monitoring: `${this.options.monitoringInterval / 1000}s`,
+        cleanup: `${this.options.cleanupInterval / 1000}s`,
+        gc: `${this.options.gcInterval / 1000}s`
+      },
+      settings: {
+        aggressiveGcEnabled: this.options.aggressiveGcEnabled,
+        lowMemoryMode: this.options.lowMemoryMode
+      },
+      uptime: `${Math.round(process.uptime() / 60)} minutes`
+    };
+  }
 }
 
 // Create and export singleton instance

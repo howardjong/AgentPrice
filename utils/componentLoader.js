@@ -320,6 +320,51 @@ class ComponentLoader {
     // This method would scan and load them
     logger.info('Critical components preloaded');
   }
+
+  /**
+   * Get status of the component loader
+   * @returns {Object} Status information
+   */
+  getStatus() {
+    const stats = this.getStats();
+    const now = Date.now();
+    
+    // Calculate component age statistics
+    const componentAges = [];
+    for (const [componentId, loadTime] of this.loadTimes.entries()) {
+      componentAges.push({
+        id: componentId,
+        ageMs: now - loadTime
+      });
+    }
+    
+    // Sort by age (oldest first)
+    componentAges.sort((a, b) => b.ageMs - a.ageMs);
+    
+    // Get top 5 oldest components
+    const oldestComponents = componentAges.slice(0, 5).map(item => ({
+      id: item.id,
+      age: `${Math.round(item.ageMs / 1000 / 60)} minutes`
+    }));
+    
+    return {
+      status: 'ACTIVE',
+      loadedComponents: this.components.size,
+      pendingLoads: this.loadingPromises.size,
+      settings: {
+        lazyLoad: this.lazyLoad,
+        unloadThreshold: `${this.unloadThreshold / 1000 / 60} minutes`,
+        preloadCritical: this.preloadCritical
+      },
+      stats: {
+        totalLoaded: stats.totalLoaded,
+        reused: stats.reused,
+        loadErrors: stats.loadErrors,
+        criticalComponentsCount: stats.critical
+      },
+      oldestComponents: oldestComponents
+    };
+  }
 }
 
 // Create and export singleton instance

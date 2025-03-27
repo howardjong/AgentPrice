@@ -324,6 +324,42 @@ class MemoryLeakDetector {
       return 'Stable: Memory usage appears stable';
     }
   }
+
+  /**
+   * Get status of the memory leak detector
+   * @returns {Object} Status information
+   */
+  getStatus() {
+    const currentMemory = process.memoryUsage();
+    const report = this.getReport();
+    
+    return {
+      status: this.isMonitoring ? 'ACTIVE' : 'INACTIVE',
+      samplesCollected: this.samples.length,
+      memoryUsage: {
+        heapUsedMB: Math.round(currentMemory.heapUsed / 1024 / 1024),
+        heapTotalMB: Math.round(currentMemory.heapTotal / 1024 / 1024),
+        rssMB: Math.round(currentMemory.rss / 1024 / 1024)
+      },
+      settings: {
+        sampleInterval: `${this.sampleInterval / 1000}s`,
+        growthThreshold: `${this.growthThreshold}%`,
+        consecutiveGrowthLimit: this.consecutiveGrowthLimit,
+        resourceSavingMode: this.resourceSavingMode,
+        maxSamples: this.maxSamples
+      },
+      analysis: {
+        consecutiveGrowths: this.consecutiveGrowths,
+        potentialLeakDetected: this.consecutiveGrowths >= this.consecutiveGrowthLimit,
+        recommendation: this.samples.length >= 2 ? report.recommendation : 'Insufficient data'
+      },
+      gcInfo: {
+        gcTriggerThreshold: `${this.gcTriggerThreshold}MB`,
+        lastGcTime: new Date(this.lastGcTime).toISOString(),
+        minGcInterval: `${this.minGcInterval / 1000 / 60} minutes`
+      }
+    };
+  }
 }
 
 // Create a singleton instance only if it doesn't already exist

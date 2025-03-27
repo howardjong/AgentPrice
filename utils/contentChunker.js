@@ -349,6 +349,36 @@ class ContentChunker {
       };
     }
   }
+  
+  /**
+   * Get status of the content chunker
+   * @returns {Object} Status information
+   */
+  getStatus() {
+    return {
+      status: 'ACTIVE',
+      enabled: true,
+      configuration: {
+        defaultChunkSize: this.options.defaultChunkSize,
+        defaultOverlap: this.options.defaultOverlap,
+        maintainSemanticBoundaries: this.options.maintainSemanticBoundaries,
+        preserveCodeBlocks: this.options.preserveCodeBlocks,
+        preserveParagraphs: this.options.preserveParagraphs,
+        trackSectionStructure: this.options.trackSectionStructure
+      },
+      patterns: {
+        sectionPatterns: this.sectionPatterns.length,
+        blockBoundaries: this.blockBoundaries.length,
+        totalPatterns: this.sectionPatterns.length + this.blockBoundaries.length
+      },
+      capabilities: {
+        chunkContent: true,
+        reassembleChunks: true,
+        intelligentBoundaryDetection: this.options.maintainSemanticBoundaries,
+        codePreservation: this.options.preserveCodeBlocks
+      }
+    };
+  }
 }
 
 // Create and export singleton instance

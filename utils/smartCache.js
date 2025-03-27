@@ -516,6 +516,64 @@ class SmartCache {
     
     logger.info('Cache destroyed, all resources released');
   }
+
+  /**
+   * Get status of the smart cache
+   * @returns {Object} Status information
+   */
+  getStatus() {
+    const stats = this.getStats();
+    
+    // Calculate memory usage of the cache
+    let totalSizeBytes = 0;
+    for (const item of this.cache.values()) {
+      totalSizeBytes += item.size || 0;
+    }
+    
+    // Get key age distribution
+    const now = Date.now();
+    const keyAges = [...this.keyTimestamps.values()].map(timestamp => now - timestamp);
+    
+    // Calculate percentiles if we have keys
+    let ageStats = { min: 0, avg: 0, max: 0 };
+    if (keyAges.length > 0) {
+      keyAges.sort((a, b) => a - b);
+      ageStats = {
+        min: Math.round(keyAges[0] / 1000), // seconds
+        avg: Math.round(keyAges.reduce((sum, age) => sum + age, 0) / keyAges.length / 1000),
+        max: Math.round(keyAges[keyAges.length - 1] / 1000)
+      };
+    }
+    
+    return {
+      status: 'ACTIVE',
+      cachedItems: this.cache.size,
+      memoryUsage: {
+        estimatedSizeKB: Math.round(totalSizeBytes / 1024),
+        memoryLimitMB: this.memoryLimitMB
+      },
+      settings: {
+        maxSize: this.maxSize,
+        defaultTTL: `${Math.round(this.defaultTTL / 1000 / 60)} minutes`,
+        fuzzyMatchEnabled: this.enableFuzzyMatch,
+        fuzzyMatchThreshold: this.fuzzyMatchThreshold,
+        lowMemoryMode: this.lowMemoryMode,
+        aggressiveEviction: this.aggressiveEviction
+      },
+      performance: {
+        hitRate: stats.hitRate,
+        exactHits: stats.exactHits,
+        fuzzyHits: stats.fuzzyHits,
+        misses: stats.misses
+      },
+      evictions: stats.evictions,
+      keyAge: {
+        minSeconds: ageStats.min,
+        avgSeconds: ageStats.avg,
+        maxSeconds: ageStats.max
+      }
+    };
+  }
 }
 
 const smartCache = new SmartCache();

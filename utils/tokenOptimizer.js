@@ -165,6 +165,34 @@ class TokenOptimizer {
       optimizations: [...new Set(totalOptimizations)] // Remove duplicates
     };
   }
+
+  /**
+   * Get status of the token optimizer
+   * @returns {Object} Status information
+   */
+  getStatus() {
+    return {
+      status: 'ACTIVE',
+      optimizationPatterns: {
+        repetitionPatterns: this.patterns.repetition.length,
+        verbosePhrases: this.patterns.verbosePhrases.length,
+        fillerPatterns: this.patterns.fillerWords.length,
+        redundancyPatterns: this.patterns.redundantQualifiers.length,
+        totalPatterns: this.patterns.repetition.length + 
+                       this.patterns.verbosePhrases.length + 
+                       this.patterns.fillerWords.length + 
+                       this.patterns.redundantQualifiers.length
+      },
+      capabilities: {
+        removeRepetition: true,
+        simplifyVerbose: true,
+        removeFillers: true,
+        fixRedundancy: true,
+        trimLongMessages: true,
+        skipSystemMessages: true
+      }
+    };
+  }
 }
 
 const tokenOptimizer = new TokenOptimizer();

@@ -404,6 +404,30 @@ class TieredResponseStrategy {
   getAllTiers() {
     return { ...this.tiers };
   }
+
+  /**
+   * Get status of the tiered response strategy
+   * @returns {Object} Status information
+   */
+  getStatus() {
+    return {
+      status: 'ACTIVE',
+      currentTier: this.currentTier,
+      availableTiers: Object.keys(this.tiers),
+      budget: {
+        daily: this.budget.daily,
+        monthly: this.budget.monthly,
+        currentDailyCost: this.budget.currentDailyCost,
+        currentMonthlyCost: this.budget.currentMonthlyCost,
+        dailyUsagePercentage: this.budget.daily ? 
+          ((this.budget.currentDailyCost / this.budget.daily) * 100).toFixed(1) + '%' : 'N/A',
+        monthlyUsagePercentage: this.budget.monthly ? 
+          ((this.budget.currentMonthlyCost / this.budget.monthly) * 100).toFixed(1) + '%' : 'N/A'
+      },
+      modelMappings: this.modelMappings,
+      lastTierChangeReason: this.lastTierChangeReason || 'Not changed since initialization'
+    };
+  }
 }
 
 // Create and export singleton instance
