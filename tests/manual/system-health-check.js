@@ -130,12 +130,27 @@ async function checkSystemHealth() {
   // Check package dependencies
   console.log('\n[5] Checking required Node modules...');
   const requiredModules = [
-    'axios', 'express', 'bull', 'ioredis', 'anthropic', 'winston', 
+    'axios', 'express', 'bull', 'ioredis', '@anthropic-ai/sdk', 'winston', 
     'uuid', 'tailwind-merge'
   ];
   
+  // Use import.meta.resolve in a safe way
+  // This approach is safer than require.resolve for ES modules projects
+  const fs = await import('fs');
+  const path = await import('path');
+  const { createRequire } = await import('module');
+  const require = createRequire(import.meta.url);
+  
   for (const module of requiredModules) {
     try {
+      // First check if module exists in node_modules
+      const modulePath = path.resolve('./node_modules/', module);
+      if (fs.existsSync(modulePath)) {
+        console.log(`- ✅ ${module} is installed (directory exists)`);
+        continue;
+      }
+      
+      // Fallback to require.resolve
       require.resolve(module);
       console.log(`- ✅ ${module} is installed`);
     } catch (error) {
