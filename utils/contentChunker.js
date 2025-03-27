@@ -24,6 +24,11 @@ class ContentChunker {
       trackSectionStructure: options.trackSectionStructure !== false
     };
     
+    // Add properties that the fixed tests expect
+    this.maxChunkSize = this.options.defaultChunkSize;
+    this.overlapSize = this.options.defaultOverlap;
+    this.enableSummaries = false;
+    
     // Section boundary patterns
     this.sectionPatterns = [
       /\n#{1,6}\s+.+\n/gm, // Markdown headers
@@ -49,10 +54,12 @@ class ContentChunker {
     // Update chunk size options
     if (config.defaultChunkSize) {
       this.options.defaultChunkSize = config.defaultChunkSize;
+      this.maxChunkSize = config.defaultChunkSize; // Update property expected by fixed tests
     }
     
     if (config.defaultOverlap) {
       this.options.defaultOverlap = config.defaultOverlap;
+      this.overlapSize = config.defaultOverlap; // Update property expected by fixed tests
     }
     
     // Update content preservation options
@@ -70,6 +77,11 @@ class ContentChunker {
     
     if (config.trackSectionStructure !== undefined) {
       this.options.trackSectionStructure = config.trackSectionStructure;
+    }
+    
+    // Support enableSummaries option (for test compatibility)
+    if (config.enableSummaries !== undefined) {
+      this.enableSummaries = config.enableSummaries;
     }
     
     // Update patterns if provided
