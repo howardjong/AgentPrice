@@ -166,8 +166,7 @@ async function checkSystemHealth() {
       }
     }
   } catch (error) {
-      console.error(`- ❌ ${module} is not installed or has issues`);
-    }
+    console.error(`- ❌ Error checking package.json: ${error.message}`);
   }
   
   console.log('\n======================================');
