@@ -238,14 +238,32 @@ async function checkSystemHealth() {
   };
 
   // Check if API calls are disabled (cost saving mode)
-  const { isLlmApiDisabled } = await import('../../utils/disableLlmCalls.js');
-  const apiCallsDisabled = isLlmApiDisabled();
+  const disableLlmCalls = await import('../../utils/disableLlmCalls.js');
+  const apiCallsDisabled = disableLlmCalls.isLlmApiDisabled();
   if (apiCallsDisabled) {
     console.log('- ✅ LLM API calls disabled - running in cost saving mode');
     healthStatus.apiOptimization.status = 'disabled';
   } else {
     console.log('- ℹ️ LLM API calls enabled - potential costs may be incurred');
     healthStatus.apiOptimization.status = 'enabled';
+  }
+  
+  // Check cache monitor functionality
+  console.log('\n[7] Checking cache monitoring system...');
+  
+  try {
+    const cacheMonitor = await import('../../utils/cacheMonitor.js');
+    const stats = cacheMonitor.default.getStats();
+    console.log(`- ✅ Cache monitor is functioning - Hit rate: ${stats.hitRate}`);
+    console.log(`- Total lookups: ${stats.totalLookups}, Hits: ${stats.hits}, Misses: ${stats.misses}`);
+    console.log(`- Estimated savings: ${stats.estimatedSavings}`);
+    
+    healthStatus.apiOptimization.hitRate = stats.hitRate;
+    healthStatus.apiOptimization.savings = stats.estimatedSavings;
+  } catch (error) {
+    console.error(`- ❌ Error checking cache monitor: ${error.message}`);
+    healthStatus.apiOptimization.ok = false;
+    healthStatus.apiOptimization.issues.push('Cache monitor error: ' + error.message);
   }
 
 

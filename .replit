@@ -896,11 +896,23 @@ args = ""
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "# Finally test Redis service"
+args = "# Test Redis service"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/redisServiceTest.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Test API optimization"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/apiCallOptimization.js"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
