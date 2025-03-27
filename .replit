@@ -35,7 +35,7 @@ localPort = 33065
 externalPort = 3002
 
 [workflows]
-runButton = "Run Lightweight Performance Optimizer"
+runButton = "Optimize Performance"
 
 [[workflows.workflow]]
 name = "Project"
@@ -1526,3 +1526,88 @@ args = 'echo -e "\n\nResource usage after optimizations:"'
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node -e \"console.table(process.memoryUsage())\""
+
+[[workflows.workflow]]
+name = "Optimize Performance"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the performance optimization script with proper error handling"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"  RUNNING PERFORMANCE OPTIMIZATION\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First run system health check to establish baseline"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/system-health-check.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then apply performance optimizations"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/optimizeSystemPerformance.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "if [ $? -ne 0 ]; then"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  echo \"❌ Performance optimization failed! See errors above.\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  exit 1"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "fi"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Display resource usage after optimizations"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo -e "\n\nResource usage after optimizations:"'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node -e \"console.table(process.memoryUsage())\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"✅ Performance optimization completed successfully!\""
