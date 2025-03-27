@@ -17,8 +17,14 @@ class PerformanceMonitor {
       longRunningOperations: new Map()
     };
     
-    // Track metrics every minute
-    this.metricInterval = setInterval(() => this.trackResourceUsage(), 60000);
+    // Reduce metrics tracking frequency to every 5 minutes to save resources
+    this.metricInterval = setInterval(() => this.trackResourceUsage(), 300000);
+    
+    // Use weak references for operation tracking to avoid memory leaks
+    this.useWeakReferences = true;
+    
+    // Configure for low memory operation
+    this.lowMemoryMode = process.env.OPTIMIZE_MEMORY === 'true';
   }
   
   /**
@@ -28,16 +34,30 @@ class PerformanceMonitor {
    * @returns {Object} Tracking object with stop method
    */
   startTracking(service, operation) {
-    const startTime = Date.now();
-    const trackingId = `${service}:${operation}:${startTime}:${Math.random().toString(36).substring(2, 10)}`;
+    // Don't track in low memory mode unless it's a critical operation
+    const isCritical = service === 'claude' || service === 'perplexity';
+    if (this.lowMemoryMode && !isCritical) {
+      // Return a dummy tracker that does nothing to save resources
+      return {
+        trackingId: 'no-tracking-low-memory-mode',
+        stop: () => ({ duration: 0, service, operation })
+      };
+    }
     
-    // Add to long-running operations map
-    this.metrics.longRunningOperations.set(trackingId, {
+    const startTime = Date.now();
+    // Generate shorter tracking ID to save memory
+    const trackingId = `${service.substring(0,3)}:${startTime.toString(36)}`;
+    
+    // Create minimal tracking object
+    const trackingData = {
       service,
       operation,
       startTime,
       inProgress: true
-    });
+    };
+    
+    // Add to long-running operations map
+    this.metrics.longRunningOperations.set(trackingId, trackingData);
     
     return {
       trackingId,

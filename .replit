@@ -1611,3 +1611,32 @@ args = ""
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "echo \"✅ Performance optimization completed successfully!\""
+
+[[workflows.workflow]]
+name = "Apply Quick Optimizations"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Apply quick optimizations to reduce memory usage"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/apply-optimizations.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Show current memory usage after optimizations"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo -e "\n\nCurrent memory usage after optimizations:"'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node -e \"console.table(process.memoryUsage())\""

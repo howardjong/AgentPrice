@@ -7,23 +7,23 @@ import logger from './logger.js';
 
 class MemoryLeakDetector {
   constructor(options = {}) {
-    this.sampleInterval = options.sampleInterval || 180000; // 3 minutes (increased from 1 minute)
-    this.growthThreshold = options.growthThreshold || 15; // 15% growth threshold (more tolerant)
+    this.sampleInterval = options.sampleInterval || 300000; // 5 minutes (increased from 3 minutes)
+    this.growthThreshold = options.growthThreshold || 20; // 20% growth threshold (more tolerant)
     this.consecutiveGrowthLimit = options.consecutiveGrowthLimit || 3;
-    this.maxSamples = options.maxSamples || 20; // Limit sample history size
+    this.maxSamples = options.maxSamples || 10; // Reduced sample history size to save memory
     this.samples = [];
     this.consecutiveGrowths = 0;
     this.isMonitoring = false;
     this.monitorInterval = null;
-    this.gcTriggerThreshold = options.gcTriggerThreshold || 80; // MB (reduced threshold)
+    this.gcTriggerThreshold = options.gcTriggerThreshold || 70; // MB (reduced threshold further)
     this.lastGcTime = Date.now();
     this.isLowMemoryMode = options.isLowMemoryMode || false;
     
-    // Minimum time between forced GCs (10 minutes)
-    this.minGcInterval = options.minGcInterval || 10 * 60 * 1000;
+    // Minimum time between forced GCs (15 minutes)
+    this.minGcInterval = options.minGcInterval || 15 * 60 * 1000;
     
     // Resource-saving mode for lightweight operation
-    this.resourceSavingMode = options.resourceSavingMode || false;
+    this.resourceSavingMode = options.resourceSavingMode || true; // Default to resource saving mode
   }
   
   /**
@@ -121,33 +121,44 @@ class MemoryLeakDetector {
    * Take a memory sample
    */
   takeSample() {
+    // Early return if we're not in an active state to save resources
+    if (!this.isMonitoring) return;
+    
+    // Use lightweight memory tracking
     const memoryUsage = process.memoryUsage();
+    
+    // Create minimalist sample object - store only what we absolutely need
     const sample = {
       timestamp: Date.now(),
-      heapUsed: memoryUsage.heapUsed,
-      heapTotal: memoryUsage.heapTotal,
-      // Only store essential metrics in resource-saving mode
-      ...(this.resourceSavingMode ? {} : {
-        external: memoryUsage.external,
-        rss: memoryUsage.rss
-      })
+      heapUsed: memoryUsage.heapUsed
     };
+    
+    // Only add heapTotal in non-resource-saving mode
+    if (!this.resourceSavingMode) {
+      sample.heapTotal = memoryUsage.heapTotal;
+      sample.rss = memoryUsage.rss;
+    }
     
     this.samples.push(sample);
     
-    // Keep only the limited number of samples to reduce memory footprint
+    // Aggressive sample management - keep only what we need
     if (this.samples.length > this.maxSamples) {
+      // Remove oldest sample
       this.samples.shift();
     }
     
-    // Only analyze if we have enough samples and not in resource-saving mode
-    if (this.samples.length >= 3 && (!this.resourceSavingMode || this.samples.length % 2 === 0)) {
+    // Reduce analysis frequency in resource-saving mode
+    const shouldAnalyze = this.samples.length >= 3 && 
+      (!this.resourceSavingMode || this.samples.length % 3 === 0);
+    
+    if (shouldAnalyze) {
       this.analyzeMemoryGrowth();
     }
     
-    // Check if we should suggest a garbage collection
-    // Skip every other check in resource-saving mode
-    if (!this.resourceSavingMode || this.samples.length % 2 === 0) {
+    // Check GC less frequently in resource-saving mode
+    const shouldCheckGC = !this.resourceSavingMode || this.samples.length % 3 === 0;
+    
+    if (shouldCheckGC) {
       this.checkForGarbageCollection();
     }
   }

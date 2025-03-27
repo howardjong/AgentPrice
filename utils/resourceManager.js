@@ -10,11 +10,13 @@ import performanceMonitor from './performanceMonitor.js';
 class ResourceManager {
   constructor(options = {}) {
     this.options = {
-      heapUsageThreshold: options.heapUsageThreshold || 100, // MB
-      cpuUsageThreshold: options.cpuUsageThreshold || 70, // percentage
-      gcInterval: options.gcInterval || 5 * 60 * 1000, // 5 minutes
-      monitoringInterval: options.monitoringInterval || 2 * 60 * 1000, // 2 minutes
-      cleanupInterval: options.cleanupInterval || 15 * 60 * 1000, // 15 minutes
+      heapUsageThreshold: options.heapUsageThreshold || 80, // Reduced to 80MB
+      cpuUsageThreshold: options.cpuUsageThreshold || 60, // Lower CPU threshold
+      gcInterval: options.gcInterval || 10 * 60 * 1000, // 10 minutes (increased)
+      monitoringInterval: options.monitoringInterval || 5 * 60 * 1000, // 5 minutes (increased)
+      cleanupInterval: options.cleanupInterval || 20 * 60 * 1000, // 20 minutes (increased)
+      aggressiveGcEnabled: options.aggressiveGcEnabled || true, // Enable aggressive GC
+      lowMemoryMode: options.lowMemoryMode || false, // Low memory mode option
       ...options
     };
     
@@ -23,6 +25,10 @@ class ResourceManager {
       monitoring: null,
       cleanup: null
     };
+    
+    // Resource usage history - keep minimal history
+    this.usageHistory = [];
+    this.maxHistoryEntries = 5;
     
     // Bind methods
     this.start = this.start.bind(this);
