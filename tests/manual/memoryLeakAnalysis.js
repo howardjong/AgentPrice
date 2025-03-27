@@ -6,7 +6,8 @@
 import { setTimeout } from 'timers/promises';
 
 // Import utilities
-let memoryLeakDetector;
+// Using a different variable name to avoid redeclaration conflicts
+let leakDetector;
 
 // Helper to create large objects that consume memory
 const createLargeObjects = (count, size) => {
@@ -117,18 +118,18 @@ const runTests = async () => {
   try {
     console.log('Importing memory leak detector...');
     const module = await import('../../utils/memoryLeakDetector.js');
-    memoryLeakDetector = module.default;
+    leakDetector = module.default;
     
-    if (!memoryLeakDetector) {
+    if (!leakDetector) {
       throw new Error('Memory leak detector not loaded correctly');
     }
     
     console.log('Starting memory leak detector...');
     // Configure with faster sampling for testing
-    memoryLeakDetector.sampleInterval = 1000;
-    memoryLeakDetector.growthThreshold = 5;
-    memoryLeakDetector.consecutiveGrowthLimit = 3;
-    memoryLeakDetector.start();
+    leakDetector.sampleInterval = 1000;
+    leakDetector.growthThreshold = 5;
+    leakDetector.consecutiveGrowthLimit = 3;
+    leakDetector.start();
     
     // Wait for initial samples
     console.log('Collecting baseline samples...');
@@ -141,10 +142,10 @@ const runTests = async () => {
     
     // Display final report
     console.log('\nFinal memory analysis report:');
-    console.log(JSON.stringify(memoryLeakDetector.getReport(), null, 2));
+    console.log(JSON.stringify(leakDetector.getReport(), null, 2));
     
     // Stop the detector
-    memoryLeakDetector.stop();
+    leakDetector.stop();
     console.log('Memory leak analysis tests completed');
   } catch (error) {
     console.error('Error running memory leak tests:', error);

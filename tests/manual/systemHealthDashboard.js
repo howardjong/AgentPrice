@@ -209,11 +209,14 @@ const displayPerformanceStats = async () => {
 
 // Display memory leak detector stats
 const displayMemoryLeakStats = async () => {
-  if (!memoryLeakDetector) {
+  // Use a local variable to avoid global namespace conflicts
+  let leakDetectorInstance;
+  
+  if (!leakDetectorInstance) {
     try {
       const module = await import('../../utils/memoryLeakDetector.js');
-      memoryLeakDetector = module.default;
-      memoryLeakDetector.start();
+      leakDetectorInstance = module.default;
+      leakDetectorInstance.start();
       state.serviceStatus.memoryLeakDetector = 'Active';
     } catch (err) {
       state.serviceStatus.memoryLeakDetector = 'Failed to load';
@@ -224,7 +227,7 @@ const displayMemoryLeakStats = async () => {
   console.log(colors.bright + '■ MEMORY LEAK DETECTION' + colors.reset);
   
   try {
-    const report = memoryLeakDetector.getReport();
+    const report = leakDetectorInstance.getReport();
     
     if (report.samples < 2) {
       console.log(`  ${colors.yellow}Collecting samples... (${report.samples} so far)${colors.reset}`);
