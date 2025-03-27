@@ -226,7 +226,13 @@ async function checkSystemHealth() {
   for (const envVar of requiredEnvVars) {
     if (!process.env[envVar]) {
       missingEnvVars.push(envVar);
-      console.log(`- ✅ Using default ${envVar}: ${process.env[envVar] || (envVar === 'NODE_ENV' ? 'development' : '5000')}`);
+      // Set default environment variables if missing
+      if (envVar === 'NODE_ENV') {
+        process.env.NODE_ENV = 'development';
+      } else if (envVar === 'PORT') {
+        process.env.PORT = '5000';
+      }
+      console.log(`- ✅ Using default ${envVar}: ${process.env[envVar]}`);
     } else {
       console.log(`- ✅ ${envVar} is set`);
     }
@@ -287,6 +293,7 @@ async function checkSystemHealth() {
 
   console.log('======================================');
   console.log('       HEALTH CHECK COMPLETE');
+  console.log('======================================');TE');
   console.log('======================================');
 }
 
