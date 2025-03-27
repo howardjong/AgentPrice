@@ -61,6 +61,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await storage.updateServiceStatus('claude', claudeStatus);
   await storage.updateServiceStatus('perplexity', perplexityStatus);
 
+  // Health endpoint
+  app.get('/api/health', (req: Request, res: Response) => {
+    const healthData = {
+      redis: { 
+        status: 'Connected', 
+        healthy: true 
+      },
+      promptManager: { 
+        status: 'Healthy', 
+        healthy: true 
+      },
+      circuitBreaker: { 
+        status: 'Operational', 
+        healthy: true,
+        openCircuits: [] 
+      },
+      memory: { 
+        usagePercent: process.memoryUsage().heapUsed / process.memoryUsage().heapTotal * 100 
+      }
+    };
+    
+    res.json(healthData);
+  });
+
   // Serve the charts view page
   app.get('/view-charts.html', (req: Request, res: Response) => {
     // Using import.meta.url instead of __dirname for ES modules
@@ -94,71 +118,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/analyze-file', async (req: Request, res: Response) => {
     try {
       const { content, chartType, contentType } = req.body;
-
+      
       if (!content) {
         return res.status(400).json({
-
-// Health endpoint
-app.get('/api/health', (req, res) => {
-  const healthData = {
-    redis: { 
-      status: 'Connected', 
-      healthy: true 
-    },
-    promptManager: { 
-      status: 'Healthy', 
-      healthy: true 
-    },
-    circuitBreaker: { 
-      status: 'Operational', 
-      healthy: true,
-      openCircuits: [] 
-    },
-    memory: { 
-      usagePercent: process.memoryUsage().heapUsed / process.memoryUsage().heapTotal * 100 
-    }
-  };
-  
-  res.json(healthData);
-});
-
-  // Handle missing content in analyze-file endpoint
-  app.use((req, res, next) => {
-  if (req.path === '/api/analyze-file' && !req.body?.content) {
-    return res.status(400).json({
-      success: false,
-      error: 'Content is required'
-    });
-  }
-  next();
-});
-
+          success: false,
+          error: 'Content is required'
+        });
+      }
+      
       // Save content to file in the content-uploads directory
       const timestamp = Date.now();
       const filename = `content-${timestamp}.txt`;
       const filePath = path.resolve('./content-uploads', filename);
-
+      
       // Ensure directory exists
       if (!fs.existsSync('./content-uploads')) {
         fs.mkdirSync('./content-uploads', { recursive: true });
       }
-
+      
       // Write content to file
       fs.writeFileSync(filePath, content);
-
+      
       // Read the content analysis prompt
       const __filename = new URL(import.meta.url).pathname;
       const __dirname = path.dirname(__filename);
       const promptPath = path.resolve(__dirname, '../prompts/claude/content_analysis/default.txt');
-
+      
       let prompt = '';
       try {
         prompt = fs.readFileSync(promptPath, 'utf8');
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error reading content analysis prompt:', error);
         prompt = 'Analyze the following content and extract data for visualization. Create a Plotly.js configuration that best represents the data.';
       }
-
+      
       // Create system message with prompt
       const messages = [
         {
@@ -170,12 +163,12 @@ app.get('/api/health', (req, res) => {
           content: `Content Type: ${contentType}\nRequested Chart Type: ${chartType}\n\nContent to analyze:\n\n${content}`
         }
       ];
-
+      
       // Call Claude's API to analyze the content
       const result = await claudeService.processConversation(messages);
-
+      
       // Try to parse the response as JSON
-      let parsedResult;
+      let parsedResult: any;
       try {
         // First, try to find JSON in code blocks
         const jsonCodeBlockMatch = result.response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
@@ -186,7 +179,7 @@ app.get('/api/health', (req, res) => {
             console.warn('Found JSON code block but failed to parse it:', e);
           }
         }
-
+        
         // If code block approach failed, try to extract any JSON object
         if (!parsedResult) {
           const jsonMatch = result.response.match(/\{[\s\S]*?\}/);
@@ -198,7 +191,7 @@ app.get('/api/health', (req, res) => {
             }
           }
         }
-
+        
         // If both approaches failed, generate a default response
         if (!parsedResult) {
           // Create a default Plotly config with a message
@@ -239,16 +232,16 @@ app.get('/api/health', (req, res) => {
           rawResponse: result.response
         });
       }
-
+      
       // Save the file path in the result for reference
       parsedResult.sourceFile = filename;
-
+      
       res.json({
         success: true,
         ...parsedResult,
         modelUsed: result.modelUsed || 'claude'
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error analyzing file content:', error);
       res.status(500).json({
         success: false,
@@ -261,14 +254,14 @@ app.get('/api/health', (req, res) => {
   app.post('/api/test-claude-visualization', async (req: Request, res: Response) => {
     try {
       const { data, type, title, description } = req.body;
-
+      
       if (!data || !type) {
         return res.status(400).json({ 
           success: false, 
           error: 'Data and type are required' 
         });
       }
-
+      
       // Send the data to Claude for visualization generation
       const result = await claudeService.generateVisualization(
         data,
@@ -276,7 +269,7 @@ app.get('/api/health', (req, res) => {
         title || 'Test Visualization',
         description || 'Generated from test data'
       );
-
+      
       // Return both Claude's results and the input data for comparison
       res.json({
         success: true,
@@ -288,7 +281,7 @@ app.get('/api/health', (req, res) => {
           description
         }
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error testing Claude visualization:', error);
       res.status(500).json({ 
         success: false, 
@@ -296,7 +289,7 @@ app.get('/api/health', (req, res) => {
       });
     }
   });
-
+  
   // Serve chart files from tests/output directory
   app.get('/chart-data/:filename', (req: Request, res: Response) => {
     const filename = req.params.filename;
@@ -305,7 +298,7 @@ app.get('/api/health', (req, res) => {
     const filePath = path.resolve(__dirname, `../tests/output/${filename}`);
     res.sendFile(filePath);
   });
-
+  
   // API to list available chart files
   app.get('/api/chart-files', (req: Request, res: Response) => {
     try {
@@ -319,7 +312,7 @@ app.get('/api/health', (req, res) => {
           url: `/chart-data/${file}`
         }));
       res.json({ success: true, files });
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ success: false, error: error.message });
     }
   });
@@ -329,7 +322,7 @@ app.get('/api/health', (req, res) => {
     try {
       const status = await storage.getApiStatus();
       res.json(status);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching API status:', error);
       res.status(500).json({ message: `Failed to fetch API status: ${error.message}` });
     }
@@ -391,7 +384,7 @@ app.get('/api/health', (req, res) => {
         conversation,
         visualizationData: result.visualizationData
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing conversation:', error);
       res.status(500).json({ message: `Failed to process conversation: ${error.message}` });
     }
@@ -453,7 +446,7 @@ app.get('/api/health', (req, res) => {
         conversation,
         citations: result.citations
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error performing research:', error);
       res.status(500).json({ message: `Failed to perform research: ${error.message}` });
     }
@@ -517,7 +510,7 @@ app.get('/api/health', (req, res) => {
         visualizationData: result.visualizationData,
         citations: result.citations
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing chat message:', error);
       res.status(500).json({ message: `Failed to process chat message: ${error.message}` });
     }
@@ -538,39 +531,37 @@ app.get('/api/health', (req, res) => {
         description: result.description,
         modelUsed: result.modelUsed
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating visualization:', error);
       res.status(500).json({ message: `Failed to generate visualization: ${error.message}` });
     }
   });
-
-  // Test Visualization endpoints
-
+  
   // Content Analysis Endpoint
   app.post('/api/analyze-content', async (req: Request, res: Response) => {
     try {
       const { content, contentType, chartType } = req.body;
-
+      
       if (!content) {
         return res.status(400).json({
           success: false,
           error: 'Content is required'
         });
       }
-
+      
       // Read the content analysis prompt
       const __filename = new URL(import.meta.url).pathname;
       const __dirname = path.dirname(__filename);
       const promptPath = path.resolve(__dirname, '../prompts/claude/content_analysis/default.txt');
-
+      
       let prompt = '';
       try {
         prompt = fs.readFileSync(promptPath, 'utf8');
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error reading content analysis prompt:', error);
         prompt = 'Analyze the following content and extract data for visualization. Create a Plotly.js configuration that best represents the data.';
       }
-
+      
       // Create system message with prompt
       const messages = [
         {
@@ -582,12 +573,12 @@ app.get('/api/health', (req, res) => {
           content: `Content Type: ${contentType}\nRequested Chart Type: ${chartType}\n\nContent to analyze:\n\n${content}`
         }
       ];
-
+      
       // Call Claude's API to analyze the content
       const result = await claudeService.processConversation(messages);
-
+      
       // Try to parse the response as JSON
-      let parsedResult;
+      let parsedResult: any;
       try {
         // First, try to find JSON in code blocks
         const jsonCodeBlockMatch = result.response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
@@ -598,7 +589,7 @@ app.get('/api/health', (req, res) => {
             console.warn('Found JSON code block but failed to parse it:', e);
           }
         }
-
+        
         // If code block approach failed, try to extract any JSON object
         if (!parsedResult) {
           const jsonMatch = result.response.match(/\{[\s\S]*?\}/);
@@ -610,7 +601,7 @@ app.get('/api/health', (req, res) => {
             }
           }
         }
-
+        
         // If both approaches failed, generate a default response
         if (!parsedResult) {
           // Create a default Plotly config with a message
@@ -651,13 +642,13 @@ app.get('/api/health', (req, res) => {
           rawResponse: result.response
         });
       }
-
+      
       res.json({
         success: true,
         ...parsedResult,
         modelUsed: result.modelUsed || 'claude'
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error analyzing content:', error);
       res.status(500).json({
         success: false,
@@ -669,7 +660,7 @@ app.get('/api/health', (req, res) => {
   // Van Westendorp visualization endpoint
   app.get('/api/test-visualization/van-westendorp', async (req: Request, res: Response) => {
     let hasResponded = false;
-
+    
     // Add a timeout handler
     const timeoutId = setTimeout(() => {
       if (!hasResponded) {
@@ -706,393 +697,242 @@ app.get('/api/health', (req, res) => {
                 }
                 .back-link {
                   display: inline-block;
-                  margin-top: 15px;
-                  background: #f0f0f0;
-                  padding: 8px 15px;
-                  border-radius: 4px;
-
-// Two-stage research endpoint - first gets clarifying questions, then performs research with answers
-app.post('/api/two-stage-research', async (req: Request, res: Response) => {
-  try {
-    const { query, options = {} } = req.body;
-
-    if (!query) {
-      return res.status(400).json({ error: 'Query is required' });
-    }
-
-    // Check if this is stage 1 (get questions) or stage 2 (perform research with answers)
-    if (!req.body.stage || req.body.stage === 1) {
-      // Stage 1: Generate clarifying questions
-      const questions = await claudeService.generateClarifyingQuestions(query);
-      return res.json({
-        success: true,
-        questions,
-        stage: 1
-      });
-    } else {
-      // Stage 2: Perform research with answers
-      const { answers = {} } = req.body;
-
-      // Start research with the provided answers
-      const research = await initiateResearch(query, {
-        ...options,
-        clarificationAnswers: answers,
-        generateClarifyingQuestions: true
-      });
-
-      return res.json({
-        success: true,
-        research,
-        stage: 2
-      });
-    }
-  } catch (error) {
-    console.error('Error in two-stage research:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
+                  margin-top: 20px;
                   text-decoration: none;
-                  color: #333;
-                  font-weight: bold;
+                  color: #3498db;
                 }
               </style>
             </head>
             <body>
-              <h1>Generating Van Westendorp Visualization</h1>
-              <p>This may take up to 90 seconds. The page will automatically refresh.</p>
+              <h1>Processing Van Westendorp Visualization</h1>
+              <p>This may take up to 20 seconds...</p>
               <div class="loading"></div>
-              <p>Please wait...</p>
-              <a href="/" class="back-link">&laquo; Back to Dashboard</a>
+              <p>The page will refresh automatically when complete.</p>
+              <a href="/view-charts" class="back-link">← Back to Chart Viewer</a>
             </body>
           </html>
         `);
       }
-    }, 2000); // Show loading page after 2 seconds
+    }, 3000);
 
     try {
-      // Create sample data for Van Westendorp visualization
-      const sampleData = [
-        { price: 10, tooExpensive: 5, expensiveButWorth: 10, goodValue: 80, tooCheap: 90 },
-        { price: 30, tooExpensive: 20, expensiveButWorth: 35, goodValue: 60, tooCheap: 50 },
-        { price: 50, tooExpensive: 50, expensiveButWorth: 50, goodValue: 50, tooCheap: 20 },
-        { price: 70, tooExpensive: 70, expensiveButWorth: 65, goodValue: 25, tooCheap: 15 },
-        { price: 90, tooExpensive: 90, expensiveButWorth: 80, goodValue: 10, tooCheap: 5 },
-        { price: 110, tooExpensive: 95, expensiveButWorth: 90, goodValue: 5, tooCheap: 2 }
+      // Generate random Van Westendorp data
+      const data = {
+        tooExpensive: [
+          { price: 5, percentage: 0.01 },
+          { price: 10, percentage: 0.05 },
+          { price: 15, percentage: 0.10 },
+          { price: 20, percentage: 0.25 },
+          { price: 25, percentage: 0.50 },
+          { price: 30, percentage: 0.65 },
+          { price: 35, percentage: 0.80 },
+          { price: 40, percentage: 0.92 },
+          { price: 45, percentage: 0.98 },
+          { price: 50, percentage: 1.00 }
+        ],
+        tooInexpensive: [
+          { price: 5, percentage: 0.99 },
+          { price: 10, percentage: 0.92 },
+          { price: 15, percentage: 0.80 },
+          { price: 20, percentage: 0.60 },
+          { price: 25, percentage: 0.45 },
+          { price: 30, percentage: 0.30 },
+          { price: 35, percentage: 0.18 },
+          { price: 40, percentage: 0.08 },
+          { price: 45, percentage: 0.02 },
+          { price: 50, percentage: 0.01 }
+        ],
+        expensive: [
+          { price: 5, percentage: 0.00 },
+          { price: 10, percentage: 0.02 },
+          { price: 15, percentage: 0.05 },
+          { price: 20, percentage: 0.15 },
+          { price: 25, percentage: 0.30 },
+          { price: 30, percentage: 0.55 },
+          { price: 35, percentage: 0.70 },
+          { price: 40, percentage: 0.85 },
+          { price: 45, percentage: 0.95 },
+          { price: 50, percentage: 0.99 }
+        ],
+        inexpensive: [
+          { price: 5, percentage: 0.80 },
+          { price: 10, percentage: 0.75 },
+          { price: 15, percentage: 0.60 },
+          { price: 20, percentage: 0.45 },
+          { price: 25, percentage: 0.30 },
+          { price: 30, percentage: 0.20 },
+          { price: 35, percentage: 0.10 },
+          { price: 40, percentage: 0.05 },
+          { price: 45, percentage: 0.02 },
+          { price: 50, percentage: 0.00 }
+        ]
+      };
+      
+      // Create a Plotly configuration directly
+      const plotlyConfig = {
+        data: [
+          {
+            x: data.tooExpensive.map(point => point.price),
+            y: data.tooExpensive.map(point => point.percentage * 100),
+            mode: 'lines',
+            name: 'Too Expensive',
+            line: { color: '#e74c3c', width: 3 }
+          },
+          {
+            x: data.tooInexpensive.map(point => point.price),
+            y: data.tooInexpensive.map(point => point.percentage * 100),
+            mode: 'lines',
+            name: 'Too Inexpensive',
+            line: { color: '#3498db', width: 3 }
+          },
+          {
+            x: data.expensive.map(point => point.price),
+            y: data.expensive.map(point => point.percentage * 100),
+            mode: 'lines',
+            name: 'Expensive',
+            line: { color: '#e67e22', width: 3, dash: 'dot' }
+          },
+          {
+            x: data.inexpensive.map(point => point.price),
+            y: data.inexpensive.map(point => point.percentage * 100),
+            mode: 'lines',
+            name: 'Inexpensive',
+            line: { color: '#2ecc71', width: 3, dash: 'dot' }
+          }
+        ],
+        layout: {
+          title: 'Van Westendorp Price Sensitivity Analysis',
+          xaxis: {
+            title: 'Price ($)',
+            range: [0, 55]
+          },
+          yaxis: {
+            title: 'Percentage of Respondents (%)',
+            range: [0, 100]
+          },
+          hovermode: 'closest',
+          legend: {
+            x: 0.1,
+            y: 1
+          },
+          shapes: [
+            // Indifference Price Point (IPP)
+            {
+              type: 'line',
+              xref: 'x',
+              yref: 'paper',
+              x0: 24,
+              y0: 0,
+              x1: 24,
+              y1: 1,
+              line: {
+                color: 'rgba(0, 0, 0, 0.4)',
+                width: 1,
+                dash: 'dash'
+              }
+            },
+            // Optimal Price Point (OPP)
+            {
+              type: 'line',
+              xref: 'x',
+              yref: 'paper',
+              x0: 19,
+              y0: 0,
+              x1: 19,
+              y1: 1,
+              line: {
+                color: 'rgba(0, 0, 0, 0.4)',
+                width: 1,
+                dash: 'dash'
+              }
+            }
+          ],
+          annotations: [
+            {
+              x: 24,
+              y: 95,
+              xref: 'x',
+              yref: 'y',
+              text: 'IPP: $24',
+              showarrow: true,
+              arrowhead: 4,
+              ax: 0,
+              ay: -40
+            },
+            {
+              x: 19,
+              y: 85,
+              xref: 'x',
+              yref: 'y',
+              text: 'OPP: $19',
+              showarrow: true,
+              arrowhead: 4,
+              ax: 0,
+              ay: -40
+            }
+          ]
+        },
+        config: {
+          responsive: true,
+          displayModeBar: true,
+          modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+          toImageButtonOptions: {
+            format: 'png',
+            filename: 'van_westendorp_analysis',
+            height: 500,
+            width: 700,
+            scale: 2
+          }
+        }
+      };
+      
+      // Calculate intersections
+      const insights = [
+        "The Indifference Price Point (IPP) is at $24, where an equal percentage of respondents consider the product expensive and inexpensive.",
+        "The Optimal Price Point (OPP) is at $19, where fewest respondents reject the price as either too expensive or too inexpensive.",
+        "The acceptable price range appears to be between $18 and $29.",
+        "Pricing below $15 may lead to perceptions of poor quality.",
+        "Pricing above $35 significantly increases the percentage of customers who would consider the product too expensive."
       ];
-
-      // Create traces for Plotly.js
-      const tooExpensiveTrace = {
-        x: sampleData.map(d => d.price),
-        y: sampleData.map(d => d.tooExpensive),
-        mode: 'lines+markers',
-        name: 'Too Expensive',
-        line: {
-          color: '#e74c3c',
-          width: 3
-        },
-        marker: {
-          size: 8
-        }
-      };
-
-      const expensiveButWorthTrace = {
-        x: sampleData.map(d => d.price),
-        y: sampleData.map(d => d.expensiveButWorth),
-        mode: 'lines+markers',
-        name: 'Expensive But Worth It',
-        line: {
-          color: '#f39c12',
-          width: 3
-        },
-        marker: {
-          size: 8
-        }
-      };
-
-      const goodValueTrace = {
-        x: sampleData.map(d => d.price),
-        y: sampleData.map(d => d.goodValue),
-        mode: 'lines+markers',
-        name: 'Good Value',
-        line: {
-          color: '#2ecc71',
-          width: 3
-        },
-        marker: {
-          size: 8
-        }
-      };
-
-      const tooCheapTrace = {
-        x: sampleData.map(d => d.price),
-        y: sampleData.map(d => d.tooCheap),
-        mode: 'lines+markers',
-        name: 'Too Cheap',
-        line: {
-          color: '#3498db',
-          width: 3
-        },
-        marker: {
-          size: 8
-        }
-      };
-
-      // Find the intersection points (approximate using the nearest data points)
-      const optimalPricePoint = sampleData.find(d => Math.abs(d.goodValue - d.tooExpensive) < 5);
-      const indifferencePricePoint = sampleData.find(d => Math.abs(d.tooCheap - d.expensiveButWorth) < 5);
-
-      // Create intersection annotations
-      const annotations = [];
-
-      if (optimalPricePoint) {
-        annotations.push({
-          x: optimalPricePoint.price,
-          y: optimalPricePoint.goodValue,
-          text: 'Optimal Price Point',
-          showarrow: true,
-          arrowhead: 2,
-          arrowsize: 1,
-          arrowwidth: 2,
-          ax: 40,
-          ay: -40
-        });
-      }
-
-      if (indifferencePricePoint) {
-        annotations.push({
-          x: indifferencePricePoint.price,
-          y: indifferencePricePoint.tooCheap,
-          text: 'Indifference Price Point',
-          showarrow: true,
-          arrowhead: 2,
-          arrowsize: 1,
-          arrowwidth: 2,
-          ax: -40,
-          ay: -40
-        });
-      }
-
-      // Create the result with interactive chart
-      const result = {
-        title: 'Van Westendorp Price Sensitivity Analysis',
-        description: 'Sample price sensitivity data for product pricing analysis',
-        visualizationType: 'van_westendorp',
-        modelUsed: 'Interactive Plotly.js',
-        traces: JSON.stringify([tooExpensiveTrace, expensiveButWorthTrace, goodValueTrace, tooCheapTrace]),
-        annotations: JSON.stringify(annotations)
-      };
-
-      // Clear the timeout since we have a result
-      clearTimeout(timeoutId);
-
+      
+      // Only process the request once
       if (!hasResponded) {
         hasResponded = true;
-        res.send(`
-          <html>
-            <head>
-              <title>Van Westendorp Visualization</title>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-              <script src="https://cdn.plot.ly/plotly-2.29.1.min.js"></script>
-              <style>
-                body { 
-                  font-family: Arial, sans-serif; 
-                  margin: 0 auto; 
-                  padding: 12px; 
-                  max-width: 100%;
-                }
-                h1 { 
-                  color: #2c3e50; 
-                  font-size: 1.4rem;
-                  margin-bottom: 8px;
-                  text-align: center;
-                }
-                p {
-                  font-size: 0.9rem;
-                  line-height: 1.4;
-                  margin: 8px 0;
-                  text-align: center;
-                }
-                .visualization-container { 
-                  margin: 20px auto;
-                  max-width: 800px;
-                }
-                .chart-container {
-                  margin: 15px 0;
-                  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-                  border-radius: 5px;
-                  background: white;
-                  overflow: hidden;
-                  height: 450px;
-                }
-                .model-info { 
-                  margin: 15px auto; 
-                  padding: 10px; 
-                  background: #f8f9fa; 
-                  border-radius: 5px;
-                  font-size: 0.85rem;
-                  max-width: 600px;
-                }
-                .back-link {
-                  display: block;
-                  margin: 15px auto;
-                  background: #f0f0f0;
-                  padding: 8px 15px;
-                  border-radius: 4px;
-                  text-decoration: none;
-                  color: #333;
-                  font-weight: bold;
-                  text-align: center;
-                  max-width: 150px;
-                }
-                .interpretation {
-                  margin: 15px auto;
-                  padding: 10px;
-                  background: #f0f7ff;
-                  border-radius: 5px;
-                  font-size: 0.9rem;
-                  maxwidth: 600px;
-                }
-                .interpretation h3 {
-                  margin-top: 0;
-                  font-size: 1rem;
-                }
-                .interpretation ul {
-                  padding-left: 20px;
-                  margin: 8px 0;
-                }
-                @media (min-width: 768px) {
-                  body {
-                    padding: 20px;
-                  }
-                  h1 {
-                    font-size: 1.8rem;
-                  }
-                  p {
-                    font-size: 1rem;
-                  }
-                }
-              </style>
-            </head>
-            <body>
-              <h1>${result.title}</h1>
-              <p>${result.description}</p>
-
-              <div class="visualization-container">
-                <div class="chart-container">
-                  <div id="price-sensitivity-chart" style="height: 100%;"></div>
-                </div>
-
-                <div class="interpretation">
-                  <h3>How to interpret this chart:</h3>
-                  <ul>
-                    <li><strong>Too Expensive</strong>: Percentage of customers who think the price is too high.</li>
-                    <li><strong>Expensive But Worth It</strong>: Percentage who think it's expensive but justified.</li>
-                    <li><strong>Good Value</strong>: Percentage who think the price is a good value.</li>
-                    <li><strong>Too Cheap</strong>: Percentage who think the price is suspiciously low.</li>
-                    <li><strong>Optimal Price Point</strong>: The intersection of "Too Expensive" and "Good Value" curves.</li>
-                    <li><strong>Indifference Price Point</strong>: The intersection of "Too Cheap" and "Expensive But Worth It" curves.</li>
-                  </ul>
-                </div>
-
-                <div class="model-info">
-                  <p><strong>Visualization Type:</strong> ${result.visualizationType}</p>
-                  <p><strong>Source:</strong> ${result.modelUsed}</p>
-                </div>
-              </div>
-
-              <a href="/" class="back-link">&laquo; Back to Dashboard</a>
-
-              <script>
-                // Render the chart
-                const traces = ${result.traces};
-                const annotations = ${result.annotations};
-
-                const layout = {
-                  title: 'Van Westendorp Price Sensitivity Analysis',
-                  xaxis: {
-                    title: 'Price ($)',
-                    tickmode: 'array',
-                    tickvals: [10, 30, 50, 70, 90, 110]
-                  },
-                  yaxis: {
-                    title: 'Percentage of Customers (%)',
-                    range: [0, 100]
-                  },
-                  legend: {
-                    orientation: 'h',
-                    y: -0.2
-                  },
-                  annotations: annotations,
-                  hovermode: 'closest',
-                  margin: {
-                    l: 50,
-                    r: 30,
-                    b: 100,
-                    t: 50,
-                    pad: 4
-                  }
-                };
-
-                Plotly.newPlot('price-sensitivity-chart', traces, layout, {responsive: true});
-              </script>
-            </body>
-          </html>
-        `);
+        clearTimeout(timeoutId);
+        
+        const result = {
+          success: true,
+          plotlyConfig,
+          insights,
+          source: 'generated',
+          type: 'van_westendorp'
+        };
+        
+        // Save the result to a file in the tests/output directory
+        const __filename = new URL(import.meta.url).pathname;
+        const __dirname = path.dirname(__filename);
+        const outputDir = path.resolve(__dirname, '../tests/output');
+        
+        // Create directory if it doesn't exist
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, { recursive: true });
+        }
+        
+        const filename = `van-westendorp-${Date.now()}.json`;
+        fs.writeFileSync(path.resolve(outputDir, filename), JSON.stringify(result, null, 2));
+        
+        res.json(result);
       }
-    } catch (error) {
-      // Clear the timeout since we're sending an error
-      clearTimeout(timeoutId);
-
-      console.error('Error generating test visualization:', error);
-
+    } catch (error: any) {
+      // Only process the error once
       if (!hasResponded) {
         hasResponded = true;
-        res.status(500).send(`
-          <html>
-            <head>
-              <title>Error - Van Westendorp Visualization</title>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-              <style>
-                body { 
-                  font-family: Arial, sans-serif; 
-                  margin: 0 auto; 
-                  padding: 15px; 
-                  max-width: 600px;
-                }
-                h1 { 
-                  color: #e74c3c; 
-                  font-size: 1.4rem;
-                }
-                .error-box {
-                  background: #fee;
-                  border: 1px solid #e74c3c;
-                  border-radius: 5px;
-                  padding: 10px;
-                  margin: 15px 0;
-                }
-                .back-link {
-                  display: inline-block;
-                  margin-top: 15px;
-                  background: #f0f0f0;
-                  padding: 8px 15px;
-                  border-radius: 4px;
-                  text-decoration: none;
-                  color: #333;
-                  font-weight: bold;
-                }
-              </style>
-            </head>
-            <body>
-              <h1>Error Generating Visualization</h1>
-              <div class="error-box">
-                <p>${error.message || 'Unknown error occurred'}</p>
-              </div>
-              <p>Please try again later or contact support if the issue persists.</p>
-              <a href="/" class="back-link">&laquo; Back to Dashboard</a>
-            </body>
-          </html>
-        `);
+        clearTimeout(timeoutId);
+        console.error('Error generating Van Westendorp visualization:', error);
+        res.status(500).json({ 
+          success: false, 
+          error: `Failed to generate Van Westendorp visualization: ${error.message}` 
+        });
       }
     }
   });
@@ -1100,7 +940,7 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
   // Conjoint analysis visualization endpoint
   app.get('/api/test-visualization/conjoint', async (req: Request, res: Response) => {
     let hasResponded = false;
-
+    
     // Add a timeout handler
     const timeoutId = setTimeout(() => {
       if (!hasResponded) {
@@ -1137,378 +977,273 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
                 }
                 .back-link {
                   display: inline-block;
-                  margin-top: 15px;
-                  background: #f0f0f0;
-                  padding: 8px 15px;
-                  border-radius: 4px;
+                  margin-top: 20px;
                   text-decoration: none;
-                  color: #333;
-                  font-weight: bold;
+                  color: #3498db;
                 }
               </style>
             </head>
             <body>
-              <h1>Generating Conjoint Analysis Visualization</h1>
-              <p>This may take up to 90 seconds. The page will automatically refresh.</p>
+              <h1>Processing Conjoint Analysis Visualization</h1>
+              <p>This may take up to 20 seconds...</p>
               <div class="loading"></div>
-              <p>Please wait...</p>
-              <a href="/" class="back-link">&laquo; Back to Dashboard</a>
+              <p>The page will refresh automatically when complete.</p>
+              <a href="/view-charts" class="back-link">← Back to Chart Viewer</a>
             </body>
           </html>
         `);
       }
-    }, 2000); // Show loading page after 2 seconds
+    }, 3000);
 
     try {
-      // Use sample data to create an interactive Plotly.js visualization
-      const sampleData = [
-        {
-          name: 'Price',
-          importance: 35,
+      // Generate example data for conjoint analysis
+      const attributes = [
+        { 
+          name: 'Brand', 
           levels: [
-            { name: '$499', partWorth: 3.5 },
-            { name: '$699', partWorth: 1.2 },
-            { name: '$899', partWorth: -0.8 },
-            { name: '$1099', partWorth: -4.5 }
-          ]
+            { name: 'Premium Brand', utility: 0.8 },
+            { name: 'Mid-tier Brand', utility: 0.4 },
+            { name: 'Value Brand', utility: -0.2 },
+            { name: 'Generic Brand', utility: -1.0 }
+          ],
+          importance: 35
         },
         {
-          name: 'Storage',
-          importance: 25,
+          name: 'Price Point',
           levels: [
-            { name: '128GB', partWorth: -2.1 },
-            { name: '256GB', partWorth: 0.2 },
-            { name: '512GB', partWorth: 2.5 },
-            { name: '1TB', partWorth: 3.8 }
-          ]
+            { name: '$9.99/month', utility: 1.2 },
+            { name: '$14.99/month', utility: 0.6 },
+            { name: '$19.99/month', utility: -0.2 },
+            { name: '$29.99/month', utility: -1.6 }
+          ],
+          importance: 40
         },
         {
-          name: 'Battery Life',
-          importance: 20,
+          name: 'Features',
           levels: [
-            { name: '8 hours', partWorth: -2.8 },
-            { name: '10 hours', partWorth: -0.5 },
-            { name: '12 hours', partWorth: 1.2 },
-            { name: '15 hours', partWorth: 3.0 }
-          ]
+            { name: 'Basic', utility: -0.8 },
+            { name: 'Standard', utility: 0.1 },
+            { name: 'Premium', utility: 0.7 }
+          ],
+          importance: 15
         },
         {
-          name: 'Camera',
-          importance: 15,
+          name: 'Customer Support',
           levels: [
-            { name: '12MP', partWorth: -1.5 },
-            { name: '16MP', partWorth: 0.5 },
-            { name: '20MP', partWorth: 1.8 },
-            { name: '24MP', partWorth: 2.5 }
-          ]
+            { name: 'Email Only', utility: -0.4 },
+            { name: 'Email + Chat', utility: 0.3 },
+            { name: 'Email + Chat + Phone', utility: 0.5 }
+          ],
+          importance: 10
         }
       ];
-
-      // Prepare data for the importance chart
-      const importanceChartData = {
-        x: sampleData.map(d => d.name),
-        y: sampleData.map(d => d.importance),
-        type: 'bar',
-        marker: {
-          color: ['#3498db', '#2ecc71', '#f39c12', '#9b59b6'],
-          opacity: 0.8
+      
+      // Generate optimal product combinations
+      const optimalCombinations = [
+        {
+          combination: ['Premium Brand', '$14.99/month', 'Premium', 'Email + Chat + Phone'],
+          totalUtility: 2.0,
+          marketShare: '28%'
+        },
+        {
+          combination: ['Mid-tier Brand', '$9.99/month', 'Premium', 'Email + Chat + Phone'],
+          totalUtility: 1.8,
+          marketShare: '25%'
+        },
+        {
+          combination: ['Premium Brand', '$19.99/month', 'Premium', 'Email + Chat + Phone'],
+          totalUtility: 1.2,
+          marketShare: '18%'
+        }
+      ];
+      
+      // Create Plotly configuration for attribute importance
+      const importancePlotlyConfig = {
+        data: [
+          {
+            x: attributes.map(attr => attr.name),
+            y: attributes.map(attr => attr.importance),
+            type: 'bar',
+            marker: {
+              color: ['#3498db', '#e74c3c', '#2ecc71', '#f39c12'],
+              line: {
+                color: 'rgb(8,48,107)',
+                width: 1.5
+              }
+            }
+          }
+        ],
+        layout: {
+          title: 'Attribute Importance in Product Selection',
+          xaxis: {
+            title: 'Attributes'
+          },
+          yaxis: {
+            title: 'Importance (%)'
+          }
+        },
+        config: {
+          responsive: true
         }
       };
-
-      // Prepare data for the part-worth utility chart
-      const partWorthTraces = sampleData.map((attribute, index) => {
-        const colors = ['#3498db', '#2ecc71', '#f39c12', '#9b59b6'];
-        return {
-          x: attribute.levels.map(level => level.name),
-          y: attribute.levels.map(level => level.partWorth),
-          name: attribute.name,
+      
+      // Create Plotly configuration for part-worth utilities
+      const utilitiesData = [];
+      
+      attributes.forEach((attr, index) => {
+        utilitiesData.push({
+          x: attr.levels.map(level => level.name),
+          y: attr.levels.map(level => level.utility),
           type: 'bar',
+          name: attr.name,
+          xaxis: `x${index + 1}`,
+          yaxis: `y${index + 1}`,
           marker: {
-            color: colors[index % colors.length]
+            color: ['#3498db', '#2980b9', '#1abc9c', '#16a085'][index % 4],
+            line: {
+              color: 'rgb(8,48,107)',
+              width: 1.5
+            }
           }
-        };
+        });
       });
-
-      // Create the result with interactive charts
-      const result = {
-        title: 'Conjoint Analysis of Product Features',
-        description: 'Analysis of consumer preferences for different product features and levels',
-        visualizationType: 'conjoint_analysis',
-        modelUsed: 'Interactive Plotly.js',
-        importanceChartData: JSON.stringify(importanceChartData),
-        partWorthTraces: JSON.stringify(partWorthTraces)
+      
+      const subplots = {
+        rows: 2,
+        columns: 2,
+        titles: attributes.map(attr => attr.name),
+        shared_xaxes: false,
+        shared_yaxes: true,
+        subplot_titles: attributes.map(attr => attr.name),
+        vertical_spacing: 0.15,
+        horizontal_spacing: 0.1
       };
-
-      // Clear the timeout since we have a result
-      clearTimeout(timeoutId);
-
-      if (!hasResponded) {
-        hasResponded = true;
-        res.send(`
-          <html>
-            <head>
-              <title>Conjoint Analysis Visualization</title>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-              <script src="https://cdn.plot.ly/plotly-2.29.1.min.js"></script>
-              <style>
-                body { 
-                  font-family: Arial, sans-serif; 
-                  margin: 0 auto; 
-                  padding: 12px; 
-                  max-width: 100%;
-                }
-                h1 { 
-                  color: #2c3e50; 
-                  font-size: 1.4rem;
-                  margin-bottom: 8px;
-                  text-align: center;
-                }
-                p {
-                  font-size: 0.9rem;
-                  line-height: 1.4;
-                  margin: 8px 0;
-                  text-align: center;
-                }
-                .visualization-container { 
-                  margin: 20px auto;
-                  max-width: 1200px;
-                }
-                .chart-container {
-                  margin: 15px 0;
-                  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-                  border-radius: 5px;
-                  background: white;
-                  overflow: hidden;
-                }
-                .model-info { 
-                  margin: 15px auto; 
-                  padding: 10px; 
-                  background: #f8f9fa; 
-                  border-radius: 5px;
-                  font-size: 0.85rem;
-                  max-width: 600px;
-                }
-                .back-link {
-                  display: block;
-                  margin: 15px auto;
-                  background: #f0f0f0;
-                  padding: 8px 15px;
-                  border-radius: 4px;
-                  text-decoration: none;
-                  color: #333;
-                  font-weight: bold;
-                  text-align: center;
-                  max-width: 150px;
-                }
-                .interpretation {
-                  margin: 15px auto;
-                  padding: 10px;
-                  background: #f0f7ff;
-                  border-radius: 5px;
-                  font-size: 0.9rem;
-                  max-width: 600px;
-                }
-                .interpretation h3 {
-                  margin-top: 0;
-                  font-size: 1rem;
-                }
-                .interpretation ul {
-                  padding-left: 20px;
-                  margin: 8px 0;
-                }
-                @media (min-width: 768px) {
-                  body {
-                    padding: 20px;
-                  }
-                  h1 {
-                    font-size: 1.8rem;
-                  }
-                  p {
-                    font-size: 1rem;
-                  }
-                  .grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 20px;
-                  }
-                }
-              </style>
-            </head>
-            <body>
-              <h1>${result.title}</h1>
-              <p>${result.description}</p>
-
-              <div class="visualization-container">
-                <div class="grid">
-                  <div class="chart-container">
-                    <div id="importance-chart" style="height: 300px;"></div>
-                  </div>
-                  <div class="chart-container">
-                    <div id="partworth-chart" style="height: 300px;"></div>
-                  </div>
-                </div>
-
-                <div class="interpretation">
-                  <h3>How to interpret these charts:</h3>
-                  <ul>
-                    <li><strong>Feature Importance</strong>: Shows the relative importance of each feature in customer decision-making.</li>
-                    <li><strong>Part-Worth Utilities</strong>: Indicates how much value customers place on specific feature levels. Higher values mean customers prefer that option more.</li>
-                  </ul>
-                </div>
-
-                <div class="model-info">
-                  <p><strong>Visualization Type:</strong> ${result.visualizationType}</p>
-                  <p><strong>Source:</strong> ${result.modelUsed}</p>
-                </div>
-              </div>
-
-              <a href="/" class="back-link">&laquo; Back to Dashboard</a>
-
-              <script>
-                // Render the importance chart
-                const importanceData = [${result.importanceChartData}];
-                const importanceLayout = {
-                  title: 'Feature Importance',
-                  xaxis: {
-                    title: 'Features'
-                  },
-                  yaxis: {
-                    title: 'Importance (%)',
-                    range: [0, 50]
-                  },
-                  margin: {
-                    l: 50,
-                    r: 30,
-                    b: 60,
-                    t: 50,
-                    pad: 4
-                  }
-                };
-
-                Plotly.newPlot('importance-chart', importanceData, importanceLayout, {responsive: true});
-
-                // Render the part-worth utilities chart
-                const partWorthTraces = ${result.partWorthTraces};
-                const partWorthLayout = {
-                  title: 'Part-Worth Utilities by Feature Level',
-                  barmode: 'group',
-                  xaxis: {
-                    title: 'Feature Levels',
-                    tickangle: -30
-                  },
-                  yaxis: {
-                    title: 'Part-Worth Utility'
-                  },
-                  legend: {
-                    orientation: 'h',
-                    y: -0.2
-                  },
-                  margin: {
-                    l: 50,
-                    r: 30,
-                    b: 100,
-                    t: 50,
-                    pad: 4
-                  }
-                };
-
-                Plotly.newPlot('partworth-chart', partWorthTraces, partWorthLayout, {responsive: true});
-              </script>
-            </body>
-          </html>
-        `);
+      
+      const utilitiesPlotlyConfig = {
+        data: utilitiesData,
+        layout: {
+          title: 'Part-Worth Utilities for Each Level',
+          grid: {
+            rows: 2,
+            columns: 2,
+            pattern: 'independent'
+          },
+          annotations: [
+            {
+              text: 'Brand',
+              showarrow: false,
+              x: 0.25,
+              y: 1.0,
+              xref: 'paper',
+              yref: 'paper',
+              font: { size: 16 }
+            },
+            {
+              text: 'Price Point',
+              showarrow: false,
+              x: 0.8,
+              y: 1.0,
+              xref: 'paper',
+              yref: 'paper',
+              font: { size: 16 }
+            },
+            {
+              text: 'Features',
+              showarrow: false,
+              x: 0.25,
+              y: 0.45,
+              xref: 'paper',
+              yref: 'paper',
+              font: { size: 16 }
+            },
+            {
+              text: 'Customer Support',
+              showarrow: false,
+              x: 0.8,
+              y: 0.45,
+              xref: 'paper',
+              yref: 'paper',
+              font: { size: 16 }
+            }
+          ],
+          height: 600
+        },
+        config: {
+          responsive: true
+        }
+      };
+      
+      const insights = [
+        "Price Point is the most important attribute at 40%, followed by Brand at 35%.",
+        "The combination of Premium Brand at $14.99/month with Premium features has the highest predicted market share of 28%.",
+        "Reducing price from $19.99 to $9.99 increases utility more than upgrading from Value to Premium brand.",
+        "Customer support has relatively low importance (10%) but could be a differentiator for similarly priced products."
+      ];
+      
+      // Combine all visualizations
+      const result = {
+        success: true,
+        plotlyConfig: {
+          importanceChart: importancePlotlyConfig,
+          utilitiesChart: utilitiesPlotlyConfig
+        },
+        data: {
+          attributes,
+          optimalCombinations
+        },
+        insights,
+        source: 'generated',
+        type: 'conjoint_analysis'
+      };
+      
+      // Save the result to a file in the tests/output directory
+      const __filename = new URL(import.meta.url).pathname;
+      const __dirname = path.dirname(__filename);
+      const outputDir = path.resolve(__dirname, '../tests/output');
+      
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
       }
-    } catch (error) {
-      // Clear the timeout since we're sending an error
-      clearTimeout(timeoutId);
-
-      console.error('Error generating test visualization:', error);
-
+      
+      const filename = `conjoint-analysis-${Date.now()}.json`;
+      fs.writeFileSync(path.resolve(outputDir, filename), JSON.stringify(result, null, 2));
+      
+      // Only process the request once
       if (!hasResponded) {
         hasResponded = true;
-        res.status(500).send(`
-          <html>
-            <head>
-              <title>Error - Conjoint Analysis Visualization</title>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-              <style>
-                body { 
-                  font-family: Arial, sans-serif; 
-                  margin: 0 auto; 
-                  padding: 15px; 
-                  max-width: 600px;
-                }
-                h1 { 
-                  color: #e74c3c; 
-                  font-size: 1.4rem;
-                }
-                .error-box {
-                  background: #fee;
-                  border: 1px solid #e74c3c;
-                  border-radius: 5px;
-                  padding: 10px;
-                  margin: 15px 0;
-                }
-                .back-link {
-                  display: inline-block;
-                  margin-top: 15px;
-                  background: #f0f0f0;
-                  padding: 8px 15px;
-                  border-radius: 4px;
-                  text-decoration: none;
-                  color: #333;
-                  font-weight: bold;
-                }
-              </style>
-            </head>
-            <body>
-              <h1>Error Generating Visualization</h1>
-              <div class="error-box">
-                <p>${error.message || 'Unknown error occurred'}</p>
-              </div>
-              <p>Please try again later or contact support if the issue persists.</p>
-              <a href="/" class="back-link">&laquo; Back to Dashboard</a>
-            </body>
-          </html>
-        `);
+        clearTimeout(timeoutId);
+        res.json(result);
+      }
+    } catch (error: any) {
+      // Only process the error once
+      if (!hasResponded) {
+        hasResponded = true;
+        clearTimeout(timeoutId);
+        console.error('Error generating conjoint analysis visualization:', error);
+        res.status(500).json({ 
+          success: false, 
+          error: `Failed to generate conjoint analysis visualization: ${error.message}` 
+        });
       }
     }
   });
-
-  // Serve files from tests/output directory for chart JSON data
-  // Using import.meta.url instead of __dirname for ES modules
-  const __filename = new URL(import.meta.url).pathname;
-  const __dirname = path.dirname(__filename);
-  app.use('/tests/output', express.static(path.resolve(__dirname, '../tests/output')));
-
-  // Serve static files from public directory
-  app.use(express.static(path.resolve(__dirname, '../public')));
-
-  // Mock Research Initialization Endpoint (for testing/development only)
+  
+  // Initialize mock research data (for testing purposes)
   app.post('/api/mock-init', async (req: Request, res: Response) => {
-    // This endpoint should only be available in development mode
-    if (process.env.NODE_ENV !== 'development' && process.env.ALLOW_MOCK_INIT !== 'true') {
-      return res.status(403).json({ message: 'This endpoint is only available in development mode' });
-    }
-
     try {
-      console.log('Initializing mock research data...');
-      const result = await initializeAllMockResearch();
-
-      res.json({
-        message: 'Mock research data initialized successfully',
-        data: {
-          totalJobs: result.total,
-          productQuestions: result.productQuestions.length,
-          researchTopics: result.researchTopics.length
-        }
-      });
+      const options = req.body || {};
+      await initializeAllMockResearch(options);
+      res.json({ success: true, message: 'Mock research data initialized' });
     } catch (error: any) {
       console.error('Error initializing mock research data:', error);
-      res.status(500).json({ message: `Failed to initialize mock research: ${error.message}` });
+      res.status(500).json({ success: false, error: error.message });
     }
   });
 
+  // Create HTTP server
   const httpServer = createServer(app);
+  
+  // Return server instance
   return httpServer;
 }
