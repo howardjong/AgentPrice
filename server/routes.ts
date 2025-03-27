@@ -33,7 +33,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       cb(null, uniqueFilename);
     }
   });
-  
+
   // Create multer upload middleware
   const upload = multer({ 
     storage: multerStorage,
@@ -45,14 +45,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const filetypes = /text|txt|csv|json|md/;
       const mimetype = filetypes.test(file.mimetype);
       const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-      
+
       if (mimetype && extname) {
         return cb(null, true);
       }
       cb(new Error('Only text, CSV, JSON, and Markdown files are allowed'));
     }
   });
-  
+
   // Initialize services
   const claudeStatus = claudeService.getStatus();
   const perplexityStatus = perplexityService.getStatus();
@@ -68,58 +68,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const __dirname = path.dirname(__filename);
     res.sendFile(path.resolve(__dirname, '../public/view-charts.html'));
   });
-  
+
   // Additional endpoint for better URL structure
   app.get('/view-charts', (req: Request, res: Response) => {
     const __filename = new URL(import.meta.url).pathname;
     const __dirname = path.dirname(__filename);
     res.sendFile(path.resolve(__dirname, '../public/view-charts.html'));
   });
-  
+
   // Content editor page for directly pasting content
   app.get('/content-editor', (req: Request, res: Response) => {
     const __filename = new URL(import.meta.url).pathname;
     const __dirname = path.dirname(__filename);
     res.sendFile(path.resolve(__dirname, '../public/content-editor.html'));
   });
-  
+
   // Simple file analyzer page
   app.get('/file-analyzer', (req: Request, res: Response) => {
     const __filename = new URL(import.meta.url).pathname;
     const __dirname = path.dirname(__filename);
     res.sendFile(path.resolve(__dirname, '../public/file-analyzer.html'));
   });
-  
+
   // API endpoint to analyze file content
   app.post('/api/analyze-file', async (req: Request, res: Response) => {
     try {
       const { content, chartType, contentType } = req.body;
-      
+
       if (!content) {
         return res.status(400).json({
           success: false,
           error: 'Content is required'
         });
       }
-      
+
       // Save content to file in the content-uploads directory
       const timestamp = Date.now();
       const filename = `content-${timestamp}.txt`;
       const filePath = path.resolve('./content-uploads', filename);
-      
+
       // Ensure directory exists
       if (!fs.existsSync('./content-uploads')) {
         fs.mkdirSync('./content-uploads', { recursive: true });
       }
-      
+
       // Write content to file
       fs.writeFileSync(filePath, content);
-      
+
       // Read the content analysis prompt
       const __filename = new URL(import.meta.url).pathname;
       const __dirname = path.dirname(__filename);
       const promptPath = path.resolve(__dirname, '../prompts/claude/content_analysis/default.txt');
-      
+
       let prompt = '';
       try {
         prompt = fs.readFileSync(promptPath, 'utf8');
@@ -127,7 +127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Error reading content analysis prompt:', error);
         prompt = 'Analyze the following content and extract data for visualization. Create a Plotly.js configuration that best represents the data.';
       }
-      
+
       // Create system message with prompt
       const messages = [
         {
@@ -139,10 +139,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           content: `Content Type: ${contentType}\nRequested Chart Type: ${chartType}\n\nContent to analyze:\n\n${content}`
         }
       ];
-      
+
       // Call Claude's API to analyze the content
       const result = await claudeService.processConversation(messages);
-      
+
       // Try to parse the response as JSON
       let parsedResult;
       try {
@@ -155,7 +155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.warn('Found JSON code block but failed to parse it:', e);
           }
         }
-        
+
         // If code block approach failed, try to extract any JSON object
         if (!parsedResult) {
           const jsonMatch = result.response.match(/\{[\s\S]*?\}/);
@@ -167,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
-        
+
         // If both approaches failed, generate a default response
         if (!parsedResult) {
           // Create a default Plotly config with a message
@@ -208,10 +208,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rawResponse: result.response
         });
       }
-      
+
       // Save the file path in the result for reference
       parsedResult.sourceFile = filename;
-      
+
       res.json({
         success: true,
         ...parsedResult,
@@ -225,19 +225,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-  
+
   // Endpoint to test Claude's visualization capabilities with random data
   app.post('/api/test-claude-visualization', async (req: Request, res: Response) => {
     try {
       const { data, type, title, description } = req.body;
-      
+
       if (!data || !type) {
         return res.status(400).json({ 
           success: false, 
           error: 'Data and type are required' 
         });
       }
-      
+
       // Send the data to Claude for visualization generation
       const result = await claudeService.generateVisualization(
         data,
@@ -245,7 +245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         title || 'Test Visualization',
         description || 'Generated from test data'
       );
-      
+
       // Return both Claude's results and the input data for comparison
       res.json({
         success: true,
@@ -265,7 +265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
   });
-  
+
   // Serve chart files from tests/output directory
   app.get('/chart-data/:filename', (req: Request, res: Response) => {
     const filename = req.params.filename;
@@ -274,7 +274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const filePath = path.resolve(__dirname, `../tests/output/${filename}`);
     res.sendFile(filePath);
   });
-  
+
   // API to list available chart files
   app.get('/api/chart-files', (req: Request, res: Response) => {
     try {
@@ -512,26 +512,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: `Failed to generate visualization: ${error.message}` });
     }
   });
-  
+
   // Test Visualization endpoints
-  
+
   // Content Analysis Endpoint
   app.post('/api/analyze-content', async (req: Request, res: Response) => {
     try {
       const { content, contentType, chartType } = req.body;
-      
+
       if (!content) {
         return res.status(400).json({
           success: false,
           error: 'Content is required'
         });
       }
-      
+
       // Read the content analysis prompt
       const __filename = new URL(import.meta.url).pathname;
       const __dirname = path.dirname(__filename);
       const promptPath = path.resolve(__dirname, '../prompts/claude/content_analysis/default.txt');
-      
+
       let prompt = '';
       try {
         prompt = fs.readFileSync(promptPath, 'utf8');
@@ -539,7 +539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error('Error reading content analysis prompt:', error);
         prompt = 'Analyze the following content and extract data for visualization. Create a Plotly.js configuration that best represents the data.';
       }
-      
+
       // Create system message with prompt
       const messages = [
         {
@@ -551,10 +551,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           content: `Content Type: ${contentType}\nRequested Chart Type: ${chartType}\n\nContent to analyze:\n\n${content}`
         }
       ];
-      
+
       // Call Claude's API to analyze the content
       const result = await claudeService.processConversation(messages);
-      
+
       // Try to parse the response as JSON
       let parsedResult;
       try {
@@ -567,7 +567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.warn('Found JSON code block but failed to parse it:', e);
           }
         }
-        
+
         // If code block approach failed, try to extract any JSON object
         if (!parsedResult) {
           const jsonMatch = result.response.match(/\{[\s\S]*?\}/);
@@ -579,7 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
         }
-        
+
         // If both approaches failed, generate a default response
         if (!parsedResult) {
           // Create a default Plotly config with a message
@@ -620,7 +620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           rawResponse: result.response
         });
       }
-      
+
       res.json({
         success: true,
         ...parsedResult,
@@ -638,7 +638,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Van Westendorp visualization endpoint
   app.get('/api/test-visualization/van-westendorp', async (req: Request, res: Response) => {
     let hasResponded = false;
-    
+
     // Add a timeout handler
     const timeoutId = setTimeout(() => {
       if (!hasResponded) {
@@ -684,11 +684,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 app.post('/api/two-stage-research', async (req: Request, res: Response) => {
   try {
     const { query, options = {} } = req.body;
-    
+
     if (!query) {
       return res.status(400).json({ error: 'Query is required' });
     }
-    
+
     // Check if this is stage 1 (get questions) or stage 2 (perform research with answers)
     if (!req.body.stage || req.body.stage === 1) {
       // Stage 1: Generate clarifying questions
@@ -701,14 +701,14 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
     } else {
       // Stage 2: Perform research with answers
       const { answers = {} } = req.body;
-      
+
       // Start research with the provided answers
       const research = await initiateResearch(query, {
         ...options,
         clarificationAnswers: answers,
         generateClarifyingQuestions: true
       });
-      
+
       return res.json({
         success: true,
         research,
@@ -813,7 +813,7 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
 
       // Create intersection annotations
       const annotations = [];
-      
+
       if (optimalPricePoint) {
         annotations.push({
           x: optimalPricePoint.price,
@@ -920,7 +920,7 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
                   background: #f0f7ff;
                   border-radius: 5px;
                   font-size: 0.9rem;
-                  max-width: 600px;
+                  maxwidth: 600px;
                 }
                 .interpretation h3 {
                   margin-top: 0;
@@ -946,12 +946,12 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
             <body>
               <h1>${result.title}</h1>
               <p>${result.description}</p>
-              
+
               <div class="visualization-container">
                 <div class="chart-container">
                   <div id="price-sensitivity-chart" style="height: 100%;"></div>
                 </div>
-                
+
                 <div class="interpretation">
                   <h3>How to interpret this chart:</h3>
                   <ul>
@@ -963,20 +963,20 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
                     <li><strong>Indifference Price Point</strong>: The intersection of "Too Cheap" and "Expensive But Worth It" curves.</li>
                   </ul>
                 </div>
-                
+
                 <div class="model-info">
                   <p><strong>Visualization Type:</strong> ${result.visualizationType}</p>
                   <p><strong>Source:</strong> ${result.modelUsed}</p>
                 </div>
               </div>
-              
+
               <a href="/" class="back-link">&laquo; Back to Dashboard</a>
-              
+
               <script>
                 // Render the chart
                 const traces = ${result.traces};
                 const annotations = ${result.annotations};
-                
+
                 const layout = {
                   title: 'Van Westendorp Price Sensitivity Analysis',
                   xaxis: {
@@ -1002,7 +1002,7 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
                     pad: 4
                   }
                 };
-                
+
                 Plotly.newPlot('price-sensitivity-chart', traces, layout, {responsive: true});
               </script>
             </body>
@@ -1012,9 +1012,9 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
     } catch (error) {
       // Clear the timeout since we're sending an error
       clearTimeout(timeoutId);
-      
+
       console.error('Error generating test visualization:', error);
-      
+
       if (!hasResponded) {
         hasResponded = true;
         res.status(500).send(`
@@ -1065,11 +1065,11 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
       }
     }
   });
-  
+
   // Conjoint analysis visualization endpoint
   app.get('/api/test-visualization/conjoint', async (req: Request, res: Response) => {
     let hasResponded = false;
-    
+
     // Add a timeout handler
     const timeoutId = setTimeout(() => {
       if (!hasResponded) {
@@ -1306,7 +1306,7 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
             <body>
               <h1>${result.title}</h1>
               <p>${result.description}</p>
-              
+
               <div class="visualization-container">
                 <div class="grid">
                   <div class="chart-container">
@@ -1316,7 +1316,7 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
                     <div id="partworth-chart" style="height: 300px;"></div>
                   </div>
                 </div>
-                
+
                 <div class="interpretation">
                   <h3>How to interpret these charts:</h3>
                   <ul>
@@ -1324,15 +1324,15 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
                     <li><strong>Part-Worth Utilities</strong>: Indicates how much value customers place on specific feature levels. Higher values mean customers prefer that option more.</li>
                   </ul>
                 </div>
-                
+
                 <div class="model-info">
                   <p><strong>Visualization Type:</strong> ${result.visualizationType}</p>
                   <p><strong>Source:</strong> ${result.modelUsed}</p>
                 </div>
               </div>
-              
+
               <a href="/" class="back-link">&laquo; Back to Dashboard</a>
-              
+
               <script>
                 // Render the importance chart
                 const importanceData = [${result.importanceChartData}];
@@ -1353,9 +1353,9 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
                     pad: 4
                   }
                 };
-                
+
                 Plotly.newPlot('importance-chart', importanceData, importanceLayout, {responsive: true});
-                
+
                 // Render the part-worth utilities chart
                 const partWorthTraces = ${result.partWorthTraces};
                 const partWorthLayout = {
@@ -1380,7 +1380,7 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
                     pad: 4
                   }
                 };
-                
+
                 Plotly.newPlot('partworth-chart', partWorthTraces, partWorthLayout, {responsive: true});
               </script>
             </body>
@@ -1390,9 +1390,9 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
     } catch (error) {
       // Clear the timeout since we're sending an error
       clearTimeout(timeoutId);
-      
+
       console.error('Error generating test visualization:', error);
-      
+
       if (!hasResponded) {
         hasResponded = true;
         res.status(500).send(`
@@ -1449,10 +1449,10 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
   const __filename = new URL(import.meta.url).pathname;
   const __dirname = path.dirname(__filename);
   app.use('/tests/output', express.static(path.resolve(__dirname, '../tests/output')));
-  
+
   // Serve static files from public directory
   app.use(express.static(path.resolve(__dirname, '../public')));
-  
+
   // Mock Research Initialization Endpoint (for testing/development only)
   app.post('/api/mock-init', async (req: Request, res: Response) => {
     // This endpoint should only be available in development mode
@@ -1463,7 +1463,7 @@ app.post('/api/two-stage-research', async (req: Request, res: Response) => {
     try {
       console.log('Initializing mock research data...');
       const result = await initializeAllMockResearch();
-      
+
       res.json({
         message: 'Mock research data initialized successfully',
         data: {

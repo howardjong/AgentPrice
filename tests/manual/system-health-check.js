@@ -26,6 +26,7 @@ async function checkSystemHealth() {
   console.log('\n[1] Checking environment configuration...');
   console.log(`- LLM API calls disabled: ${isLlmApiDisabled()}`);
   console.log(`- Node environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`- Redis mode: ${process.env.REDIS_MODE || 'normal'}`);
   
   // Check prompt manager
   console.log('\n[2] Checking prompt manager...');
@@ -53,42 +54,63 @@ async function checkSystemHealth() {
         
         if (promptTypes.length > 0) {
           console.log(`  ${engine}: ${promptTypes.join(', ')}`);
-          
-          // Check versions for first prompt type as example
-          if (promptTypes.length > 0) {
-            const versions = await promptManager.listPromptVersions(engine, promptTypes[0]);
-            console.log(`    Example - ${promptTypes[0]}: Active=${versions.activeVersion}, Available=[${versions.availableVersions.join(', ')}]`);
-          }
         }
       } catch (err) {
-        console.log(`  ${engine}: Error reading prompts - ${err.message}`);
+        console.error(`  Error reading engine ${engine}: ${err.message}`);
       }
     }
   } catch (error) {
-    console.error('- ❌ Prompt manager initialization failed:', error.message);
+    console.error('- ❌ Error initializing prompt manager:', error.message);
   }
   
   // Check circuit breaker
   console.log('\n[3] Checking circuit breaker...');
   try {
-    const circuitBreaker = new CircuitBreaker();
+    const testBreaker = new CircuitBreaker({
+      failureThreshold: 3,
+      resetTimeout: 30000
+    });
+    
     console.log('- Circuit breaker initialized successfully');
-    console.log('- Current circuit breaker state:');
-    console.log(JSON.stringify(circuitBreaker.state, null, 2));
-    circuitBreaker.stop();
+    console.log('- Testing simple call...');
+    
+    const result = await testBreaker.executeRequest('test-service', async () => {
+      return 'Test successful';
+    });
+    
+    console.log(`- ✅ Test result: ${result}`);
+    
+    // Check if there are any open circuits
+    const breakerState = testBreaker.state;
+    const openCircuits = Object.keys(breakerState).filter(key => 
+      breakerState[key].status === 'OPEN'
+    );
+    
+    if (openCircuits.length > 0) {
+      console.warn(`- ⚠️ Warning: ${openCircuits.length} circuits are open`);
+      openCircuits.forEach(circuit => {
+        console.warn(`  - ${circuit}: last failure at ${new Date(breakerState[circuit].lastFailure).toISOString()}`);
+      });
+    } else {
+      console.log('- ✅ No open circuits');
+    }
+    
+    // Clean up
+    testBreaker.stop();
   } catch (error) {
-    console.error('- ❌ Circuit breaker check failed:', error.message);
+    console.error('- ❌ Error testing circuit breaker:', error.message);
   }
   
-  // Check file system and temp directories
+  // Check file system and important directories
   console.log('\n[4] Checking file system access...');
-  const directoriesToCheck = [
-    { path: path.join(__dirname, '../../tests/output'), name: 'Test output directory' },
-    { path: path.join(__dirname, '../../uploads'), name: 'Uploads directory' },
-    { path: path.join(__dirname, '../../content-uploads'), name: 'Content uploads directory' }
+  const dirsToCheck = [
+    { name: 'Prompts', path: path.join(__dirname, '../../prompts') },
+    { name: 'Public', path: path.join(__dirname, '../../public') },
+    { name: 'Tests output', path: path.join(__dirname, '../output') },
+    { name: 'Uploads', path: path.join(__dirname, '../../uploads') },
   ];
   
-  for (const dir of directoriesToCheck) {
+  for (const dir of dirsToCheck) {
     try {
       await fs.access(dir.path);
       console.log(`- ✅ ${dir.name} is accessible`);
@@ -109,7 +131,7 @@ async function checkSystemHealth() {
   console.log('\n[5] Checking required Node modules...');
   const requiredModules = [
     'axios', 'express', 'bull', 'ioredis', 'anthropic', 'winston', 
-    'uuid', 'tailwind-merge', 'react', 'vite'
+    'uuid', 'tailwind-merge'
   ];
   
   for (const module of requiredModules) {

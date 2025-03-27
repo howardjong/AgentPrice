@@ -118,7 +118,12 @@ class ServiceRouter {
     const serviceToUse = service || this.determineService(lastUserMessage.content);
     
     try {
-      if (serviceToUse === 'perplexity') {
+      // Validate service parameter before using it
+      const validatedService = typeof serviceToUse === 'object' ? 
+        serviceToUse.service || 'claude' : 
+        serviceToUse || 'claude';
+        
+      if (validatedService === 'perplexity') {
         // Check if Perplexity service is available
         if (!perplexityService.isConnected) {
           logger.warn('Perplexity service not available, falling back to Claude with research instructions');

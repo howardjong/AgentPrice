@@ -75,7 +75,10 @@ export class CircuitBreaker {
     const timeoutMs = serviceKey.includes('deep') ? 300000 : 180000; // 5 min for deep research, 3 min for others
     
     try {
-      // Track this request
+      // Track this request with abort controller for proper cancellation
+      const abortController = new AbortController();
+      const signal = abortController.signal;
+      
       const timeout = setTimeout(() => {
         // If the request is still pending after timeout, consider it failed
         if (this.pendingPromises.has(requestId)) {
@@ -86,30 +89,52 @@ export class CircuitBreaker {
             elapsedTime: Date.now() - this.pendingPromises.get(requestId).startTime
           });
           
-          // Attempt to cancel the request if possible
+          // Abort the request using AbortController
+          try {
+            abortController.abort('Request timed out');
+            logger.info(`Aborted request ${requestId} for ${serviceKey}`);
+          } catch (abortError) {
+            logger.warn(`Failed to abort request ${requestId}`, { error: abortError.message });
+          }
+          
+          // Also try the legacy cancel method if available
           const pendingRequest = this.pendingPromises.get(requestId);
           if (pendingRequest.cancel && typeof pendingRequest.cancel === 'function') {
             try {
               pendingRequest.cancel('Request timed out');
-              logger.info(`Cancelled request ${requestId} for ${serviceKey}`);
+              logger.info(`Cancelled request ${requestId} for ${serviceKey} using legacy method`);
             } catch (cancelError) {
-              logger.warn(`Failed to cancel request ${requestId}`, { error: cancelError.message });
+              logger.warn(`Failed to cancel request ${requestId} using legacy method`, { error: cancelError.message });
             }
           }
           
           this.pendingPromises.delete(requestId);
+          
+          // Force trigger a circuit state update on timeout
+          this.onFailure(serviceKey, new Error(`Timeout after ${timeoutMs}ms`));
         }
       }, timeoutMs);
       
-      // Store the request in pending map
+      // Store the request in pending map with abort controller
       this.pendingPromises.set(requestId, {
         serviceKey,
         startTime: Date.now(),
-        timeout
+        timeout,
+        abort: () => abortController.abort('Operation canceled'),
+        cancel: function(reason) {
+          if (this.abort) this.abort(reason);
+        }
       });
       
-      // Execute the request function
-      const result = await Promise.resolve(requestFn());
+      // Add the abort signal to the request context
+      const requestContext = { signal, requestId };
+      
+      // Execute the request function with context
+      const result = await Promise.resolve(
+        typeof requestFn === 'function' ? 
+          (requestFn.length > 0 ? requestFn(requestContext) : requestFn()) : 
+          requestFn
+      );
       
       // Clean up tracking
       if (this.pendingPromises.has(requestId)) {
