@@ -9,92 +9,82 @@ import logger from '../../utils/logger.js';
 import cacheMonitor from '../../utils/cacheMonitor.js';
 import { isLlmApiDisabled, enableLlmApiCalls, disableLlmApiCalls } from '../../utils/disableLlmCalls.js';
 
+const fs = require('fs').promises;
+const path = require('path');
+const { isLlmApiDisabled: isLlmApiDisabled2 } = require('../../utils/disableLlmCalls'); // Added to avoid naming conflict.
+
 async function testApiCallOptimization() {
   console.log('======================================');
-  console.log('       API CALL OPTIMIZATION TEST     ');
+  console.log('       API CALL OPTIMIZATION TEST');
   console.log('======================================');
 
-  // 1. Check current API call status
-  console.log('\n[1] Checking LLM API call status...');
-  const isDisabled = isLlmApiDisabled();
-  console.log(`- LLM API calls currently ${isDisabled ? 'disabled' : 'enabled'}`);
-
-  // 2. Check cache statistics
-  console.log('\n[2] Checking cache statistics...');
-  const cacheStats = cacheMonitor.getStats();
-  console.log(`- Cache hit rate: ${cacheStats.hitRate}`);
-  console.log(`- Total cache lookups: ${cacheStats.totalLookups}`);
-  console.log(`- Cache hits: ${cacheStats.hits}`);
-  console.log(`- Cache misses: ${cacheStats.misses}`);
-  console.log(`- Estimated cost savings: ${cacheStats.estimatedSavings}`);
-
-  // 3. Test toggling API calls
-  console.log('\n[3] Testing API call toggle functionality...');
-
-  // Save original state to restore later
-  const originalState = isLlmApiDisabled();
-
-  // Toggle to enabled if disabled
-  if (originalState) {
-    enableLlmApiCalls();
-    console.log('- ✅ Successfully enabled LLM API calls');
-    console.log(`- New status: ${isLlmApiDisabled() ? 'disabled' : 'enabled'}`);
+  // Check if LLM API calls are disabled
+  console.log('\n[1] Checking LLM API call settings...');
+  const disabled = isLlmApiDisabled2();
+  console.log(`- LLM API calls disabled: ${disabled}`);
+  if (disabled) {
+    console.log('  ✅ API calls are properly disabled for testing/development');
   } else {
-    disableLlmApiCalls();
-    console.log('- ✅ Successfully disabled LLM API calls');
-    console.log(`- New status: ${isLlmApiDisabled() ? 'disabled' : 'enabled'}`);
+    console.log('  ⚠️ API calls are enabled - costs may be incurred');
   }
 
-  // Restore original state
-  if (originalState) {
-    disableLlmApiCalls();
+  // Check cache monitor statistics
+  console.log('\n[2] Checking cache monitor statistics...');
+  const stats = await cacheMonitor.getStatistics();
+  console.log(`- Total cache lookups: ${stats.totalLookups}`);
+  console.log(`- Cache hits: ${stats.hits}`);
+  console.log(`- Cache misses: ${stats.misses}`);
+
+  const hitRate = stats.totalLookups > 0 
+    ? ((stats.hits / stats.totalLookups) * 100).toFixed(2) 
+    : 0;
+  console.log(`- Cache hit rate: ${hitRate}%`);
+
+  // Calculate estimated token savings
+  const estimatedTokenSavings = stats.hits * 3000; // Assuming average of 3000 tokens per cached response
+  const estimatedCostSavings = (estimatedTokenSavings / 1000) * 0.0015; // Approximate cost per 1K tokens
+
+  console.log(`- Estimated token savings: ${estimatedTokenSavings.toLocaleString()} tokens`);
+  console.log(`- Estimated cost savings: $${estimatedCostSavings.toFixed(4)}`);
+
+  if (hitRate > 50) {
+    console.log('  ✅ Cache hit rate is excellent (>50%)');
+  } else if (hitRate > 20) {
+    console.log('  ✓ Cache hit rate is good (>20%)');
   } else {
-    enableLlmApiCalls();
-  }
-  console.log(`- ✅ Restored original state: ${isLlmApiDisabled() ? 'disabled' : 'enabled'}`);
-
-  // 4. Simulate cache hits/misses for testing
-  console.log('\n[4] Testing cache monitoring...');
-
-  // Record original values
-  const originalStats = cacheMonitor.getStats();
-
-  // Simulate some hits and misses
-  for (let i = 0; i < 5; i++) {
-    cacheMonitor.recordHit();
+    console.log('  ℹ️ Cache hit rate could be improved');
   }
 
-  for (let i = 0; i < 2; i++) {
-    cacheMonitor.recordMiss();
-  }
+  // Check environment variables
+  console.log('\n[3] Checking environment configuration...');
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  console.log(`- Node environment: ${nodeEnv}`);
 
-  // Check new stats
-  const newStats = cacheMonitor.getStats();
-  console.log(`- ✅ Successfully recorded test cache events`);
-  console.log(`- Updated hit rate: ${newStats.hitRate}`);
-  console.log(`- Difference: +${newStats.hits - originalStats.hits} hits, +${newStats.misses - originalStats.misses} misses`);
+  if (nodeEnv === 'development' && disabled) {
+    console.log('  ✅ Development environment with API calls disabled is optimal for testing');
+  } else if (nodeEnv === 'production' && !disabled) {
+    console.log('  ✅ Production environment with API calls enabled is expected');
+  } else if (nodeEnv === 'production' && disabled) {
+    console.log('  ⚠️ Production environment has API calls disabled - this may not be intended');
+  }
 
   // Summary
   console.log('\n======================================');
-  console.log('       OPTIMIZATION TEST COMPLETE     ');
+  console.log('       OPTIMIZATION SUMMARY');
   console.log('======================================');
-
-  // Overall assessment
-  const hasCaching = cacheStats.totalLookups > 0;
-  const hasDisableCapability = true; // We've verified this works
-
-  console.log('\nCost optimization assessment:');
-  console.log(`- Caching system: ${hasCaching ? '✅ Active' : '⚠️ Not yet utilized'}`);
-  console.log(`- API disable capability: ✅ Functional`);
-  console.log(`- Current mode: ${isLlmApiDisabled() ? '✅ Cost saving (API calls disabled)' : '⚠️ Normal (API calls enabled)'}`);
-  console.log(`- Estimated savings so far: ${cacheStats.estimatedSavings}`);
+  console.log(`- API Calls: ${disabled ? 'Disabled' : 'Enabled'}`);
+  console.log(`- Cache Hit Rate: ${hitRate}%`);
+  console.log(`- Estimated Savings: $${estimatedCostSavings.toFixed(4)}`);
+  console.log('======================================');
 }
 
 // Run the test
-testApiCallOptimization().catch(error => {
-  console.error('API call optimization test failed:', error);
-  logger.error('API call optimization test failed', { error: error.message });
+testApiCallOptimization().catch(err => {
+  console.error('Error in API call optimization test:', err);
+  process.exit(1);
 });
+
+
 /**
  * API Call Optimization Test
  * 
@@ -105,10 +95,10 @@ testApiCallOptimization().catch(error => {
  * - Prompt optimization
  */
 
-import cacheMonitor from '../../utils/cacheMonitor.js';
-import { isLlmApiDisabled } from '../../utils/disableLlmCalls.js';
+import cacheMonitor2 from '../../utils/cacheMonitor.js'; // Added to avoid naming conflict
+import { isLlmApiDisabled: isLlmApiDisabled3 } from '../../utils/disableLlmCalls.js'; // Added to avoid naming conflict
 import { createClient } from '../../services/redisService.js';
-import logger from '../../utils/logger.js';
+import logger2 from '../../utils/logger.js'; // Added to avoid naming conflict
 
 async function runApiCallOptimizationTest() {
   console.log('======================================');
@@ -117,13 +107,13 @@ async function runApiCallOptimizationTest() {
 
   // 1. Check API call settings
   console.log('[1] Checking API call settings...');
-  const apiCallsDisabled = isLlmApiDisabled();
+  const apiCallsDisabled = isLlmApiDisabled3();
   console.log(`- ${apiCallsDisabled ? '⚠️ LLM API calls are disabled - tests will simulate behavior' : 'ℹ️ LLM API calls are enabled - tests will simulate caching behavior'}`);
 
   // 2. Test cache monitoring system
   console.log('\n[2] Testing cache monitoring system...');
-  cacheMonitor.reset();
-  logger.info('Cache statistics reset', { previousSavings: '$0.0000', service: 'multi-llm-research' });
+  cacheMonitor2.reset();
+  logger2.info('Cache statistics reset', { previousSavings: '$0.0000', service: 'multi-llm-research' });
   console.log('- Cache statistics reset');
 
   console.log('\n- Testing cache for perplexity service:');
@@ -131,13 +121,13 @@ async function runApiCallOptimizationTest() {
     // Simulate cache hits and misses for perplexity
     for (let i = 0; i < 7; i++) {
       if (i < 5) {
-        cacheMonitor.recordHit('perplexity');
+        cacheMonitor2.recordHit('perplexity');
       } else {
-        cacheMonitor.recordMiss('perplexity');
+        cacheMonitor2.recordMiss('perplexity');
       }
     }
   } catch (error) {
-    logger.warn('Cache error for perplexity', { error: 'Test error', service: 'perplexity' });
+    logger2.warn('Cache error for perplexity', { error: 'Test error', service: 'perplexity' });
   }
 
   console.log('\n- Testing cache for claude service:');
@@ -145,17 +135,17 @@ async function runApiCallOptimizationTest() {
     // Simulate cache hits and misses for claude
     for (let i = 0; i < 7; i++) {
       if (i < 5) {
-        cacheMonitor.recordHit('claude');
+        cacheMonitor2.recordHit('claude');
       } else {
-        cacheMonitor.recordMiss('claude');
+        cacheMonitor2.recordMiss('claude');
       }
     }
   } catch (error) {
-    logger.warn('Cache error for claude', { error: 'Test error', service: 'claude' });
+    logger2.warn('Cache error for claude', { error: 'Test error', service: 'claude' });
   }
 
   // Display cache monitoring stats
-  const stats = cacheMonitor.getStats();
+  const stats = cacheMonitor2.getStats();
   console.log('\n- Cache effectiveness statistics:');
   console.log(`  - Total lookups: ${stats.totalLookups}`);
   console.log(`  - Hits: ${stats.hits}`);
@@ -191,11 +181,11 @@ async function runApiCallOptimizationTest() {
       console.log('- ✅ Cache hit correctly identified');
     } else {
       console.log('- ❌ Cache hit not correctly identified');
-      logger.warn('Cache error for test', { error: "client.exists is not a function", service: 'test' });
+      logger2.warn('Cache error for test', { error: "client.exists is not a function", service: 'test' });
     }
   } catch (error) {
     console.log('- ❌ Cache existence check failed');
-    logger.warn('Cache error for test', { error: error.message, service: 'test' });
+    logger2.warn('Cache error for test', { error: error.message, service: 'test' });
   }
 
   // Test with a key that doesn't exist
@@ -209,7 +199,7 @@ async function runApiCallOptimizationTest() {
     }
   } catch (error) {
     console.log('- ❌ Cache existence check failed');
-    logger.warn('Cache error for test', { error: error.message, service: 'test' });
+    logger2.warn('Cache error for test', { error: error.message, service: 'test' });
   }
 
   // 4. Test Redis Caching
@@ -300,7 +290,7 @@ async function runApiCallOptimizationTest() {
 
   // Set up circuit breaker summary logging
   const intervalId = setInterval(() => {
-    logger.info('Circuit breaker summary', {
+    logger2.info('Circuit breaker summary', {
       openCircuits: 0,
       pendingRequests: 0,
       rateLimitedServices: 0,
