@@ -362,3 +362,232 @@ class BatchProcessor {
 // Create and export singleton instance
 const batchProcessor = new BatchProcessor();
 export default batchProcessor;
+/**
+ * Batch Processor
+ * 
+ * Processes operations in batches to reduce API calls and improve efficiency
+ */
+import logger from './logger.js';
+
+class BatchProcessor {
+  constructor(options = {}) {
+    this.options = {
+      maxBatchSize: options.maxBatchSize || 10, // Maximum batch size
+      batchTimeout: options.batchTimeout || 100, // Max wait time in ms
+      autoProcess: options.autoProcess !== false, // Auto-process batches
+      processingDelay: options.processingDelay || 50, // Delay between processing batches
+      ...options
+    };
+    
+    this.batches = new Map(); // Map of batch types to batch queues
+    this.batchTimers = new Map(); // Map of batch types to timeout timers
+    this.activeProcessing = new Set(); // Set of batch types currently being processed
+    this.stats = {
+      processed: 0,
+      totalItems: 0,
+      activeBatches: 0,
+      errors: 0
+    };
+    
+    // Bind methods to ensure correct this context
+    this.add = this.add.bind(this);
+    this.processBatch = this.processBatch.bind(this);
+    this.getStats = this.getStats.bind(this);
+  }
+  
+  /**
+   * Add an item to a batch
+   * @param {string} batchType - Type of batch
+   * @param {any} item - Item to add to batch
+   * @param {function} processFn - Function to process the batch
+   * @returns {Promise} A promise that resolves when the item is processed
+   */
+  add(batchType, item, processFn) {
+    // Create a promise for this item
+    let resolveItem, rejectItem;
+    const itemPromise = new Promise((resolve, reject) => {
+      resolveItem = resolve;
+      rejectItem = reject;
+    });
+    
+    // Initialize batch if it doesn't exist
+    if (!this.batches.has(batchType)) {
+      this.batches.set(batchType, []);
+    }
+    
+    // Get the batch
+    const batch = this.batches.get(batchType);
+    
+    // Add item to batch with resolve/reject handlers
+    batch.push({
+      item,
+      resolve: resolveItem,
+      reject: rejectItem,
+      timestamp: Date.now()
+    });
+    
+    // Update stats
+    this.stats.totalItems++;
+    this.stats.activeBatches = this.batches.size;
+    
+    // Process immediately if batch is full
+    if (batch.length >= this.options.maxBatchSize) {
+      this.processBatch(batchType, processFn);
+    } 
+    // Otherwise set a timer to process the batch
+    else if (this.options.autoProcess && !this.batchTimers.has(batchType)) {
+      const timerId = setTimeout(() => {
+        this.processBatch(batchType, processFn);
+      }, this.options.batchTimeout);
+      
+      this.batchTimers.set(batchType, timerId);
+    }
+    
+    return itemPromise;
+  }
+  
+  /**
+   * Process a batch of items
+   * @param {string} batchType - Type of batch to process
+   * @param {function} processFn - Function to process the batch 
+   * @returns {Promise<void>}
+   */
+  async processBatch(batchType, processFn) {
+    // Clear any pending timer
+    if (this.batchTimers.has(batchType)) {
+      clearTimeout(this.batchTimers.get(batchType));
+      this.batchTimers.delete(batchType);
+    }
+    
+    // Get the batch
+    const batch = this.batches.get(batchType) || [];
+    if (batch.length === 0) {
+      return;
+    }
+    
+    // Replace the batch with an empty array
+    this.batches.set(batchType, []);
+    
+    // Mark as processing
+    this.activeProcessing.add(batchType);
+    
+    try {
+      // Extract items for processing
+      const items = batch.map(entry => entry.item);
+      
+      logger.debug(`Processing batch of ${items.length} items`, {
+        batchType,
+        batchSize: items.length
+      });
+      
+      // Process the batch
+      const results = await processFn(items);
+      
+      // Make sure results match items
+      if (Array.isArray(results) && results.length === batch.length) {
+        // Resolve each item with its result
+        batch.forEach((entry, index) => {
+          entry.resolve(results[index]);
+        });
+      } else {
+        // If results don't match items, resolve all with the same result
+        batch.forEach(entry => {
+          entry.resolve(results);
+        });
+      }
+      
+      // Update stats
+      this.stats.processed += batch.length;
+    } catch (error) {
+      logger.error(`Batch processing error for ${batchType}`, {
+        error: error.message,
+        batchSize: batch.length
+      });
+      
+      // Reject all items in the batch
+      batch.forEach(entry => {
+        entry.reject(error);
+      });
+      
+      // Update error stats
+      this.stats.errors++;
+    } finally {
+      // Remove from active processing
+      this.activeProcessing.delete(batchType);
+      
+      // Update active batches stat
+      this.stats.activeBatches = this.batches.size;
+    }
+  }
+  
+  /**
+   * Force process all batches immediately
+   * @param {function} defaultProcessFn - Default processing function if none provided
+   * @returns {Promise<void>}
+   */
+  async processAll(defaultProcessFn) {
+    // Process each batch type
+    const batchTypes = [...this.batches.keys()];
+    
+    logger.info(`Force processing ${batchTypes.length} batch types`, {
+      batchTypes: batchTypes.join(', ')
+    });
+    
+    // Process each batch type sequentially to avoid overwhelming the system
+    for (const batchType of batchTypes) {
+      // Clear any pending timer
+      if (this.batchTimers.has(batchType)) {
+        clearTimeout(this.batchTimers.get(batchType));
+        this.batchTimers.delete(batchType);
+      }
+      
+      await this.processBatch(batchType, defaultProcessFn);
+      
+      // Add a small delay between processing batches
+      await new Promise(resolve => setTimeout(resolve, this.options.processingDelay));
+    }
+  }
+  
+  /**
+   * Get batch processing statistics
+   * @returns {Object} Statistics object
+   */
+  getStats() {
+    return {
+      processed: this.stats.processed,
+      totalItems: this.stats.totalItems,
+      activeBatches: this.stats.activeBatches,
+      errors: this.stats.errors,
+      pendingItems: [...this.batches.values()].reduce((sum, batch) => sum + batch.length, 0),
+      processingTypes: [...this.activeProcessing]
+    };
+  }
+  
+  /**
+   * Clear all batches and timers
+   */
+  clear() {
+    // Clear all timers
+    for (const timerId of this.batchTimers.values()) {
+      clearTimeout(timerId);
+    }
+    
+    // Clear collections
+    this.batchTimers.clear();
+    this.activeProcessing.clear();
+    
+    // Reject all pending items
+    for (const [batchType, batch] of this.batches.entries()) {
+      batch.forEach(entry => {
+        entry.reject(new Error('Batch processing cancelled'));
+      });
+      this.batches.set(batchType, []);
+    }
+    
+    logger.info('Batch processor cleared');
+  }
+}
+
+// Create singleton instance
+const batchProcessor = new BatchProcessor();
+export default batchProcessor;

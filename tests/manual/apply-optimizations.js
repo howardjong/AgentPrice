@@ -417,3 +417,224 @@ applyOptimizations().catch(err => {
   console.error('Fatal error in optimization script:', err);
   process.exit(1);
 });
+/**
+ * Performance Optimization Script
+ * 
+ * This script applies various optimizations to improve system performance
+ * and reduce memory usage, especially for LLM API calls.
+ */
+
+import logger from '../../utils/logger.js';
+import resourceManager from '../../utils/resourceManager.js';
+import memoryLeakDetector from '../../utils/memoryLeakDetector.js';
+import smartCache from '../../utils/smartCache.js';
+import enhancedCache from '../../utils/enhancedCache.js';
+import costTracker from '../../utils/costTracker.js';
+import tokenOptimizer from '../../utils/tokenOptimizer.js';
+import batchProcessor from '../../utils/batchProcessor.js';
+import contentChunker from '../../utils/contentChunker.js';
+import documentFingerprinter from '../../utils/documentFingerprinter.js';
+import { promises as fs } from 'fs';
+import path from 'path';
+
+// Set a timeout to prevent the script from running indefinitely
+const SCRIPT_TIMEOUT = 30000; // 30 seconds
+const timeoutId = setTimeout(() => {
+  logger.warn('Apply optimizations script timed out, exiting');
+  process.exit(0);
+}, SCRIPT_TIMEOUT);
+
+// Ensure the timeout is cleared if the script completes normally
+timeoutId.unref();
+
+/**
+ * Apply optimizations to various system components
+ */
+async function applyOptimizations() {
+  console.log('=================================================');
+  console.log('   APPLYING PERFORMANCE OPTIMIZATIONS');
+  console.log('=================================================');
+  
+  const timestamp = new Date().toISOString().replace(/:/g, '-');
+  
+  try {
+    // 1. Configure resource manager for optimal performance
+    console.log('\n[1/6] Configuring resource manager...');
+    const resourceConfig = {
+      memory: {
+        heapLimitMB: 100, // Lower heap usage threshold
+        gcThresholdMB: 70  // Trigger GC at lower threshold
+      },
+      cpu: {
+        maxUtilization: 70 // Lower CPU usage threshold
+      },
+      gcInterval: 5 * 60 * 1000, // 5 minutes
+      monitoringInterval: 2 * 60 * 1000, // 2 minutes
+      cleanupInterval: 10 * 60 * 1000, // 10 minutes
+      aggressiveGcEnabled: true,
+      lowMemoryMode: true
+    };
+    
+    resourceManager.configure(resourceConfig);
+    if (!resourceManager.isActive) {
+      resourceManager.start();
+      console.log('Started resource manager with optimized settings');
+    } else {
+      console.log('Resource manager already active, applied optimized settings');
+    }
+    
+    // 2. Configure memory leak detector
+    console.log('\n[2/6] Configuring memory leak detector...');
+    const leakDetectorConfig = {
+      enabled: true,
+      checkInterval: 5 * 60 * 1000, // 5 minutes
+      alertThreshold: 25, // Lower threshold for memory growth alerts
+      gcBeforeCheck: true,
+      maxSamples: 8, // Reduce memory usage for samples
+      resourceSavingMode: true
+    };
+    
+    memoryLeakDetector.configure(leakDetectorConfig);
+    console.log('Memory leak detector configured with optimized settings');
+    
+    // 3. Configure smart cache for better performance
+    console.log('\n[3/6] Configuring cache systems...');
+    const cacheConfig = {
+      maxSize: 200, // Limit cache size to 200 items
+      ttl: 4 * 60 * 60 * 1000, // 4 hours in ms
+      enableFuzzyMatch: true,
+      fuzzyMatchThreshold: 0.85,
+      memoryLimitMB: 50, // Limit cache memory usage
+      lowMemoryMode: true
+    };
+    
+    smartCache.configure(cacheConfig);
+    console.log('Smart cache configured with optimized settings');
+    
+    // Configure enhanced cache if it has configure method
+    if (typeof enhancedCache.configure === 'function') {
+      enhancedCache.configure({
+        enableFingerprinting: true,
+        similarityThreshold: 0.8,
+        defaultTtl: 4 * 60 * 60 * 1000 // 4 hours
+      });
+      console.log('Enhanced cache configured with optimized settings');
+    }
+    
+    // 4. Configure cost tracker
+    console.log('\n[4/6] Configuring cost tracking...');
+    costTracker.configure({
+      autoSaveInterval: 30 * 60 * 1000, // 30 minutes
+      costSavingFeatures: {
+        caching: true,
+        tokenOptimization: true,
+        modelDowngrading: true,
+        batchProcessing: true,
+        apiDisabling: true
+      }
+    });
+    console.log('Cost tracker configured with all savings features enabled');
+    
+    // 5. Configure content chunker for optimized splitting
+    console.log('\n[5/6] Configuring content processing...');
+    if (typeof contentChunker.configure === 'function') {
+      contentChunker.configure({
+        defaultChunkSize: 6000, // Smaller chunks for better processing
+        defaultOverlap: 150,    // Moderate overlap
+        preserveCodeBlocks: true,
+        preserveParagraphs: true
+      });
+      console.log('Content chunker configured with optimized settings');
+    }
+    
+    // Configure batch processor if needed
+    if (typeof batchProcessor.configure === 'function') {
+      batchProcessor.configure({
+        maxBatchSize: 5,
+        batchTimeout: 200,
+        autoProcess: true,
+        processingDelay: 100
+      });
+      console.log('Batch processor configured with optimized settings');
+    }
+    
+    // 6. Save settings to configuration file
+    console.log('\n[6/6] Saving optimization settings...');
+    const optimizationSettings = {
+      timestamp,
+      resourceManager: resourceConfig,
+      memoryLeakDetector: leakDetectorConfig,
+      smartCache: cacheConfig,
+      costTracker: {
+        autoSaveInterval: 30 * 60 * 1000,
+        enableAllSavingFeatures: true
+      },
+      contentChunker: {
+        defaultChunkSize: 6000,
+        defaultOverlap: 150
+      },
+      batchProcessor: {
+        maxBatchSize: 5,
+        batchTimeout: 200
+      },
+      environment: {
+        optimizeMemory: true,
+        disableLlmCalls: process.env.DISABLE_LLM_CALLS === 'true'
+      }
+    };
+    
+    // Create data directory if it doesn't exist
+    const dataDir = path.join(process.cwd(), 'data');
+    try {
+      await fs.mkdir(dataDir, { recursive: true });
+    } catch (err) {
+      // Ignore error if directory already exists
+    }
+    
+    // Save optimization settings to file
+    await fs.writeFile(
+      path.join(dataDir, `optimization-settings-${timestamp}.json`),
+      JSON.stringify(optimizationSettings, null, 2)
+    );
+    
+    // Apply resource cleanup
+    if (global.gc && typeof global.gc === 'function') {
+      console.log('\nRunning garbage collection');
+      const beforeMem = process.memoryUsage().heapUsed;
+      global.gc();
+      const afterMem = process.memoryUsage().heapUsed;
+      const freedMB = Math.round((beforeMem - afterMem) / 1024 / 1024);
+      console.log(`Freed ${freedMB}MB of memory with garbage collection`);
+    }
+    
+    // Display current memory usage
+    const currentMemUsage = process.memoryUsage();
+    console.log('\nCurrent memory usage:');
+    console.log(`- RSS: ${Math.round(currentMemUsage.rss / 1024 / 1024)}MB`);
+    console.log(`- Heap Total: ${Math.round(currentMemUsage.heapTotal / 1024 / 1024)}MB`);
+    console.log(`- Heap Used: ${Math.round(currentMemUsage.heapUsed / 1024 / 1024)}MB`);
+    console.log(`- External: ${Math.round(currentMemUsage.external / 1024 / 1024)}MB`);
+    
+    console.log('\n=================================================');
+    console.log('   OPTIMIZATIONS SUCCESSFULLY APPLIED');
+    console.log('=================================================');
+    
+    // Successfully applied optimizations
+    return true;
+  } catch (error) {
+    console.error(`Error applying optimizations: ${error.message}`);
+    logger.error('Optimization error', { error: error.message, stack: error.stack });
+    return false;
+  } finally {
+    // Clear the timeout
+    clearTimeout(timeoutId);
+  }
+}
+
+// Run the optimization function
+applyOptimizations().catch(err => {
+  console.error('Fatal error in optimization script:', err);
+  process.exit(1);
+});
+
+export default applyOptimizations;

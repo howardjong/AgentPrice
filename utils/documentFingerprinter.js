@@ -313,3 +313,324 @@ class DocumentFingerprinter {
 // Create and export singleton instance
 const documentFingerprinter = new DocumentFingerprinter();
 export default documentFingerprinter;
+/**
+ * Document Fingerprinter
+ * 
+ * Creates unique fingerprints of document content to enable content-based
+ * caching and efficient similarity searching
+ */
+import crypto from 'crypto';
+import logger from './logger.js';
+
+class DocumentFingerprinter {
+  constructor(options = {}) {
+    this.similarityThreshold = options.similarityThreshold || 0.85;
+    this.hashAlgorithm = options.hashAlgorithm || 'sha256';
+    this.maxCacheSize = options.maxCacheSize || 100;
+    this.fingerprintCache = new Map();
+    this.keywordExtractors = new Map();
+    
+    // Configure for efficient memory usage
+    this.enableTruncation = options.enableTruncation !== false;
+    this.truncateLength = options.truncateLength || 1000;
+    
+    // Initialize keyword extractors for common content types
+    this.initializeKeywordExtractors();
+  }
+  
+  /**
+   * Initialize keyword extractors for different content types
+   */
+  initializeKeywordExtractors() {
+    // Text documents extractor (basic stopword removal and normalization)
+    this.keywordExtractors.set('text', content => {
+      const stopwords = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 
+        'be', 'been', 'being', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'about', 'as', 'of']);
+      
+      return content
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '') // Remove punctuation
+        .split(/\s+/)
+        .filter(word => word.length > 2 && !stopwords.has(word)) // Filter stopwords and short words
+        .slice(0, 100) // Limit to top 100 words for memory efficiency
+        .join(' ');
+    });
+    
+    // JSON document extractor (extracts keys and significant values)
+    this.keywordExtractors.set('json', content => {
+      try {
+        const obj = typeof content === 'string' ? JSON.parse(content) : content;
+        
+        // Extract keys and some values as a fingerprint
+        const keys = this.extractKeys(obj, 3);
+        return keys.join(' ');
+      } catch (e) {
+        // If JSON parsing fails, fall back to text extraction
+        return this.keywordExtractors.get('text')(content);
+      }
+    });
+  }
+  
+  /**
+   * Extract keys from an object up to a certain depth
+   * @param {Object} obj - Object to extract keys from
+   * @param {number} maxDepth - Maximum depth to traverse
+   * @param {string} prefix - Prefix for nested keys
+   * @returns {Array} Array of keys
+   */
+  extractKeys(obj, maxDepth = 3, prefix = '', depth = 0) {
+    if (depth >= maxDepth || typeof obj !== 'object' || obj === null) {
+      return [];
+    }
+    
+    let keys = [];
+    
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const fullKey = prefix ? `${prefix}.${key}` : key;
+        keys.push(fullKey);
+        
+        // Include some values for better fingerprinting
+        const value = obj[key];
+        if (typeof value === 'string' && value.length < 50) {
+          keys.push(value);
+        } else if (typeof value === 'number') {
+          keys.push(value.toString());
+        }
+        
+        // Recursively process nested objects
+        if (typeof value === 'object' && value !== null) {
+          keys = keys.concat(this.extractKeys(value, maxDepth, fullKey, depth + 1));
+        }
+      }
+    }
+    
+    return keys;
+  }
+  
+  /**
+   * Create a fingerprint for a document
+   * @param {string|Object} content - Document content to fingerprint
+   * @param {Object} options - Fingerprinting options
+   * @returns {Object} Fingerprint object
+   */
+  createFingerprint(content, options = {}) {
+    if (!content) {
+      return { 
+        hash: '',
+        keywords: [],
+        contentType: 'empty'
+      };
+    }
+    
+    // Determine content type
+    const contentType = options.contentType || this.detectContentType(content);
+    
+    // Extract keywords based on content type
+    let extractedContent = content;
+    if (typeof content === 'object' && content !== null) {
+      try {
+        extractedContent = JSON.stringify(content);
+      } catch (e) {
+        logger.warn('Failed to stringify object for fingerprinting', { error: e.message });
+        extractedContent = Object.keys(content).join(' ');
+      }
+    }
+    
+    // Truncate content if enabled to save memory
+    if (this.enableTruncation && typeof extractedContent === 'string' && 
+        extractedContent.length > this.truncateLength) {
+      extractedContent = extractedContent.substring(0, this.truncateLength);
+    }
+    
+    // Extract keywords using appropriate extractor
+    const extractor = this.keywordExtractors.get(contentType) || this.keywordExtractors.get('text');
+    const keywordText = extractor(extractedContent);
+    
+    // Create hash from keywords
+    const hash = crypto
+      .createHash(this.hashAlgorithm)
+      .update(keywordText)
+      .digest('hex');
+    
+    // Extract top keywords for similarity matching
+    const keywords = keywordText.split(/\s+/).slice(0, 50);
+    
+    return {
+      hash,
+      keywords,
+      contentType
+    };
+  }
+  
+  /**
+   * Detect content type from the content
+   * @param {string|Object} content - Content to analyze
+   * @returns {string} Content type
+   */
+  detectContentType(content) {
+    if (typeof content === 'object' && content !== null) {
+      return 'json';
+    }
+    
+    if (typeof content === 'string') {
+      // Check if content is JSON
+      if ((content.startsWith('{') && content.endsWith('}')) || 
+          (content.startsWith('[') && content.endsWith(']'))) {
+        try {
+          JSON.parse(content);
+          return 'json';
+        } catch (e) {
+          // Not valid JSON
+        }
+      }
+      
+      // Check if content is HTML
+      if (content.includes('<html') || content.includes('<body') || 
+          (content.includes('<') && content.includes('</') && content.includes('>'))) {
+        return 'html';
+      }
+      
+      // Check if content is CSV
+      if (content.includes(',') && content.split('\n').length > 1) {
+        const lines = content.split('\n');
+        if (lines[0].split(',').length > 1 && lines[1].split(',').length > 1) {
+          return 'csv';
+        }
+      }
+    }
+    
+    // Default to text
+    return 'text';
+  }
+  
+  /**
+   * Calculate similarity between two fingerprints
+   * @param {Object} fingerprint1 - First fingerprint
+   * @param {Object} fingerprint2 - Second fingerprint
+   * @returns {number} Similarity score (0-1)
+   */
+  calculateSimilarity(fingerprint1, fingerprint2) {
+    // If hashes match, they're identical
+    if (fingerprint1.hash === fingerprint2.hash) {
+      return 1.0;
+    }
+    
+    // If content types differ significantly, reduce similarity
+    const typeSimilarity = fingerprint1.contentType === fingerprint2.contentType ? 1.0 : 0.5;
+    
+    // Compare keywords using Jaccard index
+    const keywords1 = new Set(fingerprint1.keywords);
+    const keywords2 = new Set(fingerprint2.keywords);
+    
+    const intersection = new Set();
+    for (const keyword of keywords1) {
+      if (keywords2.has(keyword)) {
+        intersection.add(keyword);
+      }
+    }
+    
+    const union = new Set([...keywords1, ...keywords2]);
+    
+    const jaccardIndex = union.size === 0 ? 0 : intersection.size / union.size;
+    
+    // Combine type similarity and keyword similarity
+    return jaccardIndex * typeSimilarity;
+  }
+  
+  /**
+   * Get cached fingerprint or create a new one
+   * @param {string} content - Content to fingerprint
+   * @param {Object} options - Fingerprinting options
+   * @returns {Object} Fingerprint object
+   */
+  getFingerprint(content, options = {}) {
+    // Skip caching if the content is too large to save memory
+    const skipCache = options.skipCache || 
+      (typeof content === 'string' && content.length > 10000);
+    
+    if (!skipCache) {
+      // Use the first 100 chars of the content as a cache key
+      const cacheKey = typeof content === 'string' 
+        ? content.substring(0, 100) 
+        : JSON.stringify(content).substring(0, 100);
+      
+      // Check cache
+      if (this.fingerprintCache.has(cacheKey)) {
+        return this.fingerprintCache.get(cacheKey);
+      }
+      
+      // Create new fingerprint
+      const fingerprint = this.createFingerprint(content, options);
+      
+      // Manage cache size
+      if (this.fingerprintCache.size >= this.maxCacheSize) {
+        // Remove oldest entry (first key)
+        const firstKey = this.fingerprintCache.keys().next().value;
+        this.fingerprintCache.delete(firstKey);
+      }
+      
+      // Cache the fingerprint
+      this.fingerprintCache.set(cacheKey, fingerprint);
+      
+      return fingerprint;
+    }
+    
+    // Skip caching for large content
+    return this.createFingerprint(content, options);
+  }
+  
+  /**
+   * Find best matching document from a list based on similarity
+   * @param {string} queryContent - Content to match
+   * @param {Array} documents - Array of documents with content property
+   * @param {Object} options - Options for matching
+   * @returns {Object|null} Best matching document or null
+   */
+  findBestMatch(queryContent, documents, options = {}) {
+    if (!queryContent || !documents || documents.length === 0) {
+      return null;
+    }
+    
+    const threshold = options.threshold || this.similarityThreshold;
+    const contentField = options.contentField || 'content';
+    
+    // Create fingerprint for query
+    const queryFingerprint = this.getFingerprint(queryContent);
+    
+    let bestMatch = null;
+    let highestSimilarity = threshold;
+    
+    // Compare with each document
+    for (const doc of documents) {
+      if (!doc[contentField]) continue;
+      
+      // Create document fingerprint
+      const docFingerprint = this.getFingerprint(doc[contentField]);
+      
+      // Calculate similarity
+      const similarity = this.calculateSimilarity(queryFingerprint, docFingerprint);
+      
+      if (similarity > highestSimilarity) {
+        highestSimilarity = similarity;
+        bestMatch = {
+          document: doc,
+          similarity
+        };
+      }
+    }
+    
+    return bestMatch;
+  }
+  
+  /**
+   * Clear the fingerprint cache
+   */
+  clearCache() {
+    this.fingerprintCache.clear();
+  }
+}
+
+// Create singleton instance
+const documentFingerprinter = new DocumentFingerprinter();
+export default documentFingerprinter;
