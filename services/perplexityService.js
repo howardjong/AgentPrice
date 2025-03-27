@@ -1,11 +1,15 @@
 /**
  * Perplexity Service for web research and information retrieval
+ * Optimized with lazy loading and resource management
  */
-import axios from 'axios';
 import logger from '../utils/logger.js';
-import { RobustAPIClient } from '../utils/apiClient.js';
-import { CircuitBreaker } from '../utils/monitoring.js';
-import promptManager from './promptManager.js';
+
+// Lazy-loaded imports
+let axios;
+let RobustAPIClient;
+let CircuitBreaker;
+let promptManager;
+let performanceMonitor;
 
 class PerplexityService {
   constructor() {
@@ -26,36 +30,78 @@ class PerplexityService {
     };
     this.isConnected = false;
     this.lastUsed = null;
-    this.apiClient = new RobustAPIClient({
-      maxRetries: 3,
-      timeout: 180000, // 3 minutes for long-running research
-      retryDelay: (retryCount) => Math.min(1000 * Math.pow(2, retryCount), 30000) // Exponential backoff capped at 30s
-    });
+    this.apiClient = null;
+    this.circuitBreaker = null;
+    this.promptManager = null;
+    this.isInitialized = false;
     this.requestCounter = {
       timestamp: Date.now(),
       count: 0
     };
-    this.circuitBreaker = new CircuitBreaker({
-      failureThreshold: 3,
-      resetTimeout: 300000 // 5 minutes
-    });
-    this.promptManager = promptManager;
 
-    this.initialize();
+    // Lazy initialization - only when actually needed
+    this._initPromise = null;
   }
 
-  initialize() {
+  async initialize() {
+    // Return existing initialization if in progress
+    if (this._initPromise) return this._initPromise;
+    
+    // Create new initialization promise
+    this._initPromise = this._doInitialize();
+    return this._initPromise;
+  }
+  
+  async _doInitialize() {
     try {
+      if (this.isInitialized) return;
+      
+      logger.info('Lazy-loading Perplexity service dependencies');
+      
+      // Lazy-load dependencies
+      const imports = await Promise.all([
+        import('axios'),
+        import('../utils/apiClient.js'),
+        import('../utils/monitoring.js'),
+        import('./promptManager.js'),
+        import('../utils/performanceMonitor.js').catch(() => ({ default: null }))
+      ]);
+      
+      axios = imports[0].default;
+      RobustAPIClient = imports[1].RobustAPIClient;
+      CircuitBreaker = imports[2].CircuitBreaker;
+      promptManager = imports[3].default;
+      performanceMonitor = imports[4].default;
+      
+      // Now initialize service components
       if (!this.apiKey) {
         logger.warn('Perplexity API key not found, service will be unavailable');
         return;
       }
 
-      logger.info('Initializing Perplexity service with default model');
+      this.apiClient = new RobustAPIClient({
+        maxRetries: 3,
+        timeout: 180000, // 3 minutes for long-running research
+        retryDelay: (retryCount) => Math.min(1000 * Math.pow(2, retryCount), 30000), // Exponential backoff capped at 30s
+        enableMetrics: !!performanceMonitor
+      });
+      
+      this.circuitBreaker = new CircuitBreaker({
+        failureThreshold: 3,
+        resetTimeout: 300000 // 5 minutes
+      });
+      
+      this.promptManager = promptManager;
       this.isConnected = true;
-      logger.info('Perplexity service initialized successfully', { model: this.models.basic });
+      this.isInitialized = true;
+      
+      logger.info('Perplexity service initialized successfully', { 
+        model: this.models.basic,
+        lazyLoaded: true 
+      });
     } catch (error) {
       logger.error(`Error initializing Perplexity service: ${error.message}`);
+      throw error;
     }
   }
 
@@ -80,9 +126,15 @@ class PerplexityService {
    * @returns {Promise<Object>} Research results
    */
   async performResearch(messages, options = {}) {
+    // Ensure service is initialized before use
+    await this.initialize();
+    
     if (!this.isConnected) {
       throw new Error('Perplexity service is not connected');
     }
+    
+    // Start performance tracking if available
+    const tracker = performanceMonitor?.startTracking('perplexity', 'performResearch');
 
     try {
       // Get the user query from the last message
@@ -207,13 +259,33 @@ class PerplexityService {
       const modelInfo = `[Using Perplexity AI - Model: ${responseModel}]\n\n`;
       const enhancedResponse = modelInfo + originalResponse;
 
-      return {
+      const result = {
         response: enhancedResponse,
         citations: response.data.citations || [],
         modelUsed: responseModel,
         usage: response.data.usage || { total_tokens: 0 }
       };
+      
+      // Stop performance tracking if it was started
+      if (tracker) {
+        tracker.stop({
+          status: 'success',
+          model: responseModel,
+          tokens: response.data.usage?.total_tokens || 0,
+          citations: response.data.citations?.length || 0
+        });
+      }
+      
+      return result;
     } catch (error) {
+      // Stop performance tracking with error if it was started
+      if (tracker) {
+        tracker.stop({
+          status: 'error',
+          error: error.message
+        });
+      }
+      
       logger.error('Error in Perplexity research', { error: error.message });
       throw new Error(`Perplexity API error: ${error.message}`);
     }
@@ -226,11 +298,17 @@ class PerplexityService {
    * @returns {Promise<Object>} Research results with sources
    */
   async performDeepResearch(query, options = {}) {
+    // Ensure service is initialized before use
+    await this.initialize();
+    
     const { context = '', maxCitations = 15, sessionId = 'default', circuitBreaker = true } = options;
 
     if (!query || typeof query !== 'string') {
       throw new Error('Query must be a non-empty string');
     }
+    
+    // Start performance tracking if available
+    const tracker = performanceMonitor?.startTracking('perplexity', 'performDeepResearch');
 
     // Import the rate limiter
     const perplexityRateLimiter = (await import('../utils/rateLimiter.js')).default;
@@ -396,7 +474,7 @@ Please include the most up-to-date information available, with particular attent
           const modelInfo = `[Using Perplexity AI - Model: ${responseModel}]\n\n`;
           const enhancedContent = modelInfo + processedResponse;
 
-          return {
+          const result = {
             query,
             timestamp: new Date().toISOString(),
             content: enhancedContent,
@@ -405,8 +483,28 @@ Please include the most up-to-date information available, with particular attent
             requestedModel: this.models.deepResearch,
             usage: response.data.usage || { total_tokens: 0 }
           };
+          
+          // Stop performance tracking if started
+          if (tracker) {
+            tracker.stop({
+              status: 'success',
+              model: responseModel,
+              tokens: response.data.usage?.total_tokens || 0,
+              sources: extractedCitations.length
+            });
+          }
+          
+          return result;
         });
       } catch (error) {
+        // Record error in performance tracker
+        if (tracker) {
+          tracker.stop({
+            status: 'error',
+            error: error.message
+          });
+        }
+        
         logger.error('Error performing deep research', {
           service: 'multi-llm-research',
           error: error.message

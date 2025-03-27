@@ -32,8 +32,21 @@ export class RobustAPIClient {
     this.activePromises = new Map(); // Track promises with metadata
     this.rateLimitedEndpoints = new Map(); // Track rate-limited endpoints
     
-    // Cleanup stale promises every minute
-    this.cleanupInterval = setInterval(() => this.cleanupStalePromises(), 60000);
+    // Enable resource usage tracking
+    this.enableMetrics = options.enableMetrics !== false;
+    
+    // Import the performance monitor lazily to avoid circular dependencies
+    if (this.enableMetrics) {
+      import('../utils/performanceMonitor.js').then(module => {
+        this.performanceMonitor = module.default;
+      }).catch(err => {
+        logger.warn('Failed to import performance monitor', { error: err.message });
+        this.performanceMonitor = null;
+      });
+    }
+    
+    // Reduce cleanup frequency - only clean stale promises every 5 minutes
+    this.cleanupInterval = setInterval(() => this.cleanupStalePromises(), 300000);
   }
 
   cleanupStalePromises() {
@@ -76,6 +89,14 @@ export class RobustAPIClient {
   }
 
   async request(config) {
+    // Track performance if monitor is available
+    let tracker = null;
+    
+    if (this.enableMetrics && this.performanceMonitor) {
+      const endpointKey = config.url.split('?')[0].split('/').pop();
+      tracker = this.performanceMonitor.startTracking('api', `${config.method}:${endpointKey}`);
+    }
+    
     const requestConfig = {
       ...config,
       timeout: this.timeout,
@@ -196,7 +217,23 @@ export class RobustAPIClient {
         method: config.method,
         error: error.message
       });
+      
+      // Stop tracking with error status if performance monitor is being used
+      if (tracker) {
+        tracker.stop({
+          status: 'error',
+          errorMessage: error.message
+        });
+      }
+      
       throw error;
+    } finally {
+      // If tracking was started but not stopped (edge case)
+      if (tracker) {
+        tracker.stop({
+          status: 'completed'
+        });
+      }
     }
   }
 
