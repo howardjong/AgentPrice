@@ -522,3 +522,288 @@ class SmartCache {
 
 const smartCache = new SmartCache();
 export default smartCache;
+/**
+ * Smart Cache
+ * Memory-efficient caching system with automatic cleanup
+ */
+import logger from './logger.js';
+
+class SmartCache {
+  constructor(options = {}) {
+    this.maxSize = options.maxSize || 100;
+    this.ttl = options.ttl || 60 * 60 * 1000; // 1 hour default
+    this.cleanInterval = options.cleanInterval || 5 * 60 * 1000; // 5 minutes
+    this.cache = new Map();
+    this.stats = {
+      hits: 0,
+      misses: 0,
+      evictions: 0,
+      cleanupRuns: 0
+    };
+    
+    // Start automatic cleanup
+    this.cleanupInterval = setInterval(() => this.cleanup(), this.cleanInterval);
+    
+    // Use WeakMap for metadata to reduce memory pressure
+    this.metadata = new WeakMap();
+  }
+  
+  /**
+   * Configure cache settings
+   * @param {Object} options - Configuration options
+   */
+  configure(options = {}) {
+    if (options.maxSize) {
+      // If reducing size, trigger cleanup to match new limit
+      const needsCleanup = options.maxSize < this.maxSize;
+      this.maxSize = options.maxSize;
+      if (needsCleanup && this.cache.size > this.maxSize) {
+        this.cleanup(true);
+      }
+    }
+    
+    if (options.ttl) {
+      this.ttl = options.ttl;
+    }
+    
+    if (options.cleanInterval) {
+      this.cleanInterval = options.cleanInterval;
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = setInterval(() => this.cleanup(), this.cleanInterval);
+    }
+    
+    logger.info('Smart cache configured', {
+      maxSize: this.maxSize,
+      ttl: `${this.ttl / 1000}s`,
+      cleanInterval: `${this.cleanInterval / 1000}s`,
+      currentSize: this.cache.size
+    });
+    
+    return this;
+  }
+  
+  /**
+   * Set a cache item
+   * @param {string} key - Cache key
+   * @param {any} value - Value to cache
+   * @param {number} [ttl] - Optional TTL override
+   */
+  set(key, value, ttl = null) {
+    // Skip if value is undefined/null to save memory
+    if (value === undefined || value === null) {
+      return;
+    }
+    
+    const now = Date.now();
+    const expiry = now + (ttl || this.ttl);
+    
+    // Handle max size before adding new items
+    if (!this.cache.has(key) && this.cache.size >= this.maxSize) {
+      this.evictOldest();
+    }
+    
+    // Store value with metadata
+    this.cache.set(key, value);
+    this.metadata.set(value, {
+      key,
+      expiry,
+      lastAccessed: now
+    });
+    
+    return value;
+  }
+  
+  /**
+   * Get a cache item
+   * @param {string} key - Cache key
+   * @param {boolean} touch - Update last accessed time
+   * @returns {any} Cached value or undefined
+   */
+  get(key, touch = true) {
+    const value = this.cache.get(key);
+    
+    if (value === undefined) {
+      this.stats.misses++;
+      return undefined;
+    }
+    
+    const meta = this.metadata.get(value);
+    
+    // Return undefined if expired
+    if (meta && meta.expiry < Date.now()) {
+      this.cache.delete(key);
+      this.stats.evictions++;
+      this.stats.misses++;
+      return undefined;
+    }
+    
+    // Update last accessed time
+    if (touch && meta) {
+      meta.lastAccessed = Date.now();
+    }
+    
+    this.stats.hits++;
+    return value;
+  }
+  
+  /**
+   * Check if cache has valid key
+   * @param {string} key - Cache key
+   * @returns {boolean} True if exists and not expired
+   */
+  has(key) {
+    const value = this.cache.get(key);
+    
+    if (value === undefined) {
+      return false;
+    }
+    
+    const meta = this.metadata.get(value);
+    return meta && meta.expiry >= Date.now();
+  }
+  
+  /**
+   * Delete a cache item
+   * @param {string} key - Cache key
+   * @returns {boolean} True if removed
+   */
+  delete(key) {
+    const value = this.cache.get(key);
+    if (value !== undefined) {
+      this.cache.delete(key);
+      return true;
+    }
+    return false;
+  }
+  
+  /**
+   * Clear all cache items
+   */
+  clear() {
+    this.cache.clear();
+    return true;
+  }
+  
+  /**
+   * Evict oldest item by last accessed time
+   */
+  evictOldest() {
+    let oldestKey = null;
+    let oldestTime = Infinity;
+    
+    // Find oldest item
+    for (const [key, value] of this.cache.entries()) {
+      const meta = this.metadata.get(value);
+      if (meta && meta.lastAccessed < oldestTime) {
+        oldestKey = key;
+        oldestTime = meta.lastAccessed;
+      }
+    }
+    
+    // Remove oldest item
+    if (oldestKey) {
+      this.cache.delete(oldestKey);
+      this.stats.evictions++;
+    }
+  }
+  
+  /**
+   * Clean expired items
+   * @param {boolean} force - Force cleanup even if under max size
+   */
+  cleanup(force = false) {
+    const now = Date.now();
+    const startSize = this.cache.size;
+    
+    // Skip if cache is empty
+    if (startSize === 0) return;
+    
+    // Skip cleanup if under 80% capacity and not forced
+    if (!force && startSize < this.maxSize * 0.8) {
+      return;
+    }
+    
+    // Find and remove expired items
+    const toDelete = [];
+    
+    for (const [key, value] of this.cache.entries()) {
+      const meta = this.metadata.get(value);
+      if (meta && meta.expiry < now) {
+        toDelete.push(key);
+      }
+    }
+    
+    // Delete expired items
+    for (const key of toDelete) {
+      this.cache.delete(key);
+    }
+    
+    this.stats.evictions += toDelete.length;
+    this.stats.cleanupRuns++;
+    
+    // If we're still over capacity, evict by LRU
+    if (force && this.cache.size > this.maxSize) {
+      // Sort all items by last accessed time
+      const items = [];
+      
+      for (const [key, value] of this.cache.entries()) {
+        const meta = this.metadata.get(value);
+        if (meta) {
+          items.push([key, meta.lastAccessed]);
+        }
+      }
+      
+      // Sort by last accessed (oldest first)
+      items.sort((a, b) => a[1] - b[1]);
+      
+      // Delete oldest items until we're under maxSize
+      const toRemove = Math.max(0, this.cache.size - this.maxSize);
+      for (let i = 0; i < toRemove && i < items.length; i++) {
+        this.cache.delete(items[i][0]);
+        this.stats.evictions++;
+      }
+    }
+    
+    const removedCount = startSize - this.cache.size;
+    
+    if (removedCount > 0) {
+      logger.debug('Cache cleanup', {
+        removed: removedCount,
+        newSize: this.cache.size
+      });
+    }
+  }
+  
+  /**
+   * Get cache statistics
+   * @returns {Object} Cache stats
+   */
+  getStats() {
+    const hitRate = this.stats.hits + this.stats.misses > 0 
+      ? (this.stats.hits / (this.stats.hits + this.stats.misses) * 100).toFixed(1) 
+      : 0;
+    
+    return {
+      size: this.cache.size,
+      maxSize: this.maxSize,
+      hitRate: `${hitRate}%`,
+      hits: this.stats.hits,
+      misses: this.stats.misses,
+      evictions: this.stats.evictions,
+      cleanupRuns: this.stats.cleanupRuns
+    };
+  }
+  
+  /**
+   * Stop the cache cleanup process
+   */
+  stop() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+  }
+}
+
+const smartCache = new SmartCache();
+export default smartCache;
