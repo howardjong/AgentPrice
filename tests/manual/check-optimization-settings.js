@@ -104,8 +104,8 @@ async function checkOptimizationSettings() {
   
   // Resource Manager optimized?
   const resourceManagerOptimized = 
-    resourceManager.cleanupInterval <= 30 * 60 * 1000 && // <= 30 minutes
-    resourceManager.heapUsageThreshold <= 250; // <= 250 MB
+    resourceManager.options.cleanupInterval <= 30 * 60 * 1000 && // <= 30 minutes
+    resourceManager.options.heapUsageThreshold <= 250; // <= 250 MB
   
   // Smart Cache optimized?
   const smartCacheOptimized = 
@@ -114,7 +114,7 @@ async function checkOptimizationSettings() {
   
   // Memory Leak Detector optimized?
   const memoryLeakDetectorOptimized =
-    memoryLeakDetector.isMonitoring &&
+    memoryLeakDetector.resourceSavingMode === true &&
     memoryLeakDetector.sampleInterval <= 5 * 60 * 1000; // <= 5 minutes
   
   // Component Loader optimized?
