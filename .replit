@@ -35,7 +35,7 @@ localPort = 33065
 externalPort = 3002
 
 [workflows]
-runButton = "Check and Apply Optimizations"
+runButton = "Test Timeout Fixes"
 
 [[workflows.workflow]]
 name = "Project"

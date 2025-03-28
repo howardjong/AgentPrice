@@ -195,7 +195,7 @@ class RedisClient {
         timeoutPromise
       ]);
 
-      return result;
+      return result === 'OK';
     } catch (error) {
       this.logger.error(`Redis SET error for key ${key}: ${error.message}`);
       // Return false instead of throwing to make the application more resilient

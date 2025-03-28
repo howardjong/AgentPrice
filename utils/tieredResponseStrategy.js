@@ -35,7 +35,7 @@ const TIER_CONFIG = {
 
 class TieredResponseStrategy {
   constructor() {
-    this.logger = require('./logger');
+    this.logger = require('./logger.js').default;
     this.responseCache = {};
     this.timeouts = {
       basic: 5000,      // 5 seconds
@@ -161,4 +161,39 @@ class TieredResponseStrategy {
   }
 }
 
-module.exports = new TieredResponseStrategy();
+const tieredResponseStrategy = new TieredResponseStrategy();
+
+// Add tier configuration properties for monitoring and metrics
+tieredResponseStrategy.defaultTier = 'standard';
+tieredResponseStrategy.currentTier = 'standard';
+tieredResponseStrategy.autoDowngrade = true;
+tieredResponseStrategy.downgradeTrigger = 0.9; // 90% of budget
+tieredResponseStrategy.costMultipliers = TIER_CONFIG;
+tieredResponseStrategy.requestsProcessed = 0;
+tieredResponseStrategy.downgrades = 0;
+
+// Add status method for monitoring
+tieredResponseStrategy.getStatus = function() {
+  return {
+    enabled: true,
+    defaultTier: this.defaultTier,
+    currentTier: this.currentTier,
+    autoDowngrade: this.autoDowngrade
+  };
+};
+
+// Add method to get request options based on tier
+tieredResponseStrategy.getRequestOptions = function(requestParams) {
+  const tier = requestParams.forceTier || this.currentTier;
+  const tierConfig = TIER_CONFIG[tier] || TIER_CONFIG.standard;
+  
+  return {
+    model: requestParams.service === 'perplexity' ? 'sonar' : 'claude-3-7-sonnet-20250219',
+    tokenLimit: tierConfig.maxTokens,
+    cacheSettings: {
+      ttl: tier === 'premium' ? 2 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000 // 2 hours for premium, 24 hours otherwise
+    }
+  };
+};
+
+module.exports = tieredResponseStrategy;
