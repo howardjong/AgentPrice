@@ -1769,3 +1769,28 @@ args = "# Check if optimizations were applied successfully"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/check-optimization-settings.js"
+
+[[workflows.workflow]]
+name = "Test Timeout Fixes"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the tiered response test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-tiered-response.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the Redis timeout test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-redis-timeout.js"

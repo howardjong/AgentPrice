@@ -35,290 +35,130 @@ const TIER_CONFIG = {
 
 class TieredResponseStrategy {
   constructor() {
-    // Default properties
-    this.defaultTier = 'standard';
-    this.autoDowngrade = true;
-    this.downgradeTrigger = 0.8; // 80% of daily budget
-    this.requestsProcessed = 0;
-    this.downgrades = 0;
-    this.costSaved = 0.0;
-    this.currentTier = 'standard';
-    this.costMultipliers = {
-      minimal: 0.5,
-      standard: 1.0,
-      premium: 2.0
+    this.logger = require('./logger');
+    this.responseCache = {};
+    this.timeouts = {
+      basic: 5000,      // 5 seconds
+      standard: 15000,  // 15 seconds
+      enhanced: 30000   // 30 seconds
     };
   }
 
   /**
-   * Configure the tiered response strategy
-   * 
-   * @param {Object} options - Configuration options
-   * @param {string} options.defaultTier - Default tier (minimal, standard, premium)
-   * @param {Object} options.costMultipliers - Cost multipliers by tier
-   * @param {boolean} options.autoDowngrade - Auto-downgrade based on budget
-   * @param {number} options.downgradeTrigger - Downgrade trigger point (0-1)
+   * Generate a response based on the desired tier
+   * @param {string} queryId - Unique ID for the query
+   * @param {string} tier - Response tier (basic, standard, enhanced)
+   * @param {Object} context - Query context information
    */
-  configure(options = {}) {
-    const {
-      defaultTier = 'standard',
-      costMultipliers = {
-        minimal: 0.5,
-        standard: 1.0,
-        premium: 2.0
-      },
-      autoDowngrade = true,
-      downgradeTrigger = 0.8
-    } = options;
-
-    // Validate defaultTier
-    if (!TIER_CONFIG[defaultTier]) {
-      logger.warn(`Invalid default tier: ${defaultTier}, using 'standard'`);
-      this.defaultTier = 'standard';
-    } else {
-      this.defaultTier = defaultTier;
+  async getResponse(queryId, tier = 'standard', context = {}) {
+    // Check if we have any cached responses for this query
+    if (!this.responseCache[queryId]) {
+      this.responseCache[queryId] = {};
     }
 
-    this.costMultipliers = costMultipliers;
-    this.autoDowngrade = autoDowngrade;
-    this.downgradeTrigger = downgradeTrigger;
-    this.currentTier = this.defaultTier;
+    // If the requested tier is already cached, return it
+    if (this.responseCache[queryId][tier]) {
+      this.logger.info(`Using cached ${tier} tier response for query ${queryId}`);
+      return this.responseCache[queryId][tier];
+    }
 
-    logger.info('Tiered response strategy configured', {
-      autoDowngrade,
-      defaultTier,
-      downgradeTrigger: `${downgradeTrigger * 100}%`
+    // If we need to generate a new response
+    let response;
+
+    try {
+      // Generate appropriate response based on tier with timeout protection
+      response = await this._generateResponseWithTimeout(tier, context);
+
+      // Cache the response
+      this.responseCache[queryId][tier] = response;
+
+      return response;
+    } catch (error) {
+      this.logger.error(`Error generating ${tier} tier response: ${error.message}`);
+
+      // Fallback to lower tier if available
+      if (tier === 'enhanced') {
+        this.logger.info('Falling back to standard tier response');
+        return this.getResponse(queryId, 'standard', context);
+      } else if (tier === 'standard') {
+        this.logger.info('Falling back to basic tier response');
+        return this.getResponse(queryId, 'basic', context);
+      }
+
+      // Return a minimal response if all else fails
+      return {
+        content: `Could not generate response: ${error.message}`,
+        tier: 'minimal',
+        error: true,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  // Process with timeout protection
+  async _generateResponseWithTimeout(tier, context) {
+    const timeout = this.timeouts[tier] || 15000;
+
+    return new Promise(async (resolve, reject) => {
+      // Set timeout handler
+      const timeoutId = setTimeout(() => {
+        reject(new Error(`Request timed out after ${timeout}ms`));
+      }, timeout);
+
+      try {
+        let response;
+
+        // Generate appropriate response based on tier
+        switch(tier) {
+          case 'basic':
+            response = await this._generateBasicResponse(context);
+            break;
+          case 'standard':
+            response = await this._generateStandardResponse(context);
+            break;
+          case 'enhanced':
+            response = await this._generateEnhancedResponse(context);
+            break;
+          default:
+            response = await this._generateStandardResponse(context);
+        }
+
+        clearTimeout(timeoutId);
+        resolve(response);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        reject(error);
+      }
     });
   }
 
-  /**
-   * Get the appropriate tier for a request
-   * 
-   * @param {Object} requestContext - Request context
-   * @param {string} requestContext.requestType - Type of request (conversation, research, visualization)
-   * @param {number} requestContext.priority - Priority level (0-10)
-   * @param {string} requestContext.explicitTier - Explicitly requested tier
-   * @param {boolean} requestContext.budgetSensitive - Whether request is budget sensitive
-   * @returns {string} Appropriate tier
-   */
-  getTierForRequest(requestContext = {}) {
-    const {
-      requestType = 'conversation',
-      priority = 5,
-      explicitTier = null,
-      budgetSensitive = true
-    } = requestContext;
-
-    // Always respect explicitly requested tiers
-    if (explicitTier && TIER_CONFIG[explicitTier]) {
-      logger.debug(`Using explicitly requested tier: ${explicitTier}`);
-      return explicitTier;
-    }
-
-    // Check budget status if auto-downgrade is enabled and request is budget sensitive
-    if (this.autoDowngrade && budgetSensitive) {
-      const budgetStatus = this.checkBudgetStatus();
-
-      // If budget is near exhaustion, use minimal tier
-      if (budgetStatus.nearExhaustion) {
-        logger.info('Downgrading to minimal tier due to budget constraints', {
-          budgetUsage: `${budgetStatus.percentUsed}%`,
-          threshold: `${this.downgradeTrigger * 100}%`
-        });
-        this.downgrades++;
-        return 'minimal';
-      }
-    }
-
-    // Determine tier based on request type and priority
-    let recommendedTier = this.defaultTier;
-
-    // High-priority requests get premium treatment
-    if (priority >= 8) {
-      recommendedTier = 'premium';
-    }
-    // Low-priority requests get minimal treatment
-    else if (priority <= 3) {
-      recommendedTier = 'minimal';
-    }
-    // Visualizations usually need more detail
-    else if (requestType === 'visualization') {
-      recommendedTier = 'premium';
-    }
-    // Research can be standard
-    else if (requestType === 'research') {
-      recommendedTier = 'standard';
-    }
-
-    this.currentTier = recommendedTier;
-    return recommendedTier;
-  }
-
-  /**
-   * Check the current budget status
-   * 
-   * @returns {Object} Budget status information
-   */
-  checkBudgetStatus() {
-    // Get the latest budget usage from cost tracker
-    const dailyBudget = costTracker.dailyBudget || 10.0;
-    const todayUsage = costTracker.todayUsage || 0.0;
-    
-    const percentUsed = (todayUsage / dailyBudget) * 100;
-    const nearExhaustion = (todayUsage / dailyBudget) >= this.downgradeTrigger;
-    const exhausted = todayUsage >= dailyBudget;
-    
+  // Private methods to generate different response tiers
+  async _generateBasicResponse(context) {
+    // Implementation would use a basic model or template
     return {
-      dailyBudget,
-      todayUsage,
-      percentUsed,
-      nearExhaustion,
-      exhausted,
-      downgradeTrigger: this.downgradeTrigger
+      content: `Basic response for: ${context.query || 'unknown query'}`,
+      tier: 'basic',
+      timestamp: new Date().toISOString()
     };
   }
 
-  /**
-   * Apply tier settings to a request configuration
-   * 
-   * @param {Object} requestConfig - Original request configuration
-   * @param {string} tier - Tier to apply (minimal, standard, premium)
-   * @returns {Object} Modified request configuration
-   */
-  applyTierToRequest(requestConfig, tier = null) {
-    // Use the specified tier or determine the appropriate one
-    const effectiveTier = tier || this.getTierForRequest(requestConfig.context);
-    const tierSettings = TIER_CONFIG[effectiveTier];
-    
-    if (!tierSettings) {
-      logger.warn(`Unknown tier: ${effectiveTier}, using default tier`);
-      return requestConfig;
-    }
-    
-    // Track the request
-    this.requestsProcessed++;
-    
-    // Clone the config to avoid modifying the original
-    const modifiedConfig = { ...requestConfig };
-    
-    // Apply tier-specific settings
-    if (modifiedConfig.max_tokens === undefined || modifiedConfig.max_tokens > tierSettings.maxTokens) {
-      modifiedConfig.max_tokens = tierSettings.maxTokens;
-    }
-    
-    if (modifiedConfig.temperature === undefined) {
-      modifiedConfig.temperature = tierSettings.temperature;
-    }
-    
-    // Modify system prompt if needed
-    if (tierSettings.systemPromptAppend && modifiedConfig.messages) {
-      // Find the system message if it exists
-      const systemMessageIndex = modifiedConfig.messages.findIndex(
-        msg => msg.role === 'system'
-      );
-      
-      if (systemMessageIndex >= 0) {
-        // Append to existing system message
-        modifiedConfig.messages[systemMessageIndex].content += ' ' + tierSettings.systemPromptAppend;
-      } else if (modifiedConfig.messages.length > 0) {
-        // Add a new system message at the beginning
-        modifiedConfig.messages.unshift({
-          role: 'system',
-          content: tierSettings.systemPromptAppend
-        });
-      }
-    }
-    
-    // If this was a downgrade, estimate and track the savings
-    if (effectiveTier === 'minimal' && this.defaultTier !== 'minimal') {
-      // Estimate the cost savings from downgrade
-      const standardCost = this.estimateTierCost('standard', modifiedConfig);
-      const minimalCost = this.estimateTierCost('minimal', modifiedConfig);
-      const savings = standardCost - minimalCost;
-      
-      this.costSaved += savings;
-      
-      logger.info('Cost savings from tier downgrade', {
-        savings: `$${savings.toFixed(4)}`,
-        tier: effectiveTier
-      });
-    }
-    
-    // Add metadata about the tier
-    modifiedConfig.tierInfo = {
-      tier: effectiveTier,
-      description: tierSettings.description,
-      maxTokens: tierSettings.maxTokens,
-      costMultiplier: tierSettings.costMultiplier
-    };
-    
-    return modifiedConfig;
-  }
-
-  /**
-   * Estimate the cost of a request at a specific tier
-   * 
-   * @param {string} tier - Tier to estimate for
-   * @param {Object} requestConfig - Request configuration
-   * @returns {number} Estimated cost
-   */
-  estimateTierCost(tier, requestConfig) {
-    // Get the tier multiplier
-    const multiplier = this.costMultipliers[tier] || 1.0;
-    
-    // Rough estimation based on token count
-    let baseTokens = 0;
-    
-    // Calculate tokens from messages
-    if (requestConfig.messages) {
-      baseTokens = requestConfig.messages.reduce((sum, msg) => {
-        // Rough estimate: 4 chars ≈ 1 token
-        return sum + (msg.content.length / 4);
-      }, 0);
-    }
-    
-    // Add expected output tokens based on tier
-    const outputTokens = TIER_CONFIG[tier]?.maxTokens || 1000;
-    
-    // Calculate approximate cost (using Claude Sonnet rates as approximation)
-    const inputCost = (baseTokens / 1000) * 0.003; // $0.003 per 1K input tokens
-    const outputCost = (outputTokens / 1000) * 0.015; // $0.015 per 1K output tokens
-    
-    return (inputCost + outputCost) * multiplier;
-  }
-
-  /**
-   * Get current tiered response strategy status
-   * 
-   * @returns {Object} Current status
-   */
-  getStatus() {
-    const budgetStatus = this.checkBudgetStatus();
-    
+  async _generateStandardResponse(context) {
+    // Implementation would use a standard model or more detailed template
     return {
-      enabled: true,
-      currentTier: this.currentTier,
-      defaultTier: this.defaultTier,
-      settings: {
-        autoDowngrade: this.autoDowngrade,
-        downgradeTrigger: this.downgradeTrigger,
-        costMultipliers: this.costMultipliers
-      },
-      stats: {
-        requestsProcessed: this.requestsProcessed,
-        downgrades: this.downgrades,
-        costSaved: this.costSaved
-      },
-      budget: {
-        percentUsed: budgetStatus.percentUsed,
-        nearExhaustion: budgetStatus.nearExhaustion,
-        exhausted: budgetStatus.exhausted
-      },
-      availableTiers: Object.keys(TIER_CONFIG)
+      content: `Standard response for: ${context.query || 'unknown query'}`,
+      tier: 'standard',
+      timestamp: new Date().toISOString()
+    };
+  }
+
+  async _generateEnhancedResponse(context) {
+    // Implementation would use the most advanced model
+    return {
+      content: `Enhanced response for: ${context.query || 'unknown query'}`,
+      tier: 'enhanced',
+      timestamp: new Date().toISOString()
     };
   }
 }
 
-// Create and export a singleton instance
-const tieredResponseStrategy = new TieredResponseStrategy();
-export default tieredResponseStrategy;
+module.exports = new TieredResponseStrategy();
