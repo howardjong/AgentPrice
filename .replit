@@ -2123,3 +2123,52 @@ args = "# Update migration progress"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = '''echo "\nDon't forget to update MIGRATION_PROGRESS.md with your results!"'''
+
+[[workflows.workflow]]
+name = "Check Migration Progress"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Install glob if needed"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm install glob minimist --save-dev"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Track migration progress"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/track-migration-progress.js -v"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run a targeted migration validation"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================"'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"Validating a specific test:\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/validate-test-results.js -t circuitBreaker"
