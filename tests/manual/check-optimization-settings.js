@@ -5,7 +5,7 @@
  * to verify that our optimizations are applied.
  */
 
-import logger from '../../utils/logger.js';
+// Logger already imported above
 
 // Core optimization utilities
 import resourceManager from '../../utils/resourceManager.js';
