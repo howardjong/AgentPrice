@@ -2029,3 +2029,97 @@ args = "node scripts/run-tests.js -m unit"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "echo \"Done running all tests\""
+
+[[workflows.workflow]]
+name = "Validate Test Migration"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run validation for a specific test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/validate-test-results.js -t circuitBreaker"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Wait for the first validation to complete"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "sleep 2"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then run a test with known ESM issues"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================"'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"Testing service with known ESM issues:\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/validate-test-results.js -t researchService -v"
+
+[[workflows.workflow]]
+name = "Migrate and Validate Test"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First migrate the test file"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"Migrating test file...\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/migrate-test-file.js --file tests/unit/services/researchService.test.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then validate the migrated test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\nValidating test results across frameworks..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/validate-test-results.js -t researchService"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Update migration progress"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = '''echo "\nDon't forget to update MIGRATION_PROGRESS.md with your results!"'''
