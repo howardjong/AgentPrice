@@ -10,10 +10,17 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['tests/**/*.test.js'],
+    include: ['tests/**/*.vitest.js', 'tests/**/*.test.js'],
     exclude: ['**/node_modules/**', 'dist/**'],
     testTimeout: 20000,
     hookTimeout: 10000,
+    setupFiles: ['./tests/vitest.setup.js'],
+    pool: 'forks', // Use fork pool for better isolation
+    poolOptions: {
+      forks: {
+        isolate: true, // Better memory isolation
+      }
+    },
     coverage: {
       reporter: ['text', 'json', 'html'],
       exclude: ['node_modules/', 'tests/'],

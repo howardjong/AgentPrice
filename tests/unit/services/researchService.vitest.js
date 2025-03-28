@@ -1,6 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-
-import { jest } from '@jest/globals';
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 
 // Mock service creators
 const createMockClaudeService = () => ({
@@ -46,27 +44,22 @@ const createMockLogger = () => ({
 
 // Mock modules
 vi.mock('../../../services/claudeService.js', () => ({
-  __esModule: true,
   default: createMockClaudeService()
 }));
 
 vi.mock('../../../services/perplexityService.js', () => ({
-  __esModule: true,
   default: createMockPerplexityService()
 }));
 
 vi.mock('../../../services/contextManager.js', () => ({
-  __esModule: true,
   default: createMockContextManager()
 }));
 
 vi.mock('../../../services/jobManager.js', () => ({
-  __esModule: true,
   default: createMockJobManager()
 }));
 
 vi.mock('../../../utils/logger.js', () => ({
-  __esModule: true,
   default: createMockLogger()
 }));
 
