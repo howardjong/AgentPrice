@@ -35,7 +35,7 @@ localPort = 33065
 externalPort = 3002
 
 [workflows]
-runButton = "Start Server"
+runButton = "Run Optimized Server"
 
 [[workflows.workflow]]
 name = "Project"
@@ -2869,3 +2869,72 @@ args = "  fi"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "done"
+
+[[workflows.workflow]]
+name = "Run Optimized Server"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First run the aggressive memory relief script"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"     APPLYING MEMORY OPTIMIZATIONS     \""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node --expose-gc scripts/aggressive-memory-relief.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then start the server with memory optimization flags"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"     STARTING OPTIMIZED SERVER     \""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export NODE_ENV=development"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export PORT=5000"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export HOST=0.0.0.0"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export OPTIMIZE_MEMORY=true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export DISABLE_LLM_CALLS=true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node --expose-gc --max-old-space-size=512 scripts/start-dev-no-api.js"
