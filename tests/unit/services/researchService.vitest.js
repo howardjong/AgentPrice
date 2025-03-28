@@ -1,66 +1,36 @@
-import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { 
+  mockClaudeService, 
+  mockPerplexityService, 
+  mockContextManager, 
+  mockJobManager, 
+  mockLogger,
+  resetAllMocks
+} from '../../mocks/serviceMocks.js';
 
-// Mock service creators
-const createMockClaudeService = () => ({
-  generateClarifyingQuestions: vi.fn().mockResolvedValue(['Question 1', 'Question 2']),
-  generateChartData: vi.fn().mockResolvedValue({ data: [] }),
-  generateResponse: vi.fn().mockResolvedValue('Mock response')
-});
-
-const createMockPerplexityService = () => ({
-  performDeepResearch: vi.fn().mockResolvedValue({
-    content: 'Mock research results',
-    sources: ['source1', 'source2']
-  })
-});
-
-const createMockContextManager = () => ({
-  storeContext: vi.fn().mockResolvedValue(true),
-  getContext: vi.fn().mockResolvedValue({
-    jobId: 'test-uuid',
-    originalQuery: 'test query',
-    history: []
-  }),
-  updateContext: vi.fn().mockResolvedValue(true)
-});
-
-const createMockJobManager = () => ({
-  enqueueJob: vi.fn().mockResolvedValue('test-uuid'),
-  getJobStatus: vi.fn().mockResolvedValue({
-    status: 'completed',
-    returnvalue: {
-      content: 'Mock results',
-      sources: ['source1']
-    }
-  })
-});
-
-const createMockLogger = () => ({
-  info: vi.fn(),
-  error: vi.fn(),
-  warn: vi.fn(),
-  debug: vi.fn()
-});
-
-// Mock modules
+// Mock all dependencies
 vi.mock('../../../services/claudeService.js', () => ({
-  default: createMockClaudeService()
+  default: mockClaudeService
 }));
 
 vi.mock('../../../services/perplexityService.js', () => ({
-  default: createMockPerplexityService()
+  default: mockPerplexityService
 }));
 
 vi.mock('../../../services/contextManager.js', () => ({
-  default: createMockContextManager()
+  default: mockContextManager
 }));
 
 vi.mock('../../../services/jobManager.js', () => ({
-  default: createMockJobManager()
+  default: mockJobManager
+}));
+
+vi.mock('../../../services/mockJobManager.js', () => ({
+  default: mockJobManager
 }));
 
 vi.mock('../../../utils/logger.js', () => ({
-  default: createMockLogger()
+  default: mockLogger
 }));
 
 vi.mock('uuid', () => ({
@@ -70,7 +40,13 @@ vi.mock('uuid', () => ({
 describe('ResearchService', () => {
   let researchModule;
 
-  beforeAll(async () => {
+  // Import the module under test in beforeEach to get a fresh module for each test
+  beforeEach(async () => {
+    // Reset all mocks before each test
+    resetAllMocks();
+    
+    // Force a new import of the module for each test
+    vi.resetModules();
     researchModule = await import('../../../services/researchService.js');
   });
 
@@ -81,6 +57,16 @@ describe('ResearchService', () => {
   describe('initiateResearch', () => {
     it('should initiate research and return job details', async () => {
       const result = await researchModule.initiateResearch('test query');
+      
+      // Verify the mocks were called with correct parameters
+      expect(mockContextManager.storeContext).toHaveBeenCalled();
+      expect(mockJobManager.enqueueJob).toHaveBeenCalledWith('research-jobs', {
+        query: 'test query',
+        options: {},
+        sessionId: expect.any(String)
+      });
+      
+      // Verify the result
       expect(result).toEqual({
         jobId: 'test-uuid',
         sessionId: expect.any(String),
@@ -89,7 +75,7 @@ describe('ResearchService', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      const mockContextManager = (await import('../../../services/contextManager.js')).default;
+      // Make storeContext throw an error
       mockContextManager.storeContext.mockRejectedValueOnce(new Error('Storage error'));
 
       await expect(researchModule.initiateResearch('test query'))
@@ -99,20 +85,70 @@ describe('ResearchService', () => {
 
   describe('getResearchStatus', () => {
     it('should return job status', async () => {
-      const result = await researchModule.getResearchStatus('test-uuid');
-      expect(result).toEqual({
+      // Setup the mock to return the completed status
+      mockJobManager.getJobStatus.mockResolvedValueOnce({
+        id: 'test-uuid',
         status: 'completed',
+        progress: 100,
+        attempts: 0,
+        data: {
+          query: 'test query',
+          options: {},
+          sessionId: 'test-session'
+        },
+        createdAt: Date.now(),
+        processingTime: 1000,
+        waitTime: 100,
         returnvalue: {
           content: 'Mock results',
           sources: ['source1']
         }
+      });
+
+      const result = await researchModule.getResearchStatus('test-uuid');
+      
+      // Verify the mock was called with correct parameters
+      expect(mockJobManager.getJobStatus).toHaveBeenCalledWith('research-jobs', 'test-uuid');
+      
+      // Verify the result has the expected properties
+      expect(result.status).toEqual('completed');
+      expect(result.returnvalue).toEqual({
+        content: 'Mock results',
+        sources: ['source1']
       });
     });
   });
 
   describe('answerWithContext', () => {
     it('should generate response using context', async () => {
+      // Setup the context manager to return a context with a jobId
+      mockContextManager.getContext.mockResolvedValueOnce({
+        jobId: 'test-uuid',
+        originalQuery: 'test query',
+        history: []
+      });
+      
+      // Setup the job manager to return a completed job
+      mockJobManager.getJobStatus.mockResolvedValueOnce({
+        id: 'test-uuid',
+        status: 'completed',
+        returnvalue: {
+          content: 'Mock results',
+          sources: ['source1']
+        }
+      });
+      
+      // Setup Claude to return a response
+      mockClaudeService.generateResponse.mockResolvedValueOnce('Mock response');
+      
       const result = await researchModule.answerWithContext('test-session', 'test query');
+      
+      // Verify the mocks were called with correct parameters
+      expect(mockContextManager.getContext).toHaveBeenCalledWith('test-session');
+      expect(mockJobManager.getJobStatus).toHaveBeenCalledWith('research-jobs', 'test-uuid');
+      expect(mockClaudeService.generateResponse).toHaveBeenCalledWith('test query', expect.any(String));
+      
+      // Verify the result
       expect(result).toEqual({
         query: 'test query',
         response: 'Mock response',
