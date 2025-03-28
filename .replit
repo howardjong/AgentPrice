@@ -2172,3 +2172,189 @@ args = "echo \"======================================\""
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node scripts/validate-test-results.js -t circuitBreaker"
+
+[[workflows.workflow]]
+name = "Check Migration and Status"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First check migration progress"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/track-migration-progress.js -u -v"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then run system status check"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/system-status.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Show a list of next tests to migrate"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================"'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"Recommended next tests to migrate:\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node -e \""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "const fs = require('fs');"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "const path = require('path');"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "const progressPath = path.join(process.cwd(), 'tests', 'MIGRATION_PROGRESS.md');"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "const content = fs.readFileSync(progressPath, 'utf8');"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'const pendingTests = content.match(/- ⬜ (.*?)(?:\(.*?\))?\n/g);'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "if (pendingTests && pendingTests.length > 0) {"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  const simpleTests = pendingTests"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = '    .map(line => line.match(/- ⬜ (.*?)(?:\(.*?\))?\n/)[1])'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "    .filter(file => !file.includes('Service') && file.includes('unit/utils'))"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "    .slice(0, 3);"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  "
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  console.log('Utility tests (easier):');"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  simpleTests.forEach(file => console.log(`- ${file}`));"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  "
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  const serviceTests = pendingTests"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = '    .map(line => line.match(/- ⬜ (.*?)(?:\(.*?\))?\n/)[1])'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "    .filter(file => file.includes('Service'))"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "    .slice(0, 3);"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  "
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = '''  console.log('\nService tests (more complex):');'''
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  serviceTests.forEach(file => console.log(`- ${file}`));"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "}"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "\""
+
+[[workflows.workflow]]
+name = "Optimize Memory"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First check current memory usage"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"Current memory usage:\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node -e \"console.table(process.memoryUsage())\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the memory optimization script"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node --expose-gc scripts/optimize-memory.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Check memory usage after optimization"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo -e "\nMemory usage after optimization:"'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node -e \"console.table(process.memoryUsage())\""
