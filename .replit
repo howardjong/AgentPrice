@@ -1987,3 +1987,45 @@ args = "# Run the unit tests with Vitest"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node scripts/run-tests.js -m unit"
+
+[[workflows.workflow]]
+name = "Run Vitest Unit Tests"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run unit tests with Vitest"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/run-tests.js -m unit"
+
+[[workflows.workflow]]
+name = "Run Jest+Vitest Tests"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run both test suites to ensure compatibility during migration"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"Running Jest tests...\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NODE_OPTIONS=--experimental-vm-modules jest tests/unit/utils/circuitBreaker.test.js tests/unit/utils/logger.test.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"Running Vitest tests...\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/run-tests.js -m unit"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"Done running all tests\""
