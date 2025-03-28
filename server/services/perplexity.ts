@@ -42,6 +42,7 @@ export class PerplexityService {
   async performResearch(messages: { role: string; content: string }[]): Promise<{
     response: string;
     citations: string[];
+    modelUsed?: string;
   }> {
     if (!this.isConnected) {
       throw new Error('Perplexity service is not connected. Please check API key.');
@@ -129,7 +130,8 @@ export class PerplexityService {
       
       return {
         response: enhancedResponse,
-        citations
+        citations,
+        modelUsed: response.data.model || this.model
       };
     } catch (error: any) {
       console.error('Error performing research with Perplexity:', error);

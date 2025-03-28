@@ -54,6 +54,7 @@ export class ClaudeService {
   async processConversation(messages: { role: string; content: string }[]): Promise<{
     response: string;
     visualizationData?: any;
+    modelUsed?: string;
   }> {
     if (!this.isConnected) {
       throw new Error('Claude service is not connected. Please check API key.');
@@ -94,7 +95,8 @@ export class ClaudeService {
 
       return {
         response: responseText.trim(),
-        visualizationData
+        visualizationData,
+        modelUsed: this.model
       };
     } catch (error: any) {
       console.error('Error processing conversation with Claude:', error);

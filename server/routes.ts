@@ -1,4 +1,6 @@
 import express, { type Express, Request, Response } from "express";
+// Import Multer type definitions
+import type { Multer } from "multer";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
@@ -11,6 +13,7 @@ import {
   visualizeSchema,
   insertMessageSchema 
 } from "@shared/schema";
+// @ts-ignore - Ignore missing type definitions for initializeMockResearch module
 import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
 import { checkSystemHealth } from './services/healthCheck';
 import { v4 as uuidv4 } from 'uuid';
@@ -18,10 +21,30 @@ import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 
+// Define interfaces for service responses
+interface ClaudeResult {
+  response: string;
+  visualizationData?: any;
+  modelUsed?: string;
+}
+
+interface PerplexityResult {
+  response: string;
+  citations?: any[];
+  modelUsed?: string;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Define multer types for callbacks
+  type MulterFile = { 
+    originalname: string, 
+    mimetype: string 
+  };
+  type MulterCallback = (error: Error | null, value?: any) => void;
+
   // Configure multer storage
   const multerStorage = multer.diskStorage({
-    destination: function (req, file, cb) {
+    destination: function (req: any, file: MulterFile, cb: MulterCallback) {
       // Create uploads directory if it doesn't exist
       const uploadsDir = path.resolve('./uploads');
       if (!fs.existsSync(uploadsDir)) {
@@ -29,7 +52,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       cb(null, uploadsDir);
     },
-    filename: function (req, file, cb) {
+    filename: function (req: any, file: MulterFile, cb: MulterCallback) {
       // Generate unique filename with timestamp
       const uniqueFilename = `${Date.now()}-${uuidv4().slice(0, 8)}-${file.originalname}`;
       cb(null, uniqueFilename);
@@ -42,7 +65,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     limits: {
       fileSize: 1024 * 1024 * 10, // 10MB max file size
     },
-    fileFilter: function (req, file, cb) {
+    fileFilter: function (req: any, file: MulterFile, cb: MulterCallback) {
       // Accept text files and CSVs only
       const filetypes = /text|txt|csv|json|md/;
       const mimetype = filetypes.test(file.mimetype);
@@ -1156,7 +1179,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       
       // Create Plotly configuration for part-worth utilities
-      const utilitiesData = [];
+      interface UtilityDataItem {
+        x: string[];
+        y: number[];
+        type: string;
+        name: string;
+        xaxis: string;
+        yaxis: string;
+        marker: {
+          color: string;
+          line: {
+            color: string;
+            width: number;
+          }
+        }
+      }
+      
+      const utilitiesData: UtilityDataItem[] = [];
       
       attributes.forEach((attr, index) => {
         utilitiesData.push({
