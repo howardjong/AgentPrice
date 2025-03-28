@@ -90,7 +90,8 @@ testRedisTimeouts();
  */
 
 import redisService from '../../services/redisService.js';
-import logger from '../../utils/logger.js';
+// Logger is already imported above
+// import logger from '../../utils/logger.js';
 
 async function testRedisTimeout() {
   logger.info('======================================');
@@ -100,19 +101,19 @@ async function testRedisTimeout() {
   // Test 1: Basic Redis operations
   try {
     logger.info('\n[1/3] Testing basic Redis operations...');
-    
+
     // Set a value
     await redisService.set('test-key', 'test-value');
     logger.info('- Set operation successful');
-    
+
     // Get the value
     const value = await redisService.get('test-key');
     logger.info(`- Get operation successful: ${value}`);
-    
+
     // Delete the value
     await redisService.del('test-key');
     logger.info('- Delete operation successful');
-    
+
     logger.info('\n✅ Basic Redis operations working correctly');
   } catch (error) {
     logger.error(`Error testing basic Redis operations: ${error.message}`);
@@ -121,7 +122,7 @@ async function testRedisTimeout() {
   // Test 2: Timeout handling with cache operations
   try {
     logger.info('\n[2/3] Testing timeout handling with cache operations...');
-    
+
     // Override the get method to simulate a timeout
     const originalGet = redisService.client.get;
     redisService.client.get = async () => {
@@ -129,7 +130,7 @@ async function testRedisTimeout() {
       await new Promise(resolve => setTimeout(resolve, 6000));
       return 'This should never be returned due to timeout';
     };
-    
+
     // Try to get a value with timeout protection
     logger.info('- Attempting get operation with simulated timeout...');
     const startTime = Date.now();
@@ -142,7 +143,7 @@ async function testRedisTimeout() {
       logger.info(`- Error message: ${error.message}`);
       logger.info('\n✅ Timeout handling working correctly');
     }
-    
+
     // Restore the original get method
     redisService.client.get = originalGet;
   } catch (error) {
@@ -152,23 +153,23 @@ async function testRedisTimeout() {
   // Test 3: Fallback behavior
   try {
     logger.info('\n[3/3] Testing fallback behavior...');
-    
+
     // Override the get method to simulate a failure
     const originalGet = redisService.get;
     redisService.get = async (key, options = {}) => {
       throw new Error('Simulated Redis failure');
     };
-    
+
     // Try to get a value with fallback
     const result = await redisService.getWithFallback('fallback-test-key', 'fallback-value');
     logger.info(`- Get with fallback result: ${result}`);
-    
+
     if (result === 'fallback-value') {
       logger.info('\n✅ Fallback mechanism working correctly');
     } else {
       logger.error('❌ Fallback mechanism failed');
     }
-    
+
     // Restore the original get method
     redisService.get = originalGet;
   } catch (error) {
