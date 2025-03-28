@@ -5,7 +5,7 @@
  * to perform comprehensive research on a variety of topics.
  */
 
-import RobustAPIClient from '../utils/apiClient.js';
+import { RobustAPIClient } from '../utils/apiClient.js';
 import CircuitBreaker from '../utils/circuitBreaker.js';
 import logger from '../utils/logger.js';
 import promptManager from './promptManager.js';
