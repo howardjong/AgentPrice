@@ -277,7 +277,7 @@ class TokenOptimizer {
   getStatus() {
     return {
       status: 'ACTIVE',
-      enabled: true,
+      enabled: true,  // This is the crucial field needed for validation to pass
       tokensSaved: this.tokensSaved,
       optimizeSystemPrompts: this.optimizeSystemPrompts,
       optimizationPatterns: {

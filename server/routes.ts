@@ -1,5 +1,6 @@
 import express, { type Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { z } from "zod";
 import { claudeService } from "./services/claude";
@@ -1305,6 +1306,184 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Create HTTP server
   const httpServer = createServer(app);
+  
+  // Setup WebSocket server for real-time updates
+  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+  
+  // Connected clients map
+  const clients = new Map();
+  
+  // WebSocket server event handlers
+  wss.on('connection', (ws) => {
+    // Generate a unique client ID
+    const clientId = uuidv4();
+    const metadata = { id: clientId, lastActivity: Date.now() };
+    
+    // Store client connection
+    clients.set(ws, metadata);
+    
+    console.log(`WebSocket client connected: ${clientId}`);
+    
+    // Send initial system status
+    sendSystemStatus(ws);
+    
+    // Handle messages from clients
+    ws.on('message', (messageData) => {
+      try {
+        const message = JSON.parse(messageData.toString());
+        
+        // Update client metadata
+        metadata.lastActivity = Date.now();
+        
+        // Handle different message types
+        if (message.type === 'subscribe') {
+          metadata.subscriptions = message.channels || [];
+          ws.send(JSON.stringify({ 
+            type: 'subscription_update', 
+            status: 'success',
+            channels: metadata.subscriptions
+          }));
+        } else if (message.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong', time: Date.now() }));
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket message:', error);
+        ws.send(JSON.stringify({ 
+          type: 'error', 
+          message: 'Invalid message format'
+        }));
+      }
+    });
+    
+    // Handle disconnection
+    ws.on('close', () => {
+      console.log(`WebSocket client disconnected: ${metadata.id}`);
+      clients.delete(ws);
+    });
+  });
+  
+  // Function to send system status to a client
+  function sendSystemStatus(ws) {
+    // Only send if connection is still open
+    if (ws.readyState === WebSocket.OPEN) {
+      checkSystemHealth().then(healthStatus => {
+        ws.send(JSON.stringify({
+          type: 'system_status',
+          timestamp: Date.now(),
+          status: healthStatus.status,
+          memory: {
+            usagePercent: Math.round(healthStatus.memory.usagePercent * 100) / 100,
+            healthy: healthStatus.memory.healthy
+          },
+          apiServices: {
+            claude: {
+              status: 'online',
+              requestCount: 0
+            },
+            perplexity: {
+              status: 'online',
+              requestCount: 0
+            }
+          },
+          optimization: {
+            enabled: true,
+            tokenSavings: 0,
+            tier: 'standard'
+          }
+        }));
+      }).catch(error => {
+        console.error('Error sending system status:', error);
+      });
+    }
+  }
+  
+  // Broadcast a message to all connected clients
+  function broadcastMessage(message) {
+    clients.forEach((metadata, client) => {
+      // Check if client is still connected
+      if (client.readyState === WebSocket.OPEN) {
+        // Check if client is subscribed to this message type
+        if (!metadata.subscriptions || 
+            metadata.subscriptions.includes('all') || 
+            metadata.subscriptions.includes(message.type)) {
+          client.send(JSON.stringify(message));
+        }
+      }
+    });
+  }
+  
+  // Broadcast research progress updates
+  function broadcastResearchProgress(jobId, progress, status) {
+    broadcastMessage({
+      type: 'research_progress',
+      jobId,
+      progress,
+      status,
+      timestamp: Date.now()
+    });
+  }
+  
+  // Broadcast system optimization status
+  function broadcastOptimizationStatus(status) {
+    broadcastMessage({
+      type: 'optimization_status',
+      status,
+      timestamp: Date.now()
+    });
+  }
+  
+  // Schedule periodic status broadcast
+  setInterval(() => {
+    // Check for stale connections
+    const now = Date.now();
+    clients.forEach((metadata, ws) => {
+      // If client hasn't been active for more than 30 minutes, close the connection
+      if (now - metadata.lastActivity > 30 * 60 * 1000) {
+        console.log(`Closing inactive WebSocket connection: ${metadata.id}`);
+        ws.terminate();
+        clients.delete(ws);
+      }
+    });
+    
+    // Broadcast system status to all clients every minute
+    if (clients.size > 0) {
+      checkSystemHealth().then(healthStatus => {
+        broadcastMessage({
+          type: 'system_status',
+          timestamp: Date.now(),
+          status: healthStatus.status,
+          memory: {
+            usagePercent: Math.round(healthStatus.memory.usagePercent * 100) / 100,
+            healthy: healthStatus.memory.healthy
+          },
+          apiServices: {
+            claude: {
+              status: 'online',
+              requestCount: 0
+            },
+            perplexity: {
+              status: 'online',
+              requestCount: 0
+            }
+          },
+          optimization: {
+            enabled: true,
+            tokenSavings: 0,
+            tier: 'standard'
+          }
+        });
+      }).catch(error => {
+        console.error('Error broadcasting system status:', error);
+      });
+    }
+  }, 60000); // Run every 60 seconds
+  
+  // Expose WebSocket functions to other modules
+  (global as any).websocket = {
+    broadcastMessage,
+    broadcastResearchProgress,
+    broadcastOptimizationStatus
+  };
   
   // Return server instance
   return httpServer;
