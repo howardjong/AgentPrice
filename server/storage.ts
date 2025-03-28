@@ -56,7 +56,7 @@ export class MemStorage implements IStorage {
         service: 'Perplexity API',
         status: 'connected',
         lastUsed: null,
-        version: 'llama-3.1-sonar-small-128k-online',
+        version: 'sonar',
       },
       server: {
         status: 'running',
@@ -92,8 +92,11 @@ export class MemStorage implements IStorage {
   async createConversation(insertConversation: InsertConversation): Promise<Conversation> {
     const id = this.conversationIdCounter++;
     const now = new Date();
+    // Ensure userId is non-undefined even if null
+    const userId = insertConversation.userId ?? null;
     const conversation: Conversation = {
       ...insertConversation,
+      userId,
       id,
       createdAt: now,
       updatedAt: now,
@@ -118,11 +121,17 @@ export class MemStorage implements IStorage {
   async createMessage(insertMessage: InsertMessage): Promise<Message> {
     const id = this.messageIdCounter++;
     const now = new Date();
-    const message: Message = {
-      ...insertMessage,
+    // Create message with explicitly typed fields
+    const message = {
       id,
+      conversationId: insertMessage.conversationId,
+      role: insertMessage.role,
+      content: insertMessage.content,
+      service: insertMessage.service,
+      visualizationData: insertMessage.visualizationData ?? null,
+      citations: insertMessage.citations ?? null,
       timestamp: now,
-    };
+    } as Message;
     this.messages.set(id, message);
     
     // Update the last used timestamp for the service

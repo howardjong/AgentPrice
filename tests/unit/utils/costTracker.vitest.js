@@ -161,16 +161,16 @@ describe('Cost Tracker', () => {
       
       costTracker.recordUsage({
         service: 'perplexity',
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar',
         inputTokens: 1000,
         outputTokens: 500
       });
       
       // Check usage by model
       expect(costTracker.usageByModel['claude-3-7-sonnet-20250219']).toBeDefined();
-      expect(costTracker.usageByModel['llama-3.1-sonar-small-128k-online']).toBeDefined();
+      expect(costTracker.usageByModel['sonar']).toBeDefined();
       expect(costTracker.usageByModel['claude-3-7-sonnet-20250219'].requests).toBe(1);
-      expect(costTracker.usageByModel['llama-3.1-sonar-small-128k-online'].requests).toBe(1);
+      expect(costTracker.usageByModel['sonar'].requests).toBe(1);
     });
   });
 
@@ -236,7 +236,7 @@ describe('Cost Tracker', () => {
       // Perplexity small model
       const perplexityEstimate = costTracker.estimateRequestCost({
         service: 'perplexity',
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar',
         inputTokens: 1000,
         outputTokens: 500
       });

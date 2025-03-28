@@ -36,7 +36,7 @@ import perplexityService from '../../../services/perplexityService.js';
 import logger from '../../../utils/logger.js';
 
 // Helper function to create a mock response
-function createMockPerplexityResult(model = 'llama-3.1-sonar-small-128k-online') {
+function createMockPerplexityResult(model = 'sonar') {
   return {
     query: 'test query',
     timestamp: new Date().toISOString(),
@@ -82,7 +82,7 @@ describe('Perplexity Service', () => {
     // Verify
     expect(perplexityService.performQuery).toHaveBeenCalledWith('test query');
     expect(result).toEqual(mockResult);
-    expect(result.model).toBe('llama-3.1-sonar-small-128k-online');
+    expect(result.model).toBe('sonar');
     expect(result.content).toBe('This is a test response from Perplexity');
   });
   
@@ -96,15 +96,15 @@ describe('Perplexity Service', () => {
   
   it('should support different models', async () => {
     // Setup for different model
-    const mockResult = createMockPerplexityResult('llama-3.1-sonar-large-128k-online');
+    const mockResult = createMockPerplexityResult('sonar-deep-research');
     perplexityService.performQuery.mockResolvedValueOnce(mockResult);
     
     // Execute
-    const result = await perplexityService.performQuery('test query', { model: 'llama-3.1-sonar-large-128k-online' });
+    const result = await perplexityService.performQuery('test query', { model: 'sonar-deep-research' });
     
     // Verify
-    expect(perplexityService.performQuery).toHaveBeenCalledWith('test query', { model: 'llama-3.1-sonar-large-128k-online' });
-    expect(result.model).toBe('llama-3.1-sonar-large-128k-online');
+    expect(perplexityService.performQuery).toHaveBeenCalledWith('test query', { model: 'sonar-deep-research' });
+    expect(result.model).toBe('sonar-deep-research');
   });
   
   it('should support deep research mode', async () => {

@@ -63,7 +63,7 @@ async function validatePerplexityKey() {
         'Content-Type': 'application/json'
       },
       data: {
-        model: 'llama-3.1-sonar-small-128k-online',
+        model: 'sonar',
         messages: [
           { role: 'system', content: 'Be precise and concise.' },
           { role: 'user', content: 'Hello, this is a test request. Please respond with a single short sentence.' }

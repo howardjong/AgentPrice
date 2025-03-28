@@ -32,12 +32,12 @@ export const createMockClaudeService = (mockFunc = mockFn) => ({
 export const createMockPerplexityService = (mockFunc = mockFn) => ({
   performResearch: mockFunc().mockResolvedValue({
     response: 'Mock research response', 
-    modelUsed: 'llama-3.1-sonar-small-128k-online'
+    modelUsed: 'sonar'
   }),
   performDeepResearch: mockFunc().mockResolvedValue({
     content: 'Mock research results',
     sources: ['source1', 'source2'],
-    modelUsed: 'llama-3.1-sonar-small-128k-online'
+    modelUsed: 'sonar-deep-research'
   })
 });
 
@@ -72,7 +72,7 @@ export const createMockRedisClient = (mockFunc = mockFn) => ({
 });
 
 // API response mock factories
-export const createPerplexityResponse = (model = 'llama-3.1-sonar-small-128k-online') => ({
+export const createPerplexityResponse = (model = 'sonar') => ({
   data: {
     id: 'chatcmpl-test',
     model,

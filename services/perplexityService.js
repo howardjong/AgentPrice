@@ -13,23 +13,18 @@ class PerplexityService {
   constructor() {
     this.apiKey = process.env.PERPLEXITY_API_KEY;
     this.models = {
-      basic: 'llama-3.1-sonar-small-128k-online',  // The default model for most queries
-      deepResearch: 'llama-3.1-sonar-large-128k-online' // For deep research that needs more capability
+      basic: 'sonar',         // The default model for most queries
+      deepResearch: 'sonar-deep-research' // Only used when deep research is explicitly requested
     };
     this.searchModes = {
-      basic: 'medium',     // Medium search context for basic queries
-      deepResearch: 'high' // High search context for deep research
+      basic: 'medium',     // Medium search context for basic queries with sonar
+      deepResearch: 'high' // High search context for deep research with sonar-deep-research
     };
-    // Maintain backward compatibility with legacy model names
-    this.legacyModelMapping = {
-      'sonar': 'llama-3.1-sonar-small-128k-online',
-      'sonar-deep-research': 'llama-3.1-sonar-large-128k-online',
-      'sonar-pro': 'llama-3.1-sonar-small-128k-online'
-    };
-    // Fallback configuration
+    // Maintain backward compatibility
+    this.fallbackModels = ['sonar-pro', 'sonar'];
     this.fallbackConfig = {
-      'llama-3.1-sonar-large-128k-online': ['llama-3.1-sonar-small-128k-online'],
-      'llama-3.1-sonar-small-128k-online': ['llama-3.1-sonar-small-128k-online']
+      'sonar-deep-research': ['sonar-pro'],
+      'sonar-pro': ['sonar']
     };
     this.isConnected = false;
     this.lastUsed = null;
@@ -840,27 +835,18 @@ Please include the most up-to-date information available, with particular attent
    * @returns {string} The search context mode to use
    */
   getSearchModeForModel(model) {
-    // For basic model
+    // For sonar (basic model)
     if (model === this.models.basic) {
       return this.searchModes.basic;
     }
 
-    // For deep research model
+    // For sonar-deep-research (deep research model)
     if (model === this.models.deepResearch) {
       return this.searchModes.deepResearch;
     }
 
-    // Handle legacy model names
-    if (model === 'sonar' || model === 'sonar-pro') {
-      return this.searchModes.basic;
-    }
-
-    if (model === 'sonar-deep-research') {
-      return this.searchModes.deepResearch;
-    }
-
-    // For llama-3.1-sonar-large/huge models, use high search mode
-    if (model.includes('large') || model.includes('huge')) {
+    // If it's a fallback model (sonar-pro), use high search mode
+    if (model === 'sonar-pro') {
       return 'high';
     }
 

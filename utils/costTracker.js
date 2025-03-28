@@ -19,11 +19,11 @@ const COST_RATES = {
     input: 0.0025, // $0.0025 per 1K input tokens
     output: 0.0125 // $0.0125 per 1K output tokens
   },
-  'llama-3.1-sonar-small-128k-online': {
+  'sonar': {
     input: 0.0005, // $0.0005 per 1K input tokens
     output: 0.0020 // $0.0020 per 1K output tokens
   },
-  'llama-3.1-sonar-large-128k-online': {
+  'sonar-deep-research': {
     input: 0.0015, // $0.0015 per 1K input tokens
     output: 0.0060 // $0.0060 per 1K output tokens
   }
@@ -32,7 +32,7 @@ const COST_RATES = {
 // Default model names for services
 const DEFAULT_MODELS = {
   'anthropic': 'claude-3-7-sonnet-20250219',
-  'perplexity': 'llama-3.1-sonar-small-128k-online'
+  'perplexity': 'sonar'
 };
 
 class CostTracker {
