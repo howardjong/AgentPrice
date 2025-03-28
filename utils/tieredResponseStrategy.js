@@ -35,7 +35,7 @@ const TIER_CONFIG = {
 
 class TieredResponseStrategy {
   constructor() {
-    this.logger = require('./logger.js').default;
+    this.logger = logger;
     this.responseCache = {};
     this.timeouts = {
       basic: 5000,      // 5 seconds
@@ -196,4 +196,4 @@ tieredResponseStrategy.getRequestOptions = function(requestParams) {
   };
 };
 
-module.exports = tieredResponseStrategy;
+export default tieredResponseStrategy;
