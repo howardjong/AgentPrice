@@ -2938,3 +2938,28 @@ args = "export DISABLE_LLM_CALLS=true"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node --expose-gc --max-old-space-size=512 scripts/start-dev-no-api.js"
+
+[[workflows.workflow]]
+name = "Health Check and Commit"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Make the script executable"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "chmod +x scripts/health-check-and-commit.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the health check and commit script"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/health-check-and-commit.js"
