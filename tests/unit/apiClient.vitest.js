@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import axios from 'axios';
+import MockAdapter from 'axios-mock-adapter';
 import { RobustAPIClient } from '../../utils/apiClient.js';
 
 // Mock the CircuitBreaker to avoid dependencies
@@ -20,12 +22,6 @@ vi.mock('../../utils/logger.js', () => ({
 
 /**
  * Basic tests for the RobustAPIClient
- * 
- * Note: More advanced tests with mock adapters are pending due to 
- * asynchronous execution issues. Future work will include:
- * - Testing retry logic for different HTTP status codes
- * - Testing rate limit handling
- * - Testing promise tracking
  */
 describe('RobustAPIClient Basic Functionality', () => {
   let client;
@@ -82,4 +78,102 @@ describe('RobustAPIClient Basic Functionality', () => {
     // Max retries should not be retried
     expect(client.shouldRetryRequest({ response: { status: 500 }}, 3)).toBe(false);
   });
+});
+
+/**
+ * Advanced tests with axios-mock-adapter for testing HTTP retry functionality
+ */
+describe('RobustAPIClient Advanced HTTP Functionality', () => {
+  let mock;
+  let client;
+
+  beforeEach(() => {
+    mock = new MockAdapter(axios);
+    client = new RobustAPIClient({
+      maxRetries: 3,
+      retryDelay: 50, // Keep delays short for tests
+      timeout: 1000,
+      enableMetrics: false
+    });
+  });
+
+  afterEach(() => {
+    mock.reset();
+    mock.restore();
+    client.destroy();
+    vi.clearAllMocks();
+  });
+
+  // Set longer timeout for these tests
+  it('should retry on 429 status code', async () => {
+    // Will return 429 on first call, then 200 on second call
+    mock.onGet('/test').replyOnce(429).onGet('/test').reply(200, { data: 'success' });
+
+    const response = await client.request({
+      method: 'GET',
+      url: '/test'
+    });
+
+    expect(response.data).toEqual({ data: 'success' });
+    expect(mock.history.get.length).toBe(2);
+  }, 10000);
+
+  it('should retry on 500 server errors', async () => {
+    // Will return 500 on first call, then 200 on second call
+    mock.onGet('/test-server-error').replyOnce(500).onGet('/test-server-error').reply(200, { data: 'server recovered' });
+
+    const response = await client.request({
+      method: 'GET',
+      url: '/test-server-error'
+    });
+
+    expect(response.data).toEqual({ data: 'server recovered' });
+    expect(mock.history.get.length).toBe(2);
+  }, 10000);
+
+  it('should respect retry-after header for rate limits', async () => {
+    // Set up headers with retry-after to test that logic
+    const headers = { 'retry-after': '1' }; // 1 second delay
+    mock.onGet('/test-retry-after')
+      .replyOnce(429, 'Rate limited', headers)
+      .onGet('/test-retry-after')
+      .reply(200, { data: 'respected rate limit' });
+
+    const startTime = Date.now();
+    const response = await client.request({
+      method: 'GET',
+      url: '/test-retry-after'
+    });
+    const duration = Date.now() - startTime;
+
+    expect(response.data).toEqual({ data: 'respected rate limit' });
+    expect(mock.history.get.length).toBe(2);
+    // Should be at least 1 second delay due to retry-after header
+    expect(duration).toBeGreaterThanOrEqual(1000);
+  }, 10000);
+
+  it('should exhaust retries and eventually fail', async () => {
+    // All 3 attempts will return 500
+    mock.onGet('/test-exhausted').reply(500, 'Server error');
+
+    await expect(client.request({
+      method: 'GET',
+      url: '/test-exhausted'
+    })).rejects.toThrow();
+    
+    // Should have attempted 1 + maxRetries (3) = 4 requests
+    expect(mock.history.get.length).toBe(4);
+  }, 10000);
+
+  it('should not retry on 4xx client errors (except 429)', async () => {
+    mock.onGet('/test-client-error').reply(400, 'Bad request');
+
+    await expect(client.request({
+      method: 'GET',
+      url: '/test-client-error'
+    })).rejects.toThrow();
+    
+    // Should not retry on 400
+    expect(mock.history.get.length).toBe(1);
+  }, 10000);
 });
