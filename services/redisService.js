@@ -151,25 +151,30 @@ class RedisClient {
     }
   }
 
-  async get(key, timeoutMs = 3000) {
+  async get(key, options = {}) {
+    const timeout = options.timeout || 5000; // Default 5 second timeout
+
     try {
-      // Create a promise with timeout
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error(`Redis GET operation timed out after ${timeoutMs}ms`)), timeoutMs);
-      });
-
-      // Race between the actual operation and the timeout
-      const client = await this.getClient();
-      const result = await Promise.race([
-        client.get(key),
-        timeoutPromise
+      return await Promise.race([
+        this.client.get(key),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Redis GET operation timed out after ${timeout}ms`)), timeout)
+        )
       ]);
-
-      return result;
     } catch (error) {
-      this.logger.error(`Redis GET error for key ${key}: ${error.message}`);
-      // Return null instead of throwing to make the application more resilient
+      this.logger.error(`Redis GET error: ${error.message}`, { key });
       return null;
+    }
+  }
+
+  // Get with fallback value if Redis fails
+  async getWithFallback(key, fallbackValue, options = {}) {
+    try {
+      const result = await this.get(key, options);
+      return result !== null ? result : fallbackValue;
+    } catch (error) {
+      this.logger.warn(`Redis GET failed, using fallback for: ${key}`);
+      return fallbackValue;
     }
   }
 

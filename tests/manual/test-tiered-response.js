@@ -1,3 +1,4 @@
+
 /**
  * Test Tiered Response Strategy with timeout handling
  */
@@ -6,7 +7,7 @@ import tieredResponseStrategy from '../../utils/tieredResponseStrategy.js';
 import logger from '../../utils/logger.js';
 
 // Mock slow response for testing timeouts
-async function testTieredResponses() {
+async function testTieredResponse() {
   logger.info('======================================');
   logger.info('     TESTING TIERED RESPONSES');
   logger.info('======================================');
@@ -34,7 +35,7 @@ async function testTieredResponses() {
   } catch (error) {
     logger.error(`Error testing tiered responses: ${error.message}`);
   }
-
+  
   // Test fallback behavior with a timeout simulation
   try {
     logger.info('\n[TIMEOUT TEST] Testing fallback behavior with simulated timeout...');
@@ -66,4 +67,4 @@ async function testTieredResponses() {
 }
 
 // Run the test
-testTieredResponses();
+testTieredResponse();
