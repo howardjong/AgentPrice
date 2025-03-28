@@ -39,7 +39,7 @@ async function runTest(framework, testName) {
   
   if (framework === 'vitest') {
     command = 'npx';
-    args = ['vitest', 'run', testName, '--no-threads', '--reporter', 'default'];
+    args = ['vitest', 'run', testName, '--reporter', 'default'];
   } else if (framework === 'jest') {
     command = 'npx';
     args = ['jest', testName, '--no-cache', '--forceExit'];
