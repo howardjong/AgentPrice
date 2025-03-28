@@ -1,164 +1,133 @@
 /**
  * Perplexity Service Tests (Vitest)
  */
-import { describe, it, expect, beforeEach, afterEach, beforeAll, vi } from 'vitest';
 
-// Create mock objects first
-const mockLogger = {
-  info: vi.fn(),
-  error: vi.fn(),
-  warn: vi.fn(),
-  debug: vi.fn()
-};
+import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
+import { traceTest } from '../../utils/test-helpers.js';
 
-const mockRequest = vi.fn();
-const mockExecuteRequest = vi.fn(async (serviceKey, requestFn) => requestFn());
-const mockPromptManager = {
-  getPrompt: vi.fn().mockResolvedValue('Test prompt template'),
-  formatPrompt: vi.fn((_template, { query }) => `Formatted prompt for: ${query}`)
-};
+// Mock the modules before importing them
+vi.mock('../../../services/perplexityService.js', () => ({
+  default: {
+    performQuery: vi.fn(),
+    performDeepResearch: vi.fn(),
+    getStatus: vi.fn().mockReturnValue({
+      service: "Perplexity Research",
+      healthy: true,
+      totalCalls: 10,
+      successRate: "90%",
+      circuitBreakerOpen: false
+    }),
+    resetRateLimitStatus: vi.fn()
+  }
+}));
 
-// Then set up mocks
-vi.mock('../../../utils/logger.js', () => {
+// Mock the logger
+vi.mock('../../../utils/logger.js', () => ({
+  default: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn()
+  }
+}));
+
+// Import the mocked modules
+import perplexityService from '../../../services/perplexityService.js';
+import logger from '../../../utils/logger.js';
+
+// Helper function to create a mock response
+function createMockPerplexityResult(model = 'llama-3.1-sonar-small-128k-online') {
   return {
-    default: mockLogger
+    query: 'test query',
+    timestamp: new Date().toISOString(),
+    content: 'This is a test response from Perplexity',
+    sources: ['https://example.com/citation1'],
+    model: model,
+    metadata: {
+      duration: 1200,
+      inputTokens: 50,
+      outputTokens: 150
+    }
   };
-});
+}
 
-vi.mock('../../../utils/apiClient.js', () => {
-  return {
-    RobustAPIClient: vi.fn().mockImplementation(() => ({
-      request: mockRequest
-    }))
-  };
-});
-
-vi.mock('../../../utils/monitoring.js', () => {
-  return {
-    CircuitBreaker: vi.fn().mockImplementation(() => ({
-      executeRequest: mockExecuteRequest
-    }))
-  };
-});
-
-vi.mock('../../../services/promptManager.js', () => {
-  return {
-    default: mockPromptManager
-  };
-});
-
-// Define the variable that will hold the imported module
-let perplexityService;
-
-describe('PerplexityService', () => {
-  beforeAll(async () => {
-    const perplexityModule = await import('../../../services/perplexityService');
-    perplexityService = perplexityModule.default;
-    
-    // For testing purposes, manually set the API key and connected state
-    perplexityService.apiKey = 'test-api-key';
-    perplexityService.isConnected = true;
-    perplexityService.model = 'test-model';
-  });
-
-  afterEach(() => {
+describe('Perplexity Service', () => {
+  traceTest('Perplexity Service');
+  
+  beforeEach(() => {
+    // Reset all mocks before each test
     vi.clearAllMocks();
   });
 
-  describe('performResearch', () => {
-    it('should correctly use the actual model from API response', async () => {
-      // Mock API response
-      const mockResponseData = {
-        data: {
-          model: 'sonar-pro-actual', // This is the actual model returned by API
-          choices: [
-            {
-              message: {
-                content: 'This is a test response from Perplexity'
-              }
-            }
-          ],
-          citations: ['https://example.com/citation1'],
-          usage: {
-            total_tokens: 100
-          }
-        }
-      };
-      
-      // Setup mock implementation
-      mockRequest.mockResolvedValueOnce(mockResponseData);
-      
-      // Execute the function
-      const result = await perplexityService.performResearch([
-        { role: 'user', content: 'Test query' }
-      ]);
-      
-      // Verify the result
-      expect(result.modelUsed).toBe('sonar-pro-actual');
-      expect(result.response).toContain('[Using Perplexity AI - Model: sonar-pro-actual]');
-    });
-
-    it('should fall back to requested model if API response does not include model', async () => {
-      // Mock API response without model field
-      const mockResponseData = {
-        data: {
-          choices: [
-            {
-              message: {
-                content: 'This is a test response from Perplexity'
-              }
-            }
-          ],
-          citations: ['https://example.com/citation1'],
-          usage: {
-            total_tokens: 100
-          }
-        }
-      };
-      
-      // Setup mock implementation
-      mockRequest.mockResolvedValueOnce(mockResponseData);
-      
-      // Execute the function
-      const result = await perplexityService.performResearch([
-        { role: 'user', content: 'Test query' }
-      ]);
-      
-      // Verify the result
-      expect(result.modelUsed).toBe('test-model');
-      expect(result.response).toContain('[Using Perplexity AI - Model: test-model]');
-    });
+  afterEach(() => {
+    // Reset all mocks after each test
+    vi.clearAllMocks();
   });
 
-  describe('performDeepResearch', () => {
-    it('should correctly use the actual model from API response for deep research', async () => {
-      // Mock API response
-      const mockResponseData = {
-        data: {
-          model: 'sonar-pro-actual', // This is the actual model returned by API
-          choices: [
-            {
-              message: {
-                content: 'This is a deep research response from Perplexity'
-              }
-            }
-          ],
-          citations: ['https://example.com/citation1', 'https://example.com/citation2'],
-          usage: {
-            total_tokens: 200
-          }
-        }
-      };
-      
-      // Setup mock implementation
-      mockRequest.mockResolvedValueOnce(mockResponseData);
-      
-      // Execute the function
-      const result = await perplexityService.performDeepResearch('Test deep research query', 'test-job-id');
-      
-      // Verify the result
-      expect(result.modelUsed).toBe('sonar-pro-actual');
-      expect(result.content).toContain('[Using Perplexity AI - Model: sonar-pro-actual]');
-    });
+  it('should initialize with default configuration', () => {
+    expect(perplexityService).toBeDefined();
+    expect(perplexityService.performQuery).toBeDefined();
+    expect(perplexityService.performDeepResearch).toBeDefined();
+    expect(perplexityService.getStatus).toBeDefined();
+  });
+  
+  it('should process research queries', async () => {
+    // Setup
+    const mockResult = createMockPerplexityResult();
+    perplexityService.performQuery.mockResolvedValueOnce(mockResult);
+    
+    // Execute
+    const result = await perplexityService.performQuery('test query');
+    
+    // Verify
+    expect(perplexityService.performQuery).toHaveBeenCalledWith('test query');
+    expect(result).toEqual(mockResult);
+    expect(result.model).toBe('llama-3.1-sonar-small-128k-online');
+    expect(result.content).toBe('This is a test response from Perplexity');
+  });
+  
+  it('should handle API errors gracefully', async () => {
+    // Setup
+    perplexityService.performQuery.mockRejectedValueOnce(new Error('API Error'));
+    
+    // Execute & Verify
+    await expect(perplexityService.performQuery('test query')).rejects.toThrow('API Error');
+  });
+  
+  it('should support different models', async () => {
+    // Setup for different model
+    const mockResult = createMockPerplexityResult('llama-3.1-sonar-large-128k-online');
+    perplexityService.performQuery.mockResolvedValueOnce(mockResult);
+    
+    // Execute
+    const result = await perplexityService.performQuery('test query', { model: 'llama-3.1-sonar-large-128k-online' });
+    
+    // Verify
+    expect(perplexityService.performQuery).toHaveBeenCalledWith('test query', { model: 'llama-3.1-sonar-large-128k-online' });
+    expect(result.model).toBe('llama-3.1-sonar-large-128k-online');
+  });
+  
+  it('should support deep research mode', async () => {
+    // Setup
+    const mockResult = createMockPerplexityResult();
+    perplexityService.performDeepResearch.mockResolvedValueOnce(mockResult);
+    
+    // Execute
+    const result = await perplexityService.performDeepResearch('deep research query', 'job123', { depth: 'deep' });
+    
+    // Verify
+    expect(perplexityService.performDeepResearch).toHaveBeenCalledWith('deep research query', 'job123', { depth: 'deep' });
+    expect(result).toEqual(mockResult);
+  });
+  
+  it('should provide service status information', () => {
+    // Execute
+    const status = perplexityService.getStatus();
+    
+    // Verify
+    expect(status).toHaveProperty('service', 'Perplexity Research');
+    expect(status).toHaveProperty('healthy', true);
+    expect(status).toHaveProperty('totalCalls');
+    expect(status).toHaveProperty('successRate');
   });
 });

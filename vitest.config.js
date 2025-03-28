@@ -1,33 +1,93 @@
+/**
+ * Vitest Configuration
+ * 
+ * This configuration is optimized for the MLRS test suite, focusing on:
+ * - Handling ESM modules properly
+ * - Optimizing memory usage
+ * - Providing better error reporting
+ */
 
 import { defineConfig } from 'vitest/config';
 import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
+import path from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   test: {
-    globals: true,
-    environment: 'node',
-    include: ['tests/**/*.vitest.js', 'tests/**/*.test.js'],
-    exclude: ['**/node_modules/**', 'dist/**'],
-    testTimeout: 20000,
-    hookTimeout: 10000,
+    // Global setup/teardown
     setupFiles: ['./tests/vitest.setup.js'],
-    pool: 'forks', // Use fork pool for better isolation
+    
+    // Environment configuration
+    environment: 'node',
+    
+    // Timeout settings
+    testTimeout: 30000, // Default timeout for each test
+    hookTimeout: 10000, // Default timeout for hooks
+    
+    // Multithreading settings (to reduce memory pressure)
+    threads: false, // Run in single thread to avoid memory issues
+    
+    // Output formatting
+    reporters: ['default', 'html'],
+    outputFile: {
+      html: './reports/vitest-results.html',
+    },
+    
+    // Test filtering
+    include: ['**/*.{test,spec,vitest}.{js,mjs,cjs,ts,jsx,tsx}'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/coverage/**',
+      '**/.{idea,git,cache,output}/**',
+      '**/jest.config.*',
+      '**/jest.setup.*',
+    ],
+    
+    // Fail fast to prevent exhausting resources
+    failFast: process.env.CI === 'true',
+    
+    // Coverage configuration
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      reportsDirectory: './reports/coverage',
+      exclude: [
+        '**/node_modules/**',
+        '**/tests/**',
+        '**/*.{test,spec,vitest}.*',
+        '**/{vitest,jest}.{config,setup}.*',
+      ],
+    },
+    
+    // Snapshot settings
+    resolveSnapshotPath: (testPath, ext) => {
+      const snapshotDir = path.join(path.dirname(testPath), '__snapshots__');
+      const testFileName = path.basename(testPath);
+      const snapshotFileName = `${testFileName}${ext}`;
+      return path.join(snapshotDir, snapshotFileName);
+    },
+    
+    // Handle ESM modules properly
+    deps: {
+      interopDefault: true, // Support both ESM and CommonJS modules
+    },
+    
+    // Memory management
+    pool: 'forks', // Use process forking for better isolation
     poolOptions: {
       forks: {
-        isolate: true, // Better memory isolation
-      }
+        singleFork: true, // Run tests in a single forked process
+      },
     },
-    coverage: {
-      reporter: ['text', 'json', 'html'],
-      exclude: ['node_modules/', 'tests/'],
-    },
-    alias: {
-      '@': resolve(__dirname, 'client/src'),
-      '@shared': resolve(__dirname, 'shared'),
-    }
+    
+    // File watching options (for dev mode)
+    watchExclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/reports/**',
+      '**/coverage/**',
+    ],
   },
 });

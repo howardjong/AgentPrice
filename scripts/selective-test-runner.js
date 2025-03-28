@@ -1,4 +1,3 @@
-
 #!/usr/bin/env node
 
 /**
@@ -8,220 +7,171 @@
  * with resource management to prevent overloading the system.
  */
 
-import { execa } from 'execa';
-import minimist from 'minimist';
-import os from 'os';
-import { setTimeout } from 'timers/promises';
+import { spawn } from 'child_process';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const args = minimist(process.argv.slice(2), {
-  string: ['test', 'framework'],
-  boolean: ['verbose', 'help', 'compare', 'optimize'],
-  alias: {
-    t: 'test',
-    f: 'framework',
-    v: 'verbose',
-    c: 'compare',
-    o: 'optimize',
-    h: 'help'
-  },
-  default: {
-    framework: 'vitest',
-    optimize: true
-  }
-});
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = path.resolve(__dirname, '..');
 
-if (args.help) {
-  console.log(`
-Selective Test Runner - Run tests efficiently during migration
-
-Usage:
-  node scripts/selective-test-runner.js [options]
-
-Options:
-  --test, -t       Test module to run (e.g., "circuitBreaker", "logger")
-  --framework, -f  Framework to use: "jest", "vitest", or "both" (default: "vitest")
-  --compare, -c    Compare results between Jest and Vitest (implies --framework=both)
-  --optimize, -o   Apply resource optimization (default: true)
-  --verbose, -v    Show detailed output
-  --help, -h       Show this help
-
-Examples:
-  # Run a single test with vitest
-  node scripts/selective-test-runner.js -t circuitBreaker
-
-  # Run and compare a test in both frameworks
-  node scripts/selective-test-runner.js -t circuitBreaker -c
-
-  # Run all tests with jest without resource optimization
-  node scripts/selective-test-runner.js -f jest --no-optimize
-  `);
-  process.exit(0);
-}
-
-// If compare is requested, force framework to "both"
-if (args.compare) {
-  args.framework = 'both';
-}
-
-// Resource limits
-const NUM_CPUS = os.cpus().length;
-const MEM_LIMIT = Math.floor(os.totalmem() / (1024 * 1024) * 0.7); // 70% of total memory
-
-// Optimize for available resources
+// Function to optimize resources before running tests
 async function optimizeResources() {
-  if (args.verbose) {
-    console.log(`\n🔧 Optimizing resources for testing...`);
-    console.log(`   Available CPUs: ${NUM_CPUS}`);
-    console.log(`   Memory limit: ${MEM_LIMIT}MB (70% of total)\n`);
-  }
-
-  // Force garbage collection if possible
+  console.log('Optimizing system resources...');
+  
+  // Run garbage collection if possible
   if (global.gc) {
     global.gc();
   }
   
-  // Small delay to allow GC to complete
-  await setTimeout(500);
+  // Set environment variables for better memory management
+  process.env.NODE_OPTIONS = '--max-old-space-size=1024';
+  
+  // Ensure test output directory exists
+  await fs.mkdir(path.join(ROOT_DIR, 'reports'), { recursive: true });
 }
 
 // Function to run a test with the specified framework
 async function runTest(framework, testName) {
-  console.log(`\n🧪 Running ${testName} with ${framework}...`);
+  console.log(`Running ${testName} with ${framework}...`);
   
-  try {
-    let result;
-    
-    if (framework === 'jest') {
-      // Run Jest test
-      result = await execa('node', [
-        '--experimental-vm-modules',
-        'node_modules/.bin/jest',
-        `tests/unit/**/${testName}.test.js`,
-        '--detectOpenHandles'
-      ], { 
-        reject: false,
-        env: { 
-          ...process.env,
-          NODE_OPTIONS: '--max-old-space-size=256' // Lower memory for Jest
-        }
-      });
-    } else if (framework === 'vitest') {
-      // Run Vitest test
-      result = await execa('npx', [
-        'vitest',
-        'run',
-        `tests/unit/**/${testName}.vitest.js`
-      ], { 
-        reject: false,
-        env: { 
-          ...process.env,
-          NODE_OPTIONS: '--max-old-space-size=256' // Lower memory for Vitest
-        }
-      });
-    }
-    
-    const success = result.exitCode === 0;
-    
-    // Output results
-    if (args.verbose) {
-      console.log(`\n--- ${framework} Output ---`);
-      console.log(result.stdout);
-      if (result.stderr) console.log(result.stderr);
-    }
-    
-    console.log(`${success ? '✅' : '❌'} ${framework}: ${success ? 'Pass' : 'Fail'}`);
-    
-    return {
-      success,
-      output: result.stdout + '\n' + result.stderr
-    };
-  } catch (error) {
-    console.error(`❌ Error running ${framework} test:`, error.message);
-    return {
-      success: false,
-      output: error.message
-    };
+  let command, args;
+  
+  if (framework === 'vitest') {
+    command = 'npx';
+    args = ['vitest', 'run', testName, '--no-threads', '--reporter', 'default'];
+  } else if (framework === 'jest') {
+    command = 'npx';
+    args = ['jest', testName, '--no-cache', '--forceExit'];
+  } else {
+    throw new Error(`Unsupported test framework: ${framework}`);
   }
+  
+  return new Promise((resolve, reject) => {
+    const childProcess = spawn(command, args, {
+      cwd: ROOT_DIR,
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        NODE_OPTIONS: '--max-old-space-size=1024'
+      }
+    });
+    
+    childProcess.on('close', (code) => {
+      if (code === 0) {
+        resolve({
+          success: true,
+          framework,
+          testName
+        });
+      } else {
+        resolve({
+          success: false,
+          framework,
+          testName,
+          code
+        });
+      }
+    });
+    
+    childProcess.on('error', (err) => {
+      reject(err);
+    });
+  });
 }
 
-// Function to compare test results
+// Function to compare test results across frameworks
 async function compareTestResults(testName) {
-  console.log(`\n🔍 Comparing test results for: ${testName}`);
+  console.log(`Comparing test results for ${testName}...`);
   
-  if (args.optimize) await optimizeResources();
-  
-  // Run Jest test
+  // Run with Jest
   const jestResult = await runTest('jest', testName);
   
-  // Force cleanup before running next test
-  if (args.optimize) await optimizeResources();
-  
-  // Run Vitest test
+  // Run with Vitest
   const vitestResult = await runTest('vitest', testName);
   
-  // Compare results
-  const consistentResults = jestResult.success === vitestResult.success;
+  console.log('\nResults comparison:');
+  console.log('-'.repeat(50));
+  console.log(`Jest: ${jestResult.success ? 'PASS' : 'FAIL'}`);
+  console.log(`Vitest: ${vitestResult.success ? 'PASS' : 'FAIL'}`);
+  console.log('-'.repeat(50));
   
-  console.log(`\n📊 Comparison Results:`);
-  console.log(`   Jest:   ${jestResult.success ? '✅ Pass' : '❌ Fail'}`);
-  console.log(`   Vitest: ${vitestResult.success ? '✅ Pass' : '❌ Fail'}`);
-  console.log(`   Consistency: ${consistentResults ? '✅ Results match' : '❓ Results differ'}`);
+  if (jestResult.success !== vitestResult.success) {
+    console.warn('WARNING: Test results differ between frameworks!');
+    
+    if (jestResult.success && !vitestResult.success) {
+      console.log('The test passes in Jest but fails in Vitest.');
+      console.log('This could indicate an issue with the Vitest migration.');
+    } else {
+      console.log('The test passes in Vitest but fails in Jest.');
+      console.log('This could indicate an ES module compatibility issue in Jest.');
+    }
+  } else {
+    console.log('Test results are consistent across frameworks.');
+  }
   
-  return consistentResults;
+  return {
+    testName,
+    jestResult,
+    vitestResult,
+    consistent: jestResult.success === vitestResult.success
+  };
 }
 
 // Main function
 async function main() {
-  // Validate arguments
-  if (!['jest', 'vitest', 'both'].includes(args.framework)) {
-    console.error(`❌ Invalid framework: ${args.framework}. Use "jest", "vitest", or "both".`);
-    process.exit(1);
-  }
-  
-  // Get test modules to run
-  let testModules = [];
-  if (args.test) {
-    testModules = [args.test];
-  } else {
-    console.error('❌ Please specify a test module with --test or -t');
-    process.exit(1);
-  }
-  
-  console.log(`\n🚀 Selective Test Runner`);
-  console.log(`   Test modules: ${testModules.join(', ')}`);
-  console.log(`   Framework: ${args.framework}`);
-  console.log(`   Resource optimization: ${args.optimize ? 'enabled' : 'disabled'}`);
-  
-  // Optimize resources before starting
-  if (args.optimize) await optimizeResources();
-  
-  // Run tests for each module
-  for (const testModule of testModules) {
-    if (args.compare) {
-      // Compare test results
-      await compareTestResults(testModule);
-    } else {
-      // Run with selected framework
-      if (args.framework === 'both') {
-        await runTest('jest', testModule);
-        if (args.optimize) await optimizeResources();
-        await runTest('vitest', testModule);
-      } else {
-        await runTest(args.framework, testModule);
-      }
+  try {
+    const args = process.argv.slice(2);
+    
+    if (args.length < 1 || args.includes('--help')) {
+      console.log('Usage: node selective-test-runner.js <command> [options]');
+      console.log('\nCommands:');
+      console.log('  run <framework> <test-name>   Run a specific test with the specified framework');
+      console.log('  compare <test-name>           Compare test results across frameworks');
+      console.log('\nOptions:');
+      console.log('  --help                        Show this help message');
+      console.log('\nExamples:');
+      console.log('  node selective-test-runner.js run vitest "perplexityService"');
+      console.log('  node selective-test-runner.js compare "circuitBreaker"');
+      return;
     }
     
-    // Cleanup between test modules
-    if (args.optimize && testModules.length > 1) {
-      await optimizeResources();
+    await optimizeResources();
+    
+    const command = args[0];
+    
+    if (command === 'run') {
+      if (args.length < 3) {
+        console.error('Error: "run" command requires a framework and test name');
+        process.exit(1);
+      }
+      
+      const framework = args[1];
+      const testName = args[2];
+      
+      const result = await runTest(framework, testName);
+      process.exit(result.success ? 0 : 1);
+    } else if (command === 'compare') {
+      if (args.length < 2) {
+        console.error('Error: "compare" command requires a test name');
+        process.exit(1);
+      }
+      
+      const testName = args[1];
+      const result = await compareTestResults(testName);
+      process.exit(result.consistent ? 0 : 1);
+    } else {
+      console.error(`Error: Unknown command ${command}`);
+      process.exit(1);
     }
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+    console.error(error.stack);
+    process.exit(1);
   }
-  
-  console.log('\n✅ Testing complete');
 }
 
-// Run main
-main().catch(err => {
-  console.error('Error:', err);
-  process.exit(1);
-});
+// Run if this is the main script
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main();
+}

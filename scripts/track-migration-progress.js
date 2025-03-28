@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 
 /**
  * Test Migration Progress Tracker
@@ -8,174 +9,192 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { glob } from 'glob';
-import minimist from 'minimist';
+import { fileURLToPath } from 'url';
+import { migrateTestFile } from './migrate-test-file.js';
 
-const args = minimist(process.argv.slice(2), {
-  boolean: ['update', 'verbose'],
-  alias: {
-    u: 'update',
-    v: 'verbose',
-    h: 'help'
-  }
-});
-
-if (args.help) {
-  console.log(`
-Test Migration Progress Tracker
-
-Options:
-  --update, -u    Update the MIGRATION_PROGRESS.md file with current status
-  --verbose, -v   Show detailed output
-  --help, -h      Show this help message
-  
-Examples:
-  node scripts/track-migration-progress.js          # Show migration progress without updating the file
-  node scripts/track-migration-progress.js -u       # Update the MIGRATION_PROGRESS.md file
-  node scripts/track-migration-progress.js -u -v    # Update with verbose output
-  `);
-  process.exit(0);
-}
-
-// List of services with known ESM compatibility issues
-const knownEsmIssues = [
-  'researchService',
-  'promptManager',
-  'anthropicService',
-  'perplexityService',
-];
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = path.resolve(__dirname, '..');
+const TEST_DIR = path.resolve(ROOT_DIR, 'tests');
+const MIGRATION_PROGRESS_FILE = path.resolve(ROOT_DIR, 'TEST_MIGRATION_PROGRESS.md');
 
 async function scanTestFiles() {
-  // Get all Jest test files
-  const jestFiles = await glob('tests/**/*.test.js');
-  
-  // Get all Vitest test files
-  const vitestFiles = await glob('tests/**/*.vitest.js');
-  
-  // Extract service/module names from file paths
-  const getModuleName = (filePath) => {
-    const basename = path.basename(filePath, path.extname(filePath))
-      .replace('.test', '')
-      .replace('.vitest', '');
-    return basename;
+  const results = {
+    migrated: [],
+    pending: [],
+    directories: {}
   };
   
-  // Create maps of test files by module name
-  const jestModules = jestFiles.map(getModuleName);
-  const vitestModules = vitestFiles.map(getModuleName);
-  
-  // Determine migrated and pending modules
-  const migratedModules = vitestModules.filter(module => jestModules.includes(module));
-  const pendingModules = jestModules.filter(module => !vitestModules.includes(module));
-  
-  // Map file paths to module names for more detailed reporting
-  const migratedFiles = vitestFiles.map(file => ({
-    module: getModuleName(file),
-    jestPath: file.replace('.vitest.js', '.test.js'),
-    vitestPath: file,
-    hasEsmIssues: knownEsmIssues.includes(getModuleName(file))
-  }));
-  
-  const pendingFiles = jestFiles
-    .filter(file => !vitestFiles.some(vf => getModuleName(vf) === getModuleName(file)))
-    .map(file => ({
-      module: getModuleName(file),
-      jestPath: file,
-      hasEsmIssues: knownEsmIssues.includes(getModuleName(file))
-    }));
-  
-  return {
-    migratedFiles,
-    pendingFiles,
-    stats: {
-      total: jestModules.length,
-      migrated: migratedModules.length,
-      pending: pendingModules.length,
-      percentComplete: Math.round((migratedModules.length / jestModules.length) * 100)
+  async function scanDir(dir) {
+    const entries = await fs.readdir(dir, { withFileTypes: true });
+    
+    // Initialize directory stats
+    const dirName = path.relative(TEST_DIR, dir);
+    const dirPath = dirName || 'root';
+    results.directories[dirPath] = { 
+      migrated: 0, 
+      pending: 0, 
+      total: 0 
+    };
+    
+    for (const entry of entries) {
+      const fullPath = path.join(dir, entry.name);
+      const relativePath = path.relative(ROOT_DIR, fullPath);
+      
+      if (entry.isDirectory()) {
+        // Recursively scan subdirectories
+        await scanDir(fullPath);
+      } else if (entry.name.endsWith('.test.js')) {
+        // Jest test found
+        const vitestPath = fullPath.replace(/\.test\.js$/, '.vitest.js');
+        
+        try {
+          await fs.access(vitestPath);
+          // Vitest version exists, test is migrated
+          results.migrated.push(relativePath);
+          results.directories[dirPath].migrated++;
+          results.directories[dirPath].total++;
+        } catch (err) {
+          // Vitest version doesn't exist, test is pending migration
+          results.pending.push(relativePath);
+          results.directories[dirPath].pending++;
+          results.directories[dirPath].total++;
+        }
+      } else if (entry.name.endsWith('.vitest.js')) {
+        // Count vitest-only files (no Jest equivalent)
+        const jestPath = fullPath.replace(/\.vitest\.js$/, '.test.js');
+        
+        try {
+          await fs.access(jestPath);
+          // Don't count, this is a migrated test already counted above
+        } catch (err) {
+          // Jest version doesn't exist, this is a Vitest-only test
+          results.migrated.push(relativePath);
+          results.directories[dirPath].migrated++;
+          results.directories[dirPath].total++;
+        }
+      }
     }
+  }
+  
+  await scanDir(TEST_DIR);
+  
+  // Calculate migration progress stats
+  const totalTests = results.migrated.length + results.pending.length;
+  const migrationProgress = totalTests > 0 
+    ? Math.round((results.migrated.length / totalTests) * 100) 
+    : 0;
+  
+  results.stats = {
+    totalTests,
+    migratedTests: results.migrated.length,
+    pendingTests: results.pending.length,
+    migrationProgress
   };
+  
+  return results;
 }
 
 async function generateProgressMarkdown(results) {
-  const { migratedFiles, pendingFiles, stats } = results;
+  const { stats, migrated, pending, directories } = results;
+  const timestamp = new Date().toISOString();
   
-  // Sort files by path
-  migratedFiles.sort((a, b) => a.vitestPath.localeCompare(b.vitestPath));
-  pendingFiles.sort((a, b) => a.jestPath.localeCompare(b.jestPath));
+  let markdown = `# Test Migration Progress\n\n`;
+  markdown += `Last updated: ${timestamp}\n\n`;
   
-  let markdown = `
-# Vitest Migration Progress
-
-## Summary
-- Total tests: ${stats.total}
-- Migrated: ${stats.migrated} (${stats.percentComplete}%)
-- Pending: ${stats.pending}
-
-## Migrated Test Files
-${migratedFiles.map(file => `- ✅ ${file.vitestPath}${file.hasEsmIssues ? ' (has ESM compatibility issues)' : ''}`).join('\n')}
-
-## Pending Migration
-${pendingFiles.map(file => `- ⬜ ${file.jestPath}${file.hasEsmIssues ? ' (has ESM compatibility issues)' : ''}`).join('\n')}
-
-## Known Issues
-- ES Module compatibility issues with Jest - expected and handled
-- Manual tests for service classes may have different behavior from unit tests due to mocking differences
-
-## Next Steps
-1. Continue migrating unit tests
-2. Use validation script to confirm test consistency between frameworks
-3. Update CI workflows
-4. Create reusable test fixtures
-5. Convert manual tests to proper test suites where appropriate
-
-## ESM Compatibility Note
-For tests with ES Module compatibility issues in Jest:
-1. We prioritize Vitest test results over Jest
-2. We consider manual tests and Vitest to be the source of truth
-3. We accept Jest failures when they're known to be related to ESM compatibility
-`;
-
+  // Overall progress
+  markdown += `## Overall Progress\n\n`;
+  markdown += `- **Total Tests**: ${stats.totalTests}\n`;
+  markdown += `- **Migrated Tests**: ${stats.migratedTests}\n`;
+  markdown += `- **Pending Tests**: ${stats.pendingTests}\n`;
+  markdown += `- **Migration Progress**: ${stats.migrationProgress}%\n\n`;
+  
+  markdown += `\`\`\`\n`;
+  markdown += `[${'='.repeat(Math.floor(stats.migrationProgress / 5))}${' '.repeat(20 - Math.floor(stats.migrationProgress / 5))}] ${stats.migrationProgress}%\n`;
+  markdown += `\`\`\`\n\n`;
+  
+  // Directory breakdown
+  markdown += `## Directory Breakdown\n\n`;
+  markdown += `| Directory | Migrated | Pending | Total | Progress |\n`;
+  markdown += `|-----------|----------|---------|-------|----------|\n`;
+  
+  for (const [dirName, dirStats] of Object.entries(directories).sort()) {
+    const dirProgress = dirStats.total > 0 
+      ? Math.round((dirStats.migrated / dirStats.total) * 100) 
+      : 0;
+    
+    markdown += `| ${dirName} | ${dirStats.migrated} | ${dirStats.pending} | ${dirStats.total} | ${dirProgress}% |\n`;
+  }
+  
+  markdown += `\n`;
+  
+  // Details of migrated tests
+  markdown += `## Migrated Tests\n\n`;
+  for (const file of migrated.sort()) {
+    markdown += `- ✅ ${file}\n`;
+  }
+  
+  markdown += `\n`;
+  
+  // Details of pending tests
+  markdown += `## Pending Tests\n\n`;
+  for (const file of pending.sort()) {
+    markdown += `- ⏳ ${file}\n`;
+  }
+  
   return markdown;
 }
 
 async function updateProgressFile(markdown) {
-  const progressFilePath = path.join(process.cwd(), 'tests', 'MIGRATION_PROGRESS.md');
-  await fs.writeFile(progressFilePath, markdown, 'utf-8');
-  return progressFilePath;
+  await fs.writeFile(MIGRATION_PROGRESS_FILE, markdown, 'utf8');
+  console.log(`Progress file updated: ${MIGRATION_PROGRESS_FILE}`);
+}
+
+async function migrateAllTests(autoMigrate = false) {
+  const results = await scanTestFiles();
+  
+  if (autoMigrate && results.pending.length > 0) {
+    console.log(`Found ${results.pending.length} tests to migrate. Migrating...`);
+    
+    for (const file of results.pending) {
+      console.log(`Migrating ${file}...`);
+      await migrateTestFile(file);
+    }
+    
+    console.log('Migration complete. Rescanning...');
+    return scanTestFiles();
+  }
+  
+  return results;
 }
 
 async function main() {
-  console.log('🔍 Scanning test files...');
-  const results = await scanTestFiles();
-  
-  // Generate the progress markdown
-  const markdown = await generateProgressMarkdown(results);
-  
-  // Print summary
-  console.log(`\n📊 Migration Progress: ${results.stats.migrated}/${results.stats.total} (${results.stats.percentComplete}%)`);
-  
-  if (args.verbose) {
-    console.log('\n✅ Migrated:');
-    results.migratedFiles.forEach(file => {
-      console.log(`  - ${file.module}${file.hasEsmIssues ? ' (ESM issues)' : ''}`);
-    });
+  try {
+    const args = process.argv.slice(2);
+    const autoMigrate = args.includes('--auto-migrate');
     
-    console.log('\n⬜ Pending:');
-    results.pendingFiles.forEach(file => {
-      console.log(`  - ${file.module}${file.hasEsmIssues ? ' (ESM issues)' : ''}`);
-    });
-  }
-  
-  // Update the progress file if requested
-  if (args.update) {
-    const filePath = await updateProgressFile(markdown);
-    console.log(`\n✅ Updated migration progress file: ${filePath}`);
-  } else {
-    console.log('\nRun with --update or -u to update the MIGRATION_PROGRESS.md file');
+    console.log('Test Migration Progress Tracker');
+    console.log('==============================');
+    
+    console.log('Scanning test files...');
+    const results = await migrateAllTests(autoMigrate);
+    
+    console.log('Generating progress report...');
+    const markdown = await generateProgressMarkdown(results);
+    
+    console.log('Saving progress report...');
+    await updateProgressFile(markdown);
+    
+    console.log(`Migration progress: ${results.stats.migrationProgress}%`);
+  } catch (error) {
+    console.error('Error:', error.message);
+    console.error(error.stack);
+    process.exit(1);
   }
 }
 
-main().catch(err => {
-  console.error('Error:', err);
-  process.exit(1);
-});
+// Run if this is the main script
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  main();
+}
+
+export { scanTestFiles, generateProgressMarkdown, updateProgressFile };
