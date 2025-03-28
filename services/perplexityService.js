@@ -20,6 +20,12 @@ class PerplexityService {
       basic: 'medium',     // Medium search context for basic queries with sonar
       deepResearch: 'high' // High search context for deep research with sonar-deep-research
     };
+    // Legacy model mapping for backward compatibility with old code
+    this.legacyModelMapping = {
+      'llama-3.1-sonar-small-128k-online': 'sonar',
+      'llama-3.1-sonar-large-128k-online': 'sonar-pro',
+      'llama-3.1-sonar-huge-128k-online': 'sonar-deep-research'
+    };
     // Maintain backward compatibility
     this.fallbackModels = ['sonar-pro', 'sonar'];
     this.fallbackConfig = {

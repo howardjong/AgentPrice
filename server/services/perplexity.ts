@@ -1,7 +1,12 @@
 import axios from 'axios';
 import { ServiceStatus } from '@shared/schema';
 
-const DEFAULT_MODEL = 'sonar';
+const MODELS = {
+  basic: 'sonar',
+  deepResearch: 'sonar-deep-research'
+};
+
+const DEFAULT_MODEL = MODELS.basic;
 const API_KEY = process.env.PERPLEXITY_API_KEY || '';
 const API_URL = 'https://api.perplexity.ai/chat/completions';
 
@@ -9,10 +14,20 @@ export class PerplexityService {
   private apiKey: string;
   private isConnected: boolean = false;
   private model: string;
+  private models: { basic: string, deepResearch: string };
+  private legacyModelMapping: { [key: string]: string };
 
   constructor(apiKey = API_KEY, model = DEFAULT_MODEL) {
     this.apiKey = apiKey;
     this.model = model;
+    this.models = MODELS;
+    
+    // Legacy model mapping for backward compatibility with old code
+    this.legacyModelMapping = {
+      'llama-3.1-sonar-small-128k-online': 'sonar',
+      'llama-3.1-sonar-large-128k-online': 'sonar-pro',
+      'llama-3.1-sonar-huge-128k-online': 'sonar-deep-research'
+    };
 
     if (!apiKey) {
       console.error('PERPLEXITY_API_KEY is not set. Perplexity service will not work properly.');
@@ -147,6 +162,111 @@ export class PerplexityService {
             : 'Unknown error';
             
       throw new Error(`Failed to perform research with Perplexity: ${errorMessage}`);
+    }
+  }
+
+  /**
+   * Perform deep research using Perplexity's specialized deep research model
+   */
+  async performDeepResearch(query: string, options: {
+    context?: string;
+    maxCitations?: number;
+  } = {}): Promise<{
+    response: string;
+    citations: string[];
+    modelUsed?: string;
+  }> {
+    if (!this.isConnected) {
+      throw new Error('Perplexity service is not connected. Please check API key.');
+    }
+
+    const { context = '', maxCitations = 15 } = options;
+
+    try {
+      // Create a message array with just the user query
+      const messages = [
+        {
+          role: 'system',
+          content: 'You are a research assistant with deep internet search capabilities. Your task is to conduct comprehensive research on the topic provided and synthesize a detailed report with multiple relevant sources. ALWAYS search the web extensively before responding. Include ALL relevant citations.'
+        },
+        {
+          role: 'user',
+          content: context 
+            ? `${context}\n\nWith that context in mind, please research: ${query}`
+            : `Please conduct deep, comprehensive research on the following topic: ${query}\n\nI need detailed information with recent sources. This research should be thorough and include comprehensive citations.`
+        }
+      ];
+
+      // Create request with deep research model and high search context
+      const requestPayload = {
+        model: this.models.deepResearch,
+        messages,
+        max_tokens: 4000, // Increase max tokens for comprehensive research
+        temperature: 0.1, // Lower temperature for more factual responses
+        top_p: 0.95,
+        return_images: false,
+        return_related_questions: false,
+        search_recency_filter: "day", // Most recent results only
+        stream: false,
+        frequency_penalty: 0.5,
+        search_domain_filter: [], // Empty array allows searching all domains
+        top_k: maxCitations, // Match requested citation count
+        search_context_mode: "high" // High search context mode specifically for deep research
+      };
+      
+      console.log('Perplexity deep research request:', {
+        model: requestPayload.model,
+        query: query.substring(0, 100) + (query.length > 100 ? '...' : ''),
+        maxCitations
+      });
+
+      const response = await axios.post(
+        API_URL,
+        requestPayload,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 180000 // 3 minutes timeout for comprehensive research
+        }
+      );
+
+      // Log response information
+      console.log('Perplexity deep research response received:', {
+        citationsCount: (response.data.citations || []).length,
+        contentLength: response.data.choices[0].message.content.length,
+        promptTokens: response.data.usage?.prompt_tokens,
+        completionTokens: response.data.usage?.completion_tokens
+      });
+
+      const citations = response.data.citations || [];
+      
+      // Add model information to the beginning of the response
+      const originalResponse = response.data.choices[0].message.content;
+      const responseModel = response.data.model || this.models.deepResearch;
+      const modelInfo = `[Using Perplexity AI - Deep Research Model: ${responseModel}]\n\n`;
+      const enhancedResponse = modelInfo + originalResponse;
+      
+      return {
+        response: enhancedResponse,
+        citations,
+        modelUsed: response.data.model || this.models.deepResearch
+      };
+    } catch (error: any) {
+      console.error('Error performing deep research with Perplexity:', error);
+      
+      // Extract error message
+      const errorMessage = 
+        (error && typeof error === 'object' && error.response && typeof error.response === 'object' && 
+         error.response.data && typeof error.response.data === 'object' && 
+         typeof error.response.data.message === 'string') 
+          ? error.response.data.message 
+          : (error && typeof error === 'object' && typeof error.message === 'string')
+            ? error.message
+            : 'Unknown error';
+            
+      throw new Error(`Failed to perform deep research with Perplexity: ${errorMessage}`);
     }
   }
 
