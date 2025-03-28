@@ -37,11 +37,17 @@ const filesToReplace = [
     source: './tests/manual/fixed-check-optimization-settings.js',
     destination: './tests/manual/check-optimization-settings.js',
     backup: './tests/manual/check-optimization-settings.js.bak'
+  },
+  {
+    source: './services/fixed-anthropicService.js',
+    destination: './services/anthropicService.js',
+    backup: './services/anthropicService.js.bak'
+  },
+  {
+    source: './services/fixed-perplexityService.js',
+    destination: './services/perplexityService.js',
+    backup: './services/perplexityService.js.bak'
   }
-  // Removed references to outdated LLM service files that have been standardized
-  // and are no longer needed:
-  // - ./services/fixed-anthropicService.js 
-  // - ./services/fixed-perplexityService.js
 ];
 
 // Make sure a directory exists
