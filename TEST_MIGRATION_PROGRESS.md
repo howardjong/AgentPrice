@@ -9,7 +9,7 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 | anthropicService  | N/A       | ✅ anthropicService.vitest.js | Complete | March 28, 2025 |
 | perplexityService | ✅ Removed | ✅ perplexityService.vitest.js | Complete | March 28, 2025 |
 | logger            | ✅ Removed | ✅ logger.vitest.js | Complete | March 28, 2025 |
-| apiClient         | ✅ Backup  | ✅ apiClient.vitest.js (basic) | Partial  | March 28, 2025 |
+| apiClient         | ✅ Backup  | ✅ apiClient.vitest.js | Complete | March 28, 2025 |
 | circuitBreaker    | ✅ Backup  | ✅ circuitBreaker.vitest.js | Complete | March 28, 2025 |
 | costTracker       | ✅ Migrated | ✅ costTracker.vitest.js | Complete | March 28, 2025 |
 | tokenOptimizer    | ✅ Migrated | ✅ tokenOptimizer.vitest.js | Complete | March 28, 2025 |
@@ -40,22 +40,21 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 - Successfully migrated logger tests
 - Created backups of original Jest test files
 - Confirmed Vitest tests pass with all test cases covered
-- Migrated basic apiClient tests (advanced tests pending due to async timeout issues)
 - Migrated circuitBreaker tests for both implementations
 - Completed migration of costTracker tests (16 tests passing)
 - Completed migration of tokenOptimizer tests (18 tests passing)
 - Completed migration of tieredResponseStrategy tests (13 tests passing)
-- Phase 2 of migration completed except for advanced apiClient tests
+- Completed migration of apiClient tests, including advanced HTTP retry tests with axios-mock-adapter
+- Successfully completed Phase 2 of the migration plan
 
 ## Known Issues
 
-- Advanced apiClient tests with mock adapters are experiencing timeouts in Vitest. 
-  The initial set of basic tests works correctly, but additional work needed for advanced tests.
-- Need to investigate alternative approaches for mocking axios in Vitest.
+- Some tests may show unhandled promise rejections related to Vite's development server connection.
+  These are benign and don't affect test results, but could be addressed in future refinements.
 
 ## Next Steps
 
-1. Finish the advanced apiClient tests migration
-2. Begin Phase 3 migration with serviceRouter and contextManager
-3. Update scripts to handle additional test types
-4. Continue progressive migration of remaining tests
+1. Begin Phase 3 migration with serviceRouter and contextManager
+2. Update scripts to handle additional test types
+3. Continue progressive migration of remaining tests
+4. Implement websocket tests with the migration approach established for HTTP requests

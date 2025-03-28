@@ -21,14 +21,14 @@ This document outlines the comprehensive plan for migrating our test suite from 
 - ✅ Implement memory optimizations
 - ✅ Create migration scripts and tools
 
-### Phase 2: Core Services (Almost Complete)
+### Phase 2: Core Services (COMPLETE)
 
 - ✅ Migrate critical external API services
   - ✅ anthropicService
   - ✅ perplexityService
 - ✅ Migrate utility functions
   - ✅ circuitBreaker
-  - ⏳ apiClient (basic tests complete, advanced tests pending)
+  - ✅ apiClient (including advanced HTTP retry tests)
   - ✅ costTracker
   - ✅ tokenOptimizer
   - ✅ tieredResponseStrategy
@@ -137,6 +137,39 @@ vi.mock('./myModule', () => ({
 test('async test', async () => {
   // Test code
 }, 10000); // 10 second timeout
+```
+
+### Real vs Mock Timers
+
+**Issue**: Jest's automatic timers can cause issues with axios-mock-adapter in Vitest.
+
+**Solution**: Explicitly use real timers for HTTP tests and reset them properly:
+
+```javascript
+// In tests with real network calls or mock adapters:
+beforeEach(() => {
+  vi.useRealTimers(); // Use real timers instead of mocks
+});
+
+afterEach(() => {
+  vi.clearAllTimers();
+  vi.clearAllMocks();
+});
+```
+
+### Test Helpers
+
+**Issue**: Jest-specific test helper files may contain incompatible code.
+
+**Solution**: Instead of maintaining separate helper files that need migration, implement simple helpers directly in the test file:
+
+```javascript
+// Simple helper function defined in the test file
+const traceTest = (testName) => {
+  console.log(`Running test: ${testName}`);
+  const memUsage = process.memoryUsage();
+  console.log(`Memory usage: ${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`);
+};
 ```
 
 ## Testing Best Practices
