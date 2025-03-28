@@ -1379,8 +1379,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     console.log(`WebSocket client connected: ${clientId}`);
     
-    // Send initial system status
-    sendSystemStatus(ws);
+    // Send initial system status - only if connection is open
+    if (ws.readyState === WebSocket.OPEN) {
+      try {
+        sendSystemStatus(ws);
+      } catch (error) {
+        console.error(`Error sending initial status to ${clientId}:`, error);
+      }
+    }
     
     // Handle messages from clients
     ws.on('message', (messageData) => {
@@ -1393,26 +1399,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Handle different message types
         if (message.type === 'subscribe') {
           metadata.subscriptions = message.channels || [];
-          ws.send(JSON.stringify({ 
-            type: 'subscription_update', 
-            status: 'success',
-            channels: metadata.subscriptions
-          }));
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ 
+              type: 'subscription_update', 
+              status: 'success',
+              channels: metadata.subscriptions
+            }));
+          }
         } else if (message.type === 'ping') {
-          ws.send(JSON.stringify({ type: 'pong', time: Date.now() }));
+          // Respond with pong message to keep connection alive
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ 
+              type: 'pong', 
+              time: Date.now(),
+              status: 'ok'
+            }));
+          }
+        } else if (message.type === 'request_status') {
+          // Allow clients to explicitly request a status update
+          if (ws.readyState === WebSocket.OPEN) {
+            sendSystemStatus(ws);
+          }
         }
       } catch (error) {
         console.error('Error processing WebSocket message:', error);
-        ws.send(JSON.stringify({ 
-          type: 'error', 
-          message: 'Invalid message format'
-        }));
+        if (ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(JSON.stringify({ 
+              type: 'error', 
+              message: 'Invalid message format'
+            }));
+          } catch (err) {
+            console.error('Failed to send error message:', err);
+          }
+        }
       }
     });
     
     // Handle disconnection
     ws.on('close', () => {
       console.log(`WebSocket client disconnected: ${metadata.id}`);
+      clients.delete(ws);
+    });
+    
+    // Handle errors
+    ws.on('error', (error) => {
+      console.error(`WebSocket error for client ${metadata.id}:`, error);
       clients.delete(ws);
     });
   });

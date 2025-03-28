@@ -51,80 +51,121 @@ export default function SystemStatusMonitor() {
   const [researchJobs, setResearchJobs] = useState<Record<string, ResearchProgress>>({});
   const [optimizationStatus, setOptimizationStatus] = useState<any>(null);
   const [lastUpdated, setLastUpdated] = useState<string>('Never');
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
   
   const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<number | null>(null);
   
   // Connect to WebSocket on component mount
   useEffect(() => {
+    // WebSocket connection function with exponential backoff
     const connectWebSocket = () => {
+      // Clear any existing reconnect timeout
+      if (reconnectTimeoutRef.current !== null) {
+        window.clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      
       // Close any existing connection
-      if (wsRef.current) {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
         wsRef.current.close();
+        wsRef.current = null;
       }
       
       // Determine the correct WebSocket URL based on the current protocol and host
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/ws`;
       
-      // Create new WebSocket connection
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-      
-      // WebSocket event handlers
-      ws.addEventListener('open', () => {
-        console.log('WebSocket connected');
-        setConnected(true);
+      try {
+        // Create new WebSocket connection
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
         
-        // Subscribe to all message types
-        ws.send(JSON.stringify({
-          type: 'subscribe',
-          channels: ['all']
-        }));
-      });
-      
-      ws.addEventListener('message', (event) => {
-        try {
-          const message = JSON.parse(event.data) as WebSocketMessage;
+        // WebSocket event handlers
+        ws.addEventListener('open', () => {
+          console.log('WebSocket connected');
+          setConnected(true);
+          setReconnectAttempts(0); // Reset reconnect attempts on successful connection
           
-          // Update last updated timestamp
-          setLastUpdated(new Date().toLocaleTimeString());
-          
-          // Handle different message types
-          switch (message.type) {
-            case 'system_status':
-              setSystemStatus(message as SystemStatus);
-              break;
-              
-            case 'research_progress':
-              const progressMsg = message as ResearchProgress;
-              setResearchJobs(prev => ({
-                ...prev,
-                [progressMsg.jobId]: progressMsg
-              }));
-              break;
-              
-            case 'optimization_status':
-              const optimizationMsg = message as OptimizationStatus;
-              setOptimizationStatus(optimizationMsg.status);
-              break;
+          // Subscribe to all message types
+          ws.send(JSON.stringify({
+            type: 'subscribe',
+            channels: ['all']
+          }));
+        });
+        
+        ws.addEventListener('message', (event) => {
+          try {
+            const message = JSON.parse(event.data) as WebSocketMessage;
+            
+            // Update last updated timestamp
+            setLastUpdated(new Date().toLocaleTimeString());
+            
+            // Handle different message types
+            switch (message.type) {
+              case 'system_status':
+                setSystemStatus(message as SystemStatus);
+                break;
+                
+              case 'research_progress':
+                const progressMsg = message as ResearchProgress;
+                setResearchJobs(prev => ({
+                  ...prev,
+                  [progressMsg.jobId]: progressMsg
+                }));
+                break;
+                
+              case 'optimization_status':
+                const optimizationMsg = message as OptimizationStatus;
+                setOptimizationStatus(optimizationMsg.status);
+                break;
+            }
+          } catch (error) {
+            console.error('Error parsing WebSocket message:', error);
           }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      });
-      
-      ws.addEventListener('close', () => {
-        console.log('WebSocket disconnected');
-        setConnected(false);
+        });
         
-        // Attempt reconnection after 5 seconds
-        setTimeout(connectWebSocket, 5000);
-      });
-      
-      ws.addEventListener('error', (error) => {
-        console.error('WebSocket error:', error);
-        ws.close();
-      });
+        ws.addEventListener('close', (event) => {
+          // Don't attempt to reconnect if this was a clean close initiated by the client
+          if (event.wasClean) {
+            console.log('WebSocket closed cleanly');
+            setConnected(false);
+            return;
+          }
+          
+          console.log('WebSocket disconnected, will reconnect');
+          setConnected(false);
+          
+          // Calculate reconnect delay with exponential backoff, max 30 seconds
+          const nextReconnectAttempts = reconnectAttempts + 1;
+          setReconnectAttempts(nextReconnectAttempts);
+          
+          const reconnectDelay = Math.min(
+            30000, // Maximum 30 seconds
+            1000 * Math.pow(1.5, Math.min(nextReconnectAttempts, 10)) // Exponential backoff
+          );
+          
+          console.log(`Reconnecting in ${reconnectDelay}ms (attempt ${nextReconnectAttempts})`);
+          
+          // Schedule reconnection
+          reconnectTimeoutRef.current = window.setTimeout(() => {
+            reconnectTimeoutRef.current = null;
+            connectWebSocket();
+          }, reconnectDelay);
+        });
+        
+        ws.addEventListener('error', (error) => {
+          console.error('WebSocket error:', error);
+          // Let the 'close' handler handle reconnection
+        });
+      } catch (error) {
+        console.error('Error creating WebSocket:', error);
+        // Schedule reconnection after an error
+        reconnectTimeoutRef.current = window.setTimeout(() => {
+          reconnectTimeoutRef.current = null;
+          connectWebSocket();
+        }, 5000);
+      }
     };
     
     // Initial connection
@@ -132,19 +173,29 @@ export default function SystemStatusMonitor() {
     
     // Cleanup on component unmount
     return () => {
+      // Clear any reconnection timeouts
+      if (reconnectTimeoutRef.current !== null) {
+        window.clearTimeout(reconnectTimeoutRef.current);
+      }
+      
+      // Close the WebSocket if it exists
       if (wsRef.current) {
         wsRef.current.close();
       }
     };
-  }, []);
+  }, [reconnectAttempts]);
   
-  // Send ping every 30 seconds to keep connection alive
+  // Send ping every 50 seconds to keep connection alive (server timeout is 60 seconds)
   useEffect(() => {
     const pingInterval = setInterval(() => {
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'ping' }));
+        try {
+          wsRef.current.send(JSON.stringify({ type: 'ping' }));
+        } catch (error) {
+          console.error('Error sending ping:', error);
+        }
       }
-    }, 30000);
+    }, 50000); // Slightly less than the 60-second broadcast interval
     
     return () => clearInterval(pingInterval);
   }, []);
