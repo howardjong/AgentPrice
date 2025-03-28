@@ -2557,3 +2557,76 @@ args = "echo \"=======================================\""
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node scripts/track-migration-progress.js -u"
+
+[[workflows.workflow]]
+name = "Memory Pressure Relief"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the system memory optimization script with garbage collection enabled"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"     MEMORY PRESSURE RELIEF UTILITY    \""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node --expose-gc scripts/optimize-system-memory.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Display memory usage before and after"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"          MEMORY USAGE CHECK           \""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node -e \"console.table(process.memoryUsage())\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run a system health check to verify everything is running properly"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"       SYSTEM HEALTH VERIFICATION      \""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/system-health-check.js"
