@@ -2472,3 +2472,88 @@ args = "echo \"=======================================\""
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/system-health-check.js"
+
+[[workflows.workflow]]
+name = "Migrate Next Test"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First run the migration progress tracker to see what needs migration"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/track-migration-progress.js -v"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Migrate a utility test file (should be easier than service tests)"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"      MIGRATING UTILITY TEST\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/migrate-test-file.js --file tests/unit/utils/rateLimiter.test.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Validate the migrated test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"      VALIDATING MIGRATED TEST\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/validate-test-results.js -t rateLimiter"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Update the migration progress file"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"      UPDATING MIGRATION PROGRESS\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/track-migration-progress.js -u"

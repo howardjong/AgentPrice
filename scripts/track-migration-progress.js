@@ -1,5 +1,4 @@
 
-#!/usr/bin/env node
 /**
  * Test Migration Progress Tracker
  * 
