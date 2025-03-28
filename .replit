@@ -1966,3 +1966,24 @@ args = "# Run redundancy analyzer"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node scripts/identify-redundancy.js"
+
+[[workflows.workflow]]
+name = "Run Vitest Tests"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Install dependencies if needed first"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm install vitest @vitest/ui @vitest/coverage-v8 execa minimist --save-dev"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the unit tests with Vitest"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/run-tests.js -m unit"
