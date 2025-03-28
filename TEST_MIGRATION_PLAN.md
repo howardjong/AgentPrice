@@ -21,17 +21,17 @@ This document outlines the comprehensive plan for migrating our test suite from 
 - ✅ Implement memory optimizations
 - ✅ Create migration scripts and tools
 
-### Phase 2: Core Services (In Progress)
+### Phase 2: Core Services (Almost Complete)
 
 - ✅ Migrate critical external API services
   - ✅ anthropicService
   - ✅ perplexityService
-- ⏳ Migrate utility functions
-  - ⏳ circuitBreaker
-  - ⏳ apiClient
-  - ⏳ costTracker
-  - ⏳ tokenOptimizer
-  - ⏳ tieredResponseStrategy
+- ✅ Migrate utility functions
+  - ✅ circuitBreaker
+  - ⏳ apiClient (basic tests complete, advanced tests pending)
+  - ✅ costTracker
+  - ✅ tokenOptimizer
+  - ✅ tieredResponseStrategy
 
 ### Phase 3: Integration Components
 

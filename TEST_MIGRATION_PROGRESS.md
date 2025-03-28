@@ -11,6 +11,9 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 | logger            | ✅ Removed | ✅ logger.vitest.js | Complete | March 28, 2025 |
 | apiClient         | ✅ Backup  | ✅ apiClient.vitest.js (basic) | Partial  | March 28, 2025 |
 | circuitBreaker    | ✅ Backup  | ✅ circuitBreaker.vitest.js | Complete | March 28, 2025 |
+| costTracker       | ✅ Migrated | ✅ costTracker.vitest.js | Complete | March 28, 2025 |
+| tokenOptimizer    | ✅ Migrated | ✅ tokenOptimizer.vitest.js | Complete | March 28, 2025 |
+| tieredResponseStrategy | ✅ Migrated | ✅ tieredResponseStrategy.vitest.js | Complete | March 28, 2025 |
 
 ## Migration Plan
 
@@ -18,9 +21,9 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
    - Prioritize core services that interact with external APIs
    - Focus on anthropicService and perplexityService
 
-2. **Phase 2: Utility Functions** 🔄
+2. **Phase 2: Utility Functions** ✅
    - Migrate utility function tests
-   - Focus on circuitBreaker, apiClient, costTracker, etc.
+   - Focus on circuitBreaker, apiClient, costTracker, tokenOptimizer, tieredResponseStrategy
 
 3. **Phase 3: Integration Points** ⏳
    - Migrate services that tie multiple components together
@@ -39,6 +42,10 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 - Confirmed Vitest tests pass with all test cases covered
 - Migrated basic apiClient tests (advanced tests pending due to async timeout issues)
 - Migrated circuitBreaker tests for both implementations
+- Completed migration of costTracker tests (16 tests passing)
+- Completed migration of tokenOptimizer tests (18 tests passing)
+- Completed migration of tieredResponseStrategy tests (13 tests passing)
+- Phase 2 of migration completed except for advanced apiClient tests
 
 ## Known Issues
 
@@ -48,6 +55,7 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 
 ## Next Steps
 
-1. Continue with costTracker and tokenOptimizer tests
-2. Update scripts to handle additional test types
-3. Continue progressive migration of remaining tests
+1. Finish the advanced apiClient tests migration
+2. Begin Phase 3 migration with serviceRouter and contextManager
+3. Update scripts to handle additional test types
+4. Continue progressive migration of remaining tests
