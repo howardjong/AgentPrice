@@ -2358,3 +2358,68 @@ args = 'echo -e "\nMemory usage after optimization:"'
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node -e \"console.table(process.memoryUsage())\""
+
+[[workflows.workflow]]
+name = "Efficient Test Migration"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Install dependencies if needed"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"Installing required dependencies...\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm install execa minimist --save-dev"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run a single test with resource optimization"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"      EFFICIENT TEST MIGRATION\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/selective-test-runner.js -t circuitBreaker -c -v"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Track migration progress (no file update)"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n======================================="'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"      MIGRATION PROGRESS\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/track-migration-progress.js"
