@@ -22,8 +22,8 @@ async function testPerplexityModels() {
     
     // Define test parameters
     const models = [
-      'sonar',
-      'sonar-deep-research'
+      'llama-3.1-sonar-small-128k-online',
+      'llama-3.1-sonar-large-128k-online'
     ];
     
     const testPrompt = 'What are the latest developments in AI research in early 2025? Return your answer with proper citations.';
