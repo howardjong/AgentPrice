@@ -1,7 +1,7 @@
 
 // Comprehensive verification script to test the timeout fix and tiered response strategy
 import logger from '../utils/logger.js';
-import { createClient } from '../services/redisService.js';
+import redisClient from '../services/redisService.js';
 import { getTieredResponse } from '../utils/tieredResponseStrategy.js';
 
 logger.info('Starting verification of fixes...');
@@ -9,14 +9,18 @@ logger.info('Starting verification of fixes...');
 // Test Redis timeout fix
 async function testRedisTimeout() {
   logger.info('Testing Redis timeout fix...');
-  const redisClient = createClient();
+  // Already have redisClient instance imported
   
   try {
     const testKey = 'test-timeout-fix';
     const testValue = 'working properly';
     
+    // Connect to Redis
+    await redisClient.connect();
+    logger.info('✅ Redis connection successful');
+    
     // Set a test value
-    await redisClient.set(testKey, testValue, 'EX', 60);
+    await redisClient.set(testKey, testValue, 60);
     logger.info('✅ Redis SET operation successful');
     
     // Get the value back
@@ -27,19 +31,20 @@ async function testRedisTimeout() {
       logger.error(`❌ Redis GET returned wrong value: ${result}`);
     }
     
-    // Clean up
-    await redisClient.del(testKey);
+    // Clean up - need to get the client directly for delete
+    const client = await redisClient.getClient();
+    await client.del(testKey);
     logger.info('✅ Redis DEL operation successful');
     
     // Quit the client properly
-    await redisClient.quit();
+    await redisClient.stop();
     logger.info('✅ Redis connection closed properly');
     
     return true;
   } catch (error) {
     logger.error('❌ Redis timeout test failed:', error);
     try {
-      await redisClient.quit();
+      await redisClient.stop();
     } catch (e) {
       logger.error('Failed to close Redis connection:', e);
     }

@@ -256,4 +256,28 @@ tieredResponseStrategy.getRequestOptions = function(requestParams) {
   };
 };
 
+// Function to get a tiered response based on the query and options
+export async function getTieredResponse(query, options = {}) {
+  const context = {
+    query,
+    ...options
+  };
+  
+  // Determine which tier to use based on options
+  let tier = 'standard';
+  if (options.detailedResponse) {
+    tier = 'premium';
+  } else if (options.quickResponse) {
+    tier = 'minimal';
+  }
+  
+  // Generate a unique ID for the query
+  const queryId = `query_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+  
+  // Get the response using the strategy
+  const response = await tieredResponseStrategy.getResponse(queryId, tier, context);
+  
+  return response;
+}
+
 export default tieredResponseStrategy;
