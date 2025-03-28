@@ -1823,3 +1823,24 @@ args = "export DISABLE_LLM_API_CALLS=true"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node --max-old-space-size=512 scripts/start-dev-no-api.js"
+
+[[workflows.workflow]]
+name = "Verify Fixes"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the verification script for the fixed issues"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node scripts/verify-fixes.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run the system health check"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/system-health-check.js"
