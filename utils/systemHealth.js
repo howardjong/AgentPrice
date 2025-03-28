@@ -1,44 +1,20 @@
 /**
- * System Health Monitoring Service
+ * System Health Monitoring Utility
  * 
- * This service provides functions to check the overall health of the system,
+ * This module provides functions to check the overall health of the system,
  * including memory usage, file system access, and API key availability.
  */
 
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-
-interface SystemHealthStatus {
-  status: 'healthy' | 'unhealthy' | 'degraded';
-  apiKeys: {
-    anthropic: boolean;
-    perplexity: boolean;
-    allKeysPresent: boolean;
-  };
-  fileSystem: {
-    uploadsDir: boolean;
-    promptsDir: boolean;
-    testsOutputDir: boolean;
-    contentUploadsDir: boolean;
-    allDirsExist: boolean;
-  };
-  memory: {
-    total: number;
-    free: number;
-    used: number;
-    usagePercent: number;
-    healthy: boolean;
-  };
-  isHealthy: boolean;
-}
+const fs = require('fs').promises;
+const path = require('path');
+const os = require('os');
 
 /**
  * Check the overall system health
  * 
- * @returns {SystemHealthStatus} System health status information
+ * @returns {Object} System health status information
  */
-export function checkSystemHealth(): SystemHealthStatus {
+function checkSystemHealth() {
   // Get memory usage information
   const totalMemory = os.totalmem();
   const freeMemory = os.freemem();
@@ -62,7 +38,7 @@ export function checkSystemHealth(): SystemHealthStatus {
   const allDirsExist = uploadsDir && promptsDir && contentUploadsDir;
   
   // Determine overall system status
-  let status: 'healthy' | 'unhealthy' | 'degraded' = 'healthy';
+  let status = 'healthy';
   if (!allKeysPresent || !allDirsExist || !memoryHealthy) {
     status = 'degraded';
   }
@@ -98,3 +74,7 @@ export function checkSystemHealth(): SystemHealthStatus {
     isHealthy
   };
 }
+
+module.exports = {
+  checkSystemHealth
+};

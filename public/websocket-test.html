@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebSocket Status Monitor Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .card {
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 15px;
+      margin-bottom: 15px;
+      background-color: #f8f8f8;
+    }
+    .status {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+    .healthy { background-color: #4CAF50; }
+    .degraded { background-color: #FF9800; }
+    .unhealthy { background-color: #F44336; }
+    .disconnected { background-color: #9E9E9E; }
+    
+    pre {
+      background-color: #272822;
+      color: #f8f8f2;
+      padding: 10px;
+      border-radius: 5px;
+      overflow-x: auto;
+    }
+    
+    button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 15px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    
+    button:hover {
+      background-color: #45a049;
+    }
+  </style>
+</head>
+<body>
+  <h1>WebSocket Status Monitor Test</h1>
+  
+  <div class="card">
+    <h2>Connection Status</h2>
+    <p>
+      <span class="status disconnected" id="connection-status"></span>
+      <span id="connection-text">Disconnected</span>
+    </p>
+    <button id="connect-btn">Connect</button>
+    <button id="disconnect-btn" disabled>Disconnect</button>
+  </div>
+  
+  <div class="card">
+    <h2>System Status</h2>
+    <p>
+      <span class="status unhealthy" id="system-status"></span>
+      <span id="status-text">Unknown</span>
+    </p>
+    <p>Last updated: <span id="last-updated">Never</span></p>
+    <p>Memory usage: <span id="memory-usage">0%</span></p>
+  </div>
+  
+  <div class="card">
+    <h2>API Services</h2>
+    <p>Claude API: <span id="claude-status">Unknown</span></p>
+    <p>Perplexity API: <span id="perplexity-status">Unknown</span></p>
+  </div>
+  
+  <div class="card">
+    <h2>Optimization Status</h2>
+    <p>Enabled: <span id="optimization-enabled">Unknown</span></p>
+    <p>Token savings: <span id="token-savings">0%</span></p>
+    <p>Current tier: <span id="current-tier">Unknown</span></p>
+  </div>
+  
+  <div class="card">
+    <h2>Message Log</h2>
+    <pre id="message-log">No messages yet</pre>
+  </div>
+  
+  <script>
+    // DOM Elements
+    const connectBtn = document.getElementById('connect-btn');
+    const disconnectBtn = document.getElementById('disconnect-btn');
+    const connectionStatus = document.getElementById('connection-status');
+    const connectionText = document.getElementById('connection-text');
+    const systemStatus = document.getElementById('system-status');
+    const statusText = document.getElementById('status-text');
+    const lastUpdated = document.getElementById('last-updated');
+    const memoryUsage = document.getElementById('memory-usage');
+    const claudeStatus = document.getElementById('claude-status');
+    const perplexityStatus = document.getElementById('perplexity-status');
+    const optimizationEnabled = document.getElementById('optimization-enabled');
+    const tokenSavings = document.getElementById('token-savings');
+    const currentTier = document.getElementById('current-tier');
+    const messageLog = document.getElementById('message-log');
+    
+    // WebSocket variables
+    let socket = null;
+    let reconnectTimer = null;
+    let reconnectAttempts = 0;
+    
+    // Connect to WebSocket
+    function connect() {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        appendToMessageLog('Already connected');
+        return;
+      }
+      
+      // Clear any existing reconnect timer
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      
+      // Determine WebSocket URL
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${protocol}//${window.location.host}/ws`;
+      
+      appendToMessageLog(`Connecting to ${wsUrl}...`);
+      
+      // Create WebSocket connection
+      socket = new WebSocket(wsUrl);
+      
+      // Connection opened
+      socket.addEventListener('open', (event) => {
+        connectionStatus.className = 'status healthy';
+        connectionText.textContent = 'Connected';
+        connectBtn.disabled = true;
+        disconnectBtn.disabled = false;
+        reconnectAttempts = 0;
+        appendToMessageLog('Connection established');
+        
+        // Send ping for initial check
+        socket.send(JSON.stringify({ type: 'ping', time: Date.now() }));
+      });
+      
+      // Listen for messages
+      socket.addEventListener('message', (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          appendToMessageLog(`Received: ${event.data}`);
+          
+          // Handle different message types
+          if (message.type === 'system_status') {
+            updateSystemStatus(message);
+          } else if (message.type === 'pong') {
+            appendToMessageLog(`Pong received, round-trip: ${Date.now() - message.time}ms`);
+          } else if (message.type === 'optimization_status') {
+            updateOptimizationStatus(message.status);
+          }
+        } catch (error) {
+          appendToMessageLog(`Error parsing message: ${error}`);
+        }
+      });
+      
+      // Connection closed
+      socket.addEventListener('close', (event) => {
+        connectionStatus.className = 'status disconnected';
+        connectionText.textContent = 'Disconnected';
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+        appendToMessageLog(`Connection closed: ${event.code} ${event.reason}`);
+        
+        // Auto-reconnect logic
+        if (reconnectAttempts < 5) {
+          const delay = Math.min(1000 * (Math.pow(2, reconnectAttempts)), 30000);
+          appendToMessageLog(`Reconnecting in ${delay/1000} seconds...`);
+          reconnectTimer = setTimeout(connect, delay);
+          reconnectAttempts++;
+        } else {
+          appendToMessageLog('Max reconnect attempts reached. Please reconnect manually.');
+        }
+      });
+      
+      // Connection error
+      socket.addEventListener('error', (event) => {
+        appendToMessageLog('WebSocket error');
+        connectionStatus.className = 'status unhealthy';
+      });
+    }
+    
+    // Disconnect WebSocket
+    function disconnect() {
+      if (socket) {
+        socket.close();
+        socket = null;
+      }
+      
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      
+      connectionStatus.className = 'status disconnected';
+      connectionText.textContent = 'Disconnected';
+      connectBtn.disabled = false;
+      disconnectBtn.disabled = true;
+      appendToMessageLog('Manually disconnected');
+    }
+    
+    // Update system status display
+    function updateSystemStatus(data) {
+      // Update status indicator
+      if (data.status === 'healthy') {
+        systemStatus.className = 'status healthy';
+      } else if (data.status === 'degraded') {
+        systemStatus.className = 'status degraded';
+      } else {
+        systemStatus.className = 'status unhealthy';
+      }
+      
+      // Update text fields
+      statusText.textContent = data.status;
+      lastUpdated.textContent = new Date(data.timestamp).toLocaleTimeString();
+      memoryUsage.textContent = `${data.memory.usagePercent}%`;
+      
+      // Update API services
+      claudeStatus.textContent = data.apiServices.claude.status;
+      perplexityStatus.textContent = data.apiServices.perplexity.status;
+      
+      // Update optimization data
+      optimizationEnabled.textContent = data.optimization.enabled ? 'Yes' : 'No';
+      tokenSavings.textContent = `${data.optimization.tokenSavings}%`;
+      currentTier.textContent = data.optimization.tier;
+    }
+    
+    // Update optimization status
+    function updateOptimizationStatus(data) {
+      optimizationEnabled.textContent = data.enabled ? 'Yes' : 'No';
+      tokenSavings.textContent = `${data.tokenSavings}%`;
+      currentTier.textContent = data.tier;
+    }
+    
+    // Append message to log
+    function appendToMessageLog(message) {
+      const timestamp = new Date().toLocaleTimeString();
+      messageLog.textContent = `[${timestamp}] ${message}\n${messageLog.textContent}`;
+      
+      // Trim log if it gets too long
+      if (messageLog.textContent.length > 5000) {
+        messageLog.textContent = messageLog.textContent.substring(0, 5000) + '...';
+      }
+    }
+    
+    // Event listeners
+    connectBtn.addEventListener('click', connect);
+    disconnectBtn.addEventListener('click', disconnect);
+    
+    // Connect on page load (optional)
+    window.addEventListener('load', () => {
+      connect();
+      
+      // Send ping every 15 seconds to keep connection alive
+      setInterval(() => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'ping', time: Date.now() }));
+        }
+      }, 15000);
+    });
+  </script>
+</body>
+</html>

@@ -63,6 +63,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await storage.updateServiceStatus('claude', claudeStatus);
   await storage.updateServiceStatus('perplexity', perplexityStatus);
 
+  // WebSocket test page
+  app.get('/websocket-test', (req: Request, res: Response) => {
+    res.sendFile(path.resolve('.', 'public', 'websocket-test.html'));
+  });
+  
   // Health endpoint
   app.get('/api/health', async (req: Request, res: Response) => {
     try {
@@ -1311,13 +1316,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
   
   // Connected clients map
-  const clients = new Map();
+  const clients = new Map<WebSocket, ClientMetadata>();
+  
+  // Client metadata interface
+  interface ClientMetadata {
+    id: string;
+    lastActivity: number;
+    subscriptions?: string[];
+  }
   
   // WebSocket server event handlers
   wss.on('connection', (ws) => {
     // Generate a unique client ID
     const clientId = uuidv4();
-    const metadata = { id: clientId, lastActivity: Date.now() };
+    const metadata: ClientMetadata = { 
+      id: clientId, 
+      lastActivity: Date.now(),
+      subscriptions: ['all'] // Default subscription to all channels
+    };
     
     // Store client connection
     clients.set(ws, metadata);
@@ -1363,10 +1379,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Function to send system status to a client
-  function sendSystemStatus(ws) {
+  function sendSystemStatus(ws: WebSocket) {
     // Only send if connection is still open
     if (ws.readyState === WebSocket.OPEN) {
-      checkSystemHealth().then(healthStatus => {
+      try {
+        // Get health status synchronously (not a Promise)
+        const healthStatus = checkSystemHealth();
+        
+        // Send system status to the client
         ws.send(JSON.stringify({
           type: 'system_status',
           timestamp: Date.now(),
@@ -1391,15 +1411,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             tier: 'standard'
           }
         }));
-      }).catch(error => {
+      } catch (error) {
         console.error('Error sending system status:', error);
-      });
+      }
     }
   }
   
+  // Define message types
+  interface WebSocketMessage {
+    type: string;
+    timestamp: number;
+    [key: string]: any;
+  }
+  
   // Broadcast a message to all connected clients
-  function broadcastMessage(message) {
-    clients.forEach((metadata, client) => {
+  function broadcastMessage(message: WebSocketMessage) {
+    clients.forEach((metadata: ClientMetadata, client: WebSocket) => {
       // Check if client is still connected
       if (client.readyState === WebSocket.OPEN) {
         // Check if client is subscribed to this message type
@@ -1413,7 +1440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   // Broadcast research progress updates
-  function broadcastResearchProgress(jobId, progress, status) {
+  function broadcastResearchProgress(jobId: string, progress: number, status: string) {
     broadcastMessage({
       type: 'research_progress',
       jobId,
@@ -1424,7 +1451,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   // Broadcast system optimization status
-  function broadcastOptimizationStatus(status) {
+  function broadcastOptimizationStatus(status: any) {
     broadcastMessage({
       type: 'optimization_status',
       status,
@@ -1436,7 +1463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setInterval(() => {
     // Check for stale connections
     const now = Date.now();
-    clients.forEach((metadata, ws) => {
+    clients.forEach((metadata: ClientMetadata, ws: WebSocket) => {
       // If client hasn't been active for more than 30 minutes, close the connection
       if (now - metadata.lastActivity > 30 * 60 * 1000) {
         console.log(`Closing inactive WebSocket connection: ${metadata.id}`);
@@ -1447,7 +1474,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Broadcast system status to all clients every minute
     if (clients.size > 0) {
-      checkSystemHealth().then(healthStatus => {
+      try {
+        // Get health status synchronously (not a Promise)
+        const healthStatus = checkSystemHealth();
+        
         broadcastMessage({
           type: 'system_status',
           timestamp: Date.now(),
@@ -1472,9 +1502,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             tier: 'standard'
           }
         });
-      }).catch(error => {
+      } catch (error) {
         console.error('Error broadcasting system status:', error);
-      });
+      }
     }
   }, 60000); // Run every 60 seconds
   
