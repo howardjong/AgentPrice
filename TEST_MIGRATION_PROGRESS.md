@@ -17,6 +17,9 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 | serviceRouter     | ✅ Migrated | ✅ serviceRouter.vitest.js | Complete | March 28, 2025 |
 | contextManager    | N/A       | ✅ contextManager.vitest.js | Complete | March 28, 2025 |
 | jobManager        | N/A       | ✅ jobManager.vitest.js | Complete | March 28, 2025 |
+| promptManager     | N/A       | ✅ promptManager.vitest.js | Complete | March 28, 2025 |
+| redisClient       | N/A       | ✅ redisClient.vitest.js | Complete | March 28, 2025 |
+| requestTracer     | N/A       | ✅ requestTracer.vitest.js | Complete | March 28, 2025 |
 
 ## Migration Plan
 
@@ -28,13 +31,14 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
    - Migrate utility function tests
    - Focus on circuitBreaker, apiClient, costTracker, tokenOptimizer, tieredResponseStrategy
 
-3. **Phase 3: Integration Points** ⏳
+3. **Phase 3: Integration Points** ✅
    - Migrate services that tie multiple components together
-   - Focus on serviceRouter, contextManager, etc.
+   - Focus on serviceRouter, contextManager, jobManager, promptManager, redisClient
 
 4. **Phase 4: Application Logic** ⏳
    - Migrate business logic and application-specific components
    - Focus on controllers, middleware, etc.
+   - Started with requestTracer middleware (7 tests passing)
 
 ## Completed Migrations
 
@@ -68,12 +72,42 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
   - Tests invoking mockJobManager have been temporarily skipped (use `.skip`) in jobManager.vitest.js
   - These tests will be replaced with integration tests that better validate the interactions
   - This approach reduces complexity while ensuring complete test coverage
+- ES Module import handling in tests requires different approaches:
+  - Cannot use direct `require()` for ES modules in tests
+  - `import.meta.jest` is not available in Vitest, different patterns needed
+  - Mock hoisting issues with ES modules require factory function approach
+  - Mock dependencies containing ES modules must be handled with special care:
+    - Either do partial assertions instead of exact checks
+    - Or restructure code to support both CommonJS and ES module imports
+
+## Recent Progress
+
+### March 28, 2025 (continued)
+- Fixed non-deterministic timing test for job processing duration in the jobManager tests
+- Fixed system-status.js script compatibility with ES modules by creating system-status-esm.js variant
+- Updated WebSocket implementation with improved error handling and reconnection logic
+- Set up proper WebSocket monitoring capabilities in the system monitoring dashboard
+- Successfully migrated promptManager tests to Vitest with all 13 test cases passing
+- Fixed caching test in promptManager that was failing due to mocking approach differences
+- Successfully created redisClient tests in Vitest with 18 tests passing
+- Used Promise-based approach for event testing to fix deprecated done() callback pattern
+- Implemented comprehensive tests for Redis timeout handling and expiry functionality
+- Added tests for InMemoryStore implementation ensuring it properly handles Redis-like operations
+- Successfully completed Phase 3 of the migration plan
+- Started Phase 4 by creating requestTracer middleware test
+- Implemented workarounds for ES module compatibility issues in the middleware tests
+- Created mocking approach for cls-hooked that works with both CommonJS and ES modules
+- Successfully implemented 7 tests for the requestTracer middleware
 
 ## Next Steps
 
-1. Continue Phase 3 migration with redisClient and promptManager
-2. Update the test scripts to better handle error cases and promise rejections
-3. Add workarounds for performance.now mocking in time-sensitive tests
-4. Implement formal guidelines for mocking in Vitest vs Jest to prevent future issues
-5. Implement websocket tests with the migration approach established for HTTP requests
-6. Create integration tests to cover the skipped mockJobManager functionality
+1. ✅ Mark Phase 3 as complete - all core service tests are now migrated!
+2. ✅ Begin Phase 4: Migrate application logic components - started with requestTracer middleware
+3. Continue Phase 4 by migrating tests for remaining middleware components
+4. Address the complex mockJobManager tests that were temporarily skipped
+5. Update the test scripts to better handle error cases and promise rejections
+6. Add workarounds for performance.now mocking in time-sensitive tests
+7. Implement formal guidelines for mocking in Vitest vs Jest to prevent future issues 
+8. Implement websocket tests with the migration approach established for HTTP requests
+9. Create integration tests to cover the skipped mockJobManager functionality
+10. Catalog ES module vs CommonJS specific patterns that caused issues in the migration

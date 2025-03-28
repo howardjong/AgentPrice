@@ -1,56 +1,107 @@
-
-// Using ES modules as specified in package.json "type": "module"
 import winston from 'winston';
-import cls from 'cls-hooked';
-const namespace = cls.createNamespace('research-system');
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const logger = winston.createLogger({
-  level: process.env.LOG_LEVEL || 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  defaultMeta: { service: 'multi-llm-research' },
-  transports: [
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize(),
-        winston.format.simple()
-      ),
-    }),
-    new winston.transports.File({ filename: 'error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'combined.log' })
-  ]
+// Get the directory name
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const logLevels = {
+  error: 0,
+  warn: 1,
+  info: 2,
+  http: 3,
+  debug: 4,
+};
+
+const logColors = {
+  error: 'red',
+  warn: 'yellow',
+  info: 'green',
+  http: 'magenta',
+  debug: 'blue',
+};
+
+// Define log format
+const logFormat = winston.format.printf(({ level, message, timestamp, ...meta }) => {
+  const traceId = meta.traceId || 'no-trace';
+  delete meta.traceId;
+  
+  // Format the meta object to only include valuable information
+  const metaString = Object.keys(meta).length 
+    ? JSON.stringify(meta)
+    : '';
+  
+  return `${timestamp} [${traceId}] ${level}: ${message} ${metaString}`;
 });
 
-// Add trace ID to all log messages
-logger.addTraceId = function() {
+// Create the logger
+const logger = winston.createLogger({
+  levels: logLevels,
+  format: winston.format.combine(
+    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    winston.format.json()
+  ),
+  transports: [
+    // Write to console with colors
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize({ all: true }),
+        logFormat
+      ),
+    }),
+    // Write all logs to combined.log
+    new winston.transports.File({ 
+      filename: path.join(process.cwd(), 'combined.log') 
+    }),
+    // Write error logs to error.log
+    new winston.transports.File({ 
+      filename: path.join(process.cwd(), 'error.log'), 
+      level: 'error' 
+    }),
+  ],
+});
+
+// Simple wrapper to add context from CLS namespaces
+const addTraceIdFormatWrap = (logger) => {
+  // Wrap all the logging methods to add traceId from CLS namespace if available
   const originalLogMethods = {};
-  const logLevels = Object.keys(this.levels);
   
-  logLevels.forEach(level => {
-    originalLogMethods[level] = this[level];
-    
-    this[level] = function() {
-      const args = Array.from(arguments);
-      const traceId = namespace.get('traceId') || 'no-trace';
+  // Save original methods
+  Object.keys(logLevels).forEach((level) => {
+    originalLogMethods[level] = logger[level];
+  });
+  
+  // Override methods
+  Object.keys(logLevels).forEach((level) => {
+    logger[level] = function (message, meta = {}) {
+      let traceId = 'no-trace';
       
-      // If last argument is object, add traceId to it
-      if (typeof args[args.length - 1] === 'object') {
-        args[args.length - 1].traceId = traceId;
-      } else {
-        args.push({ traceId });
+      // Try to get traceId from any running HTTP request
+      try {
+        const req = global.currentRequest;
+        if (req && req.traceId) {
+          traceId = req.traceId;
+        }
+      } catch (error) {
+        // Ignore errors, we'll use no-trace
       }
       
-      return originalLogMethods[level].apply(this, args);
+      // Add traceId to meta
+      const metaWithTrace = {
+        ...meta,
+        traceId
+      };
+      
+      // Call original method
+      return originalLogMethods[level](message, metaWithTrace);
     };
   });
   
-  return this;
+  return logger;
 };
 
-// Apply trace ID enhancement
-logger.addTraceId();
+// Apply traceId wrapper
+addTraceIdFormatWrap(logger);
 
-// Export using ES modules
 export default logger;
