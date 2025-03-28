@@ -14,6 +14,7 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 | costTracker       | ✅ Migrated | ✅ costTracker.vitest.js | Complete | March 28, 2025 |
 | tokenOptimizer    | ✅ Migrated | ✅ tokenOptimizer.vitest.js | Complete | March 28, 2025 |
 | tieredResponseStrategy | ✅ Migrated | ✅ tieredResponseStrategy.vitest.js | Complete | March 28, 2025 |
+| serviceRouter     | ✅ Migrated | ✅ serviceRouter.vitest.js | Complete | March 28, 2025 |
 
 ## Migration Plan
 
@@ -46,15 +47,21 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 - Completed migration of tieredResponseStrategy tests (13 tests passing)
 - Completed migration of apiClient tests, including advanced HTTP retry tests with axios-mock-adapter
 - Successfully completed Phase 2 of the migration plan
+- Started Phase 3 with serviceRouter tests (14 tests passing)
+- Fixed mocking approach for promise rejections in Vitest (different from Jest)
 
 ## Known Issues
 
 - Some tests may show unhandled promise rejections related to Vite's development server connection.
   These are benign and don't affect test results, but could be addressed in future refinements.
+- Vitest requires a different approach for mocking promise rejections compared to Jest:
+  - Using `mockRejectedValueOnce` directly on a mock function can cause issues
+  - Instead, use `vi.spyOn()` with `mockImplementation(() => { throw new Error() })` for more reliable error simulation
+  - Alternatively, use `mockImplementationOnce(() => Promise.reject(new Error()))` pattern
 
 ## Next Steps
 
-1. Begin Phase 3 migration with serviceRouter and contextManager
-2. Update scripts to handle additional test types
-3. Continue progressive migration of remaining tests
+1. Continue Phase 3 migration with contextManager, jobManager, and promptManager
+2. Update the test scripts to better handle error cases and promise rejections
+3. Implement formal guidelines for mocking in Vitest vs Jest to prevent future issues
 4. Implement websocket tests with the migration approach established for HTTP requests

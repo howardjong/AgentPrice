@@ -142,7 +142,11 @@ class ServiceRouter {
             // Add a system message at the beginning with research instructions
             enhancedMessages.unshift({
               role: 'system',
-              content: 'You are acting as a research assistant. The user is asking for information that would ideally be researched with real-time internet access, but that capability is currently unavailable. Please:\n1. Provide the most accurate information you have from your training data\n2. Clearly state when information might be outdated or when you're uncertain\n3. Suggest follow-up questions the user could ask to narrow down or clarify their research\n4. If applicable, suggest reliable sources the user could consult for more up-to-date information'
+              content: 'You are acting as a research assistant. The user is asking for information that would ideally be researched with real-time internet access, but that capability is currently unavailable. Please:' +
+                '\n1. Provide the most accurate information you have from your training data' +
+                '\n2. Clearly state when information might be outdated or when you\'re uncertain' +
+                '\n3. Suggest follow-up questions the user could ask to narrow down or clarify their research' +
+                '\n4. If applicable, suggest reliable sources the user could consult for more up-to-date information'
             });
           }
           
