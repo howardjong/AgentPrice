@@ -1,6 +1,5 @@
-
 /**
- * System Status Monitor
+ * System Status Monitor (ESM Version)
  * 
  * This script provides a comprehensive overview of the system status,
  * including memory usage, API service status, and optimization settings.
@@ -165,8 +164,17 @@ async function getTestMigrationStatus() {
     // Get progress file if it exists
     let migrationProgress = null;
     try {
-      const progressPath = path.join(process.cwd(), 'tests', 'MIGRATION_PROGRESS.md');
-      const progressContent = await fs.readFile(progressPath, 'utf8');
+      // First check for TEST_MIGRATION_PROGRESS.md which is the new name
+      let progressPath = path.join(process.cwd(), 'TEST_MIGRATION_PROGRESS.md');
+      let progressContent;
+      
+      try {
+        progressContent = await fs.readFile(progressPath, 'utf8');
+      } catch (err) {
+        // If file not found, try the older location
+        progressPath = path.join(process.cwd(), 'tests', 'MIGRATION_PROGRESS.md');
+        progressContent = await fs.readFile(progressPath, 'utf8');
+      }
       
       // Extract summary stats using regex
       const totalMatch = progressContent.match(/Total tests: (\d+)/);

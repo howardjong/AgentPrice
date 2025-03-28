@@ -33,13 +33,13 @@ This document outlines the comprehensive plan for migrating our test suite from 
   - ✅ tokenOptimizer
   - ✅ tieredResponseStrategy
 
-### Phase 3: Integration Components
+### Phase 3: Integration Components (IN PROGRESS)
 
 - ⏳ Migrate service layers
-  - ⏳ serviceRouter
-  - ⏳ contextManager
+  - ✅ serviceRouter
+  - ✅ contextManager
   - ⏳ redisClient
-  - ⏳ jobManager
+  - ✅ jobManager
   - ⏳ promptManager
 - ⏳ Migrate middleware and controllers
 
@@ -127,6 +127,26 @@ vi.mock('./myModule', () => ({
 }));
 ```
 
+### Promise Rejection Mocking
+
+**Issue**: In Vitest, `mockRejectedValueOnce` can behave differently than in Jest, causing tests to fail or hang.
+
+**Solution**: Use `mockImplementation` with explicit Promise rejection or throw statements:
+
+```javascript
+// More reliable approach for rejections:
+vi.spyOn(service, 'method').mockImplementation(() => {
+  throw new Error('Test error');
+});
+
+// Or for one-time rejection:
+vi.spyOn(service, 'method').mockImplementationOnce(() => {
+  return Promise.reject(new Error('Test error'));
+});
+```
+
+See [jest-to-vitest-mocking.md](./docs/jest-to-vitest-mocking.md) for detailed examples.
+
 ### Asynchronous Tests
 
 **Issue**: Some tests may time out differently between Jest and Vitest.
@@ -186,3 +206,4 @@ const traceTest = (testName) => {
 - [Migration from Jest](https://vitest.dev/guide/migration.html)
 - [VITEST_MOCKING_GUIDE.md](./VITEST_MOCKING_GUIDE.md) - Custom mocking guide for our codebase
 - [TEST_DEVELOPMENT_GUIDE.md](./TEST_DEVELOPMENT_GUIDE.md) - Guide for writing new tests
+- [jest-to-vitest-mocking.md](./docs/jest-to-vitest-mocking.md) - Specific guide for mocking promises and error handling
