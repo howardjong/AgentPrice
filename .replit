@@ -2703,3 +2703,169 @@ args = "echo \"=======================================\""
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/system-health-check.js"
+
+[[workflows.workflow]]
+name = "Start Optimized Server"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First run the aggressive memory relief script"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"     APPLYING MEMORY OPTIMIZATIONS     \""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node --expose-gc scripts/aggressive-memory-relief.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then start the server with memory optimization flags"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"     STARTING OPTIMIZED SERVER     \""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export NODE_ENV=development"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export PORT=5000"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export HOST=0.0.0.0"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export OPTIMIZE_MEMORY=true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "export DISABLE_LLM_CALLS=true"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node --expose-gc --max-old-space-size=512 scripts/start-dev-no-api.js"
+
+[[workflows.workflow]]
+name = "Monitor Memory Usage"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Run memory health check every 5 minutes"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"     STARTING MEMORY MONITORING     \""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "echo \"=======================================\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Initial memory check"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = 'echo "\n[$(date)] Initial memory usage:"'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node -e \"console.table(process.memoryUsage())\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Periodic checks"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "count=1"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "while true; do"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  sleep 300"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = '  echo "\n[$(date)] Memory check #$count:"'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  node -e \"console.table(process.memoryUsage())\""
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  count=$((count + 1))"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  "
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  # Every 4 checks (20 minutes), run the light memory relief"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  if [ $((count % 4)) -eq 0 ]; then"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = '    echo "\n[$(date)] Running light memory optimization..."'
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "    node --expose-gc scripts/optimize-system-memory.js"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "  fi"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "done"
