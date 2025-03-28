@@ -56,7 +56,7 @@ async function main() {
     
     if (args.includes('--help') || args.includes('-h')) {
       console.log('Usage:');
-      console.log('  node scripts/run-vitest.js [options]');
+      console.log('  node scripts/run-vitest.js [options] [test files]');
       console.log('');
       console.log('Options:');
       console.log('  --run           Run tests once (default)');
@@ -67,13 +67,33 @@ async function main() {
       return;
     }
     
-    const runArgs = [];
+    let runArgs = [];
     
-    // Handle specific test patterns
-    const patternIndex = args.indexOf('--pattern');
-    if (patternIndex >= 0 && patternIndex < args.length - 1) {
-      const pattern = args[patternIndex + 1];
-      runArgs.push(pattern);
+    // Check for options
+    const optionFlags = ['--pattern', '--watch', '--ui', '--coverage', '--run', '-h', '--help'];
+    
+    // Filter out option flags to identify test files
+    const testFiles = args.filter((arg, index) => {
+      // Skip this arg and the next if this is a flag that takes an argument
+      if (arg === '--pattern') return false;
+      
+      // Skip this arg if it's the argument to a flag
+      if (index > 0 && args[index - 1] === '--pattern') return false;
+      
+      // If it's not an option flag, it's a test file
+      return !optionFlags.includes(arg);
+    });
+    
+    if (testFiles.length > 0) {
+      // If specific test files are provided, use those
+      runArgs = [...testFiles];
+    } else {
+      // Otherwise check for pattern
+      const patternIndex = args.indexOf('--pattern');
+      if (patternIndex >= 0 && patternIndex < args.length - 1) {
+        const pattern = args[patternIndex + 1];
+        runArgs.push(pattern);
+      }
     }
     
     // Handle run modes

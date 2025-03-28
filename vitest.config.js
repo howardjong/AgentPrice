@@ -43,6 +43,7 @@ export default defineConfig({
       '**/.{idea,git,cache,output}/**',
       '**/jest.config.*',
       '**/jest.setup.*',
+      '**/test-backups/**', // Exclude backed up Jest test files
     ],
     
     // Fail fast to prevent exhausting resources
@@ -56,6 +57,7 @@ export default defineConfig({
       exclude: [
         '**/node_modules/**',
         '**/tests/**',
+        '**/test-backups/**',
         '**/*.{test,spec,vitest}.*',
         '**/{vitest,jest}.{config,setup}.*',
       ],
@@ -88,6 +90,7 @@ export default defineConfig({
       '**/dist/**',
       '**/reports/**',
       '**/coverage/**',
+      '**/test-backups/**',
     ],
   },
 });

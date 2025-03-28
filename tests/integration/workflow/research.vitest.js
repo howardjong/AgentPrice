@@ -1,5 +1,10 @@
 import { describe, beforeAll, afterAll, it, expect, vi, beforeEach } from 'vitest';
 
+// Mock uuid to return a consistent value
+vi.mock('uuid', () => ({
+  v4: () => 'test-job-id'
+}));
+
 // Use dynamic imports to prevent teardown issues
 let initiateResearch, getResearchStatus, answerWithContext;
 let jobManager, contextManager, logger;
@@ -41,6 +46,25 @@ const createMockClaudeService = () => ({
 const createMockPerplexityService = () => ({
   performDeepResearch: vi.fn()
 });
+
+// Fully manual mock for mockJobManager to avoid using its real implementation
+vi.mock('../../../services/mockJobManager.js', () => ({
+  default: {
+    enqueueJob: vi.fn().mockResolvedValue('test-job-id'),
+    getJobStatus: vi.fn().mockResolvedValue({
+      status: 'completed',
+      progress: 100,
+      returnvalue: {
+        content: 'Test research results',
+        sources: ['source1', 'source2']
+      }
+    }),
+    registerProcessor: vi.fn(),
+    createQueue: vi.fn(),
+    startMonitoring: vi.fn(),
+    stop: vi.fn()
+  }
+}));
 
 // Mock these modules to prevent real service calls
 vi.mock('../../../services/jobManager.js', () => ({
@@ -123,8 +147,29 @@ describe('Research Workflow Integration', () => {
   it('should complete a full research workflow', async () => {
     const query = 'What are the latest developments in quantum computing?';
     
+    // Set the test job ID that will be used
+    const testJobId = 'test-job-id';
+    
+    // Update the mock to specifically handle our test job ID
+    jobManager.getJobStatus.mockImplementation((queueName, id) => {
+      if (id === testJobId) {
+        return {
+          status: 'completed',
+          progress: 100,
+          returnvalue: {
+            content: 'Test research results',
+            sources: ['source1', 'source2']
+          }
+        };
+      }
+      return { status: 'not_found' };
+    });
+    
+    // Make enqueueJob return our specific test job ID
+    jobManager.enqueueJob.mockResolvedValue(testJobId);
+    
     const { jobId, sessionId } = await initiateResearch(query);
-    expect(jobId).toBeTruthy();
+    expect(jobId).toBe(testJobId);
     expect(sessionId).toBeTruthy();
 
     const status = await getResearchStatus(jobId);

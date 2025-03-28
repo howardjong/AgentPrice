@@ -9,6 +9,8 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 | anthropicService  | N/A       | ✅ anthropicService.vitest.js | Complete | March 28, 2025 |
 | perplexityService | ✅ Removed | ✅ perplexityService.vitest.js | Complete | March 28, 2025 |
 | logger            | ✅ Removed | ✅ logger.vitest.js | Complete | March 28, 2025 |
+| apiClient         | ✅ Backup  | ✅ apiClient.vitest.js (basic) | Partial  | March 28, 2025 |
+| circuitBreaker    | ✅ Backup  | ✅ circuitBreaker.vitest.js | Complete | March 28, 2025 |
 
 ## Migration Plan
 
@@ -35,13 +37,17 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 - Successfully migrated logger tests
 - Created backups of original Jest test files
 - Confirmed Vitest tests pass with all test cases covered
+- Migrated basic apiClient tests (advanced tests pending due to async timeout issues)
+- Migrated circuitBreaker tests for both implementations
 
 ## Known Issues
 
-- No known issues at this time.
+- Advanced apiClient tests with mock adapters are experiencing timeouts in Vitest. 
+  The initial set of basic tests works correctly, but additional work needed for advanced tests.
+- Need to investigate alternative approaches for mocking axios in Vitest.
 
 ## Next Steps
 
-1. Identify next set of tests to migrate
+1. Continue with costTracker and tokenOptimizer tests
 2. Update scripts to handle additional test types
 3. Continue progressive migration of remaining tests

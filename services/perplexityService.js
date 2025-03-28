@@ -188,17 +188,20 @@ async function executePerplexityQuery(formattedQuery, model, requestId, options 
         temperature: options.temperature || 0.2,
         top_p: options.topP || 0.9,
         return_images: false,
-        search_domain_filter: options.domainFilter,
+        return_related_questions: false,
+        search_domain_filter: options.domainFilter || [],
         search_recency_filter: options.recencyFilter || 'month',
         frequency_penalty: 1,
         presence_penalty: 0,
+        top_k: 0,
         stream: false
       }
     };
     
-    // If deep research is requested, add the options
+    // If deep research is requested, add the search_domain_filter
     if (options.depth === 'deep') {
-      apiRequest.data.search_depth = 'deep';
+      apiRequest.data.search_recency_filter = 'day'; // More recent results
+      apiRequest.data.top_k = 15; // Increase number of search results to consider
     }
     
     // If system prompt is provided, add it
