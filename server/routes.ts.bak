@@ -1364,7 +1364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     subscriptions?: string[];
   }
   
-  // WebSocket helper functions
+  // Function declarations for WebSocket message handlers
   // Function to send system status to a client
   function sendSystemStatus(ws: WebSocket) {
     // Only send if connection is still open
@@ -1533,7 +1533,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Define WebSocket message structure
+  // Define message types
   interface WebSocketMessage {
     type: string;
     timestamp: number;
