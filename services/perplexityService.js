@@ -17,7 +17,7 @@ import logger from '../utils/logger.js';
  */
 const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
 const DEFAULT_MODEL = 'llama-3.1-sonar-small-128k-online';
-const DEEP_RESEARCH_MODEL = 'llama-3.1-sonar-small-128k-online';
+const DEEP_RESEARCH_MODEL = 'llama-3.1-sonar-large-128k-online';
 
 /**
  * Class representing the Perplexity API service

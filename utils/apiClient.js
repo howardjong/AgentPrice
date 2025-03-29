@@ -227,4 +227,5 @@ class RobustAPIClient {
   }
 }
 
+export { RobustAPIClient };
 export default RobustAPIClient;

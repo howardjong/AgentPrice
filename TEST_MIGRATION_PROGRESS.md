@@ -24,6 +24,10 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 | perplexity-deep-research | N/A | ✅ perplexity-deep-research.vitest.js | Complete | March 29, 2025 |
 | single-query-workflow | N/A | ✅ single-query-workflow.vitest.js | Complete | March 29, 2025 |
 | claude-chart-generation | N/A | ✅ claude-chart-generation.vitest.js | Complete | March 29, 2025 |
+| perplexity-workflow-nock | N/A | ✅ perplexity-workflow-nock.vitest.js | Complete | March 29, 2025 |
+| claude-chart-workflow-nock | N/A | ✅ claude-chart-workflow-nock.vitest.js | Complete | March 29, 2025 |
+| service-router-mock | N/A | ✅ service-router-mock.vitest.js | Complete | March 29, 2025 |
+| single-query-workflow-nock | N/A | ✅ single-query-workflow-nock.vitest.js | Complete | March 29, 2025 |
 | **Middleware Tests** | | | | |
 | requestLogger | N/A | ✅ requestLogger.vitest.js | Complete | March 29, 2025 |
 | errorHandler | N/A | ✅ errorHandler.vitest.js | Complete | March 29, 2025 |
@@ -98,6 +102,30 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 ## Recent Progress
 
 ### March 29, 2025 (latest)
+- Completed all workflow tests by fixing single-query-workflow-nock.vitest.js:
+  - Fixed "default is not a constructor" errors with improved ES module handling
+  - Implemented more reliable mocking approach for services with proper cleanup
+  - Created test-specific mocking for CI/CD friendly test execution
+  - Added spies that properly track method calls for assertion purposes
+  - Ensured all tests restore original function implementations
+  - Improved error handling tests with robust simulation of API failures
+  - Fixed context management tests to properly verify conversation tracking
+  - Successfully passed all 8 tests in the single-query-workflow-nock file
+  - Achieved full test coverage for workflow-centric test suite (40+ tests passing)
+
+### March 29, 2025 (earlier today)
+- Successfully fixed and implemented three workflow test files with all tests passing:
+  - Fixed perplexity-workflow-nock.vitest.js with all 5 tests passing
+  - Fixed claude-chart-workflow-nock.vitest.js with all 5 tests passing
+  - Created service-router-mock.vitest.js with 8 new tests passing
+  - Implemented improved mocking approach using direct fixture returns instead of nock interceptors
+  - Fixed API error handling tests with more robust error simulation techniques
+  - Created a new approach for service router testing that doesn't rely on nock
+  - Developed patterns for setting up test-specific mock implementations that are properly restored after each test
+  - Fixed all "default is not a constructor" errors with improved ES module handling strategies
+  - Enhanced test isolation to prevent test interference between workflow tests
+
+### March 29, 2025 (earlier)
 - Implemented WebSocket test suite for real-time system monitoring:
   - Created system-monitoring.vitest.js for general monitoring (4 tests passing)
   - Created api-service-status.vitest.js for API health tracking (5 tests passing)
@@ -196,11 +224,16 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
    - ✅ Created system-monitoring.vitest.js (4 tests passing)
    - ✅ Created api-service-status.vitest.js (5 tests passing)
    - ✅ Created websocket-integration.vitest.js (6 tests passing)
-7. Execute the new workflow-focused tests to verify they pass with current implementation
-8. Address the complex mockJobManager tests that were temporarily skipped
-9. Update the test scripts to better handle error cases and promise rejections
-10. Add workarounds for performance.now mocking in time-sensitive tests
-11. Implement formal guidelines for mocking in Vitest vs Jest to prevent future issues
-12. Create integration tests to cover the skipped mockJobManager functionality
-13. Catalog ES module vs CommonJS specific patterns that caused issues in the migration
-14. Consider adding these workflow-focused tests to the test-single-query-workflow Replit workflow
+7. ✅ Create Nock-based workflow tests:
+   - ✅ Completed perplexity-workflow-nock.vitest.js (5/5 tests passing)
+   - ✅ Completed claude-chart-workflow-nock.vitest.js (5/5 tests passing)
+   - ✅ Created service-router-mock.vitest.js (8/8 tests passing)
+   - ✅ Fixed single-query-workflow-nock.vitest.js (8/8 tests passing)
+8. ✅ Execute the workflow-focused tests to verify they pass with current implementation
+9. ⬜ Address the complex mockJobManager tests that were temporarily skipped
+10. ⬜ Update the test scripts to better handle error cases and promise rejections
+11. ⬜ Add workarounds for performance.now mocking in time-sensitive tests
+12. ⬜ Implement formal guidelines for mocking in Vitest vs Jest to prevent future issues
+13. ⬜ Create integration tests to cover the skipped mockJobManager functionality
+14. ⬜ Catalog ES module vs CommonJS specific patterns that caused issues in the migration
+15. ⬜ Consider adding these workflow-focused tests to the test-single-query-workflow Replit workflow

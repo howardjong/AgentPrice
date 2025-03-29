@@ -181,4 +181,5 @@ class CircuitBreaker {
   }
 }
 
+export { CircuitBreaker };
 export default CircuitBreaker;

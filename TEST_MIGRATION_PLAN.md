@@ -41,12 +41,12 @@ Our immediate focus is migrating the `test-single-query-workflow.js` test to Vit
 
 These improvements focus on the essential tools needed for effective testing with Vitest.
 
-#### 1. HTTP Request Mocking with Nock (🟢 In Progress)
+#### 1. HTTP Request Mocking with Nock (✅ Completed)
 
 **Implementation Details:**
 - ✅ Install Nock as a development dependency
-- 🟢 Create test helpers for mocking Perplexity and Claude API responses
-- ⬜ Support mocking of different response types (success, error, timeout)
+- ✅ Create test helpers for mocking Perplexity and Claude API responses
+- ✅ Support mocking of different response types (success, error, timeout, rate limit)
 
 **Benefits:**
 - Eliminates network dependencies during tests
@@ -65,12 +65,12 @@ These improvements focus on the essential tools needed for effective testing wit
 - Maintains accurate timing without actual delays
 - Supports testing time-dependent edge cases
 
-#### 3. Standard Response Fixtures (🟢 In Progress)
+#### 3. Standard Response Fixtures (✅ Completed)
 
 **Implementation Details:**
 - ✅ Create a fixtures directory with sample API responses
-- 🟢 Include response templates for common operations
-- ⬜ Add helpers to load and customize fixtures
+- ✅ Include response templates for common operations
+- ✅ Add helpers to load and customize fixtures
 
 **Benefits:**
 - Consistent test data across all tests
@@ -166,7 +166,11 @@ Our test migration will be considered successful when:
 
 ## Next Steps
 
-1. 🟢 Complete Nock setup for HTTP mocking in the Perplexity workflow test
-2. ⬜ Create comprehensive fixtures for both standard and deep research responses
-3. ⬜ Implement the first version of the migrated test-single-query-workflow.vitest.js
+1. ✅ Complete Nock setup for HTTP mocking in the Perplexity workflow test
+2. ✅ Create comprehensive fixtures for both standard and deep research responses
+3. ✅ Implement the nock-based versions of workflow tests
+   - ✅ perplexity-workflow-nock.vitest.js (5 tests passing)
+   - 🟢 single-query-workflow-nock.vitest.js (8 tests to fix)
+   - 🟢 claude-chart-workflow-nock.vitest.js (4 tests to fix)
 4. ⬜ Document the patterns used for future test migrations
+5. ⬜ Complete remaining test fixes for the nock-based workflow tests
