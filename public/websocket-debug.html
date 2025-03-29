@@ -1,245 +1,343 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WebSocket Debug Tool</title>
+  <title>WebSocket Debug</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .log {
-      background-color: #f5f5f5;
-      border: 1px solid #ccc;
-      border-radius: 5px;
-      padding: 10px;
-      height: 300px;
-      overflow-y: auto;
-      margin-bottom: 20px;
-      font-family: monospace;
-    }
-    .controls {
-      margin-bottom: 20px;
-    }
-    button {
-      padding: 8px 16px;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-right: 10px;
-    }
-    button:hover {
-      background-color: #45a049;
-    }
-    button:disabled {
-      background-color: #cccccc;
-      cursor: not-allowed;
-    }
-    input, select {
-      padding: 8px;
-      margin-right: 10px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-    }
-    .status {
-      margin-bottom: 20px;
-    }
-    .status-indicator {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      margin-right: 5px;
-    }
-    .connected { background-color: #4CAF50; }
-    .disconnected { background-color: #f44336; }
-    .error { background-color: #ff9800; }
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f7; }
+    .container { max-width: 800px; margin: 0 auto; }
+    .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    h1 { color: #333; }
+    #log { height: 300px; overflow-y: scroll; border: 1px solid #ddd; border-radius: 4px; padding: 10px; margin-bottom: 10px; font-family: monospace; font-size: 13px; background-color: #f8f9fa; }
+    .info { color: #0275d8; }
+    .error { color: #d9534f; }
+    .success { color: #5cb85c; }
+    .warning { color: #f0ad4e; }
+    button { padding: 10px 15px; border: none; border-radius: 4px; margin-right: 10px; cursor: pointer; font-weight: bold; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    #connect { background-color: #5cb85c; color: white; }
+    #disconnect { background-color: #d9534f; color: white; }
+    #send-ping { background-color: #0275d8; color: white; }
+    .connection-info { margin-top: 20px; padding: 10px; background-color: #f8f9fa; border-radius: 4px; }
+    pre { margin: 0; white-space: pre-wrap; }
+    .timestamp { color: #777; font-size: 0.9em; margin-right: 5px; }
   </style>
 </head>
 <body>
-  <h1>WebSocket Debug Tool</h1>
-  
-  <div class="status">
-    <span class="status-indicator disconnected" id="status-indicator"></span>
-    <span id="status-text">Disconnected</span>
+  <div class="container">
+    <div class="card">
+      <h1>WebSocket Debug</h1>
+      <div id="log"></div>
+      <div>
+        <button id="connect">Connect</button>
+        <button id="disconnect" disabled>Disconnect</button>
+        <button id="send-ping" disabled>Send Ping</button>
+        <button id="clear-log">Clear Log</button>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h3>Connection Information</h3>
+      <div class="connection-info">
+        <p><strong>Browser:</strong> <span id="browser-info"></span></p>
+        <p><strong>WebSocket URL:</strong> <span id="ws-url"></span></p>
+        <p><strong>WebSocket State:</strong> <span id="ws-state">Not connected</span></p>
+        <p><strong>Transport Type:</strong> WebSocket</p>
+      </div>
+    </div>
+    
+    <div class="card">
+      <h3>Network Diagnostics</h3>
+      <button id="run-diagnostics">Run Network Test</button>
+      <div id="diagnostics-results" class="connection-info" style="display: none;"></div>
+    </div>
   </div>
-  
-  <div class="controls">
-    <button id="connect-btn">Connect</button>
-    <button id="disconnect-btn" disabled>Disconnect</button>
-    <button id="clear-btn">Clear Log</button>
-  </div>
-  
-  <div class="controls">
-    <select id="message-type">
-      <option value="ping">Ping</option>
-      <option value="subscribe">Subscribe</option>
-      <option value="request_status">Request Status</option>
-      <option value="request_api_status">Request API Status</option>
-    </select>
-    <button id="send-btn" disabled>Send Message</button>
-  </div>
-  
-  <div class="controls">
-    <input type="text" id="custom-message" placeholder="Custom JSON message">
-    <button id="send-custom-btn" disabled>Send Custom</button>
-  </div>
-  
-  <div class="log" id="log-container"></div>
   
   <script>
     // DOM elements
-    const connectBtn = document.getElementById('connect-btn');
-    const disconnectBtn = document.getElementById('disconnect-btn');
-    const clearBtn = document.getElementById('clear-btn');
-    const sendBtn = document.getElementById('send-btn');
-    const sendCustomBtn = document.getElementById('send-custom-btn');
-    const messageType = document.getElementById('message-type');
-    const customMessage = document.getElementById('custom-message');
-    const logContainer = document.getElementById('log-container');
-    const statusIndicator = document.getElementById('status-indicator');
-    const statusText = document.getElementById('status-text');
+    const log = document.getElementById('log');
+    const connectBtn = document.getElementById('connect');
+    const disconnectBtn = document.getElementById('disconnect');
+    const sendPingBtn = document.getElementById('send-ping');
+    const clearLogBtn = document.getElementById('clear-log');
+    const browserInfo = document.getElementById('browser-info');
+    const wsUrl = document.getElementById('ws-url');
+    const wsState = document.getElementById('ws-state');
+    const runDiagnosticsBtn = document.getElementById('run-diagnostics');
+    const diagnosticsResults = document.getElementById('diagnostics-results');
     
-    // WebSocket instance
-    let socket = null;
+    // Set browser info
+    browserInfo.textContent = navigator.userAgent;
     
-    // Log a message to the log container
-    function log(message, type = 'info') {
-      const timestamp = new Date().toISOString();
-      const entry = document.createElement('div');
-      entry.className = `log-entry log-${type}`;
-      entry.innerHTML = `<span class="log-time">[${timestamp.split('T')[1].slice(0, 8)}]</span> ${message}`;
-      logContainer.appendChild(entry);
-      logContainer.scrollTop = logContainer.scrollHeight;
+    // WebSocket connection
+    let socket;
+    let reconnectAttempt = 0;
+    let reconnectInterval = null;
+    
+    function addLog(message, type = '') {
+      const line = document.createElement('div');
+      
+      const timestamp = document.createElement('span');
+      timestamp.className = 'timestamp';
+      timestamp.textContent = new Date().toISOString().slice(11, 19);
+      
+      const content = document.createElement('span');
+      content.className = type;
+      content.textContent = message;
+      
+      line.appendChild(timestamp);
+      line.appendChild(content);
+      
+      log.appendChild(line);
+      log.scrollTop = log.scrollHeight;
     }
     
-    // Connect to WebSocket server
+    function updateConnectionState(state) {
+      wsState.textContent = state;
+      
+      if (state === 'Connected') {
+        connectBtn.disabled = true;
+        disconnectBtn.disabled = false;
+        sendPingBtn.disabled = false;
+        wsState.className = 'success';
+      } else if (state === 'Connecting...') {
+        connectBtn.disabled = true;
+        disconnectBtn.disabled = false;
+        sendPingBtn.disabled = true;
+        wsState.className = 'warning';
+      } else {
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+        sendPingBtn.disabled = true;
+        wsState.className = 'error';
+      }
+    }
+    
     function connect() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const url = `${protocol}//${window.location.host}/ws`;
-      
-      log(`Connecting to ${url}...`);
-      
       try {
-        socket = new WebSocket(url);
+        addLog('Connecting to WebSocket server...', 'info');
+        updateConnectionState('Connecting...');
+        
+        // Determine WebSocket URL
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const webSocketUrl = `${protocol}//${window.location.host}/ws`;
+        wsUrl.textContent = webSocketUrl;
+        
+        // Create WebSocket connection
+        socket = new WebSocket(webSocketUrl);
         
         socket.onopen = () => {
-          log('Connection established', 'success');
-          statusIndicator.className = 'status-indicator connected';
-          statusText.textContent = 'Connected';
-          connectBtn.disabled = true;
-          disconnectBtn.disabled = false;
-          sendBtn.disabled = false;
-          sendCustomBtn.disabled = false;
-        };
-        
-        socket.onclose = (event) => {
-          log(`Connection closed: ${event.code} ${event.reason || ''}`, 'warning');
-          statusIndicator.className = 'status-indicator disconnected';
-          statusText.textContent = 'Disconnected';
-          connectBtn.disabled = false;
-          disconnectBtn.disabled = true;
-          sendBtn.disabled = true;
-          sendCustomBtn.disabled = true;
-        };
-        
-        socket.onerror = (error) => {
-          log('WebSocket error occurred', 'error');
-          statusIndicator.className = 'status-indicator error';
-          statusText.textContent = 'Error';
+          addLog('WebSocket connection established', 'success');
+          updateConnectionState('Connected');
+          reconnectAttempt = 0;
+          if (reconnectInterval) {
+            clearInterval(reconnectInterval);
+            reconnectInterval = null;
+          }
         };
         
         socket.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            log(`Received: ${JSON.stringify(data, null, 2)}`, 'received');
+            addLog(`Received: ${JSON.stringify(data)}`, 'info');
           } catch (e) {
-            log(`Received raw data: ${event.data}`, 'received');
+            addLog(`Received: ${event.data}`, 'info');
           }
         };
-      } catch (e) {
-        log(`Error creating WebSocket: ${e.message}`, 'error');
+        
+        socket.onerror = (error) => {
+          addLog(`WebSocket error`, 'error');
+          console.error('WebSocket error:', error);
+        };
+        
+        socket.onclose = (event) => {
+          const reason = event.reason ? ` - ${event.reason}` : '';
+          addLog(`WebSocket closed (code: ${event.code}${reason})`, 'error');
+          updateConnectionState('Disconnected');
+          
+          // Attempt to reconnect
+          if (!reconnectInterval && reconnectAttempt < 5) {
+            reconnectAttempt++;
+            const delay = 1500;
+            addLog(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempt})...`, 'warning');
+            
+            setTimeout(() => {
+              connect();
+            }, delay);
+          }
+        };
+      } catch (error) {
+        addLog(`Error: ${error.message}`, 'error');
+        updateConnectionState('Error');
       }
     }
     
-    // Disconnect from server
     function disconnect() {
       if (socket) {
-        log('Disconnecting...');
+        addLog('Manually disconnecting...', 'info');
         socket.close();
-        socket = null;
+        updateConnectionState('Disconnected');
+        
+        // Stop reconnection attempts
+        if (reconnectInterval) {
+          clearInterval(reconnectInterval);
+          reconnectInterval = null;
+        }
+        reconnectAttempt = 0;
       }
     }
     
-    // Send a predefined message
-    function sendMessage() {
-      if (!socket || socket.readyState !== WebSocket.OPEN) {
-        log('Socket not connected', 'error');
-        return;
+    function sendPing() {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        const pingData = {
+          type: 'ping',
+          timestamp: Date.now()
+        };
+        
+        socket.send(JSON.stringify(pingData));
+        addLog(`Sent ping: ${JSON.stringify(pingData)}`, 'info');
+      } else {
+        addLog('Cannot send ping: WebSocket not connected', 'error');
       }
-      
-      const type = messageType.value;
-      let message = {};
-      
-      switch (type) {
-        case 'ping':
-          message = { type: 'ping', time: Date.now() };
-          break;
-        case 'subscribe':
-          message = { 
-            type: 'subscribe', 
-            topics: ['api-status', 'status-change', 'system_status', 'all']
-          };
-          break;
-        case 'request_status':
-          message = { type: 'request_status' };
-          break;
-        case 'request_api_status':
-          message = { type: 'request_api_status' };
-          break;
-      }
-      
-      const messageStr = JSON.stringify(message);
-      socket.send(messageStr);
-      log(`Sent: ${messageStr}`, 'sent');
     }
     
-    // Send a custom message
-    function sendCustomMessage() {
-      if (!socket || socket.readyState !== WebSocket.OPEN) {
-        log('Socket not connected', 'error');
-        return;
-      }
+    function clearLogEntries() {
+      log.innerHTML = '';
+      addLog('Log cleared', 'info');
+    }
+    
+    async function runNetworkDiagnostics() {
+      addLog('Running network diagnostics...', 'info');
+      diagnosticsResults.style.display = 'block';
+      diagnosticsResults.innerHTML = '<p>Testing connection capabilities...</p>';
       
+      const results = [];
+      
+      // Test 1: HTTP Connectivity
       try {
-        const message = JSON.parse(customMessage.value);
-        const messageStr = JSON.stringify(message);
-        socket.send(messageStr);
-        log(`Sent custom: ${messageStr}`, 'sent');
-      } catch (e) {
-        log(`Error parsing custom message: ${e.message}`, 'error');
+        const startTime = performance.now();
+        const response = await fetch('/health');
+        const endTime = performance.now();
+        const data = await response.json();
+        
+        results.push({
+          name: 'HTTP API',
+          status: response.ok ? 'success' : 'error',
+          time: Math.round(endTime - startTime),
+          details: `Status: ${response.status}, Data: ${JSON.stringify(data)}`
+        });
+      } catch (error) {
+        results.push({
+          name: 'HTTP API',
+          status: 'error',
+          time: 0,
+          details: `Error: ${error.message}`
+        });
       }
-    }
-    
-    // Clear the log
-    function clearLog() {
-      logContainer.innerHTML = '';
+      
+      // Test 2: Raw WebSocket connectivity
+      try {
+        return new Promise((resolve) => {
+          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const testWsUrl = `${protocol}//${window.location.host}/ws`;
+          
+          const startTime = performance.now();
+          const testWs = new WebSocket(testWsUrl);
+          
+          // Set timeout
+          const timeout = setTimeout(() => {
+            testWs.close();
+            results.push({
+              name: 'WebSocket',
+              status: 'error',
+              time: 3000,
+              details: 'Connection timeout after 3 seconds'
+            });
+            showResults();
+            resolve();
+          }, 3000);
+          
+          testWs.onopen = () => {
+            clearTimeout(timeout);
+            const endTime = performance.now();
+            results.push({
+              name: 'WebSocket',
+              status: 'success',
+              time: Math.round(endTime - startTime),
+              details: 'Connection successful'
+            });
+            testWs.close();
+            showResults();
+            resolve();
+          };
+          
+          testWs.onerror = () => {
+            clearTimeout(timeout);
+            results.push({
+              name: 'WebSocket',
+              status: 'error',
+              time: Math.round(performance.now() - startTime),
+              details: 'Connection failed'
+            });
+            showResults();
+            resolve();
+          };
+          
+          function showResults() {
+            let html = '<h4>Network Test Results</h4>';
+            
+            results.forEach(result => {
+              const statusClass = result.status === 'success' ? 'success' : 'error';
+              html += `
+                <div>
+                  <strong>${result.name}:</strong> 
+                  <span class="${statusClass}">${result.status.toUpperCase()}</span>
+                  ${result.time ? ` (${result.time}ms)` : ''}
+                  <div>${result.details}</div>
+                </div>
+                <hr>
+              `;
+            });
+            
+            if (results.some(r => r.status === 'error')) {
+              html += '<h4>Recommendations</h4>';
+              html += '<ul>';
+              if (results.find(r => r.name === 'HTTP API' && r.status === 'error')) {
+                html += '<li>The server appears unreachable or is not responding correctly.</li>';
+              }
+              if (results.find(r => r.name === 'WebSocket' && r.status === 'error')) {
+                html += '<li>WebSocket connections are failing. Check for proxy or firewall issues.</li>';
+              }
+              html += '</ul>';
+            } else {
+              html += '<p class="success">All tests passed! If you\'re still having issues, check the implementation.</p>';
+            }
+            
+            diagnosticsResults.innerHTML = html;
+          }
+        });
+      } catch (error) {
+        results.push({
+          name: 'Diagnostics',
+          status: 'error',
+          time: 0,
+          details: `Error running tests: ${error.message}`
+        });
+        
+        let html = '<h4>Test Error</h4>';
+        html += `<p class="error">Error running diagnostics: ${error.message}</p>`;
+        diagnosticsResults.innerHTML = html;
+      }
     }
     
     // Event listeners
     connectBtn.addEventListener('click', connect);
     disconnectBtn.addEventListener('click', disconnect);
-    clearBtn.addEventListener('click', clearLog);
-    sendBtn.addEventListener('click', sendMessage);
-    sendCustomBtn.addEventListener('click', sendCustomMessage);
+    sendPingBtn.addEventListener('click', sendPing);
+    clearLogBtn.addEventListener('click', clearLogEntries);
+    runDiagnosticsBtn.addEventListener('click', runNetworkDiagnostics);
     
     // Initialize
-    log('WebSocket Debug Tool initialized. Click "Connect" to start.');
+    addLog('WebSocket debug page loaded. Click "Connect" to start.', 'info');
   </script>
 </body>
 </html>

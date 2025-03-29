@@ -1,0 +1,2037 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Socket.IO Diagnostic Tool</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f7; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+    h1, h2, h3 { color: #333; }
+    h1 { font-size: 1.8rem; margin-top: 0; }
+    h2 { font-size: 1.4rem; margin-top: 0; }
+    h3 { font-size: 1.2rem; margin-top: 0; }
+    
+    .log-section { 
+      display: flex;
+      flex-direction: column;
+      height: 350px;
+    }
+    
+    .log-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .log-controls {
+      display: flex;
+      gap: 10px;
+    }
+    
+    #log, #debug-console { 
+      height: 100%;
+      overflow-y: scroll; 
+      border: 1px solid #ddd; 
+      border-radius: 4px; 
+      padding: 10px; 
+      font-family: monospace; 
+      font-size: 13px; 
+      background-color: #f8f9fa; 
+    }
+    
+    .info { color: #0275d8; }
+    .error { color: #d9534f; }
+    .success { color: #5cb85c; }
+    .warning { color: #f0ad4e; }
+    .system { color: #6c757d; font-style: italic; }
+    .receiving { color: #9c27b0; }
+    .sending { color: #ff9800; }
+    .verbose { font-size: 11px; color: #6c757d; }
+    
+    button { 
+      padding: 8px 12px; 
+      border: none; 
+      border-radius: 4px; 
+      margin-right: 10px; 
+      cursor: pointer; 
+      font-weight: bold; 
+    }
+    
+    button:disabled { 
+      opacity: 0.6; 
+      cursor: not-allowed; 
+    }
+    
+    .btn-primary { background-color: #0275d8; color: white; }
+    .btn-success { background-color: #5cb85c; color: white; }
+    .btn-danger { background-color: #d9534f; color: white; }
+    .btn-warning { background-color: #f0ad4e; color: white; }
+    .btn-info { background-color: #5bc0de; color: white; }
+    .btn-secondary { background-color: #6c757d; color: white; }
+    
+    .connection-info { 
+      margin-top: 20px; 
+      padding: 10px; 
+      background-color: #f8f9fa; 
+      border-radius: 4px; 
+    }
+    
+    .timestamp { 
+      color: #777; 
+      font-size: 0.9em; 
+      margin-right: 5px; 
+    }
+    
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+    
+    .status-card {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+      background-color: white;
+    }
+    
+    .status-title {
+      font-weight: bold;
+      color: #555;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+    
+    .status-value {
+      font-family: monospace;
+      font-size: 15px;
+    }
+    
+    .status-value.online {
+      color: #5cb85c;
+      font-weight: bold;
+    }
+    
+    .status-value.offline {
+      color: #d9534f;
+      font-weight: bold;
+    }
+    
+    .status-value.warning {
+      color: #f0ad4e;
+      font-weight: bold;
+    }
+    
+    input[type="text"], input[type="number"], textarea, select {
+      width: 100%;
+      padding: 8px;
+      margin: 5px 0 15px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    
+    textarea {
+      min-height: 100px;
+      font-family: monospace;
+    }
+    
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 20px;
+    }
+    
+    .tab {
+      padding: 10px 15px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-right: 10px;
+      font-weight: bold;
+      color: #555;
+    }
+    
+    .tab.active {
+      border-bottom: 3px solid #0275d8;
+      color: #0275d8;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .flex-row {
+      display: flex;
+      gap: 15px;
+    }
+    
+    .flex-col {
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .flex-1 {
+      flex: 1;
+    }
+    
+    .event-templates {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    
+    .event-template {
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 8px;
+      text-align: center;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    
+    .event-template:hover {
+      background-color: #e9ecef;
+    }
+    
+    .collapsible {
+      background-color: #f8f9fa;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .collapsible-header {
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .collapsible-content {
+      display: none;
+      padding-top: 10px;
+      border-top: 1px solid #ddd;
+      margin-top: 10px;
+    }
+    
+    .collapsible.open .collapsible-content {
+      display: block;
+    }
+    
+    .health-section {
+      margin-top: 20px;
+    }
+    
+    .health-indicator {
+      width: 100%;
+      height: 8px;
+      background-color: #e9ecef;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+    
+    .health-bar {
+      height: 100%;
+      background-color: #5cb85c;
+      transition: width 0.3s ease-in-out;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Socket.IO Advanced Diagnostic Tool</h1>
+      
+      <div class="tabs">
+        <div class="tab active" data-tab="console">Console</div>
+        <div class="tab" data-tab="status">System Status</div>
+        <div class="tab" data-tab="test">Connection Tests</div>
+        <div class="tab" data-tab="events">Event Testing</div>
+        <div class="tab" data-tab="config">Advanced Config</div>
+      </div>
+      
+      <!-- Console Tab -->
+      <div class="tab-content active" id="console-tab">
+        <div class="log-section">
+          <div class="log-header">
+            <h2>Connection Log</h2>
+            <div class="log-controls">
+              <button id="clear-log" class="btn-secondary">Clear</button>
+              <label><input type="checkbox" id="auto-scroll" checked> Auto-scroll</label>
+              <label><input type="checkbox" id="verbose-logging"> Verbose</label>
+            </div>
+          </div>
+          <div id="log"></div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+          <div class="flex-row">
+            <button id="connect" class="btn-success">Connect</button>
+            <button id="disconnect" class="btn-danger" disabled>Disconnect</button>
+            <button id="send-ping" class="btn-primary" disabled>Send Ping</button>
+            <button id="request-status" class="btn-info" disabled>Request Status</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Status Tab -->
+      <div class="tab-content" id="status-tab">
+        <h2>System Status</h2>
+        
+        <div class="health-section">
+          <div class="flex-row">
+            <div class="flex-1">
+              <div class="status-title">System Health</div>
+              <div class="health-indicator">
+                <div id="health-bar" class="health-bar" style="width: 0%;"></div>
+              </div>
+              <div id="health-score" class="status-value">Unknown</div>
+            </div>
+            <div class="flex-1">
+              <div class="status-title">Memory Usage</div>
+              <div class="health-indicator">
+                <div id="memory-bar" class="health-bar" style="width: 0%;"></div>
+              </div>
+              <div id="memory-usage" class="status-value">Unknown</div>
+            </div>
+            <div class="flex-1">
+              <div class="status-title">Connection Quality</div>
+              <div class="health-indicator">
+                <div id="connection-bar" class="health-bar" style="width: 0%;"></div>
+              </div>
+              <div id="connection-quality" class="status-value">Unknown</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="status-grid">
+          <div class="status-card">
+            <div class="status-title">Connection State</div>
+            <div id="connection-state" class="status-value offline">Disconnected</div>
+          </div>
+          <div class="status-card">
+            <div class="status-title">Socket ID</div>
+            <div id="socket-id" class="status-value">-</div>
+          </div>
+          <div class="status-card">
+            <div class="status-title">Transport</div>
+            <div id="transport-type" class="status-value">-</div>
+          </div>
+          <div class="status-card">
+            <div class="status-title">Ping</div>
+            <div id="ping-value" class="status-value">-</div>
+          </div>
+          <div class="status-card">
+            <div class="status-title">Connection Time</div>
+            <div id="connection-time" class="status-value">-</div>
+          </div>
+          <div class="status-card">
+            <div class="status-title">Reconnections</div>
+            <div id="reconnection-count" class="status-value">0</div>
+          </div>
+          <div class="status-card">
+            <div class="status-title">Claude Service</div>
+            <div id="claude-status" class="status-value">Unknown</div>
+          </div>
+          <div class="status-card">
+            <div class="status-title">Perplexity Service</div>
+            <div id="perplexity-status" class="status-value">Unknown</div>
+          </div>
+          <div class="status-card">
+            <div class="status-title">Uptime</div>
+            <div id="uptime-value" class="status-value">-</div>
+          </div>
+          <div class="status-card">
+            <div class="status-title">Browser</div>
+            <div id="browser-info" class="status-value">-</div>
+          </div>
+          <div class="status-card">
+            <div class="status-title">Network</div>
+            <div id="network-type" class="status-value">-</div>
+          </div>
+          <div class="status-card">
+            <div class="status-title">Subscriptions</div>
+            <div id="subscriptions" class="status-value">-</div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 20px">
+          <button id="refresh-status" class="btn-primary">Refresh Status</button>
+          <button id="subscription-manager" class="btn-info">Manage Subscriptions</button>
+        </div>
+      </div>
+      
+      <!-- Tests Tab -->
+      <div class="tab-content" id="test-tab">
+        <h2>Connection Tests</h2>
+        
+        <div class="collapsible">
+          <div class="collapsible-header">Network Diagnostics <span>▼</span></div>
+          <div class="collapsible-content">
+            <p>Run comprehensive tests on your network and Socket.IO connection.</p>
+            <button id="run-diagnostics" class="btn-primary">Run Network Tests</button>
+            <div id="diagnostics-results" class="connection-info" style="margin-top: 15px; display: none;"></div>
+          </div>
+        </div>
+        
+        <div class="collapsible">
+          <div class="collapsible-header">Transport Test <span>▼</span></div>
+          <div class="collapsible-content">
+            <p>Test different Socket.IO transport methods to find the most reliable option.</p>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+              <button data-transport="websocket" class="transport-test btn-info">WebSocket Only</button>
+              <button data-transport="polling" class="transport-test btn-info">Polling Only</button>
+              <button data-transport="websocket,polling" class="transport-test btn-info">Auto (WebSocket+Polling)</button>
+            </div>
+            <div id="transport-results" class="connection-info" style="display: none;"></div>
+          </div>
+        </div>
+        
+        <div class="collapsible">
+          <div class="collapsible-header">Connection Resilience Test <span>▼</span></div>
+          <div class="collapsible-content">
+            <p>Test how the system handles reconnections and connection interruptions.</p>
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+              <button id="test-reconnect" class="btn-warning">Test Reconnection</button>
+              <button id="test-message-queue" class="btn-warning">Test Message Queue</button>
+              <button id="test-auth-timeout" class="btn-warning">Test Auth Timeout</button>
+            </div>
+            <div id="resilience-results" class="connection-info" style="display: none;"></div>
+          </div>
+        </div>
+        
+        <div class="collapsible">
+          <div class="collapsible-header">Load Test <span>▼</span></div>
+          <div class="collapsible-content">
+            <div class="flex-row">
+              <div class="flex-1">
+                <p>Test how the system handles rapid message sending.</p>
+                <div style="margin-bottom: 15px;">
+                  <label for="message-count">Number of messages:</label>
+                  <input type="number" id="message-count" value="50" min="1" max="1000">
+                </div>
+                <div style="margin-bottom: 15px;">
+                  <label for="message-interval">Interval (ms):</label>
+                  <input type="number" id="message-interval" value="100" min="50" max="2000">
+                </div>
+              </div>
+              <div class="flex-1">
+                <div style="margin-bottom: 15px;">
+                  <label for="message-size">Message size (bytes):</label>
+                  <input type="number" id="message-size" value="100" min="10" max="10000">
+                </div>
+                <div style="margin-bottom: 15px;">
+                  <label for="message-pattern">Message pattern:</label>
+                  <select id="message-pattern">
+                    <option value="sequential">Sequential</option>
+                    <option value="burst">Burst</option>
+                    <option value="random">Random interval</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button id="run-load-test" class="btn-danger">Run Load Test</button>
+            <div class="progress-container" style="margin-top: 15px; display: none;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                <span>Progress:</span>
+                <span id="load-test-progress">0%</span>
+              </div>
+              <div class="health-indicator">
+                <div id="load-test-bar" class="health-bar" style="width: 0%; background-color: #0275d8;"></div>
+              </div>
+            </div>
+            <div id="load-test-results" class="connection-info" style="margin-top: 15px; display: none;"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Events Tab -->
+      <div class="tab-content" id="events-tab">
+        <h2>Event Testing</h2>
+        
+        <div class="flex-row">
+          <div class="flex-col flex-1">
+            <h3>Send Custom Event</h3>
+            
+            <div>
+              <label for="event-name">Event Name:</label>
+              <input type="text" id="event-name" placeholder="e.g., request_status, message">
+            </div>
+            
+            <label>Common Events:</label>
+            <div class="event-templates">
+              <div class="event-template" data-event="ping">ping</div>
+              <div class="event-template" data-event="request_status">request_status</div>
+              <div class="event-template" data-event="request_api_status">request_api_status</div>
+              <div class="event-template" data-event="subscribe">subscribe</div>
+              <div class="event-template" data-event="message">message</div>
+            </div>
+            
+            <div>
+              <label for="event-data">Event Data (JSON):</label>
+              <textarea id="event-data" placeholder='{"type": "status_request", "detail": "memory"}' spellcheck="false"></textarea>
+            </div>
+            
+            <button id="send-event" class="btn-primary" disabled>Send Event</button>
+          </div>
+          
+          <div class="flex-col flex-1">
+            <div class="log-header">
+              <h3>Event Log</h3>
+              <div class="log-controls">
+                <button id="clear-event-log" class="btn-secondary">Clear</button>
+                <label><input type="checkbox" id="event-auto-scroll" checked> Auto-scroll</label>
+              </div>
+            </div>
+            <div id="debug-console"></div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Config Tab -->
+      <div class="tab-content" id="config-tab">
+        <h2>Advanced Configuration</h2>
+        
+        <div class="flex-row">
+          <div class="flex-col flex-1">
+            <h3>Connection Options</h3>
+            
+            <div>
+              <label for="socket-url">Socket.IO URL:</label>
+              <input type="text" id="socket-url" value="">
+            </div>
+            
+            <div>
+              <label for="socket-path">Socket.IO Path:</label>
+              <input type="text" id="socket-path" value="/socket.io">
+            </div>
+            
+            <div>
+              <label for="transport-options">Transport:</label>
+              <select id="transport-options">
+                <option value="websocket,polling">Auto (WebSocket+Polling)</option>
+                <option value="websocket">WebSocket Only</option>
+                <option value="polling">Polling Only</option>
+              </select>
+            </div>
+            
+            <h3>Reconnection Settings</h3>
+            
+            <div class="flex-row">
+              <div class="flex-1">
+                <div>
+                  <label for="reconnection-enabled">Enable Reconnection:</label>
+                  <select id="reconnection-enabled">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label for="reconnection-attempts">Max Attempts:</label>
+                  <input type="number" id="reconnection-attempts" value="Infinity" min="1" max="100">
+                </div>
+              </div>
+              
+              <div class="flex-1">
+                <div>
+                  <label for="reconnection-delay">Initial Delay (ms):</label>
+                  <input type="number" id="reconnection-delay" value="1000" min="100" max="5000" step="100">
+                </div>
+                
+                <div>
+                  <label for="reconnection-delay-max">Max Delay (ms):</label>
+                  <input type="number" id="reconnection-delay-max" value="5000" min="1000" max="30000" step="1000">
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="flex-col flex-1">
+            <h3>Socket Options</h3>
+            
+            <div class="flex-row">
+              <div class="flex-1">
+                <div>
+                  <label for="timeout">Timeout (ms):</label>
+                  <input type="number" id="timeout" value="20000" min="5000" max="60000" step="1000">
+                </div>
+                
+                <div>
+                  <label for="upgrade">Allow Upgrades:</label>
+                  <select id="upgrade">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div class="flex-1">
+                <div>
+                  <label for="force-new">Force New Connection:</label>
+                  <select id="force-new">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label for="multiplex">Multiplex:</label>
+                  <select id="multiplex">
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <label for="query-params">Query Parameters (JSON):</label>
+              <textarea id="query-params" placeholder='{"auth": "token123", "clientId": "browser"}' spellcheck="false"></textarea>
+            </div>
+            
+            <div>
+              <label for="extra-headers">Extra Headers (JSON):</label>
+              <textarea id="extra-headers" placeholder='{"X-Client-Version": "1.0.0"}' spellcheck="false"></textarea>
+            </div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 20px">
+          <button id="apply-config" class="btn-success">Apply Configuration</button>
+          <button id="reset-config" class="btn-secondary">Reset to Defaults</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Socket.IO Client -->
+  <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+  
+  <script>
+    // DOM Elements
+    const logElement = document.getElementById('log');
+    const debugConsole = document.getElementById('debug-console');
+    const connectBtn = document.getElementById('connect');
+    const disconnectBtn = document.getElementById('disconnect');
+    const sendPingBtn = document.getElementById('send-ping');
+    const requestStatusBtn = document.getElementById('request-status');
+    const sendEventBtn = document.getElementById('send-event');
+    const refreshStatusBtn = document.getElementById('refresh-status');
+    const runDiagnosticsBtn = document.getElementById('run-diagnostics');
+    const transportTestBtns = document.querySelectorAll('.transport-test');
+    const testReconnectBtn = document.getElementById('test-reconnect');
+    const testMessageQueueBtn = document.getElementById('test-message-queue');
+    const runLoadTestBtn = document.getElementById('run-load-test');
+    const applyConfigBtn = document.getElementById('apply-config');
+    const resetConfigBtn = document.getElementById('reset-config');
+    const eventTemplates = document.querySelectorAll('.event-template');
+    const clearLogBtn = document.getElementById('clear-log');
+    const clearEventLogBtn = document.getElementById('clear-event-log');
+    const autoScrollCheckbox = document.getElementById('auto-scroll');
+    const eventAutoScrollCheckbox = document.getElementById('event-auto-scroll');
+    const verboseLoggingCheckbox = document.getElementById('verbose-logging');
+    const collapsibleHeaders = document.querySelectorAll('.collapsible-header');
+    
+    // Input elements
+    const socketUrlInput = document.getElementById('socket-url');
+    const socketPathInput = document.getElementById('socket-path');
+    const transportOptionsSelect = document.getElementById('transport-options');
+    const reconnectionEnabledSelect = document.getElementById('reconnection-enabled');
+    const reconnectionAttemptsInput = document.getElementById('reconnection-attempts');
+    const reconnectionDelayInput = document.getElementById('reconnection-delay');
+    const reconnectionDelayMaxInput = document.getElementById('reconnection-delay-max');
+    const timeoutInput = document.getElementById('timeout');
+    const upgradeSelect = document.getElementById('upgrade');
+    const forceNewSelect = document.getElementById('force-new');
+    const multiplexSelect = document.getElementById('multiplex');
+    const queryParamsInput = document.getElementById('query-params');
+    const extraHeadersInput = document.getElementById('extra-headers');
+    const eventNameInput = document.getElementById('event-name');
+    const eventDataInput = document.getElementById('event-data');
+    const messageCountInput = document.getElementById('message-count');
+    const messageIntervalInput = document.getElementById('message-interval');
+    const messageSizeInput = document.getElementById('message-size');
+    const messagePatternSelect = document.getElementById('message-pattern');
+    
+    // Status elements
+    const connectionStateEl = document.getElementById('connection-state');
+    const socketIdEl = document.getElementById('socket-id');
+    const transportTypeEl = document.getElementById('transport-type');
+    const pingValueEl = document.getElementById('ping-value');
+    const connectionTimeEl = document.getElementById('connection-time');
+    const reconnectionCountEl = document.getElementById('reconnection-count');
+    const claudeStatusEl = document.getElementById('claude-status');
+    const perplexityStatusEl = document.getElementById('perplexity-status');
+    const uptimeValueEl = document.getElementById('uptime-value');
+    const browserInfoEl = document.getElementById('browser-info');
+    const networkTypeEl = document.getElementById('network-type');
+    const subscriptionsEl = document.getElementById('subscriptions');
+    const healthBarEl = document.getElementById('health-bar');
+    const healthScoreEl = document.getElementById('health-score');
+    const memoryBarEl = document.getElementById('memory-bar');
+    const memoryUsageEl = document.getElementById('memory-usage');
+    const connectionBarEl = document.getElementById('connection-bar');
+    const connectionQualityEl = document.getElementById('connection-quality');
+    
+    // Result containers
+    const diagnosticsResults = document.getElementById('diagnostics-results');
+    const transportResults = document.getElementById('transport-results');
+    const resilienceResults = document.getElementById('resilience-results');
+    const loadTestResults = document.getElementById('load-test-results');
+    const loadTestProgressContainer = document.querySelector('.progress-container');
+    const loadTestProgressBar = document.getElementById('load-test-bar');
+    const loadTestProgressText = document.getElementById('load-test-progress');
+    
+    // Global state
+    let socket = null;
+    let connectionStartTime = 0;
+    let connectedSince = null;
+    let reconnectCount = 0;
+    let pingHistory = [];
+    let isVerboseLogging = false;
+    let sentMessages = 0;
+    let receivedMessages = 0;
+    let lastPingTime = 0;
+    let lastPongTime = 0;
+    let pingInterval = null;
+    let statusUpdateInterval = null;
+    
+    // Set default Socket.IO URL
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    const defaultUrl = `${protocol}//${window.location.host}`;
+    socketUrlInput.value = defaultUrl;
+    
+    // Set browser info
+    const browserInfo = navigator.userAgent.split(' ').slice(-3).join(' ');
+    browserInfoEl.textContent = browserInfo;
+    
+    // Try to determine network connection type
+    if (navigator.connection) {
+      const connection = navigator.connection;
+      const networkInfo = [
+        connection.effectiveType || 'Unknown',
+        connection.downlink ? `${connection.downlink} Mbps` : '',
+        connection.rtt ? `${connection.rtt}ms RTT` : ''
+      ].filter(Boolean).join(', ');
+      
+      networkTypeEl.textContent = networkInfo;
+    } else {
+      networkTypeEl.textContent = 'Unknown (API not available)';
+    }
+    
+    // Tab navigation
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Remove active class from all tabs
+        tabs.forEach(t => t.classList.remove('active'));
+        // Add active class to clicked tab
+        tab.classList.add('active');
+        
+        // Hide all tab content
+        document.querySelectorAll('.tab-content').forEach(content => {
+          content.classList.remove('active');
+        });
+        
+        // Show current tab content
+        const tabId = tab.getAttribute('data-tab');
+        document.getElementById(`${tabId}-tab`).classList.add('active');
+      });
+    });
+    
+    // Collapsible sections
+    collapsibleHeaders.forEach(header => {
+      header.addEventListener('click', () => {
+        const collapsible = header.parentElement;
+        const isOpen = collapsible.classList.toggle('open');
+        const arrow = header.querySelector('span');
+        arrow.textContent = isOpen ? '▲' : '▼';
+      });
+    });
+    
+    // Event templates
+    eventTemplates.forEach(template => {
+      template.addEventListener('click', () => {
+        const eventName = template.getAttribute('data-event');
+        eventNameInput.value = eventName;
+        
+        // Provide sample data based on event type
+        switch (eventName) {
+          case 'ping':
+            eventDataInput.value = '{\n  "timestamp": ' + Date.now() + '\n}';
+            break;
+          case 'subscribe':
+            eventDataInput.value = '{\n  "topics": ["all", "system_status", "research_progress"]\n}';
+            break;
+          case 'message':
+            eventDataInput.value = '{\n  "type": "request_status"\n}';
+            break;
+          default:
+            eventDataInput.value = '';
+        }
+      });
+    });
+    
+    // Add log message
+    function addLog(message, type = '') {
+      const line = document.createElement('div');
+      
+      const timestamp = document.createElement('span');
+      timestamp.className = 'timestamp';
+      const now = new Date();
+      timestamp.textContent = now.toISOString().slice(11, 19);
+      
+      const content = document.createElement('span');
+      content.className = type;
+      content.textContent = message;
+      
+      line.appendChild(timestamp);
+      line.appendChild(content);
+      
+      logElement.appendChild(line);
+      
+      if (autoScrollCheckbox.checked) {
+        logElement.scrollTop = logElement.scrollHeight;
+      }
+    }
+    
+    // Add debug message
+    function addDebugMessage(message, type = '') {
+      const line = document.createElement('div');
+      
+      const timestamp = document.createElement('span');
+      timestamp.className = 'timestamp';
+      const now = new Date();
+      timestamp.textContent = now.toISOString().slice(11, 19);
+      
+      const content = document.createElement('span');
+      content.className = type;
+      content.textContent = message;
+      
+      line.appendChild(timestamp);
+      line.appendChild(content);
+      
+      debugConsole.appendChild(line);
+      
+      if (eventAutoScrollCheckbox.checked) {
+        debugConsole.scrollTop = debugConsole.scrollHeight;
+      }
+    }
+    
+    // Safely parse JSON
+    function safelyParseJSON(json, fallback = {}) {
+      if (!json) return fallback;
+      
+      try {
+        // Replace single quotes with double quotes for valid JSON
+        const normalizedJson = json
+          .replace(/'/g, '"')
+          .replace(/(\w+):/g, '"$1":');
+        
+        return JSON.parse(normalizedJson);
+      } catch (e) {
+        addLog(`Error parsing JSON: ${e.message}`, 'error');
+        return fallback;
+      }
+    }
+    
+    // Format time duration
+    function formatDuration(ms) {
+      if (!ms || isNaN(ms)) return '-';
+      
+      const seconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      
+      if (days > 0) {
+        return `${days}d ${hours % 24}h ${minutes % 60}m`;
+      } else if (hours > 0) {
+        return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+      } else if (minutes > 0) {
+        return `${minutes}m ${seconds % 60}s`;
+      } else {
+        return `${seconds}s`;
+      }
+    }
+    
+    // Update connection state
+    function updateConnectionState(state) {
+      connectionStateEl.textContent = state;
+      
+      if (state === 'Connected') {
+        connectBtn.disabled = true;
+        disconnectBtn.disabled = false;
+        sendPingBtn.disabled = false;
+        requestStatusBtn.disabled = false;
+        sendEventBtn.disabled = false;
+        connectionStateEl.className = 'status-value online';
+        connectionQualityEl.textContent = 'Good';
+        connectionBarEl.style.width = '80%';
+      } else if (state === 'Connecting...') {
+        connectBtn.disabled = true;
+        disconnectBtn.disabled = false;
+        sendPingBtn.disabled = true;
+        requestStatusBtn.disabled = true;
+        sendEventBtn.disabled = true;
+        connectionStateEl.className = 'status-value warning';
+        connectionQualityEl.textContent = 'Connecting...';
+        connectionBarEl.style.width = '40%';
+        connectionBarEl.style.backgroundColor = '#f0ad4e';
+      } else if (state === 'Disconnected') {
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+        sendPingBtn.disabled = true;
+        requestStatusBtn.disabled = true;
+        sendEventBtn.disabled = true;
+        connectionStateEl.className = 'status-value offline';
+        transportTypeEl.textContent = '-';
+        socketIdEl.textContent = '-';
+        pingValueEl.textContent = '-';
+        connectionTimeEl.textContent = '-';
+        connectionQualityEl.textContent = 'Disconnected';
+        connectionBarEl.style.width = '0%';
+        clearIntervals();
+      } else if (state.includes('Error')) {
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+        sendPingBtn.disabled = true;
+        requestStatusBtn.disabled = true;
+        sendEventBtn.disabled = true;
+        connectionStateEl.className = 'status-value offline';
+        connectionQualityEl.textContent = 'Error';
+        connectionBarEl.style.width = '20%';
+        connectionBarEl.style.backgroundColor = '#d9534f';
+      } else if (state === 'Reconnecting...') {
+        connectBtn.disabled = true;
+        disconnectBtn.disabled = false;
+        sendPingBtn.disabled = true;
+        requestStatusBtn.disabled = true;
+        sendEventBtn.disabled = true;
+        connectionStateEl.className = 'status-value warning';
+        connectionQualityEl.textContent = 'Reconnecting...';
+        connectionBarEl.style.width = '30%';
+        connectionBarEl.style.backgroundColor = '#f0ad4e';
+      }
+    }
+    
+    // Calculate connection quality based on ping
+    function updateConnectionQuality() {
+      if (!pingHistory.length) return;
+      
+      const avgPing = pingHistory.reduce((a, b) => a + b, 0) / pingHistory.length;
+      const jitter = Math.sqrt(
+        pingHistory.reduce((sum, ping) => sum + Math.pow(ping - avgPing, 2), 0) / pingHistory.length
+      );
+      
+      let quality = 'Unknown';
+      let qualityPercent = 0;
+      
+      if (avgPing < 100) {
+        if (jitter < 10) {
+          quality = 'Excellent';
+          qualityPercent = 100;
+        } else if (jitter < 30) {
+          quality = 'Very Good';
+          qualityPercent = 90;
+        } else {
+          quality = 'Good';
+          qualityPercent = 80;
+        }
+      } else if (avgPing < 200) {
+        if (jitter < 30) {
+          quality = 'Good';
+          qualityPercent = 70;
+        } else {
+          quality = 'Fair';
+          qualityPercent = 60;
+        }
+      } else if (avgPing < 300) {
+        quality = 'Fair';
+        qualityPercent = 50;
+      } else {
+        quality = 'Poor';
+        qualityPercent = 30;
+      }
+      
+      connectionQualityEl.textContent = `${quality} (${Math.round(avgPing)}ms avg)`;
+      connectionBarEl.style.width = `${qualityPercent}%`;
+      
+      // Set color based on quality
+      if (qualityPercent > 70) {
+        connectionBarEl.style.backgroundColor = '#5cb85c';
+      } else if (qualityPercent > 40) {
+        connectionBarEl.style.backgroundColor = '#f0ad4e';
+      } else {
+        connectionBarEl.style.backgroundColor = '#d9534f';
+      }
+    }
+    
+    // Update uptime display
+    function updateUptime() {
+      if (!connectedSince) {
+        uptimeValueEl.textContent = '-';
+        return;
+      }
+      
+      const uptime = Date.now() - connectedSince.getTime();
+      uptimeValueEl.textContent = formatDuration(uptime);
+    }
+    
+    // Clear intervals
+    function clearIntervals() {
+      if (pingInterval) {
+        clearInterval(pingInterval);
+        pingInterval = null;
+      }
+      
+      if (statusUpdateInterval) {
+        clearInterval(statusUpdateInterval);
+        statusUpdateInterval = null;
+      }
+    }
+    
+    // Connect to Socket.IO server
+    function connect() {
+      try {
+        // Get connection options
+        const url = socketUrlInput.value || defaultUrl;
+        const path = socketPathInput.value || '/socket.io';
+        const transports = transportOptionsSelect.value.split(',');
+        const reconnectionEnabled = reconnectionEnabledSelect.value === 'true';
+        const reconnectionAttempts = reconnectionAttemptsInput.value === 'Infinity' ? 
+          Infinity : parseInt(reconnectionAttemptsInput.value, 10);
+        const reconnectionDelay = parseInt(reconnectionDelayInput.value, 10);
+        const reconnectionDelayMax = parseInt(reconnectionDelayMaxInput.value, 10);
+        const timeout = parseInt(timeoutInput.value, 10);
+        const forceNew = forceNewSelect.value === 'true';
+        const multiplex = multiplexSelect.value === 'true';
+        const upgrade = upgradeSelect.value === 'true';
+        
+        // Parse query parameters and headers
+        const query = safelyParseJSON(queryParamsInput.value);
+        const extraHeaders = safelyParseJSON(extraHeadersInput.value);
+        
+        // Update UI
+        addLog(`Connecting to ${url} with path ${path}...`, 'info');
+        updateConnectionState('Connecting...');
+        
+        connectionStartTime = performance.now();
+        
+        // Create connection options
+        const options = {
+          path,
+          transports,
+          reconnection: reconnectionEnabled,
+          reconnectionAttempts,
+          reconnectionDelay,
+          reconnectionDelayMax,
+          timeout,
+          upgrade,
+          forceNew,
+          multiplex
+        };
+        
+        // Add query and extraHeaders if provided
+        if (Object.keys(query).length) {
+          options.query = query;
+        }
+        
+        if (Object.keys(extraHeaders).length) {
+          options.extraHeaders = extraHeaders;
+        }
+        
+        // Log verbose connection info
+        if (isVerboseLogging) {
+          addLog(`Connection options: ${JSON.stringify(options)}`, 'verbose');
+        }
+        
+        // Create socket connection
+        socket = io(url, options);
+        
+        // Setup event listeners
+        socket.on('connect', () => {
+          const elapsed = Math.round(performance.now() - connectionStartTime);
+          addLog(`Connected in ${elapsed}ms! Socket ID: ${socket.id}`, 'success');
+          updateConnectionState('Connected');
+          
+          // Update status
+          socketIdEl.textContent = socket.id;
+          transportTypeEl.textContent = socket.io.engine.transport.name;
+          connectedSince = new Date();
+          connectionTimeEl.textContent = connectedSince.toLocaleTimeString();
+          
+          // Request initial status
+          socket.emit('request_status');
+          socket.emit('request_api_status');
+          
+          // Start ping interval
+          if (pingInterval) clearInterval(pingInterval);
+          pingInterval = setInterval(() => {
+            if (socket && socket.connected) {
+              lastPingTime = Date.now();
+              socket.emit('ping', { timestamp: lastPingTime });
+              sentMessages++;
+            }
+          }, 10000);
+          
+          // Start status update interval
+          if (statusUpdateInterval) clearInterval(statusUpdateInterval);
+          statusUpdateInterval = setInterval(() => {
+            updateUptime();
+            if (pingHistory.length > 0) {
+              updateConnectionQuality();
+            }
+          }, 1000);
+          
+          // Listen for transport change
+          socket.io.engine.on('upgrade', (transport) => {
+            addLog(`Transport upgraded to: ${transport.name}`, 'info');
+            transportTypeEl.textContent = transport.name;
+          });
+        });
+        
+        socket.on('connect_error', (err) => {
+          addLog(`Connection error: ${err.message}`, 'error');
+          updateConnectionState('Error: Connection Failed');
+        });
+        
+        socket.on('disconnect', (reason) => {
+          addLog(`Disconnected: ${reason}`, 'warning');
+          
+          if (reason === 'io server disconnect') {
+            // The server forcibly closed the connection
+            updateConnectionState('Disconnected');
+          } else {
+            // The connection was lost for some reason, attempt to reconnect
+            updateConnectionState('Reconnecting...');
+          }
+        });
+        
+        socket.on('reconnect_attempt', (attemptNumber) => {
+          addLog(`Reconnection attempt ${attemptNumber}...`, 'info');
+          updateConnectionState('Reconnecting...');
+          reconnectCount++;
+          reconnectionCountEl.textContent = reconnectCount;
+        });
+        
+        socket.on('reconnect', (attemptNumber) => {
+          addLog(`Reconnected after ${attemptNumber} attempts!`, 'success');
+          updateConnectionState('Connected');
+        });
+        
+        socket.on('reconnect_error', (err) => {
+          addLog(`Reconnection error: ${err.message}`, 'error');
+        });
+        
+        socket.on('reconnect_failed', () => {
+          addLog('Failed to reconnect after maximum attempts', 'error');
+          updateConnectionState('Error: Reconnection Failed');
+        });
+        
+        // Listen for all messages
+        socket.onAny((eventName, ...args) => {
+          receivedMessages++;
+          
+          // Handle special events
+          if (eventName === 'message') {
+            const data = args[0];
+            
+            try {
+              // Log the received message
+              addDebugMessage(`Received 'message' event: ${JSON.stringify(data)}`, 'receiving');
+              
+              // Update UI based on message type
+              if (data.type === 'pong' && data.time) {
+                const now = Date.now();
+                lastPongTime = now;
+                const latency = now - lastPingTime;
+                pingHistory.push(latency);
+                
+                // Keep only the last 10 pings
+                if (pingHistory.length > 10) {
+                  pingHistory.shift();
+                }
+                
+                const avgPing = Math.round(
+                  pingHistory.reduce((a, b) => a + b, 0) / pingHistory.length
+                );
+                
+                pingValueEl.textContent = `${latency}ms (avg ${avgPing}ms)`;
+                updateConnectionQuality();
+              } else if (data.type === 'system_status') {
+                // Update system health display
+                if (data.status) {
+                  let healthScore = 0;
+                  switch (data.status) {
+                    case 'excellent':
+                      healthScore = 100;
+                      break;
+                    case 'good':
+                      healthScore = 80;
+                      break;
+                    case 'fair':
+                      healthScore = 60;
+                      break;
+                    case 'poor':
+                      healthScore = 40;
+                      break;
+                    case 'critical':
+                      healthScore = 20;
+                      break;
+                  }
+                  
+                  healthBarEl.style.width = `${healthScore}%`;
+                  healthScoreEl.textContent = `${data.status.toUpperCase()} (${healthScore}%)`;
+                  
+                  if (healthScore >= 80) {
+                    healthBarEl.style.backgroundColor = '#5cb85c';
+                  } else if (healthScore >= 60) {
+                    healthBarEl.style.backgroundColor = '#5bc0de';
+                  } else if (healthScore >= 40) {
+                    healthBarEl.style.backgroundColor = '#f0ad4e';
+                  } else {
+                    healthBarEl.style.backgroundColor = '#d9534f';
+                  }
+                }
+                
+                // Update memory usage
+                if (data.memory) {
+                  const memPercent = data.memory.usagePercent;
+                  memoryBarEl.style.width = `${memPercent}%`;
+                  
+                  if (memPercent < 50) {
+                    memoryBarEl.style.backgroundColor = '#5cb85c';
+                  } else if (memPercent < 70) {
+                    memoryBarEl.style.backgroundColor = '#f0ad4e';
+                  } else {
+                    memoryBarEl.style.backgroundColor = '#d9534f';
+                  }
+                  
+                  memoryUsageEl.textContent = `${memPercent}% Usage`;
+                }
+                
+                // Update API services status
+                if (data.apiServices) {
+                  const claudeService = data.apiServices.claude;
+                  const perplexityService = data.apiServices.perplexity;
+                  
+                  claudeStatusEl.textContent = claudeService.status.toUpperCase();
+                  claudeStatusEl.className = claudeService.status === 'online' ? 
+                    'status-value online' : 'status-value offline';
+                    
+                  perplexityStatusEl.textContent = perplexityService.status.toUpperCase();
+                  perplexityStatusEl.className = perplexityService.status === 'online' ? 
+                    'status-value online' : 'status-value offline';
+                }
+              } else if (data.type === 'api-status') {
+                // Handle API status updates
+                if (data.data) {
+                  const { claude, perplexity } = data.data;
+                  
+                  claudeStatusEl.textContent = claude.status.toUpperCase();
+                  claudeStatusEl.className = claude.status === 'online' ? 
+                    'status-value online' : 'status-value offline';
+                    
+                  perplexityStatusEl.textContent = perplexity.status.toUpperCase();
+                  perplexityStatusEl.className = perplexity.status === 'online' ? 
+                    'status-value online' : 'status-value offline';
+                }
+              } else if (data.type === 'subscription_update') {
+                // Update subscriptions display
+                if (data.topics) {
+                  subscriptionsEl.textContent = data.topics.join(', ');
+                }
+              }
+            } catch (error) {
+              addLog(`Error processing message: ${error.message}`, 'error');
+            }
+          } else {
+            // Other events
+            const eventData = args.length ? JSON.stringify(args) : '(no data)';
+            addDebugMessage(`Received '${eventName}' event: ${eventData}`, 'receiving');
+          }
+        });
+      } catch (error) {
+        addLog(`Error: ${error.message}`, 'error');
+        updateConnectionState('Error: Invalid Configuration');
+      }
+    }
+    
+    // Disconnect from Socket.IO server
+    function disconnect() {
+      if (socket) {
+        addLog('Manually disconnecting...', 'info');
+        clearIntervals();
+        socket.disconnect();
+      }
+    }
+    
+    // Send ping
+    function sendPing() {
+      if (socket && socket.connected) {
+        lastPingTime = Date.now();
+        
+        const pingData = {
+          timestamp: lastPingTime
+        };
+        
+        socket.emit('ping', pingData);
+        addLog('Ping sent', 'info');
+        addDebugMessage(`Sent 'ping' event: ${JSON.stringify(pingData)}`, 'sending');
+        sentMessages++;
+      } else {
+        addLog('Cannot send ping: Socket.IO not connected', 'error');
+      }
+    }
+    
+    // Request system status
+    function requestStatus() {
+      if (socket && socket.connected) {
+        socket.emit('request_status');
+        addLog('Status request sent', 'info');
+        addDebugMessage(`Sent 'request_status' event`, 'sending');
+        
+        // Also request API status
+        socket.emit('request_api_status');
+        addDebugMessage(`Sent 'request_api_status' event`, 'sending');
+        
+        sentMessages += 2;
+      } else {
+        addLog('Cannot request status: Socket.IO not connected', 'error');
+      }
+    }
+    
+    // Send custom event
+    function sendCustomEvent() {
+      if (socket && socket.connected) {
+        const eventName = eventNameInput.value.trim();
+        let eventData = null;
+        
+        if (!eventName) {
+          addLog('Cannot send: Event name is required', 'error');
+          return;
+        }
+        
+        try {
+          // If data is provided, try to parse it as JSON
+          if (eventDataInput.value.trim()) {
+            eventData = safelyParseJSON(eventDataInput.value);
+          }
+          
+          socket.emit(eventName, eventData);
+          addLog(`Sent '${eventName}' event`, 'info');
+          addDebugMessage(`Sent '${eventName}' event: ${JSON.stringify(eventData)}`, 'sending');
+          sentMessages++;
+        } catch (e) {
+          addLog(`Error sending event: ${e.message}`, 'error');
+        }
+      } else {
+        addLog('Cannot send event: Socket.IO not connected', 'error');
+      }
+    }
+    
+    // Clear logs
+    function clearLogs() {
+      logElement.innerHTML = '';
+      addLog('Log cleared', 'system');
+    }
+    
+    // Clear event logs
+    function clearEventLogs() {
+      debugConsole.innerHTML = '';
+      addDebugMessage('Event log cleared', 'system');
+    }
+    
+    // Run network diagnostics
+    async function runNetworkDiagnostics() {
+      addLog('Running network diagnostics...', 'info');
+      diagnosticsResults.style.display = 'block';
+      diagnosticsResults.innerHTML = '<p>Running tests...</p>';
+      
+      const results = [];
+      
+      // Test 1: HTTP Connectivity
+      try {
+        const startTime = performance.now();
+        const response = await fetch('/health');
+        const endTime = performance.now();
+        const data = await response.json();
+        
+        results.push({
+          name: 'HTTP API',
+          status: response.ok ? 'success' : 'error',
+          time: Math.round(endTime - startTime),
+          details: `Status: ${response.status}, Data: ${JSON.stringify(data)}`
+        });
+      } catch (error) {
+        results.push({
+          name: 'HTTP API',
+          status: 'error',
+          time: 0,
+          details: `Error: ${error.message}`
+        });
+      }
+      
+      // Test 2: Socket.IO connectivity
+      try {
+        return new Promise((resolve) => {
+          const url = socketUrlInput.value || defaultUrl;
+          
+          const startTime = performance.now();
+          const testSocket = io(url, {
+            path: socketPathInput.value || '/socket.io',
+            transports: ['websocket'],
+            timeout: 5000,
+            forceNew: true,
+            reconnection: false
+          });
+          
+          // Set timeout
+          const timeout = setTimeout(() => {
+            testSocket.disconnect();
+            results.push({
+              name: 'Socket.IO WebSocket',
+              status: 'error',
+              time: 5000,
+              details: 'Connection timeout after 5 seconds'
+            });
+            
+            // Try polling as fallback
+            testPolling();
+          }, 5000);
+          
+          testSocket.on('connect', () => {
+            clearTimeout(timeout);
+            const endTime = performance.now();
+            
+            results.push({
+              name: 'Socket.IO WebSocket',
+              status: 'success',
+              time: Math.round(endTime - startTime),
+              details: `Connected with socket ID: ${testSocket.id}`
+            });
+            
+            // Send a ping message to test data flow
+            testSocket.emit('ping', { timestamp: Date.now() });
+            
+            setTimeout(() => {
+              testSocket.disconnect();
+              testPolling();
+            }, 500);
+          });
+          
+          testSocket.on('connect_error', (err) => {
+            clearTimeout(timeout);
+            
+            results.push({
+              name: 'Socket.IO WebSocket',
+              status: 'error',
+              time: Math.round(performance.now() - startTime),
+              details: `Error: ${err.message}`
+            });
+            
+            testSocket.disconnect();
+            testPolling();
+          });
+          
+          function testPolling() {
+            const pollingStartTime = performance.now();
+            const testPollingSocket = io(url, {
+              path: socketPathInput.value || '/socket.io',
+              transports: ['polling'],
+              timeout: 5000,
+              forceNew: true,
+              reconnection: false
+            });
+            
+            const pollingTimeout = setTimeout(() => {
+              testPollingSocket.disconnect();
+              results.push({
+                name: 'Socket.IO Polling',
+                status: 'error',
+                time: 5000,
+                details: 'Connection timeout after 5 seconds'
+              });
+              
+              testEvents();
+            }, 5000);
+            
+            testPollingSocket.on('connect', () => {
+              clearTimeout(pollingTimeout);
+              const endTime = performance.now();
+              
+              results.push({
+                name: 'Socket.IO Polling',
+                status: 'success',
+                time: Math.round(endTime - pollingStartTime),
+                details: `Connected with socket ID: ${testPollingSocket.id}`
+              });
+              
+              setTimeout(() => {
+                testPollingSocket.disconnect();
+                testEvents();
+              }, 500);
+            });
+            
+            testPollingSocket.on('connect_error', (err) => {
+              clearTimeout(pollingTimeout);
+              
+              results.push({
+                name: 'Socket.IO Polling',
+                status: 'error',
+                time: Math.round(performance.now() - pollingStartTime),
+                details: `Error: ${err.message}`
+              });
+              
+              testPollingSocket.disconnect();
+              testEvents();
+            });
+          }
+          
+          function testEvents() {
+            // Only test events if we have a current socket connection
+            if (socket && socket.connected) {
+              const eventStartTime = performance.now();
+              let responseReceived = false;
+              
+              // Listen for the message response once
+              const onMessage = (data) => {
+                if (data.type === 'pong' || data.type === 'system_status') {
+                  responseReceived = true;
+                  const eventEndTime = performance.now();
+                  
+                  results.push({
+                    name: 'Event Communication',
+                    status: 'success',
+                    time: Math.round(eventEndTime - eventStartTime),
+                    details: `Received response to event`
+                  });
+                  
+                  // Remove the listener to avoid duplicates
+                  socket.off('message', onMessage);
+                  
+                  // Continue with results
+                  setTimeout(() => showResults(), 100);
+                }
+              };
+              
+              socket.on('message', onMessage);
+              
+              // Send a test event
+              socket.emit('ping', { timestamp: Date.now() });
+              
+              // Set a timeout for event response
+              setTimeout(() => {
+                if (!responseReceived) {
+                  results.push({
+                    name: 'Event Communication',
+                    status: 'error',
+                    time: 3000,
+                    details: 'No response received to event'
+                  });
+                  
+                  // Remove the listener
+                  socket.off('message', onMessage);
+                  
+                  // Show results anyway
+                  showResults();
+                }
+              }, 3000);
+            } else {
+              results.push({
+                name: 'Event Communication',
+                status: 'skipped',
+                time: 0,
+                details: 'Skipped (no active connection)'
+              });
+              
+              showResults();
+            }
+          }
+          
+          function showResults() {
+            let html = '<h4>Network Diagnostic Results</h4>';
+            
+            results.forEach(result => {
+              let statusClass = 'success';
+              if (result.status === 'error') {
+                statusClass = 'error';
+              } else if (result.status === 'skipped') {
+                statusClass = 'warning';
+              }
+              
+              html += `
+                <div>
+                  <strong>${result.name}:</strong> 
+                  <span class="${statusClass}">${result.status.toUpperCase()}</span>
+                  ${result.time ? ` (${result.time}ms)` : ''}
+                  <div>${result.details}</div>
+                </div>
+                <hr>
+              `;
+            });
+            
+            // Add overall connection assessment
+            html += '<h4>Connection Assessment</h4>';
+            const successCount = results.filter(r => r.status === 'success').length;
+            
+            if (successCount === results.length) {
+              html += '<p class="success">All tests passed! The connection appears to be working properly.</p>';
+            } else if (successCount === 0) {
+              html += '<p class="error">All tests failed. There appears to be a significant connectivity issue.</p>';
+              html += '<h4>Recommendations</h4><ul>';
+              html += '<li>Check if the server is running and accessible</li>';
+              html += '<li>Verify network connectivity and firewall settings</li>';
+              html += '<li>Check if the Socket.IO path is correct</li>';
+              html += '</ul>';
+            } else {
+              html += '<p class="warning">Some tests failed. There may be partial connectivity issues.</p>';
+              html += '<h4>Recommendations</h4><ul>';
+              
+              if (results.find(r => r.name === 'HTTP API' && r.status === 'error')) {
+                html += '<li>The server API appears unreachable. Check if the server is running.</li>';
+              }
+              
+              if (results.find(r => r.name === 'Socket.IO WebSocket' && r.status === 'error')) {
+                if (results.find(r => r.name === 'Socket.IO Polling' && r.status === 'success')) {
+                  html += '<li>WebSocket transport is failing but polling works. Try using polling transport only, or check for proxy/firewall issues with WebSockets.</li>';
+                } else {
+                  html += '<li>Socket.IO connection is failing completely. Check server configuration and network settings.</li>';
+                }
+              }
+              
+              if (results.find(r => r.name === 'Event Communication' && r.status === 'error')) {
+                html += '<li>Connection established but event communication is failing. Check server event handlers.</li>';
+              }
+              
+              html += '</ul>';
+            }
+            
+            diagnosticsResults.innerHTML = html;
+            resolve();
+          }
+        });
+      } catch (error) {
+        diagnosticsResults.innerHTML = `<p class="error">Error running diagnostics: ${error.message}</p>`;
+      }
+    }
+    
+    // Run transport test
+    function runTransportTest(transportType) {
+      if (socket && socket.connected) {
+        disconnect();
+      }
+      
+      transportOptionsSelect.value = transportType;
+      addLog(`Testing transport: ${transportType}`, 'info');
+      transportResults.style.display = 'block';
+      transportResults.innerHTML = '<p>Testing connection...</p>';
+      
+      // Store original connect button handler
+      const originalConnectHandler = connectBtn.onclick;
+      const testStartTime = performance.now();
+      
+      // Connect with specified transport
+      connect();
+      
+      // Listen for connection events
+      const testTimeout = setTimeout(() => {
+        // Connection timeout
+        transportResults.innerHTML = `
+          <h4>Transport Test: ${transportType}</h4>
+          <p class="error">Connection timed out after 5 seconds</p>
+          <p>This transport method doesn't appear to be working.</p>
+        `;
+        
+        // Restore original handler
+        connectBtn.onclick = originalConnectHandler;
+      }, 5000);
+      
+      // Track successful connection
+      const successHandler = () => {
+        const connectionTime = Math.round(performance.now() - testStartTime);
+        clearTimeout(testTimeout);
+        
+        transportResults.innerHTML = `
+          <h4>Transport Test: ${transportType}</h4>
+          <p class="success">Connected successfully in ${connectionTime}ms</p>
+          <p>Transport: ${socket.io.engine.transport.name}</p>
+          <p>This transport method is working correctly.</p>
+        `;
+        
+        // Remove this one-time handler
+        if (socket) {
+          socket.off('connect', successHandler);
+        }
+        
+        // Restore original handler
+        connectBtn.onclick = originalConnectHandler;
+      };
+      
+      // Attach one-time handler for this test
+      socket.once('connect', successHandler);
+    }
+    
+    // Test reconnection
+    function testReconnection() {
+      if (!socket || !socket.connected) {
+        resilienceResults.style.display = 'block';
+        resilienceResults.innerHTML = '<p class="error">Cannot test reconnection: not connected.</p>';
+        return;
+      }
+      
+      resilienceResults.style.display = 'block';
+      resilienceResults.innerHTML = '<p>Testing reconnection capability...</p>';
+      
+      addLog('Testing reconnection: forcing disconnect...', 'info');
+      
+      // Track current socket ID
+      const originalSocketId = socket.id;
+      
+      // Force disconnect
+      socket.io.engine.close();
+      
+      // Set timeout to check for reconnection
+      const checkReconnection = setTimeout(() => {
+        resilienceResults.innerHTML = `
+          <h4>Reconnection Test</h4>
+          <p class="error">Failed to reconnect within 10 seconds</p>
+          <p>Reconnection may not be configured correctly.</p>
+        `;
+      }, 10000);
+      
+      // Listen for reconnection
+      socket.once('connect', () => {
+        clearTimeout(checkReconnection);
+        
+        const newSocketId = socket.id;
+        const idChanged = originalSocketId !== newSocketId;
+        
+        resilienceResults.innerHTML = `
+          <h4>Reconnection Test</h4>
+          <p class="success">Successfully reconnected!</p>
+          <p>Original Socket ID: ${originalSocketId}</p>
+          <p>New Socket ID: ${newSocketId}</p>
+          <p>${idChanged ? 'Socket ID changed, which is normal after reconnection.' : 'Socket ID remained the same, which is unusual.'}</p>
+        `;
+        
+        addLog('Reconnection test successful', 'success');
+      });
+    }
+    
+    // Test message queue
+    function testMessageQueue() {
+      if (!socket || !socket.connected) {
+        resilienceResults.style.display = 'block';
+        resilienceResults.innerHTML = '<p class="error">Cannot test message queue: not connected.</p>';
+        return;
+      }
+      
+      resilienceResults.style.display = 'block';
+      resilienceResults.innerHTML = '<p>Testing message queueing during disconnection...</p>';
+      
+      addLog('Testing message queue: forcing disconnect and sending messages...', 'info');
+      
+      // Force socket to disconnect but don't close it
+      socket.disconnect();
+      
+      // Send messages while disconnected
+      const sentMessages = [];
+      for (let i = 0; i < 5; i++) {
+        const message = {
+          id: `msg-${Date.now()}-${i}`,
+          text: `Test message ${i+1} during disconnection`,
+          timestamp: Date.now()
+        };
+        
+        sentMessages.push(message);
+        
+        // Attempt to send message (should be queued if configured correctly)
+        socket.emit('message', { type: 'test', data: message });
+        addLog(`Queued message ${i+1} while disconnected`, 'info');
+      }
+      
+      // Reconnect after 2 seconds
+      setTimeout(() => {
+        addLog('Reconnecting to test message delivery...', 'info');
+        socket.connect();
+        
+        // Check results after reconnection
+        setTimeout(() => {
+          if (socket.connected) {
+            resilienceResults.innerHTML = `
+              <h4>Message Queue Test</h4>
+              <p class="info">Attempted to queue ${sentMessages.length} messages while disconnected</p>
+              <p>If your server received these messages after reconnection, message queueing is working.</p>
+              <p>Check the server logs to confirm message delivery.</p>
+              <p class="warning">Note: Socket.IO does not guarantee message delivery during disconnections unless configured with offline message queueing.</p>
+            `;
+          } else {
+            resilienceResults.innerHTML = `
+              <h4>Message Queue Test</h4>
+              <p class="error">Failed to reconnect to test message delivery</p>
+            `;
+          }
+        }, 3000);
+      }, 2000);
+    }
+    
+    // Run load test
+    function runLoadTest() {
+      if (!socket || !socket.connected) {
+        loadTestResults.style.display = 'block';
+        loadTestResults.innerHTML = '<p class="error">Cannot run load test: not connected.</p>';
+        return;
+      }
+      
+      const messageCount = parseInt(messageCountInput.value, 10);
+      const messageInterval = parseInt(messageIntervalInput.value, 10);
+      const messageSize = parseInt(messageSizeInput.value, 10);
+      const messagePattern = messagePatternSelect.value;
+      
+      if (messageCount > 1000) {
+        loadTestResults.innerHTML = '<p class="error">For safety, message count is limited to 1000.</p>';
+        return;
+      }
+      
+      addLog(`Starting load test: ${messageCount} messages, ${messageInterval}ms interval, ${messageSize} bytes each`, 'info');
+      
+      loadTestResults.style.display = 'block';
+      loadTestResults.innerHTML = '<p>Load test starting...</p>';
+      loadTestProgressContainer.style.display = 'block';
+      loadTestProgressBar.style.width = '0%';
+      loadTestProgressText.textContent = '0%';
+      
+      // Generate payload of specified size
+      function generatePayload(size) {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        for (let i = 0; i < size; i++) {
+          result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+      }
+      
+      // Prepare test metrics
+      const metrics = {
+        sent: 0,
+        startTime: Date.now(),
+        endTime: 0,
+        intervals: []
+      };
+      
+      // Run load test based on pattern
+      if (messagePattern === 'burst') {
+        // Burst pattern - send all messages as quickly as possible
+        for (let i = 0; i < messageCount; i++) {
+          setTimeout(() => {
+            const messageId = `load-${Date.now()}-${i}`;
+            socket.emit('message', {
+              type: 'load_test',
+              messageId,
+              index: i + 1,
+              timestamp: Date.now(),
+              payload: generatePayload(messageSize)
+            });
+            
+            metrics.sent++;
+            const progress = Math.round((metrics.sent / messageCount) * 100);
+            loadTestProgressBar.style.width = `${progress}%`;
+            loadTestProgressText.textContent = `${progress}%`;
+            
+            if (metrics.sent === messageCount) {
+              finalizeTest();
+            }
+          }, 0);
+        }
+      } else if (messagePattern === 'random') {
+        // Random interval pattern
+        let sent = 0;
+        
+        function sendRandomMessage() {
+          if (sent >= messageCount) return;
+          
+          const messageId = `load-${Date.now()}-${sent}`;
+          socket.emit('message', {
+            type: 'load_test',
+            messageId,
+            index: sent + 1,
+            timestamp: Date.now(),
+            payload: generatePayload(messageSize)
+          });
+          
+          sent++;
+          metrics.sent++;
+          const progress = Math.round((metrics.sent / messageCount) * 100);
+          loadTestProgressBar.style.width = `${progress}%`;
+          loadTestProgressText.textContent = `${progress}%`;
+          
+          if (metrics.sent === messageCount) {
+            finalizeTest();
+          } else {
+            // Random delay between 0.5x and 1.5x specified interval
+            const randomInterval = Math.round(messageInterval * (0.5 + Math.random()));
+            metrics.intervals.push(randomInterval);
+            setTimeout(sendRandomMessage, randomInterval);
+          }
+        }
+        
+        sendRandomMessage();
+      } else {
+        // Sequential pattern (default)
+        let sent = 0;
+        const intervalId = setInterval(() => {
+          if (sent >= messageCount) {
+            clearInterval(intervalId);
+            return;
+          }
+          
+          const messageId = `load-${Date.now()}-${sent}`;
+          socket.emit('message', {
+            type: 'load_test',
+            messageId,
+            index: sent + 1,
+            timestamp: Date.now(),
+            payload: generatePayload(messageSize)
+          });
+          
+          sent++;
+          metrics.sent++;
+          metrics.intervals.push(messageInterval);
+          
+          const progress = Math.round((metrics.sent / messageCount) * 100);
+          loadTestProgressBar.style.width = `${progress}%`;
+          loadTestProgressText.textContent = `${progress}%`;
+          
+          if (metrics.sent === messageCount) {
+            clearInterval(intervalId);
+            finalizeTest();
+          }
+        }, messageInterval);
+      }
+      
+      function finalizeTest() {
+        metrics.endTime = Date.now();
+        const duration = metrics.endTime - metrics.startTime;
+        const messagesPerSecond = Math.round((metrics.sent / duration) * 1000);
+        const avgInterval = metrics.intervals.length ? 
+          Math.round(metrics.intervals.reduce((a, b) => a + b, 0) / metrics.intervals.length) : 
+          'N/A';
+        
+        loadTestResults.innerHTML = `
+          <h4>Load Test Results</h4>
+          <p>Sent ${metrics.sent} messages in ${duration}ms</p>
+          <p>Messages per second: ${messagesPerSecond}</p>
+          <p>Message size: ${messageSize} bytes</p>
+          <p>Average interval: ${avgInterval}ms</p>
+          <p class="info">Check server logs to verify all messages were received.</p>
+        `;
+        
+        addLog(`Load test completed: ${metrics.sent} messages in ${duration}ms (${messagesPerSecond} msgs/sec)`, 'success');
+      }
+    }
+    
+    // Apply configuration
+    function applyConfiguration() {
+      // Get all current config values from inputs
+      const config = {
+        url: socketUrlInput.value,
+        path: socketPathInput.value,
+        transports: transportOptionsSelect.value,
+        reconnection: reconnectionEnabledSelect.value === 'true',
+        reconnectionAttempts: reconnectionAttemptsInput.value === 'Infinity' ? 
+          Infinity : parseInt(reconnectionAttemptsInput.value),
+        reconnectionDelay: parseInt(reconnectionDelayInput.value),
+        reconnectionDelayMax: parseInt(reconnectionDelayMaxInput.value),
+        timeout: parseInt(timeoutInput.value),
+        upgrade: upgradeSelect.value === 'true',
+        forceNew: forceNewSelect.value === 'true',
+        multiplex: multiplexSelect.value === 'true',
+        query: safelyParseJSON(queryParamsInput.value, {}),
+        extraHeaders: safelyParseJSON(extraHeadersInput.value, {})
+      };
+      
+      addLog('Applied new configuration', 'info');
+      addLog('Disconnect and reconnect to apply changes', 'info');
+    }
+    
+    // Reset configuration to defaults
+    function resetConfig() {
+      socketUrlInput.value = defaultUrl;
+      socketPathInput.value = '/socket.io';
+      transportOptionsSelect.value = 'websocket,polling';
+      reconnectionEnabledSelect.value = 'true';
+      reconnectionAttemptsInput.value = 'Infinity';
+      reconnectionDelayInput.value = '1000';
+      reconnectionDelayMaxInput.value = '5000';
+      timeoutInput.value = '20000';
+      upgradeSelect.value = 'true';
+      forceNewSelect.value = 'true';
+      multiplexSelect.value = 'true';
+      queryParamsInput.value = '';
+      extraHeadersInput.value = '';
+      
+      addLog('Reset to default configuration', 'info');
+    }
+    
+    // Initialize
+    function init() {
+      // Event listeners
+      connectBtn.addEventListener('click', connect);
+      disconnectBtn.addEventListener('click', disconnect);
+      sendPingBtn.addEventListener('click', sendPing);
+      requestStatusBtn.addEventListener('click', requestStatus);
+      sendEventBtn.addEventListener('click', sendCustomEvent);
+      refreshStatusBtn.addEventListener('click', requestStatus);
+      runDiagnosticsBtn.addEventListener('click', runNetworkDiagnostics);
+      testReconnectBtn.addEventListener('click', testReconnection);
+      testMessageQueueBtn.addEventListener('click', testMessageQueue);
+      runLoadTestBtn.addEventListener('click', runLoadTest);
+      clearLogBtn.addEventListener('click', clearLogs);
+      clearEventLogBtn.addEventListener('click', clearEventLogs);
+      applyConfigBtn.addEventListener('click', applyConfiguration);
+      resetConfigBtn.addEventListener('click', resetConfig);
+      
+      // Transport test buttons
+      transportTestBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const transport = btn.getAttribute('data-transport');
+          runTransportTest(transport);
+        });
+      });
+      
+      // Verbose logging toggle
+      verboseLoggingCheckbox.addEventListener('change', () => {
+        isVerboseLogging = verboseLoggingCheckbox.checked;
+        addLog(`Verbose logging ${isVerboseLogging ? 'enabled' : 'disabled'}`, 'system');
+      });
+      
+      // Set default health indicators
+      healthBarEl.style.width = '0%';
+      memoryBarEl.style.width = '0%';
+      connectionBarEl.style.width = '0%';
+      
+      // Initialize logs
+      addLog('Socket.IO diagnostic tool initialized', 'system');
+      addLog(`Server URL set to ${defaultUrl}`, 'system');
+      addDebugMessage('Event log initialized', 'system');
+    }
+    
+    // Start initialization when DOM is loaded
+    init();
+  </script>
+</body>
+</html>

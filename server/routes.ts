@@ -103,6 +103,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.resolve('.', 'public', 'socketio-test.html'));
   });
   
+  app.get('/socketio-diagnostic', (req: Request, res: Response) => {
+    res.sendFile(path.resolve('.', 'public', 'socketio-diagnostic.html'));
+  });
+  
   // Health endpoint
   app.get('/api/health', async (req: Request, res: Response) => {
     try {
@@ -1363,13 +1367,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
   
-  // Setup Socket.io server for real-time updates
+  // Setup Socket.io server for real-time updates with enhanced configuration
   const io = new SocketIoServer(httpServer, {
     path: '/socket.io',
     cors: {
       origin: '*',
-      methods: ['GET', 'POST']
-    }
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+      credentials: true,
+      preflightContinue: false
+    },
+    // Add more robust transport configuration
+    transports: ['websocket', 'polling'],
+    allowUpgrades: true,
+    pingTimeout: 30000,
+    pingInterval: 15000,
+    maxHttpBufferSize: 1e6, // 1MB
+    // Connection and retry options
+    connectTimeout: 45000, // Longer timeout for initial connection
   });
   
   // Client metadata interface
