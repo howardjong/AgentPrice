@@ -98,6 +98,9 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 - Implemented workarounds for ES module compatibility issues in the middleware tests
 - Created mocking approach for cls-hooked that works with both CommonJS and ES modules
 - Successfully implemented 7 tests for the requestTracer middleware
+- Created comprehensive tests for the PerplexityRateLimiter utility with 7 test cases passing
+- Successfully mocked setTimeout and Date.now for deterministic time-based testing
+- Implemented tests for rate limiting logic, task scheduling, and error handling
 
 ## Next Steps
 
