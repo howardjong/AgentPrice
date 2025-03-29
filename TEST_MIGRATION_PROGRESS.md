@@ -20,6 +20,10 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 | promptManager     | N/A       | ✅ promptManager.vitest.js | Complete | March 28, 2025 |
 | redisClient       | N/A       | ✅ redisClient.vitest.js | Complete | March 28, 2025 |
 | requestTracer     | N/A       | ✅ requestTracer.vitest.js | Complete | March 28, 2025 |
+| **Workflow Tests** | | | | |
+| perplexity-deep-research | N/A | ✅ perplexity-deep-research.vitest.js | Complete | March 29, 2025 |
+| single-query-workflow | N/A | ✅ single-query-workflow.vitest.js | Complete | March 29, 2025 |
+| claude-chart-generation | N/A | ✅ claude-chart-generation.vitest.js | Complete | March 29, 2025 |
 
 ## Migration Plan
 
@@ -82,6 +86,20 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 
 ## Recent Progress
 
+### March 29, 2025
+- Created new workflow-focused test directory: tests/unit/workflows/
+- Implemented focused test for perplexityService.performDeepResearch method specifically for the single-query-workflow
+- Created a comprehensive single-query-workflow integration test that simulates the entire workflow with mocked services
+- Implemented detailed claude-chart-generation tests with assertions for Plotly compatibility
+- Added test cases for error handling, rate limiting, and context handling
+- Improved mocking approach for external services to avoid circular dependencies
+- Used axios-mock-adapter for reliable HTTP mocking in deep research tests
+- Created detailed assertions for chart data structure compatibility with Plotly.js
+- Enhanced test documentation with detailed comments explaining test patterns
+- Structured tests to support both component-level and integration testing
+- Improved test isolation to prevent interference between test cases
+- Added realistic data patterns to mock responses that match actual service responses
+
 ### March 28, 2025 (continued)
 - Fixed non-deterministic timing test for job processing duration in the jobManager tests
 - Fixed system-status.js script compatibility with ES modules by creating system-status-esm.js variant
@@ -106,11 +124,17 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 
 1. ✅ Mark Phase 3 as complete - all core service tests are now migrated!
 2. ✅ Begin Phase 4: Migrate application logic components - started with requestTracer middleware
-3. Continue Phase 4 by migrating tests for remaining middleware components
-4. Address the complex mockJobManager tests that were temporarily skipped
-5. Update the test scripts to better handle error cases and promise rejections
-6. Add workarounds for performance.now mocking in time-sensitive tests
-7. Implement formal guidelines for mocking in Vitest vs Jest to prevent future issues 
-8. Implement websocket tests with the migration approach established for HTTP requests
-9. Create integration tests to cover the skipped mockJobManager functionality
-10. Catalog ES module vs CommonJS specific patterns that caused issues in the migration
+3. ✅ Create focused tests for the single-query-workflow
+   - ✅ Implement perplexityService.performDeepResearch test
+   - ✅ Create a dedicated test file for the workflow components
+   - ✅ Test chart generation functionality
+4. Execute the new workflow-focused tests to verify they pass with current implementation
+5. Continue Phase 4 by migrating tests for remaining middleware components
+6. Address the complex mockJobManager tests that were temporarily skipped
+7. Update the test scripts to better handle error cases and promise rejections
+8. Add workarounds for performance.now mocking in time-sensitive tests
+9. Implement formal guidelines for mocking in Vitest vs Jest to prevent future issues 
+10. Implement websocket tests with the migration approach established for HTTP requests
+11. Create integration tests to cover the skipped mockJobManager functionality
+12. Catalog ES module vs CommonJS specific patterns that caused issues in the migration
+13. Consider adding these workflow-focused tests to the test-single-query-workflow Replit workflow

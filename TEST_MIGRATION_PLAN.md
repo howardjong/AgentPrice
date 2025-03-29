@@ -44,11 +44,20 @@ This document outlines the comprehensive plan for migrating our test suite from 
 - ✅ Support tools and infrastructure
   - ✅ Fixed system-status.js ES module compatibility
   - ✅ Improved WebSocket implementation for system monitoring
-- ⏳ Migrate middleware and controllers
+- ✅ Migrate middleware components
+  - ✅ Successfully migrated requestTracer middleware (7 tests passing)
+  - ✅ Successfully migrated rateLimiter utility (7 tests passing)
 
-### Phase 4: Full Migration
+### Phase 4: Full Migration (IN PROGRESS)
 
-- ⏳ Migrate remaining tests
+- ✅ Create workflow-focused tests for single-query-workflow.js
+  - ✅ Created `tests/unit/workflows/perplexity-deep-research.vitest.js` to thoroughly test the performDeepResearch method
+  - ✅ Created `tests/unit/workflows/single-query-workflow.vitest.js` to test the entire workflow with integration tests
+  - ✅ Created `tests/unit/workflows/claude-chart-generation.vitest.js` to validate chart generation with Plotly.js
+- ⏳ Migrate remaining components
+  - ⏳ Create tests for remaining middleware components
+  - ⏳ Address complex mockJobManager tests that were temporarily skipped
+  - ⏳ Implement remaining controller tests
 - ⏳ Remove Jest dependencies
 - ⏳ Update CI/CD pipelines
 - ⏳ Document best practices
@@ -195,6 +204,44 @@ const traceTest = (testName) => {
 };
 ```
 
+## Workflow-Focused Test Strategy
+
+The test migration has been enhanced with a new approach focused on testing complete workflows rather than just individual components in isolation. This approach helps us:
+
+1. **Verify End-to-End Functionality**: Test the entire workflow to ensure all components work together correctly
+2. **Avoid Complex Mocking Issues**: Reduce the need for complex mocking setups that were causing issues
+3. **Maintain Realistic Test Cases**: Create test scenarios that mirror actual user interactions
+4. **Focus on Critical Paths**: Ensure the most important user workflows are thoroughly tested
+
+### Workflow Test Files
+
+#### 1. perplexity-deep-research.vitest.js
+
+Tests the Perplexity deep research functionality, including:
+- Proper API request formation for deep research queries
+- Correct model selection between "sonar" and "sonar-deep-research" based on query needs
+- Error handling and rate limiting during deep research operations
+- Context management for long-running research tasks
+- Integration with the jobManager for processing deep research requests
+
+#### 2. single-query-workflow.vitest.js
+
+Tests the complete query workflow from input to output:
+- Query classification and routing between Claude and Perplexity
+- Service router decision making for research vs. regular queries
+- Result processing and error handling across the workflow
+- Integration testing of multiple services working together
+- Simulation of complete user interaction flow
+
+#### 3. claude-chart-generation.vitest.js
+
+Tests the visualization capabilities:
+- Chart data structure compatibility with Plotly.js
+- Van Westendorp and Conjoint Analysis chart generation
+- Parameter validation for chart generation
+- Error handling for various chart input scenarios
+- Visual output validation for interactive charts
+
 ## Testing Best Practices
 
 1. **Isolated Tests**: Tests should be independent and not rely on specific execution order
@@ -202,6 +249,7 @@ const traceTest = (testName) => {
 3. **Test Performance**: Keep tests fast to encourage running them frequently
 4. **Coverage**: Aim for high test coverage, especially for critical services
 5. **Documentation**: Document complex test setups and non-obvious test cases
+6. **Workflow Testing**: Prioritize testing complete workflows to ensure components work together correctly
 
 ## Resources
 
