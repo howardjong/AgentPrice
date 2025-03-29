@@ -1614,7 +1614,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   function broadcastMessage(message: WebSocketMessage) {
     // Using Socket.io rooms for efficient broadcasting
     // Broadcast to the specific message type room and to 'all' room
-    io.to(message.type).to('all').emit('message', message);
+    if (io && message && message.type) {
+      io.to(message.type).to('all').emit('message', message);
+    }
   }
   
   // Broadcast research progress updates
@@ -1650,7 +1652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     
     // Broadcast system status to all clients every minute
-    if (io.engine.clientsCount > 0) {
+    if (io && typeof io.engine === 'object' && io.engine && io.engine.clientsCount > 0) {
       try {
         // Get health status synchronously (not a Promise)
         const healthStatus = checkSystemHealth();
