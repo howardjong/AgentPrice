@@ -95,7 +95,7 @@ const SystemStatusMonitor: React.FC = () => {
       // Subscribe to topics we're interested in
       ws.send(JSON.stringify({
         type: 'subscribe',
-        topics: ['api-status', 'status-change', 'system_status']
+        topics: ['api-status', 'status-change', 'system_status', 'all']
       }));
     };
     

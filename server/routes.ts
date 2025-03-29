@@ -86,9 +86,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await storage.updateServiceStatus('claude', claudeStatus);
   await storage.updateServiceStatus('perplexity', perplexityStatus);
 
-  // WebSocket test page
+  // WebSocket test pages
   app.get('/websocket-test', (req: Request, res: Response) => {
     res.sendFile(path.resolve('.', 'public', 'websocket-test.html'));
+  });
+  
+  app.get('/websocket-debug', (req: Request, res: Response) => {
+    res.sendFile(path.resolve('.', 'public', 'websocket-debug.html'));
   });
   
   // Health endpoint
@@ -1455,6 +1459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     clients.set(ws, metadata);
     
     console.log(`WebSocket client connected: ${clientId}`);
+    console.log(`Total connected WebSocket clients: ${clients.size}`);
     
     // Send initial system status and API status - only if connection is open
     if (ws.readyState === WebSocket.OPEN) {
@@ -1470,6 +1475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Handle messages from clients
     ws.on('message', (messageData) => {
       try {
+        console.log(`Received message from ${clientId}:`, messageData.toString());
         const message = JSON.parse(messageData.toString());
         
         // Update client metadata
@@ -1477,12 +1483,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Handle different message types
         if (message.type === 'subscribe') {
-          metadata.subscriptions = message.channels || [];
+          metadata.subscriptions = message.topics || message.channels || [];
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ 
               type: 'subscription_update', 
               status: 'success',
-              channels: metadata.subscriptions
+              topics: metadata.subscriptions
             }));
           }
         } else if (message.type === 'ping') {
