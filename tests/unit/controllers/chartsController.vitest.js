@@ -110,152 +110,151 @@ vi.mock('../../../services/claudeService.js', () => {
   };
 });
 
-// Mock fs module
-vi.mock('fs', () => {
-  console.log("Setting up fs mock");
-  const mockData = JSON.stringify({
-    plotlyConfig: {
-      data: [{ type: 'bar', x: [1, 2, 3], y: [10, 20, 30] }],
-      layout: { title: 'Test Chart' },
-      config: { responsive: true }
-    },
-    insights: ['Test insight 1', 'Test insight 2']
-  });
+// This needs to be defined before the vi.mock call
+const mockChartData = JSON.stringify({
+  plotlyConfig: {
+    data: [{ type: 'bar', x: [1, 2, 3], y: [10, 20, 30] }],
+    layout: { title: 'Test Chart' },
+    config: { responsive: true }
+  },
+  insights: ['Test insight 1', 'Test insight 2']
+});
 
-  // Create a mock object with functions that can be properly instrumented by tests
-  const fsMock = {
-    promises: {
-      readFile: vi.fn().mockResolvedValue(mockData),
-      writeFile: vi.fn().mockResolvedValue(undefined),
-      mkdir: vi.fn().mockResolvedValue(undefined)
-    },
+// Mock fs module before any imports get processed
+vi.mock('fs', () => {
+  console.log("Setting up permanent fs mock");
+  return {
     existsSync: vi.fn().mockImplementation((path) => {
       console.log(`Checking if exists: ${path}`);
-      // Make the output directory exist by default
-      if (path.includes('output')) {
-        return true;
-      }
-      return false;
+      return path.includes('test1.json') || path.includes('test2.json') || path.includes('output');
     }),
     readdirSync: vi.fn().mockImplementation((dir) => {
       console.log(`Reading directory: ${dir}`);
       return ['test1.json', 'test2.json'];
     }),
-    readFileSync: vi.fn().mockImplementation((path) => {
+    readFileSync: vi.fn().mockImplementation((path, options) => {
       console.log(`Reading file: ${path}`);
-      return mockData;
+      return mockChartData;
     }),
     writeFileSync: vi.fn(),
-    mkdirSync: vi.fn().mockImplementation((dir, options) => {
-      console.log(`Creating directory: ${dir}`, options);
-      return undefined;
-    })
+    mkdirSync: vi.fn(),
+    promises: {
+      readFile: vi.fn().mockResolvedValue(mockChartData),
+      writeFile: vi.fn().mockResolvedValue(undefined),
+      mkdir: vi.fn().mockResolvedValue(undefined)
+    }
   };
+});
 
-  return fsMock;
+// Reset mocks before each test
+beforeEach(() => {
+  vi.clearAllMocks();
 });
 
 // Helper to create a basic Express app with chart routes
-function createTestApp() {
-  const app = express();
-  app.use(express.json());
-  
-  // Create a local mock for claudeService directly (don't rely on vi.importMock)
-  const claudeService = {
-    generateVisualization: vi.fn().mockImplementation(async (data, type, title, description) => {
-      console.log("Mock generateVisualization called with", { type, title });
-      return {
+// Define a global mock claudeService that can be accessed by tests
+const mockClaudeService = {
+  generateVisualization: vi.fn().mockImplementation(async (data, type, title, description) => {
+    console.log("Mock generateVisualization called with", { type, title });
+    return {
+      plotlyConfig: {
+        data: [
+          {
+            x: [1, 2, 3, 4], 
+            y: [10, 20, 40, 30], 
+            type: 'scatter', 
+            name: 'Sample Data'
+          }
+        ],
+        layout: {
+          title: title || 'Test Visualization',
+          xaxis: { title: 'X Axis' },
+          yaxis: { title: 'Y Axis' }
+        },
+        config: { responsive: true }
+      },
+      insights: [
+        'The data shows an upward trend',
+        'There is a peak at point 3',
+        'The average value is 25'
+      ],
+      chartType: type
+    };
+  }),
+  generateChartData: vi.fn().mockImplementation(async (content, chartType) => {
+    console.log("Mock generateChartData called with", { chartType });
+    const mockChartData = {
+      van_westendorp: {
         plotlyConfig: {
           data: [
             {
-              x: [1, 2, 3, 4], 
-              y: [10, 20, 40, 30], 
-              type: 'scatter', 
-              name: 'Sample Data'
+              x: [10, 20, 30, 40, 50],
+              y: [0.1, 0.3, 0.6, 0.8, 0.9],
+              type: 'scatter',
+              name: 'Too Cheap'
+            },
+            {
+              x: [10, 20, 30, 40, 50],
+              y: [0.9, 0.7, 0.4, 0.2, 0.1],
+              type: 'scatter',
+              name: 'Too Expensive'
             }
           ],
           layout: {
-            title: title || 'Test Visualization',
-            xaxis: { title: 'X Axis' },
-            yaxis: { title: 'Y Axis' }
+            title: 'Van Westendorp Price Sensitivity Analysis',
+            xaxis: { title: 'Price ($)' },
+            yaxis: { title: 'Cumulative Percentage' }
           },
           config: { responsive: true }
         },
         insights: [
-          'The data shows an upward trend',
-          'There is a peak at point 3',
-          'The average value is 25'
-        ],
-        chartType: type
-      };
-    }),
-    generateChartData: vi.fn().mockImplementation(async (content, chartType) => {
-      console.log("Mock generateChartData called with", { chartType });
-      const mockChartData = {
-        van_westendorp: {
-          plotlyConfig: {
-            data: [
-              {
-                x: [10, 20, 30, 40, 50],
-                y: [0.1, 0.3, 0.6, 0.8, 0.9],
-                type: 'scatter',
-                name: 'Too Cheap'
-              },
-              {
-                x: [10, 20, 30, 40, 50],
-                y: [0.9, 0.7, 0.4, 0.2, 0.1],
-                type: 'scatter',
-                name: 'Too Expensive'
-              }
-            ],
-            layout: {
-              title: 'Van Westendorp Price Sensitivity Analysis',
-              xaxis: { title: 'Price ($)' },
-              yaxis: { title: 'Cumulative Percentage' }
-            },
-            config: { responsive: true }
-          },
-          insights: [
-            'The optimal price point is around $30',
-            'Price sensitivity is highest between $25-$35',
-            'The acceptable price range is $20-$40'
-          ]
-        },
-        conjoint: {
-          plotlyConfig: {
-            data: [
-              {
-                x: ['Feature A', 'Feature B', 'Feature C', 'Feature D'],
-                y: [0.4, 0.3, 0.2, 0.1],
-                type: 'bar',
-                name: 'Feature Importance'
-              }
-            ],
-            layout: {
-              title: 'Conjoint Analysis - Feature Importance',
-              xaxis: { title: 'Features' },
-              yaxis: { title: 'Importance Score' }
-            },
-            config: { responsive: true }
-          },
-          insights: [
-            'Feature A has the highest importance at 40%',
-            'Features A and B combined account for 70% of buying decisions',
-            'Feature D has minimal impact on purchasing decisions'
-          ]
-        }
-      };
-      
-      return mockChartData[chartType] || {
+          'The optimal price point is around $30',
+          'Price sensitivity is highest between $25-$35',
+          'The acceptable price range is $20-$40'
+        ]
+      },
+      conjoint: {
         plotlyConfig: {
-          data: [{ type: 'bar', x: [1, 2, 3], y: [10, 20, 30] }],
-          layout: { title: `Generic ${chartType} Chart` },
+          data: [
+            {
+              x: ['Feature A', 'Feature B', 'Feature C', 'Feature D'],
+              y: [0.4, 0.3, 0.2, 0.1],
+              type: 'bar',
+              name: 'Feature Importance'
+            }
+          ],
+          layout: {
+            title: 'Conjoint Analysis - Feature Importance',
+            xaxis: { title: 'Features' },
+            yaxis: { title: 'Importance Score' }
+          },
           config: { responsive: true }
         },
-        insights: ['Generic insight for ' + chartType]
-      };
-    })
-  };
+        insights: [
+          'Feature A has the highest importance at 40%',
+          'Features A and B combined account for 70% of buying decisions',
+          'Feature D has minimal impact on purchasing decisions'
+        ]
+      }
+    };
+    
+    return mockChartData[chartType] || {
+      plotlyConfig: {
+        data: [{ type: 'bar', x: [1, 2, 3], y: [10, 20, 30] }],
+        layout: { title: `Generic ${chartType} Chart` },
+        config: { responsive: true }
+      },
+      insights: ['Generic insight for ' + chartType]
+    };
+  })
+};
+
+function createTestApp() {
+  const app = express();
+  app.use(express.json());
+  
+  // Use the global mockClaudeService
+  const claudeService = mockClaudeService;
   
   console.log("Setting up test app with mocked claudeService:", claudeService);
   
@@ -425,12 +424,11 @@ describe('Charts Controller API Tests', () => {
       const routeHandlers = routeHandler.route.stack;
       const requestHandler = routeHandlers[0].handle;
       
-      // Extract service name through string manipulation
-      requestHandler.toString().match(/const\s+result\s+=\s+await\s+([^.]+)\.generateVisualization/);
-      const serviceName = RegExp.$1;
-      const localService = eval(serviceName);
+      // Instead of using eval, just directly use our mock claudeService
+      // that's already been injected
+      const localService = mockClaudeService;
       
-      // Save original implementation
+      // Save original implementation (already mocked)
       const originalGenerateVisualization = localService.generateVisualization;
       
       try {
