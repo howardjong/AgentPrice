@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Socket.IO Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    #log {
+      height: 300px;
+      border: 1px solid #ccc;
+      margin-bottom: 20px;
+      padding: 10px;
+      overflow-y: auto;
+      font-family: monospace;
+    }
+    .connected { color: green; }
+    .disconnected { color: red; }
+    .message { color: blue; }
+  </style>
+</head>
+<body>
+  <h1>Socket.IO Test</h1>
+  <div id="status">Disconnected</div>
+  <div id="log"></div>
+  <button id="connect">Connect</button>
+  <button id="disconnect" disabled>Disconnect</button>
+  <button id="send-ping">Send Ping</button>
+
+  <script>
+    // We'll add the Socket.IO client directly via CDN to avoid any issues
+    document.write('<script src="https://cdn.socket.io/4.7.3/socket.io.min.js"><\/script>');
+  </script>
+  
+  <script>
+    // Wait for socket.io library to load
+    window.addEventListener('load', () => {
+      const status = document.getElementById('status');
+      const log = document.getElementById('log');
+      const connectBtn = document.getElementById('connect');
+      const disconnectBtn = document.getElementById('disconnect');
+      const pingBtn = document.getElementById('send-ping');
+      
+      let socket = null;
+      
+      function addLog(message, className) {
+        const entry = document.createElement('div');
+        entry.className = className || '';
+        entry.textContent = `${new Date().toISOString().slice(11, 19)} - ${message}`;
+        log.appendChild(entry);
+        log.scrollTop = log.scrollHeight;
+      }
+      
+      function connect() {
+        try {
+          addLog('Connecting to Socket.IO server...');
+          
+          // Create socket connection
+          socket = io({
+            path: '/socket.io',
+            reconnection: true,
+            reconnectionAttempts: 5,
+            timeout: 10000
+          });
+          
+          // Setup event handlers
+          socket.on('connect', () => {
+            status.textContent = 'Connected';
+            status.className = 'connected';
+            addLog('Connected to server!', 'connected');
+            connectBtn.disabled = true;
+            disconnectBtn.disabled = false;
+            pingBtn.disabled = false;
+          });
+          
+          socket.on('disconnect', (reason) => {
+            status.textContent = 'Disconnected';
+            status.className = 'disconnected';
+            addLog(`Disconnected: ${reason}`, 'disconnected');
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            pingBtn.disabled = true;
+          });
+          
+          socket.on('connect_error', (error) => {
+            addLog(`Connection error: ${error.message}`, 'error');
+          });
+          
+          socket.on('message', (data) => {
+            addLog(`Received: ${JSON.stringify(data)}`, 'message');
+          });
+        } catch (error) {
+          addLog(`Error initializing socket: ${error.message}`, 'error');
+        }
+      }
+      
+      function disconnect() {
+        if (socket) {
+          socket.disconnect();
+          socket = null;
+        }
+      }
+      
+      function sendPing() {
+        if (socket && socket.connected) {
+          const pingData = { time: Date.now() };
+          socket.emit('ping', pingData);
+          addLog(`Sent ping: ${JSON.stringify(pingData)}`);
+        } else {
+          addLog('Cannot send ping: not connected', 'error');
+        }
+      }
+      
+      // Event listeners
+      connectBtn.addEventListener('click', connect);
+      disconnectBtn.addEventListener('click', disconnect);
+      pingBtn.addEventListener('click', sendPing);
+    });
+  </script>
+</body>
+</html>

@@ -99,6 +99,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile(path.resolve('.', 'public', 'socketio-debug.html'));
   });
   
+  app.get('/socketio-test', (req: Request, res: Response) => {
+    res.sendFile(path.resolve('.', 'public', 'socketio-test.html'));
+  });
+  
   // Health endpoint
   app.get('/api/health', async (req: Request, res: Response) => {
     try {
