@@ -1,0 +1,55 @@
+{
+  "basic_bar": {
+    "title": "US Specialty Coffee Market Analysis",
+    "xAxis": {
+      "categories": [
+        "Market Size 2024",
+        "CAGR Through 2030",
+        "Specialty Coffee Drinkers",
+        "Increase Since 2021"
+      ]
+    },
+    "yAxis": {
+      "title": {
+        "text": "Value"
+      }
+    },
+    "series": [
+      {
+        "name": "Market Metrics",
+        "data": [
+          47.8,
+          9.5,
+          43,
+          20
+        ],
+        "dataLabels": {
+          "enabled": true,
+          "format": "{y}%"
+        }
+      }
+    ],
+    "tooltip": {
+      "valueSuffix": " %",
+      "valuePrefix": "$",
+      "valueDecimals": 1
+    },
+    "annotations": [
+      {
+        "labels": [
+          {
+            "point": {
+              "x": 0,
+              "y": 47.8
+            },
+            "text": "$47.8B USD"
+          }
+        ]
+      }
+    ]
+  },
+  "_modelInfo": {
+    "requested": "claude-3-7-sonnet-20250219",
+    "actual": "claude-3-opus-20240229"
+  }
+}

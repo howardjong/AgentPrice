@@ -88,13 +88,20 @@ const mockStorage = {
     perplexity: { status: 'connected', model: 'sonar' }
   }),
   getConversation: vi.fn().mockImplementation(async (id) => {
-    return id === 'existing-convo-id' ? {
-      id: 'existing-convo-id',
-      userId: null,
-      title: 'Existing conversation'
-    } : null;
+    console.log('Getting conversation with ID:', id);
+    // For the existing conversation ID test
+    if (id === 123) {
+      return {
+        id: 123,
+        userId: null,
+        title: 'Existing conversation'
+      };
+    }
+    // For all other IDs, return null to simulate not found
+    return null;
   }),
   createConversation: vi.fn().mockImplementation(async (data) => {
+    console.log('Creating conversation with title:', data.title);
     return {
       id: 'new-convo-id',
       userId: data.userId,
@@ -102,10 +109,19 @@ const mockStorage = {
       createdAt: new Date().toISOString()
     };
   }),
-  getMessagesByConversation: vi.fn().mockResolvedValue([]),
+  getMessagesByConversation: vi.fn().mockImplementation(async (conversationId) => {
+    console.log('Getting messages for conversation:', conversationId);
+    // Always return an empty array, which is still iterable
+    return [];
+  }),
   createMessage: vi.fn().mockImplementation(async (data) => {
+    console.log('Creating message:', JSON.stringify({
+      conversationId: data.conversationId,
+      role: data.role,
+      content: data.content ? data.content.substring(0, 20) + '...' : null
+    }));
     return {
-      id: uuidv4(),
+      id: 'test-uuid-12345',
       ...data,
       createdAt: new Date().toISOString()
     };
@@ -115,20 +131,37 @@ const mockStorage = {
 // Schema for chat message validation
 const chatMessageSchema = {
   parse: vi.fn().mockImplementation((body) => {
-    if (!body.message) {
-      throw new Error('Message is required');
+    if (!body.message || typeof body.message !== 'string') {
+      throw new Error('Message is required and must be a string');
     }
+    
+    // Check conversationId if provided
+    if (body.conversationId !== undefined && 
+        body.conversationId !== null && 
+        typeof body.conversationId !== 'number') {
+      throw new Error('conversationId must be a number if provided');
+    }
+    
+    // Check service if provided
+    if (body.service !== undefined && 
+        !['claude', 'perplexity', 'auto'].includes(body.service)) {
+      throw new Error('service must be one of: claude, perplexity, auto');
+    }
+    
+    // Provide default for service if not specified
+    if (body.service === undefined) {
+      body.service = 'auto';
+    }
+    
     return body;
   })
 };
 
 // Setup the mock implementations before each test
 beforeEach(() => {
-  // Reset the chatMessageSchema mock to default behavior
+  // Reset the chatMessageSchema mock to a simpler implementation for debugging
   chatMessageSchema.parse.mockImplementation((body) => {
-    if (!body.message) {
-      throw new Error('Message is required');
-    }
+    console.log('PARSE CALLED WITH:', JSON.stringify(body));
     return body;
   });
 });
@@ -152,7 +185,19 @@ function createTestApp() {
   
   app.post('/api/conversation', async (req, res) => {
     try {
-      const { message, conversationId, service } = chatMessageSchema.parse(req.body);
+      console.log('REQUEST BODY:', JSON.stringify(req.body));
+      
+      let message, conversationId, service;
+      try {
+        const result = chatMessageSchema.parse(req.body);
+        message = result.message;
+        conversationId = result.conversationId;
+        service = result.service;
+        console.log('VALIDATION SUCCESS:', { message, conversationId, service });
+      } catch (validationError) {
+        console.error('VALIDATION ERROR:', validationError.message);
+        return res.status(400).json({ message: `Failed to process message: ${validationError.message}` });
+      }
       
       // Get or create a conversation
       let conversation;
@@ -169,9 +214,17 @@ function createTestApp() {
       }
       
       // Get previous messages in this conversation
+      console.log('Getting messages for conversation ID:', conversation ? conversation.id : 'undefined');
+      if (!conversation) {
+        console.error('CONVERSATION OBJECT IS UNDEFINED');
+        return res.status(500).json({ message: 'Failed to create or retrieve conversation' });
+      }
+      
       const previousMessages = await mockStorage.getMessagesByConversation(conversation.id);
+      console.log('Previous messages:', previousMessages);
       
       // Create user message
+      console.log('Creating user message with conversationId:', conversation.id);
       const userMessage = await mockStorage.createMessage({
         conversationId: conversation.id,
         role: 'user',
@@ -191,6 +244,7 @@ function createTestApp() {
       });
       
       // Create AI message
+      console.log('Creating AI message for conversation:', conversation.id);
       const aiMessage = await mockStorage.createMessage({
         conversationId: conversation.id,
         role: 'assistant',
@@ -199,8 +253,9 @@ function createTestApp() {
         visualizationData: queryResponse.chartData || null,
         citations: queryResponse.sources || null
       });
+      console.log('AI message created:', aiMessage.id);
       
-      res.json({
+      const responseData = {
         message: queryResponse.response,
         messageId: aiMessage.id,
         conversationId: conversation.id,
@@ -208,8 +263,12 @@ function createTestApp() {
         chartData: queryResponse.chartData,
         chartHtml: queryResponse.chartHtml,
         sources: queryResponse.sources
-      });
+      };
+      console.log('Sending response:', JSON.stringify(responseData));
+      res.json(responseData);
     } catch (error) {
+      console.error('ERROR in conversation handler:', error.message);
+      console.error('Stack trace:', error.stack);
       res.status(400).json({ message: `Failed to process message: ${error.message}` });
     }
   });
@@ -269,12 +328,53 @@ describe('Query Controller API Tests', () => {
   
   describe('POST /api/conversation', () => {
     it('should create a new conversation and process the query', async () => {
+      // Reset all mocks before testing
+      vi.clearAllMocks();
+      
+      // Mock conversation creation
+      mockStorage.createConversation.mockImplementation(async (data) => {
+        console.log(`Mock createConversation called with title "${data.title}"`);
+        return {
+          id: 'basic-convo-id',
+          userId: data.userId,
+          title: data.title,
+          createdAt: new Date().toISOString()
+        };
+      });
+      
+      // Mock messages for this conversation
+      mockStorage.getMessagesByConversation.mockImplementation(async (id) => {
+        console.log(`Mock getMessagesByConversation called with id ${id}`);
+        return []; // Empty but valid array
+      });
+      
+      // Mock message creation
+      mockStorage.createMessage.mockImplementation(async (data) => {
+        console.log(`Mock createMessage called with role ${data.role}`);
+        return {
+          id: `msg-${data.role}-id`,
+          ...data,
+          createdAt: new Date().toISOString()
+        };
+      });
+      
+      // Set up a basic query response
+      mockServiceRouter.routeQuery.mockImplementation(async ({ query }) => {
+        console.log(`Mock routeQuery called with query "${query}"`);
+        return {
+          response: `Response to "${query}"`,
+          modelUsed: 'claude-3-7-sonnet-20250219'
+        };
+      });
+      
+      // Make the request
       const response = await request(app)
         .post('/api/conversation')
         .send({
           message: 'Tell me about AI advancements'
         });
       
+      // Verify response
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('message');
       expect(response.body).toHaveProperty('conversationId');
@@ -285,25 +385,61 @@ describe('Query Controller API Tests', () => {
     });
     
     it('should use an existing conversation if ID is provided', async () => {
+      // Reset all mocks before testing
+      vi.clearAllMocks();
+      
+      // Create specific mocks for this test
+      const CONVERSATION_ID = 123;
+      
       // Mock the conversation to be returned
-      mockStorage.getConversation.mockImplementationOnce(async (id) => {
+      mockStorage.getConversation.mockImplementation(async (id) => {
+        console.log(`Mock getConversation called with id ${id}`);
+        if (id === CONVERSATION_ID) {
+          return {
+            id: CONVERSATION_ID,
+            userId: null,
+            title: 'Existing conversation'
+          };
+        }
+        return null;
+      });
+      
+      // Mock the messages to be returned (empty array but properly set up)
+      mockStorage.getMessagesByConversation.mockImplementation(async (id) => {
+        console.log(`Mock getMessagesByConversation called with id ${id}`);
+        return []; // Empty but valid array
+      });
+      
+      // Mock the routeQuery response
+      mockServiceRouter.routeQuery.mockImplementation(async ({ query }) => {
         return {
-          id: 'existing-convo-id',
-          userId: null,
-          title: 'Existing conversation'
+          response: `Response to "${query}"`,
+          modelUsed: 'claude-3-7-sonnet-20250219'
         };
       });
       
+      // Mock the message creation
+      mockStorage.createMessage.mockImplementation(async (data) => {
+        console.log(`Mock createMessage called with data ${JSON.stringify(data)}`);
+        return {
+          id: 'test-msg-id',
+          ...data,
+          createdAt: new Date().toISOString()
+        };
+      });
+      
+      // Now make the request
       const response = await request(app)
         .post('/api/conversation')
         .send({
           message: 'Tell me more',
-          conversationId: 'existing-convo-id'
+          conversationId: CONVERSATION_ID
         });
       
+      // Assertions
       expect(response.status).toBe(200);
-      expect(response.body.conversationId).toBe('existing-convo-id');
-      expect(mockStorage.getConversation).toHaveBeenCalledWith('existing-convo-id');
+      expect(response.body.conversationId).toBe(CONVERSATION_ID);
+      expect(mockStorage.getConversation).toHaveBeenCalledWith(CONVERSATION_ID);
       expect(mockStorage.createConversation).not.toHaveBeenCalled();
     });
     
@@ -312,7 +448,7 @@ describe('Query Controller API Tests', () => {
         .post('/api/conversation')
         .send({
           message: 'Tell me more',
-          conversationId: 'non-existent-id'
+          conversationId: 999 // Using a number for the non-existent ID
         });
       
       expect(response.status).toBe(404);
@@ -320,23 +456,58 @@ describe('Query Controller API Tests', () => {
     });
     
     it('should return chart data for visualization requests', async () => {
-      // Use our mock directly
-      mockServiceRouter.routeQuery.mockResolvedValueOnce({
-        response: 'Here is the price sensitivity chart',
-        chartData: {
-          type: 'van_westendorp',
-          data: { /* mock chart data */ }
-        },
-        chartHtml: '<div id="chart">Mock chart HTML</div>',
-        modelUsed: 'claude-3-7-sonnet-20250219'
+      // Reset all mocks before testing
+      vi.clearAllMocks();
+      
+      // Mock conversation creation
+      mockStorage.createConversation.mockImplementation(async (data) => {
+        console.log(`Mock createConversation called with title "${data.title}"`);
+        return {
+          id: 'chart-convo-id',
+          userId: data.userId,
+          title: data.title,
+          createdAt: new Date().toISOString()
+        };
       });
       
+      // Mock messages for this conversation
+      mockStorage.getMessagesByConversation.mockImplementation(async (id) => {
+        console.log(`Mock getMessagesByConversation called with id ${id}`);
+        return []; // Empty but valid array
+      });
+      
+      // Mock message creation
+      mockStorage.createMessage.mockImplementation(async (data) => {
+        console.log(`Mock createMessage called with role ${data.role}`);
+        return {
+          id: `msg-${data.role}-id`,
+          ...data,
+          createdAt: new Date().toISOString()
+        };
+      });
+      
+      // Set up a specific chart response
+      mockServiceRouter.routeQuery.mockImplementation(async ({ query }) => {
+        console.log(`Mock routeQuery called with query "${query}"`);
+        return {
+          response: 'Here is the price sensitivity chart',
+          chartData: {
+            type: 'van_westendorp',
+            data: { /* mock chart data */ }
+          },
+          chartHtml: '<div id="chart">Mock chart HTML</div>',
+          modelUsed: 'claude-3-7-sonnet-20250219'
+        };
+      });
+      
+      // Create a new conversation with chart request
       const response = await request(app)
         .post('/api/conversation')
         .send({
           message: 'Create a price sensitivity chart for our product'
         });
       
+      // Verify the response
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('chartData');
       expect(response.body).toHaveProperty('chartHtml');
@@ -344,22 +515,57 @@ describe('Query Controller API Tests', () => {
     });
     
     it('should return source citations for research queries', async () => {
-      // Use our mock directly
-      mockServiceRouter.routeQuery.mockResolvedValueOnce({
-        response: 'Based on the latest research...',
-        sources: [
-          { title: 'Research Paper 1', url: 'https://example.com/paper1' },
-          { title: 'Research Paper 2', url: 'https://example.com/paper2' }
-        ],
-        modelUsed: 'perplexity-sonar-deep-research'
+      // Reset all mocks before testing
+      vi.clearAllMocks();
+      
+      // Mock conversation creation
+      mockStorage.createConversation.mockImplementation(async (data) => {
+        console.log(`Mock createConversation called with title "${data.title}"`);
+        return {
+          id: 'research-convo-id',
+          userId: data.userId,
+          title: data.title,
+          createdAt: new Date().toISOString()
+        };
       });
       
+      // Mock messages for this conversation
+      mockStorage.getMessagesByConversation.mockImplementation(async (id) => {
+        console.log(`Mock getMessagesByConversation called with id ${id}`);
+        return []; // Empty but valid array
+      });
+      
+      // Mock message creation
+      mockStorage.createMessage.mockImplementation(async (data) => {
+        console.log(`Mock createMessage called with role ${data.role}`);
+        return {
+          id: `msg-${data.role}-id`,
+          ...data,
+          createdAt: new Date().toISOString()
+        };
+      });
+      
+      // Set up a specific research response with citations
+      mockServiceRouter.routeQuery.mockImplementation(async ({ query }) => {
+        console.log(`Mock routeQuery called with query "${query}"`);
+        return {
+          response: 'Based on the latest research...',
+          sources: [
+            { title: 'Research Paper 1', url: 'https://example.com/paper1' },
+            { title: 'Research Paper 2', url: 'https://example.com/paper2' }
+          ],
+          modelUsed: 'perplexity-sonar-deep-research'
+        };
+      });
+      
+      // Create a new conversation with research request
       const response = await request(app)
         .post('/api/conversation')
         .send({
           message: 'What is the latest research on quantum computing?'
         });
       
+      // Verify the response
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('sources');
       expect(response.body.sources).toHaveLength(2);

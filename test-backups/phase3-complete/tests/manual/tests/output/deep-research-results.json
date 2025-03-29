@@ -1,0 +1,16 @@
+{
+  "query": "I'm thinking about starting a new specialty coffee busines but not sure what I should charge and if there's a market for it. Can you help me find out?",
+  "optimizedQuery": "[Using Claude AI - Model: claude-3-haiku-20240307 (MOCK)]\n\nThis is a mock response because LLM API calls are disabled. Enable API calls to get real results.",
+  "result": {
+    "query": "[Using Claude AI - Model: claude-3-haiku-20240307 (MOCK)]\n\nThis is a mock response because LLM API calls are disabled. Enable API calls to get real results.",
+    "timestamp": "2025-03-28T18:55:50.703Z",
+    "content": "[Using Perplexity AI - Model: sonar-deep-research (MOCK)]\n\nThis is a mock response because LLM API calls are disabled. Enable API calls to get real results.",
+    "sources": [],
+    "modelUsed": "sonar-deep-research (MOCK)",
+    "requestedModel": "sonar-deep-research",
+    "usage": {
+      "total_tokens": 0
+    }
+  },
+  "timestamp": "2025-03-28T18:55:50.704Z"
+}

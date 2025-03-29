@@ -1,0 +1,527 @@
+{
+  "visualizationType": "van_westendorp",
+  "plotlyConfig": {
+    "data": [
+      {
+        "x": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50
+        ],
+        "y": [
+          0.05,
+          0.1,
+          0.2,
+          0.35,
+          0.48,
+          0.65,
+          0.75,
+          0.85,
+          0.92,
+          0.96
+        ],
+        "type": "scatter",
+        "mode": "lines+markers",
+        "name": "Too Expensive",
+        "line": {
+          "color": "red",
+          "width": 3
+        },
+        "marker": {
+          "size": 8
+        },
+        "hovertemplate": "Price: $%{x}<br>Too Expensive: %{y:.0%}<extra></extra>"
+      },
+      {
+        "x": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50
+        ],
+        "y": [
+          0.12,
+          0.25,
+          0.45,
+          0.58,
+          0.72,
+          0.65,
+          0.55,
+          0.42,
+          0.3,
+          0.2
+        ],
+        "type": "scatter",
+        "mode": "lines+markers",
+        "name": "Expensive but Reasonable",
+        "line": {
+          "color": "orange",
+          "width": 3
+        },
+        "marker": {
+          "size": 8
+        },
+        "hovertemplate": "Price: $%{x}<br>Expensive but Reasonable: %{y:.0%}<extra></extra>"
+      },
+      {
+        "x": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50
+        ],
+        "y": [
+          0.8,
+          0.72,
+          0.6,
+          0.48,
+          0.4,
+          0.3,
+          0.25,
+          0.18,
+          0.12,
+          0.05
+        ],
+        "type": "scatter",
+        "mode": "lines+markers",
+        "name": "Good Value",
+        "line": {
+          "color": "green",
+          "width": 3
+        },
+        "marker": {
+          "size": 8
+        },
+        "hovertemplate": "Price: $%{x}<br>Good Value: %{y:.0%}<extra></extra>"
+      },
+      {
+        "x": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50
+        ],
+        "y": [
+          0.85,
+          0.65,
+          0.45,
+          0.3,
+          0.18,
+          0.12,
+          0.08,
+          0.05,
+          0.03,
+          0.01
+        ],
+        "type": "scatter",
+        "mode": "lines+markers",
+        "name": "Too Cheap",
+        "line": {
+          "color": "blue",
+          "width": 3
+        },
+        "marker": {
+          "size": 8
+        },
+        "hovertemplate": "Price: $%{x}<br>Too Cheap: %{y:.0%}<extra></extra>"
+      },
+      {
+        "x": [
+          15
+        ],
+        "y": [
+          0.45
+        ],
+        "mode": "markers",
+        "name": "Optimal Price Point (OPP)",
+        "marker": {
+          "symbol": "circle",
+          "size": 14,
+          "color": "purple",
+          "line": {
+            "width": 2,
+            "color": "white"
+          }
+        },
+        "showlegend": true,
+        "hoverinfo": "text",
+        "hovertext": "Optimal Price Point (OPP): $15.00<br>Intersection of Too Cheap and Too Expensive"
+      },
+      {
+        "x": [
+          18
+        ],
+        "y": [
+          0.4
+        ],
+        "mode": "markers",
+        "name": "Point of Marginal Cheapness (PMC)",
+        "marker": {
+          "symbol": "diamond",
+          "size": 14,
+          "color": "darkblue",
+          "line": {
+            "width": 2,
+            "color": "white"
+          }
+        },
+        "showlegend": true,
+        "hoverinfo": "text",
+        "hovertext": "Point of Marginal Cheapness (PMC): $18.00<br>Intersection of Too Cheap and Expensive but Reasonable"
+      },
+      {
+        "x": [
+          25
+        ],
+        "y": [
+          0.48
+        ],
+        "mode": "markers",
+        "name": "Point of Marginal Expensiveness (PME)",
+        "marker": {
+          "symbol": "diamond",
+          "size": 14,
+          "color": "darkred",
+          "line": {
+            "width": 2,
+            "color": "white"
+          }
+        },
+        "showlegend": true,
+        "hoverinfo": "text",
+        "hovertext": "Point of Marginal Expensiveness (PME): $25.00<br>Intersection of Too Expensive and Good Value"
+      },
+      {
+        "x": [
+          23
+        ],
+        "y": [
+          0.62
+        ],
+        "mode": "markers",
+        "name": "Indifference Price Point (IPP)",
+        "marker": {
+          "symbol": "star",
+          "size": 14,
+          "color": "gold",
+          "line": {
+            "width": 2,
+            "color": "black"
+          }
+        },
+        "showlegend": true,
+        "hoverinfo": "text",
+        "hovertext": "Indifference Price Point (IPP): $23.00<br>Intersection of Expensive but Reasonable and Good Value"
+      },
+      {
+        "x": [
+          18,
+          25
+        ],
+        "y": [
+          0.4,
+          0.48
+        ],
+        "mode": "lines",
+        "line": {
+          "color": "rgba(128, 0, 128, 0.3)",
+          "width": 10,
+          "dash": "solid"
+        },
+        "name": "Range of Acceptable Prices",
+        "hoverinfo": "skip",
+        "showlegend": true
+      }
+    ],
+    "layout": {
+      "title": {
+        "text": "Van Westendorp Price Sensitivity Analysis",
+        "font": {
+          "size": 24
+        }
+      },
+      "xaxis": {
+        "title": {
+          "text": "Price ($)",
+          "font": {
+            "size": 16
+          }
+        },
+        "tickprefix": "$",
+        "tickfont": {
+          "size": 14
+        },
+        "showgrid": true,
+        "gridcolor": "rgba(0,0,0,0.1)",
+        "range": [
+          0,
+          55
+        ]
+      },
+      "yaxis": {
+        "title": {
+          "text": "Cumulative Percentage of Respondents",
+          "font": {
+            "size": 16
+          }
+        },
+        "tickformat": ".0%",
+        "tickfont": {
+          "size": 14
+        },
+        "showgrid": true,
+        "gridcolor": "rgba(0,0,0,0.1)",
+        "range": [
+          0,
+          1
+        ]
+      },
+      "hovermode": "closest",
+      "legend": {
+        "x": 0.01,
+        "y": 0.99,
+        "bgcolor": "rgba(255,255,255,0.8)",
+        "bordercolor": "rgba(0,0,0,0.1)",
+        "borderwidth": 1
+      },
+      "annotations": [
+        {
+          "x": 15,
+          "y": 0.45,
+          "xref": "x",
+          "yref": "y",
+          "text": "OPP: $15",
+          "showarrow": true,
+          "arrowhead": 2,
+          "ax": 40,
+          "ay": -40,
+          "font": {
+            "color": "purple",
+            "size": 14
+          }
+        },
+        {
+          "x": 18,
+          "y": 0.4,
+          "xref": "x",
+          "yref": "y",
+          "text": "PMC: $18",
+          "showarrow": true,
+          "arrowhead": 2,
+          "ax": -40,
+          "ay": -40,
+          "font": {
+            "color": "darkblue",
+            "size": 14
+          }
+        },
+        {
+          "x": 25,
+          "y": 0.48,
+          "xref": "x",
+          "yref": "y",
+          "text": "PME: $25",
+          "showarrow": true,
+          "arrowhead": 2,
+          "ax": 40,
+          "ay": 40,
+          "font": {
+            "color": "darkred",
+            "size": 14
+          }
+        },
+        {
+          "x": 23,
+          "y": 0.62,
+          "xref": "x",
+          "yref": "y",
+          "text": "IPP: $23",
+          "showarrow": true,
+          "arrowhead": 2,
+          "ax": -40,
+          "ay": 40,
+          "font": {
+            "color": "black",
+            "size": 14
+          }
+        },
+        {
+          "x": 21.5,
+          "y": 0.3,
+          "xref": "x",
+          "yref": "y",
+          "text": "Acceptable<br>Price Range<br>$18-$25",
+          "showarrow": false,
+          "font": {
+            "color": "purple",
+            "size": 14
+          },
+          "bgcolor": "rgba(255,255,255,0.8)",
+          "bordercolor": "rgba(128,0,128,0.3)",
+          "borderwidth": 2,
+          "borderpad": 4
+        }
+      ],
+      "shapes": [
+        {
+          "type": "rect",
+          "x0": 18,
+          "y0": 0,
+          "x1": 25,
+          "y1": 1,
+          "fillcolor": "rgba(128, 0, 128, 0.05)",
+          "line": {
+            "width": 0
+          },
+          "layer": "below"
+        }
+      ],
+      "margin": {
+        "l": 80,
+        "r": 80,
+        "t": 100,
+        "b": 80
+      },
+      "paper_bgcolor": "white",
+      "plot_bgcolor": "white",
+      "width": 1000,
+      "height": 600
+    },
+    "config": {
+      "responsive": true,
+      "displaylogo": false,
+      "modeBarButtonsToRemove": [
+        "lasso2d",
+        "select2d"
+      ],
+      "toImageButtonOptions": {
+        "format": "png",
+        "filename": "van_westendorp_price_analysis",
+        "height": 600,
+        "width": 1000,
+        "scale": 2
+      }
+    }
+  },
+  "insights": [
+    "The Optimal Price Point (OPP) is $15, indicating the price at which resistance to purchase is minimized from both ends of the spectrum.",
+    "The acceptable price range spans from $18 (Point of Marginal Cheapness) to $25 (Point of Marginal Expensiveness), providing a $7 window for pricing flexibility.",
+    "At the Indifference Price Point of $23, an equal percentage of respondents consider the product either 'expensive but reasonable' or a 'good value'.",
+    "The data shows sharp price sensitivity above $30, where over 65% consider the product too expensive.",
+    "Below $15, quality perception becomes a concern with 45% or more respondents viewing the product as 'too cheap'."
+  ],
+  "recommendations": [
+    "Set the base price between $18-$23 to balance perceived value against revenue optimization, especially for new customer acquisition.",
+    "Consider a premium tier priced at $25 with added features to capture value from less price-sensitive segments.",
+    "Avoid pricing below $15 to prevent negative quality perception, even for promotional campaigns."
+  ],
+  "pricePoints": {
+    "pmc": {
+      "price": 18,
+      "description": "Point of Marginal Cheapness - intersection of 'Too Cheap' and 'Expensive but Reasonable'"
+    },
+    "pme": {
+      "price": 25,
+      "description": "Point of Marginal Expensiveness - intersection of 'Too Expensive' and 'Good Value'"
+    },
+    "opp": {
+      "price": 15,
+      "description": "Optimal Price Point - intersection of 'Too Cheap' and 'Too Expensive'"
+    },
+    "ipp": {
+      "price": 23,
+      "description": "Indifference Price Point - intersection of 'Expensive but Reasonable' and 'Good Value'"
+    }
+  },
+  "optimalCombination": null,
+  "title": "Price Sensitivity Analysis",
+  "description": "Analysis of price sensitivity for our new product line",
+  "rawData": {
+    "prices": [
+      5,
+      10,
+      15,
+      20,
+      25,
+      30,
+      35,
+      40,
+      45,
+      50
+    ],
+    "tooExpensive": [
+      0.05,
+      0.1,
+      0.2,
+      0.35,
+      0.48,
+      0.65,
+      0.75,
+      0.85,
+      0.92,
+      0.96
+    ],
+    "expensiveButReasonable": [
+      0.12,
+      0.25,
+      0.45,
+      0.58,
+      0.72,
+      0.65,
+      0.55,
+      0.42,
+      0.3,
+      0.2
+    ],
+    "goodValue": [
+      0.8,
+      0.72,
+      0.6,
+      0.48,
+      0.4,
+      0.3,
+      0.25,
+      0.18,
+      0.12,
+      0.05
+    ],
+    "tooCheap": [
+      0.85,
+      0.65,
+      0.45,
+      0.3,
+      0.18,
+      0.12,
+      0.08,
+      0.05,
+      0.03,
+      0.01
+    ]
+  },
+  "modelUsed": "claude-3-7-sonnet-20250219"
+}

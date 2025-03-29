@@ -6,13 +6,15 @@ import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import path from 'path';
-import fs from 'fs';
+import * as fs from 'fs';
 
 // Create mocks for services
 vi.mock('../../../services/claudeService.js', () => {
+  console.log("Setting up claudeService mock");
   return {
     default: {
       generateVisualization: vi.fn().mockImplementation(async (data, type, title, description) => {
+        console.log("Mock generateVisualization called with", { type, title });
         return {
           plotlyConfig: {
             data: [
@@ -39,6 +41,7 @@ vi.mock('../../../services/claudeService.js', () => {
         };
       }),
       generateChartData: vi.fn().mockImplementation(async (content, chartType) => {
+        console.log("Mock generateChartData called with", { chartType });
         const mockChartData = {
           van_westendorp: {
             plotlyConfig: {
@@ -109,23 +112,47 @@ vi.mock('../../../services/claudeService.js', () => {
 
 // Mock fs module
 vi.mock('fs', () => {
-  return {
-    default: {
-      ...vi.importActual('fs'),
-      existsSync: vi.fn().mockReturnValue(true),
-      readdirSync: vi.fn().mockReturnValue(['test1.json', 'test2.json']),
-      readFileSync: vi.fn().mockReturnValue(JSON.stringify({
-        plotlyConfig: {
-          data: [{ type: 'bar', x: [1, 2, 3], y: [10, 20, 30] }],
-          layout: { title: 'Test Chart' },
-          config: { responsive: true }
-        },
-        insights: ['Test insight 1', 'Test insight 2']
-      })),
-      writeFileSync: vi.fn(),
-      mkdirSync: vi.fn()
-    }
+  console.log("Setting up fs mock");
+  const mockData = JSON.stringify({
+    plotlyConfig: {
+      data: [{ type: 'bar', x: [1, 2, 3], y: [10, 20, 30] }],
+      layout: { title: 'Test Chart' },
+      config: { responsive: true }
+    },
+    insights: ['Test insight 1', 'Test insight 2']
+  });
+
+  // Create a mock object with functions that can be properly instrumented by tests
+  const fsMock = {
+    promises: {
+      readFile: vi.fn().mockResolvedValue(mockData),
+      writeFile: vi.fn().mockResolvedValue(undefined),
+      mkdir: vi.fn().mockResolvedValue(undefined)
+    },
+    existsSync: vi.fn().mockImplementation((path) => {
+      console.log(`Checking if exists: ${path}`);
+      // Make the output directory exist by default
+      if (path.includes('output')) {
+        return true;
+      }
+      return false;
+    }),
+    readdirSync: vi.fn().mockImplementation((dir) => {
+      console.log(`Reading directory: ${dir}`);
+      return ['test1.json', 'test2.json'];
+    }),
+    readFileSync: vi.fn().mockImplementation((path) => {
+      console.log(`Reading file: ${path}`);
+      return mockData;
+    }),
+    writeFileSync: vi.fn(),
+    mkdirSync: vi.fn().mockImplementation((dir, options) => {
+      console.log(`Creating directory: ${dir}`, options);
+      return undefined;
+    })
   };
+
+  return fsMock;
 });
 
 // Helper to create a basic Express app with chart routes
@@ -133,15 +160,113 @@ function createTestApp() {
   const app = express();
   app.use(express.json());
   
-  // Mock Claude service import
-  const claudeService = vi.importActual('../../../services/claudeService.js').default;
+  // Create a local mock for claudeService directly (don't rely on vi.importMock)
+  const claudeService = {
+    generateVisualization: vi.fn().mockImplementation(async (data, type, title, description) => {
+      console.log("Mock generateVisualization called with", { type, title });
+      return {
+        plotlyConfig: {
+          data: [
+            {
+              x: [1, 2, 3, 4], 
+              y: [10, 20, 40, 30], 
+              type: 'scatter', 
+              name: 'Sample Data'
+            }
+          ],
+          layout: {
+            title: title || 'Test Visualization',
+            xaxis: { title: 'X Axis' },
+            yaxis: { title: 'Y Axis' }
+          },
+          config: { responsive: true }
+        },
+        insights: [
+          'The data shows an upward trend',
+          'There is a peak at point 3',
+          'The average value is 25'
+        ],
+        chartType: type
+      };
+    }),
+    generateChartData: vi.fn().mockImplementation(async (content, chartType) => {
+      console.log("Mock generateChartData called with", { chartType });
+      const mockChartData = {
+        van_westendorp: {
+          plotlyConfig: {
+            data: [
+              {
+                x: [10, 20, 30, 40, 50],
+                y: [0.1, 0.3, 0.6, 0.8, 0.9],
+                type: 'scatter',
+                name: 'Too Cheap'
+              },
+              {
+                x: [10, 20, 30, 40, 50],
+                y: [0.9, 0.7, 0.4, 0.2, 0.1],
+                type: 'scatter',
+                name: 'Too Expensive'
+              }
+            ],
+            layout: {
+              title: 'Van Westendorp Price Sensitivity Analysis',
+              xaxis: { title: 'Price ($)' },
+              yaxis: { title: 'Cumulative Percentage' }
+            },
+            config: { responsive: true }
+          },
+          insights: [
+            'The optimal price point is around $30',
+            'Price sensitivity is highest between $25-$35',
+            'The acceptable price range is $20-$40'
+          ]
+        },
+        conjoint: {
+          plotlyConfig: {
+            data: [
+              {
+                x: ['Feature A', 'Feature B', 'Feature C', 'Feature D'],
+                y: [0.4, 0.3, 0.2, 0.1],
+                type: 'bar',
+                name: 'Feature Importance'
+              }
+            ],
+            layout: {
+              title: 'Conjoint Analysis - Feature Importance',
+              xaxis: { title: 'Features' },
+              yaxis: { title: 'Importance Score' }
+            },
+            config: { responsive: true }
+          },
+          insights: [
+            'Feature A has the highest importance at 40%',
+            'Features A and B combined account for 70% of buying decisions',
+            'Feature D has minimal impact on purchasing decisions'
+          ]
+        }
+      };
+      
+      return mockChartData[chartType] || {
+        plotlyConfig: {
+          data: [{ type: 'bar', x: [1, 2, 3], y: [10, 20, 30] }],
+          layout: { title: `Generic ${chartType} Chart` },
+          config: { responsive: true }
+        },
+        insights: ['Generic insight for ' + chartType]
+      };
+    })
+  };
+  
+  console.log("Setting up test app with mocked claudeService:", claudeService);
   
   // Setup chart-related routes (simulating what's in server/routes.ts)
   app.post('/api/test-claude-visualization', async (req, res) => {
     try {
+      console.log("POST /api/test-claude-visualization - Request body:", req.body);
       const { data, type, title, description } = req.body;
       
       if (!data || !type) {
+        console.error("Missing required fields: data or type");
         return res.status(400).json({ 
           success: false, 
           error: 'Data and type are required' 
@@ -149,12 +274,14 @@ function createTestApp() {
       }
       
       // Send the data to Claude for visualization generation
+      console.log("Calling claudeService.generateVisualization with", { type, title });
       const result = await claudeService.generateVisualization(
         data,
         type,
         title || 'Test Visualization',
         description || 'Generated from test data'
       );
+      console.log("Claude visualization result:", result);
       
       // Return both Claude's results and the input data for comparison
       res.json({
@@ -168,6 +295,7 @@ function createTestApp() {
         }
       });
     } catch (error) {
+      console.error("Error generating visualization:", error.message);
       res.status(500).json({ 
         success: false, 
         error: `Failed to test Claude visualization: ${error.message}`
@@ -178,15 +306,27 @@ function createTestApp() {
   // API to list available chart files
   app.get('/api/chart-files', (req, res) => {
     try {
-      const outputDir = '/tests/output';
+      console.log("GET /api/chart-files");
+      const outputDir = './tests/output'; // Corrected path to be relative and not absolute
+      console.log("Reading directory:", outputDir);
+      
+      // Make sure the directory exists first
+      if (!fs.existsSync(outputDir)) {
+        console.log("Creating directory:", outputDir);
+        fs.mkdirSync(outputDir, { recursive: true });
+      }
+      
       const files = fs.readdirSync(outputDir)
         .filter(file => file.endsWith('.json'))
         .map(file => ({
           name: file,
           url: `/chart-data/${file}`
         }));
+      console.log("Found files:", files);
+      
       res.json({ success: true, files });
     } catch (error) {
+      console.error("Error listing chart files:", error.message);
       res.status(500).json({ success: false, error: error.message });
     }
   });
@@ -195,18 +335,24 @@ function createTestApp() {
   app.get('/chart-data/:filename', (req, res) => {
     try {
       const { filename } = req.params;
-      const filePath = path.join('/tests/output', filename);
+      console.log(`GET /chart-data/${filename}`);
+      
+      const filePath = path.join('./tests/output', filename); // Corrected path to be relative
+      console.log("Looking for file at:", filePath);
       
       if (!fs.existsSync(filePath)) {
+        console.log("File not found:", filePath);
         return res.status(404).json({ 
           success: false, 
           error: 'Chart file not found' 
         });
       }
       
+      console.log("Reading and parsing file...");
       const chartData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
       res.json(chartData);
     } catch (error) {
+      console.error("Error reading chart file:", error.message);
       res.status(500).json({ 
         success: false, 
         error: `Error reading chart file: ${error.message}` 
@@ -270,19 +416,41 @@ describe('Charts Controller API Tests', () => {
     });
     
     it('should handle service errors gracefully', async () => {
-      const { default: claudeService } = await import('../../../services/claudeService.js');
-      claudeService.generateVisualization.mockRejectedValueOnce(new Error('Service unavailable'));
+      // Create a fresh instance with new mocks to avoid interference
+      const localApp = createTestApp();
       
-      const response = await request(app)
-        .post('/api/test-claude-visualization')
-        .send({
-          data: [['A', 1], ['B', 2]],
-          type: 'pie'
-        });
+      // Get the service instance from the test app and modify its behavior
+      const routeHandler = localApp._router.stack.find(layer => 
+        layer.route && layer.route.path === '/api/test-claude-visualization');
+      const routeHandlers = routeHandler.route.stack;
+      const requestHandler = routeHandlers[0].handle;
       
-      expect(response.status).toBe(500);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Failed to test Claude visualization');
+      // Extract service name through string manipulation
+      requestHandler.toString().match(/const\s+result\s+=\s+await\s+([^.]+)\.generateVisualization/);
+      const serviceName = RegExp.$1;
+      const localService = eval(serviceName);
+      
+      // Save original implementation
+      const originalGenerateVisualization = localService.generateVisualization;
+      
+      try {
+        // Replace with mock implementation that throws an error
+        localService.generateVisualization = vi.fn().mockRejectedValueOnce(new Error('Service unavailable'));
+        
+        const response = await request(localApp)
+          .post('/api/test-claude-visualization')
+          .send({
+            data: [['A', 1], ['B', 2]],
+            type: 'pie'
+          });
+        
+        expect(response.status).toBe(500);
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toContain('Failed to test Claude visualization');
+      } finally {
+        // Restore original implementation
+        localService.generateVisualization = originalGenerateVisualization;
+      }
     });
   });
   
@@ -301,17 +469,33 @@ describe('Charts Controller API Tests', () => {
     });
     
     it('should handle filesystem errors gracefully', async () => {
-      const { default: fs } = await import('fs');
-      fs.readdirSync.mockImplementationOnce(() => {
-        throw new Error('Permission denied');
-      });
+      // Create a fresh instance with new mocks to avoid interference
+      const localApp = createTestApp();
       
-      const response = await request(app)
-        .get('/api/chart-files');
+      // Find the route handler
+      const routeHandler = localApp._router.stack.find(layer => 
+        layer.route && layer.route.path === '/api/chart-files');
+      const routeHandlers = routeHandler.route.stack;
+      const requestHandler = routeHandlers[0].handle;
       
-      expect(response.status).toBe(500);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Permission denied');
+      // Test the handler with a mocked fs module
+      const originalReaddir = fs.readdirSync;
+      try {
+        // Override readdir to throw an error
+        fs.readdirSync = vi.fn().mockImplementationOnce(() => {
+          throw new Error('Permission denied');
+        });
+        
+        const response = await request(localApp)
+          .get('/api/chart-files');
+        
+        expect(response.status).toBe(500);
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toContain('Permission denied');
+      } finally {
+        // Restore original implementation
+        fs.readdirSync = originalReaddir;
+      }
     });
   });
   
@@ -329,29 +513,58 @@ describe('Charts Controller API Tests', () => {
     });
     
     it('should return 404 for non-existent chart file', async () => {
-      const { default: fs } = await import('fs');
-      fs.existsSync.mockReturnValueOnce(false);
+      // Create a fresh instance with new mocks to avoid interference
+      const localApp = createTestApp();
       
-      const response = await request(app)
-        .get('/chart-data/nonexistent.json');
+      // Save original implementation
+      const originalExistsSync = fs.existsSync;
       
-      expect(response.status).toBe(404);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Chart file not found');
+      try {
+        // Override with mock implementation
+        fs.existsSync = vi.fn().mockReturnValueOnce(false);
+        
+        const response = await request(localApp)
+          .get('/chart-data/nonexistent.json');
+        
+        expect(response.status).toBe(404);
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toContain('Chart file not found');
+      } finally {
+        // Restore original implementation
+        fs.existsSync = originalExistsSync;
+      }
     });
     
     it('should handle file reading errors gracefully', async () => {
-      const { default: fs } = await import('fs');
-      fs.readFileSync.mockImplementationOnce(() => {
-        throw new Error('File corrupted');
-      });
+      // Create a fresh instance with new mocks to avoid interference
+      const localApp = createTestApp();
       
-      const response = await request(app)
-        .get('/chart-data/corrupted.json');
+      // Save original implementation
+      const originalReadFileSync = fs.readFileSync;
       
-      expect(response.status).toBe(500);
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('Error reading chart file');
+      try {
+        // Override with mock implementation that throws an error
+        fs.readFileSync = vi.fn().mockImplementationOnce(() => {
+          throw new Error('File corrupted');
+        });
+        
+        // Ensure existsSync returns true so we reach the readFileSync call
+        const originalExistsSync = fs.existsSync;
+        fs.existsSync = vi.fn().mockReturnValueOnce(true);
+        
+        const response = await request(localApp)
+          .get('/chart-data/corrupted.json');
+        
+        expect(response.status).toBe(500);
+        expect(response.body.success).toBe(false);
+        expect(response.body.error).toContain('Error reading chart file');
+        
+        // Restore existsSync
+        fs.existsSync = originalExistsSync;
+      } finally {
+        // Restore original implementation
+        fs.readFileSync = originalReadFileSync;
+      }
     });
   });
 });

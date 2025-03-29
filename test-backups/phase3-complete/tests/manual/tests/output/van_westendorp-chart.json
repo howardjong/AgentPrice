@@ -1,0 +1,5 @@
+{
+  "_mockData": true,
+  "chartType": "van_westendorp",
+  "message": "This is mock chart data because LLM API calls are disabled"
+}

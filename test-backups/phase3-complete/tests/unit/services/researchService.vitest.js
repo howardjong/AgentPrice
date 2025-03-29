@@ -1,0 +1,159 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { 
+  mockClaudeService, 
+  mockPerplexityService, 
+  mockContextManager, 
+  mockJobManager, 
+  mockLogger,
+  resetAllMocks
+} from '../../mocks/serviceMocks.js';
+
+// Mock all dependencies
+vi.mock('../../../services/claudeService.js', () => ({
+  default: mockClaudeService
+}));
+
+vi.mock('../../../services/perplexityService.js', () => ({
+  default: mockPerplexityService
+}));
+
+vi.mock('../../../services/contextManager.js', () => ({
+  default: mockContextManager
+}));
+
+vi.mock('../../../services/jobManager.js', () => ({
+  default: mockJobManager
+}));
+
+vi.mock('../../../services/mockJobManager.js', () => ({
+  default: mockJobManager
+}));
+
+vi.mock('../../../utils/logger.js', () => ({
+  default: mockLogger
+}));
+
+vi.mock('uuid', () => ({
+  v4: () => 'test-uuid'
+}));
+
+describe('ResearchService', () => {
+  let researchModule;
+
+  // Import the module under test in beforeEach to get a fresh module for each test
+  beforeEach(async () => {
+    // Reset all mocks before each test
+    resetAllMocks();
+    
+    // Force a new import of the module for each test
+    vi.resetModules();
+    researchModule = await import('../../../services/researchService.js');
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('initiateResearch', () => {
+    it('should initiate research and return job details', async () => {
+      const result = await researchModule.initiateResearch('test query');
+      
+      // Verify the mocks were called with correct parameters
+      expect(mockContextManager.storeContext).toHaveBeenCalled();
+      expect(mockJobManager.enqueueJob).toHaveBeenCalledWith('research-jobs', {
+        query: 'test query',
+        options: {},
+        sessionId: expect.any(String)
+      });
+      
+      // Verify the result
+      expect(result).toEqual({
+        jobId: 'test-uuid',
+        sessionId: expect.any(String),
+        status: 'PENDING'
+      });
+    });
+
+    it('should handle errors gracefully', async () => {
+      // Make storeContext throw an error
+      mockContextManager.storeContext.mockRejectedValueOnce(new Error('Storage error'));
+
+      await expect(researchModule.initiateResearch('test query'))
+        .rejects.toThrow('Storage error');
+    });
+  });
+
+  describe('getResearchStatus', () => {
+    it('should return job status', async () => {
+      // Setup the mock to return the completed status
+      mockJobManager.getJobStatus.mockResolvedValueOnce({
+        id: 'test-uuid',
+        status: 'completed',
+        progress: 100,
+        attempts: 0,
+        data: {
+          query: 'test query',
+          options: {},
+          sessionId: 'test-session'
+        },
+        createdAt: Date.now(),
+        processingTime: 1000,
+        waitTime: 100,
+        returnvalue: {
+          content: 'Mock results',
+          sources: ['source1']
+        }
+      });
+
+      const result = await researchModule.getResearchStatus('test-uuid');
+      
+      // Verify the mock was called with correct parameters
+      expect(mockJobManager.getJobStatus).toHaveBeenCalledWith('research-jobs', 'test-uuid');
+      
+      // Verify the result has the expected properties
+      expect(result.status).toEqual('completed');
+      expect(result.returnvalue).toEqual({
+        content: 'Mock results',
+        sources: ['source1']
+      });
+    });
+  });
+
+  describe('answerWithContext', () => {
+    it('should generate response using context', async () => {
+      // Setup the context manager to return a context with a jobId
+      mockContextManager.getContext.mockResolvedValueOnce({
+        jobId: 'test-uuid',
+        originalQuery: 'test query',
+        history: []
+      });
+      
+      // Setup the job manager to return a completed job
+      mockJobManager.getJobStatus.mockResolvedValueOnce({
+        id: 'test-uuid',
+        status: 'completed',
+        returnvalue: {
+          content: 'Mock results',
+          sources: ['source1']
+        }
+      });
+      
+      // Setup Claude to return a response
+      mockClaudeService.generateResponse.mockResolvedValueOnce('Mock response');
+      
+      const result = await researchModule.answerWithContext('test-session', 'test query');
+      
+      // Verify the mocks were called with correct parameters
+      expect(mockContextManager.getContext).toHaveBeenCalledWith('test-session');
+      expect(mockJobManager.getJobStatus).toHaveBeenCalledWith('research-jobs', 'test-uuid');
+      expect(mockClaudeService.generateResponse).toHaveBeenCalledWith('test query', expect.any(String));
+      
+      // Verify the result
+      expect(result).toEqual({
+        query: 'test query',
+        response: 'Mock response',
+        sources: ['source1']
+      });
+    });
+  });
+});
