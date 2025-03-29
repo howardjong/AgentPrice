@@ -1,319 +1,182 @@
 /**
- * Circuit Breaker Pattern Implementation
+ * circuitBreaker.js
  * 
- * Prevents cascading failures by stopping execution when a service is failing,
- * and allowing progressive recovery.
+ * Implements the Circuit Breaker pattern for fault tolerance.
+ * This pattern prevents an application from repeatedly trying to execute an operation
+ * that's likely to fail, allowing it to recover and conserve resources.
  */
 
 import logger from './logger.js';
 
+// Circuit states
+const STATE = {
+  CLOSED: 'CLOSED',   // Normal operation, requests allowed
+  OPEN: 'OPEN',       // Circuit is open, requests are blocked
+  HALF_OPEN: 'HALF_OPEN' // Testing if the service is back, limited requests allowed
+};
+
 class CircuitBreaker {
+  /**
+   * Create a new circuit breaker instance
+   * @param {Object} options - Configuration options
+   * @param {number} options.failureThreshold - Number of failures before opening the circuit (default: 5)
+   * @param {number} options.resetTimeout - Time in milliseconds before trying to reset the circuit (default: 30000)
+   * @param {number} options.successThreshold - Number of consecutive successes before closing the circuit (default: 2)
+   * @param {string} options.name - Name for this circuit breaker instance (for logging)
+   */
   constructor(options = {}) {
     this.options = {
-      // Number of failures before opening the circuit
-      failureThreshold: options.failureThreshold || 3,
-      // Time to wait before trying to close the circuit (ms)
-      resetTimeout: options.resetTimeout || 30000,
-      // Minimum number of requests to trigger circuit opening
-      minRequestThreshold: options.minRequestThreshold || 5,
-      // Whether to attempt progressive reset (half-open before fully closed)
-      progressiveReset: options.progressiveReset !== false,
-      // Interval to check circuit health (ms)
-      healthCheckInterval: options.healthCheckInterval || 60000,
-      // Timeout for requests (ms)
-      requestTimeout: options.requestTimeout || 10000,
-      // Number of successful requests in half-open state to close circuit
-      successThresholdToClose: options.successThresholdToClose || 2
+      failureThreshold: 5,
+      resetTimeout: 30000, // 30 seconds
+      successThreshold: 2,
+      ...options
     };
     
-    // Circuit state for each service
-    this.circuits = new Map();
+    this.name = options.name || 'CircuitBreaker';
     
-    // For tests - keep track of failure count
+    // Initialize state
+    this.state = STATE.CLOSED;
     this.failureCount = 0;
-    this.name = options.name || 'default';
-    this.state = {
-      status: 'CLOSED'
-    };
+    this.successCount = 0;
+    this.nextAttempt = Date.now();
     
-    // Set up health check interval if requested
-    if (this.options.healthCheckInterval > 0) {
-      this.healthCheckTimer = setInterval(() => this.checkCircuits(), 
-                                          this.options.healthCheckInterval);
-      // Prevent timer from keeping Node.js process alive
-      this.healthCheckTimer.unref();
-    }
-  }
-  
-  // Methods added for test compatibility
-  isOpen() {
-    return this.state.status === 'OPEN';
-  }
-  
-  registerFailure() {
-    this.failureCount++;
-    logger.debug(`Circuit ${this.name} registered failure, count: ${this.failureCount}`);
+    // Track historical state changes
+    this.stateHistory = [{
+      timestamp: Date.now(),
+      state: this.state,
+      reason: 'Initialized'
+    }];
     
-    if (this.failureCount >= this.options.failureThreshold) {
-      this.state.status = 'OPEN';
-      this.lastFailureTime = Date.now();
-      logger.info(`Circuit ${this.name} is now OPEN after ${this.failureCount} failures`);
-    }
-  }
-  
-  registerSuccess() {
-    this.failureCount = 0;
-    if (this.state.status === 'HALF-OPEN') {
-      this.state.status = 'CLOSED';
-      logger.info(`Circuit ${this.name} is now CLOSED after success in HALF-OPEN state`);
-    }
-  }
-  
-  getFailureCount() {
-    return this.failureCount;
+    logger.info(`${this.name}: Circuit breaker initialized in ${this.state} state`, {
+      component: 'circuitBreaker'
+    });
   }
   
   /**
-   * Get or create a circuit for a service
-   * @param {string} service - Service identifier
-   * @returns {Object} Circuit state object
+   * Records a successful operation, potentially closing the circuit
    */
-  getCircuit(service) {
-    if (!this.circuits.has(service)) {
-      this.circuits.set(service, {
-        state: 'CLOSED',
-        failures: 0,
-        successes: 0,
-        lastFailure: null,
-        lastReset: Date.now(),
-        totalRequests: 0,
-        lastTestedAt: null,
-        cooldownEndTime: null,
-        halfOpenResult: null
+  recordSuccess() {
+    this.failureCount = 0;
+    
+    if (this.state === STATE.HALF_OPEN) {
+      this.successCount++;
+      
+      if (this.successCount >= this.options.successThreshold) {
+        this.transitionTo(STATE.CLOSED, 'Success threshold reached');
+      }
+    }
+  }
+  
+  /**
+   * Records a failed operation, potentially opening the circuit
+   */
+  recordFailure() {
+    this.failureCount++;
+    this.successCount = 0;
+    
+    if (this.state === STATE.CLOSED && 
+        this.failureCount >= this.options.failureThreshold) {
+      this.transitionTo(STATE.OPEN, 'Failure threshold reached');
+      
+      // Schedule the circuit to half-open after the reset timeout
+      this.nextAttempt = Date.now() + this.options.resetTimeout;
+    } else if (this.state === STATE.HALF_OPEN) {
+      this.transitionTo(STATE.OPEN, 'Failed in half-open state');
+      this.nextAttempt = Date.now() + this.options.resetTimeout;
+    }
+  }
+  
+  /**
+   * Checks if the circuit is open and requests should be blocked
+   * @returns {boolean} - True if circuit is open and requests should be blocked
+   */
+  isOpen() {
+    if (this.state === STATE.OPEN) {
+      // Check if we can transition to half-open
+      if (this.nextAttempt <= Date.now()) {
+        this.transitionTo(STATE.HALF_OPEN, 'Reset timeout elapsed');
+      }
+    }
+    
+    return this.state === STATE.OPEN;
+  }
+  
+  /**
+   * Forces the circuit to a specific state
+   * @param {string} state - The state to transition to (use STATE constants)
+   * @param {string} reason - The reason for the forced transition
+   */
+  forceState(state, reason = 'Manually forced') {
+    if (Object.values(STATE).includes(state)) {
+      this.transitionTo(state, reason);
+      
+      // Reset counters
+      this.failureCount = 0;
+      this.successCount = 0;
+      
+      if (state === STATE.OPEN) {
+        this.nextAttempt = Date.now() + this.options.resetTimeout;
+      }
+    } else {
+      logger.error(`${this.name}: Invalid state: ${state}`, {
+        component: 'circuitBreaker'
       });
     }
-    
-    return this.circuits.get(service);
   }
   
   /**
-   * Check if a circuit is closed (requests can go through)
-   * @param {string} service - Service identifier
-   * @returns {boolean} Whether circuit is closed
+   * Gets the current state of the circuit
+   * @returns {string} - The current state (OPEN, CLOSED, or HALF_OPEN)
    */
-  isClosed(service) {
-    const circuit = this.getCircuit(service);
-    return circuit.state === 'CLOSED';
+  getState() {
+    return this.state;
   }
   
   /**
-   * Execute a request with circuit breaker protection
-   * @param {string} service - Service identifier
-   * @param {Function} requestFn - Function to execute
-   * @returns {Promise<any>} Result of the request
+   * Gets statistics about this circuit breaker
+   * @returns {Object} - Circuit breaker statistics
    */
-  async executeRequest(service, requestFn) {
-    const circuit = this.getCircuit(service);
-    circuit.totalRequests++;
-    
-    // Check if circuit is open
-    if (circuit.state === 'OPEN') {
-      // Check if cooldown period has elapsed
-      if (circuit.cooldownEndTime && Date.now() >= circuit.cooldownEndTime) {
-        // Move to half-open state
-        circuit.state = 'HALF_OPEN';
-        circuit.lastTestedAt = Date.now();
-        logger.info(`Circuit for service ${service} is HALF_OPEN, testing request`);
-      } else {
-        // Still in cooldown, reject with circuit open error
-        const cooldownRemaining = circuit.cooldownEndTime ? 
-          Math.ceil((circuit.cooldownEndTime - Date.now()) / 1000) : 
-          'unknown';
-          
-        logger.warn(`Circuit for ${service} is OPEN, request rejected (cooldown: ${cooldownRemaining}s)`);
-        throw new Error(`Service ${service} is unavailable (circuit open). Please try again later.`);
-      }
-    }
-    
-    // Execute the request with timeout
-    try {
-      // Create a promise that resolves with the request or rejects after timeout
-      const requestWithTimeout = Promise.race([
-        requestFn(),
-        new Promise((_, reject) => {
-          const timeoutId = setTimeout(() => {
-            reject(new Error(`Request to ${service} timed out after ${this.options.requestTimeout}ms`));
-          }, this.options.requestTimeout);
-          
-          // Prevent timer from keeping Node.js process alive
-          timeoutId.unref();
-        })
-      ]);
+  getStats() {
+    return {
+      state: this.state,
+      failureCount: this.failureCount,
+      successCount: this.successCount,
+      nextAttempt: this.nextAttempt,
+      stateHistory: this.stateHistory.slice(-10) // Last 10 state changes
+    };
+  }
+  
+  /**
+   * Helper to transition between states
+   * @param {string} newState - The new state
+   * @param {string} reason - The reason for the state change
+   * @private
+   */
+  transitionTo(newState, reason) {
+    if (this.state !== newState) {
+      logger.info(`${this.name}: Circuit state change from ${this.state} to ${newState} (${reason})`, {
+        component: 'circuitBreaker'
+      });
       
-      // Execute the request
-      const result = await requestWithTimeout;
+      // Update state
+      this.state = newState;
       
-      // Handle success based on circuit state
-      if (circuit.state === 'HALF_OPEN') {
-        // Increment success counter for half-open circuit
-        circuit.successes++;
-        
-        // Check if we have enough successes to close the circuit
-        if (circuit.successes >= this.options.successThresholdToClose) {
-          circuit.state = 'CLOSED';
-          circuit.failures = 0;
-          circuit.successes = 0;
-          circuit.lastReset = Date.now();
-          logger.info(`Circuit for service ${service} is now CLOSED after successful tests`);
-        } else {
-          logger.debug(`Circuit for ${service} remains HALF_OPEN (successes: ${circuit.successes}/${this.options.successThresholdToClose})`);
-        }
-      } else if (circuit.state === 'CLOSED') {
-        // Reset failure count on success if there were previous failures
-        if (circuit.failures > 0) {
-          circuit.failures = Math.max(0, circuit.failures - 1);
-        }
+      // Record state change in history
+      this.stateHistory.push({
+        timestamp: Date.now(),
+        state: newState,
+        reason
+      });
+      
+      // Keep history at a reasonable size
+      if (this.stateHistory.length > 100) {
+        this.stateHistory = this.stateHistory.slice(-100);
       }
       
-      return result;
-    } catch (error) {
-      // Handle failure
-      circuit.failures++;
-      circuit.lastFailure = Date.now();
-      circuit.successes = 0;
-      
-      logger.error(`Request to ${service} failed: ${error.message}`);
-      
-      // Check if we need to open the circuit
-      if (circuit.state === 'CLOSED' && 
-          circuit.failures >= this.options.failureThreshold &&
-          circuit.totalRequests >= this.options.minRequestThreshold) {
-        
-        circuit.state = 'OPEN';
-        circuit.cooldownEndTime = Date.now() + this.options.resetTimeout;
-        
-        logger.warn(`Circuit for service ${service} is now OPEN due to ${circuit.failures} failures`);
-      } else if (circuit.state === 'HALF_OPEN') {
-        // Failed during test, go back to open state with a new cooldown
-        circuit.state = 'OPEN';
-        circuit.cooldownEndTime = Date.now() + this.options.resetTimeout;
-        
-        logger.warn(`Circuit for service ${service} returned to OPEN after failed test`);
+      // Reset success count on any transition except to HALF_OPEN
+      if (newState !== STATE.HALF_OPEN) {
+        this.successCount = 0;
       }
-      
-      // Rethrow the error
-      throw error;
-    }
-  }
-  
-  /**
-   * Manually open a circuit
-   * @param {string} service - Service identifier
-   * @param {number} resetTimeoutMs - Optional override for reset timeout
-   */
-  openCircuit(service, resetTimeoutMs) {
-    const circuit = this.getCircuit(service);
-    
-    circuit.state = 'OPEN';
-    circuit.cooldownEndTime = Date.now() + (resetTimeoutMs || this.options.resetTimeout);
-    
-    logger.warn(`Circuit for service ${service} manually opened`);
-  }
-  
-  /**
-   * Manually close a circuit
-   * @param {string} service - Service identifier
-   */
-  closeCircuit(service) {
-    const circuit = this.getCircuit(service);
-    
-    circuit.state = 'CLOSED';
-    circuit.failures = 0;
-    circuit.successes = 0;
-    circuit.lastReset = Date.now();
-    
-    logger.info(`Circuit for service ${service} manually closed`);
-  }
-  
-  /**
-   * Reset all circuits
-   */
-  resetAll() {
-    for (const [service, circuit] of this.circuits.entries()) {
-      circuit.state = 'CLOSED';
-      circuit.failures = 0;
-      circuit.successes = 0;
-      circuit.lastReset = Date.now();
-    }
-    
-    logger.info(`All circuits reset to CLOSED state`);
-  }
-  
-  /**
-   * Check all circuits for maintenance
-   */
-  checkCircuits() {
-    const now = Date.now();
-    
-    for (const [service, circuit] of this.circuits.entries()) {
-      // Auto-reset open circuits that have been in cooldown long enough
-      if (circuit.state === 'OPEN' && circuit.cooldownEndTime && now >= circuit.cooldownEndTime) {
-        if (this.options.progressiveReset) {
-          circuit.state = 'HALF_OPEN';
-          circuit.lastTestedAt = now;
-          logger.info(`Circuit for service ${service} moved to HALF_OPEN during health check`);
-        } else {
-          circuit.state = 'CLOSED';
-          circuit.failures = 0;
-          circuit.lastReset = now;
-          logger.info(`Circuit for service ${service} auto-reset to CLOSED during health check`);
-        }
-      }
-      
-      // Decrease failure count over time for closed circuits with past failures
-      if (circuit.state === 'CLOSED' && circuit.failures > 0) {
-        // Decrease failure count every 30 seconds
-        const failureAgeSeconds = (now - circuit.lastFailure) / 1000;
-        if (failureAgeSeconds > 30) {
-          circuit.failures = Math.max(0, circuit.failures - 1);
-          circuit.lastFailure = now; // Reset timer
-          logger.debug(`Circuit for ${service} failures decreased to ${circuit.failures} due to time decay`);
-        }
-      }
-    }
-  }
-  
-  /**
-   * Get status of all circuits
-   * @returns {Object} Status of all circuits
-   */
-  getStatus() {
-    const result = {};
-    
-    for (const [service, circuit] of this.circuits.entries()) {
-      result[service] = {
-        state: circuit.state,
-        failures: circuit.failures,
-        successes: circuit.state === 'HALF_OPEN' ? circuit.successes : 0,
-        totalRequests: circuit.totalRequests,
-        lastFailure: circuit.lastFailure,
-        lastReset: circuit.lastReset,
-        cooldownRemaining: circuit.cooldownEndTime && circuit.state === 'OPEN' ? 
-          Math.max(0, Math.ceil((circuit.cooldownEndTime - Date.now()) / 1000)) : 
-          0
-      };
-    }
-    
-    return result;
-  }
-  
-  /**
-   * Clean up resources
-   */
-  shutdown() {
-    if (this.healthCheckTimer) {
-      clearInterval(this.healthCheckTimer);
-      this.healthCheckTimer = null;
     }
   }
 }

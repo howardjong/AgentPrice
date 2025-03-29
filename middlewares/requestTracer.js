@@ -1,70 +1,83 @@
+/**
+ * requestTracer.js
+ * 
+ * Middleware that traces HTTP requests, providing unique identifiers for each request
+ * and tracking performance metrics. This helps with debugging and performance optimization.
+ */
+
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger.js';
 
-// Use CommonJS require for compatibility with both ES modules and CommonJS
-let cls;
-try {
-  cls = require('cls-hooked');
-} catch (err) {
-  // If cls-hooked isn't available, create a mock implementation
-  cls = {
-    createNamespace: () => ({
-      run: (fn) => fn(),
-      set: () => {}
-    }),
-    getNamespace: () => null
-  };
+/**
+ * Generate a unique request ID
+ * @returns {string} A unique UUID for the request
+ */
+function generateRequestId() {
+  return uuidv4();
 }
 
-// Create namespace
-const namespace = cls.createNamespace('research-system');
+/**
+ * Calculate the request duration
+ * @param {[number, number]} startTime - The start time from process.hrtime()
+ * @returns {number} The duration in milliseconds
+ */
+function calculateDuration(startTime) {
+  const diff = process.hrtime(startTime);
+  return (diff[0] * 1000) + (diff[1] / 1000000);
+}
 
-const requestTracer = (req, res, next) => {
-  // Create or use existing trace ID
-  const traceId = req.headers['x-trace-id'] || uuidv4();
+/**
+ * Middleware that adds request tracing
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next function
+ */
+function requestTracer(req, res, next) {
+  // Generate a unique ID for this request
+  const requestId = generateRequestId();
+  req.requestId = requestId;
   
-  // Set trace ID on request for easy access
-  req.traceId = traceId;
+  // Store the start time
+  const startTime = process.hrtime();
   
-  // Add trace ID to response headers
-  res.setHeader('x-trace-id', traceId);
+  // Log the request
+  logger.info(`[${requestId}] ${req.method} ${req.path}`, {
+    component: 'requestTracer'
+  });
   
-  // Set trace ID in CLS namespace
-  namespace.run(() => {
-    namespace.set('traceId', traceId);
-    
-    // Log request start
-    const startTime = Date.now();
-    logger.info(`Request started: ${req.method} ${req.path}`, {
+  // Log detailed request information at debug level
+  logger.debug(`[${requestId}] Request details:`, {
+    component: 'requestTracer',
+    meta: {
       method: req.method,
       path: req.path,
-      userAgent: req.headers['user-agent']
-    });
-    
-    // Log request completion
-    res.on('finish', () => {
-      const duration = Date.now() - startTime;
-      
-      // Log basic request information
-      logger.info(`Request completed: ${req.method} ${req.path}`, {
-        method: req.method,
-        path: req.path,
-        statusCode: res.statusCode,
-        duration: `${duration}ms`
-      });
-      
-      // Log warning for slow requests
-      if (duration > 1000) {
-        logger.warn(`Slow request: ${req.method} ${req.path}`, {
-          method: req.method,
-          path: req.path,
-          duration: `${duration}ms`
-        });
-      }
-    });
-    
-    next();
+      query: req.query,
+      headers: req.headers,
+      ip: req.ip
+    }
   });
-};
+  
+  // Track the response
+  const originalEnd = res.end;
+  
+  res.end = function(...args) {
+    // Calculate the duration
+    const duration = calculateDuration(startTime);
+    
+    // Log the response
+    logger.info(`[${requestId}] ${req.method} ${req.path} ${res.statusCode} ${duration.toFixed(2)}ms`, {
+      component: 'requestTracer'
+    });
+    
+    // Return the modified response
+    return originalEnd.apply(this, args);
+  };
+  
+  // Add the requestId to the response headers
+  res.setHeader('X-Request-ID', requestId);
+  
+  // Continue to the next middleware
+  next();
+}
 
 export default requestTracer;

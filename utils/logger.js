@@ -1,107 +1,122 @@
-import winston from 'winston';
-import path from 'path';
-import { fileURLToPath } from 'url';
+/**
+ * logger.js
+ * 
+ * A simple logging utility that provides standardized logging across the application.
+ * This logger handles different log levels and formats log entries consistently.
+ */
 
-// Get the directory name
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const logLevels = {
-  error: 0,
-  warn: 1,
-  info: 2,
-  http: 3,
-  debug: 4,
+// Log levels with numeric values for comparison
+const LOG_LEVELS = {
+  ERROR: 0,
+  WARN: 1,
+  INFO: 2,
+  DEBUG: 3
 };
 
-const logColors = {
-  error: 'red',
-  warn: 'yellow',
-  info: 'green',
-  http: 'magenta',
-  debug: 'blue',
-};
+// Current log level - can be set via environment variable or configuration
+let currentLogLevel = process.env.LOG_LEVEL ? 
+  LOG_LEVELS[process.env.LOG_LEVEL.toUpperCase()] || LOG_LEVELS.INFO :
+  LOG_LEVELS.INFO;
 
-// Define log format
-const logFormat = winston.format.printf(({ level, message, timestamp, ...meta }) => {
-  const traceId = meta.traceId || 'no-trace';
-  delete meta.traceId;
-  
-  // Format the meta object to only include valuable information
-  const metaString = Object.keys(meta).length 
-    ? JSON.stringify(meta)
-    : '';
-  
-  return `${timestamp} [${traceId}] ${level}: ${message} ${metaString}`;
-});
+/**
+ * Format a log message with timestamp, level, and optional component
+ * @param {string} level - The log level (ERROR, WARN, INFO, DEBUG)
+ * @param {string} message - The log message
+ * @param {string} [component] - Optional component name
+ * @returns {string} - Formatted log message
+ */
+function formatLogMessage(level, message, component) {
+  const timestamp = new Date().toISOString();
+  const componentStr = component ? `[${component}] ` : '';
+  return `${timestamp} ${level.padEnd(5)} ${componentStr}${message}`;
+}
 
-// Create the logger
-const logger = winston.createLogger({
-  levels: logLevels,
-  format: winston.format.combine(
-    winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-    winston.format.json()
-  ),
-  transports: [
-    // Write to console with colors
-    new winston.transports.Console({
-      format: winston.format.combine(
-        winston.format.colorize({ all: true }),
-        logFormat
-      ),
-    }),
-    // Write all logs to combined.log
-    new winston.transports.File({ 
-      filename: path.join(process.cwd(), 'combined.log') 
-    }),
-    // Write error logs to error.log
-    new winston.transports.File({ 
-      filename: path.join(process.cwd(), 'error.log'), 
-      level: 'error' 
-    }),
-  ],
-});
-
-// Simple wrapper to add context from CLS namespaces
-const addTraceIdFormatWrap = (logger) => {
-  // Wrap all the logging methods to add traceId from CLS namespace if available
-  const originalLogMethods = {};
+/**
+ * Log a message if the current log level permits
+ * @param {string} level - The log level (ERROR, WARN, INFO, DEBUG)
+ * @param {string} message - The log message
+ * @param {Object} [options] - Additional options
+ * @param {string} [options.component] - Component name
+ * @param {Error} [options.error] - Error object to include in the log
+ */
+function log(level, message, options = {}) {
+  const logLevelValue = LOG_LEVELS[level];
   
-  // Save original methods
-  Object.keys(logLevels).forEach((level) => {
-    originalLogMethods[level] = logger[level];
-  });
-  
-  // Override methods
-  Object.keys(logLevels).forEach((level) => {
-    logger[level] = function (message, meta = {}) {
-      let traceId = 'no-trace';
+  // Only log if the current level includes this level
+  if (logLevelValue <= currentLogLevel) {
+    const formattedMessage = formatLogMessage(level, message, options.component);
+    
+    // Output to the appropriate console method
+    if (level === 'ERROR') {
+      console.error(formattedMessage);
       
-      // Try to get traceId from any running HTTP request
-      try {
-        const req = global.currentRequest;
-        if (req && req.traceId) {
-          traceId = req.traceId;
-        }
-      } catch (error) {
-        // Ignore errors, we'll use no-trace
+      // If an error object was provided, log its details
+      if (options.error) {
+        console.error(options.error);
       }
-      
-      // Add traceId to meta
-      const metaWithTrace = {
-        ...meta,
-        traceId
-      };
-      
-      // Call original method
-      return originalLogMethods[level](message, metaWithTrace);
-    };
-  });
-  
-  return logger;
+    } else if (level === 'WARN') {
+      console.warn(formattedMessage);
+    } else {
+      console.log(formattedMessage);
+    }
+  }
+}
+
+/**
+ * Set the current log level
+ * @param {string} level - The log level (ERROR, WARN, INFO, DEBUG)
+ */
+function setLogLevel(level) {
+  if (LOG_LEVELS[level] !== undefined) {
+    currentLogLevel = LOG_LEVELS[level];
+    info(`Log level set to ${level}`);
+  } else {
+    warn(`Invalid log level: ${level}. Using INFO instead.`);
+    currentLogLevel = LOG_LEVELS.INFO;
+  }
+}
+
+/**
+ * Log an error message
+ * @param {string} message - The error message
+ * @param {Object} [options] - Additional options
+ */
+function error(message, options = {}) {
+  log('ERROR', message, options);
+}
+
+/**
+ * Log a warning message
+ * @param {string} message - The warning message
+ * @param {Object} [options] - Additional options
+ */
+function warn(message, options = {}) {
+  log('WARN', message, options);
+}
+
+/**
+ * Log an info message
+ * @param {string} message - The info message
+ * @param {Object} [options] - Additional options
+ */
+function info(message, options = {}) {
+  log('INFO', message, options);
+}
+
+/**
+ * Log a debug message
+ * @param {string} message - The debug message
+ * @param {Object} [options] - Additional options
+ */
+function debug(message, options = {}) {
+  log('DEBUG', message, options);
+}
+
+// Export the logger functions
+export default {
+  error,
+  warn,
+  info,
+  debug,
+  setLogLevel
 };
-
-// Apply traceId wrapper
-addTraceIdFormatWrap(logger);
-
-export default logger;
