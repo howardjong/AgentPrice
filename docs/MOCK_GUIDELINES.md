@@ -1,178 +1,272 @@
-# Mock Guidelines for Testing
+# Mock Utilities Guidelines
 
-This document provides guidelines and best practices for creating and using mocks in our testing framework.
+This document outlines the best practices for using mock utilities in our test suite. These utilities help create reliable, fast, and deterministic tests without external dependencies.
 
 ## Table of Contents
 
 1. [Introduction](#introduction)
 2. [Available Mock Utilities](#available-mock-utilities)
-3. [Best Practices](#best-practices)
-4. [Examples](#examples)
+3. [HTTP Request Mocking](#http-request-mocking)
+4. [Time Simulation](#time-simulation)
+5. [Job Management Mocking](#job-management-mocking)
+6. [Best Practices](#best-practices)
+7. [Examples](#examples)
 
 ## Introduction
 
-Mocking is an essential technique for isolating components during testing. In our system, we use mocks to:
+Proper mocking is essential for creating a reliable test suite. Our mocking strategy focuses on three key areas:
 
-- Simulate external dependencies (like LLM API calls)
-- Control timing and asynchronous behavior
-- Test error conditions and edge cases
-- Create deterministic test environments
+1. **External API simulation** - Using Nock to mock HTTP requests
+2. **Time control** - Using performanceNowMock and Vitest's fake timers for time-based tests
+3. **Asynchronous job simulation** - Using MockJobManager for job-based workflows
 
 ## Available Mock Utilities
 
-### Performance Now Mock
+The following mock utilities are available:
 
-Located at `tests/utils/performanceNowMock.js`, this utility allows you to mock the `performance.now()` function for precise timing control in tests.
+| Utility | Purpose | File Location |
+|---------|---------|---------------|
+| apiMocks | Mock HTTP requests to external APIs | `tests/utils/apiMocks.js` |
+| performanceNowMock | Mock performance.now() for time-based tests | `tests/utils/performanceNowMock.js` |
+| MockJobManager | Simulate job-based workflows | `tests/utils/mockJobManager.js` |
 
-#### Key Features:
+## HTTP Request Mocking
 
-- **Predefined timestamp sequences** - Define exactly what values `performance.now()` will return in sequence
-- **Auto-incrementing timestamps** - Automatically generate timestamps with controlled increments
-- **Manual time advancement** - Control the passage of time within tests
-- **Timing scenario creation** - Generate realistic timing scenarios for complex operations
+### Overview
 
-#### Usage:
+We use Nock for HTTP request mocking, which intercepts outgoing HTTP requests and provides controlled responses. Our `apiMocks.js` utility provides easy-to-use functions for common mocking scenarios.
+
+### Common Functions
+
+- `mockPerplexityAPI(options)` - Mock Perplexity API responses
+- `mockClaudeAPI(options)` - Mock Claude API responses
+- `mockNetworkError(apiUrl, path, options)` - Simulate network errors
+- `mockTimeout(apiUrl, path, options)` - Simulate timeouts
+- `mockRateLimitError(apiType, options)` - Simulate rate limiting
+- `mockFromFixture(apiType, fixturePath, options)` - Use JSON fixtures
+
+### Example Usage
 
 ```javascript
-// Import the mock utility
-import { mockPerformanceNow } from '../../utils/performanceNowMock.js';
+import { mockPerplexityAPI, mockClaudeAPI, cleanupMocks } from '../utils/apiMocks';
 
-// Create a mock with predefined timestamps
-const timestamps = [0, 100, 250];
-const perfMock = mockPerformanceNow(timestamps);
+// In your test setup
+beforeEach(() => {
+  // Mock a successful Perplexity API response
+  mockPerplexityAPI({
+    response: { /* custom response */ },
+    persist: true
+  });
+});
 
-// Now performance.now() will return these values in sequence
-console.log(performance.now()); // 0
-console.log(performance.now()); // 100
-console.log(performance.now()); // 250
-
-// Clean up after test
-perfMock.restore();
+afterEach(() => {
+  // Clean up all mocks
+  cleanupMocks();
+});
 ```
 
-### Mock Job Manager
+## Time Simulation
 
-Located at `tests/utils/mockJobManager.js`, this utility provides a comprehensive mock implementation of our job queue system for testing asynchronous workflows.
+### Overview
 
-#### Key Features:
+The `performanceNowMock` utility allows you to mock `performance.now()` for deterministic time-based tests. It works well with Vitest's built-in fake timers to provide comprehensive time control.
 
-- **Isolated queue simulation** - Test job queues without Redis or Bull dependencies
-- **Progress tracking** - Simulate and assert job progress updates
-- **Job lifecycle management** - Complete, fail, or modify jobs during tests
-- **Event simulation** - Dispatch and listen for job lifecycle events
-- **Processor registration** - Register and test job processor functions
+### Common Functions
 
-#### Usage:
+- `installPerformanceNowMock(options)` - Install the mock
+- `advanceTime(milliseconds)` - Advance the mock time
+- `setTime(milliseconds)` - Set the mock time to a specific value
+- `advanceTimeAndFakeTimers(milliseconds, vi)` - Advance both performance.now and Vitest timers
+- `simulateLongOperation(durationMs, vi)` - Simulate a long-running operation
+
+### Example Usage
 
 ```javascript
-// Import the mock utility
-import { createMockJobManager } from '../../utils/mockJobManager.js';
+import { vi, describe, beforeEach, afterEach, it, expect } from 'vitest';
+import performanceNowMock from '../utils/performanceNowMock';
 
-// Create a mock job manager
-const jobManager = createMockJobManager({ autoProcess: false });
+describe('Time-dependent tests', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    performanceNowMock.installPerformanceNowMock();
+  });
 
-// Enqueue a job
-const jobId = await jobManager.enqueueJob('test-queue', 'test-job', { data: 'value' });
+  afterEach(() => {
+    performanceNowMock.uninstallPerformanceNowMock();
+    vi.useRealTimers();
+  });
 
-// Update progress
-await jobManager.updateJobProgress(jobId, 50);
+  it('should handle a long operation', () => {
+    // ... test setup ...
 
-// Complete the job
-await jobManager.completeJob(jobId, { result: 'success' });
+    // Simulate a 30-minute operation
+    performanceNowMock.simulateLongOperation(30 * 60 * 1000, vi);
 
-// Get job status
-const status = await jobManager.getJobStatus(jobId);
-expect(status.progress).toBe(100);
-expect(status.status).toBe('completed');
+    // ... test assertions ...
+  });
+});
+```
 
-// Clean up
-jobManager.reset();
+## Job Management Mocking
+
+### Overview
+
+The `MockJobManager` class provides a complete simulation of job-based workflows without actual processing delays. It's useful for testing long-running asynchronous operations.
+
+### Common Methods
+
+- `createJob(name, data, options)` - Create a new job
+- `completeJob(jobId, result)` - Complete a job
+- `failJob(jobId, error)` - Fail a job
+- `retryJob(jobId)` - Retry a failed job
+- `on(event, handler)` - Register event handlers
+- `jobFinished(jobId, timeout)` - Wait for job completion
+
+### Example Usage
+
+```javascript
+import { vi, describe, beforeEach, afterEach, it, expect } from 'vitest';
+import MockJobManager from '../utils/mockJobManager';
+
+describe('Job-based workflow tests', () => {
+  let jobManager;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    jobManager = new MockJobManager({
+      processingDelay: 50, // Fast processing for tests
+      verbose: false
+    });
+  });
+
+  afterEach(() => {
+    jobManager.cleanup();
+    vi.useRealTimers();
+  });
+
+  it('should process a research job', async () => {
+    // Create a job
+    const job = jobManager.createJob('research', { query: 'test query' });
+
+    // Fast-forward time to complete the job
+    vi.advanceTimersByTime(200);
+
+    // Check job state
+    expect(job.isCompleted()).toBe(true);
+
+    // Get result
+    const jobObj = jobManager.getJob(job.id);
+    expect(jobObj.result).toBeDefined();
+  });
+});
 ```
 
 ## Best Practices
 
-1. **Always clean up mocks** - Use `afterEach` or `afterAll` hooks to restore original functions
-2. **Be explicit about timing** - When testing time-sensitive code, always control the timing explicitly
-3. **Mock at the appropriate level** - Mock at interfaces or boundaries, not internal implementation details
-4. **Use realistic data** - Make mock responses match real API responses in structure
-5. **Test error handling** - Include tests for error scenarios and timeouts
-6. **Keep tests deterministic** - Avoid random values or real timing in tests
-7. **Document expected behavior** - Include clear comments about what each mock is simulating
+1. **Reset state between tests** - Always clean up mocks in `afterEach` to prevent test interdependence
+2. **Use fixtures for complex responses** - Store realistic API responses in fixture files
+3. **Mock at the appropriate level** - Mock external APIs, not internal functions
+4. **Combine mocks when needed** - Use multiple mock utilities together for complex scenarios
+5. **Test both success and failure cases** - Mock failures, timeouts, and errors
+6. **Keep mocks minimal** - Only mock what's necessary for the test
 
 ## Examples
 
-### Testing a Time-Sensitive Function
+### Testing a complete workflow with multiple mocks
 
 ```javascript
-import { mockPerformanceNow } from '../../utils/performanceNowMock.js';
+import { vi, describe, beforeEach, afterEach, it, expect } from 'vitest';
+import { mockPerplexityAPI, cleanupMocks } from '../utils/apiMocks';
+import performanceNowMock from '../utils/performanceNowMock';
+import MockJobManager from '../utils/mockJobManager';
+import ResearchService from '../../services/researchService';
 
-describe('Rate Limiting', () => {
-  let perfMock;
-  let rateLimiter;
-  
-  beforeEach(() => {
-    // Start with specific timestamps for deterministic tests
-    perfMock = mockPerformanceNow([0, 100, 200, 1100, 1200]);
-    rateLimiter = new RateLimiter({ limit: 2, window: 1000 });
-  });
-  
-  afterEach(() => {
-    perfMock.restore();
-  });
-  
-  test('should allow requests within rate limit', () => {
-    expect(rateLimiter.allowRequest()).toBe(true); // Time: 0
-    expect(rateLimiter.allowRequest()).toBe(true); // Time: 100
-    expect(rateLimiter.allowRequest()).toBe(false); // Time: 200 (limit reached)
-    expect(rateLimiter.allowRequest()).toBe(true); // Time: 1100 (window passed)
-  });
-});
-```
-
-### Testing Asynchronous Job Processing
-
-```javascript
-import { createMockJobManager } from '../../utils/mockJobManager.js';
-
-describe('Research Service', () => {
+describe('Research workflow', () => {
   let jobManager;
   let researchService;
-  
+
   beforeEach(() => {
-    jobManager = createMockJobManager();
+    // Setup time mocking
+    vi.useFakeTimers();
+    performanceNowMock.installPerformanceNowMock();
+
+    // Setup job manager mock
+    jobManager = new MockJobManager({ processingDelay: 50 });
+
+    // Setup API mocks
+    mockPerplexityAPI({
+      response: { /* mock response */ },
+      persist: true
+    });
+
+    // Create service with mocks
     researchService = new ResearchService({ jobManager });
   });
-  
+
   afterEach(() => {
-    jobManager.reset();
+    // Clean up all mocks
+    jobManager.cleanup();
+    cleanupMocks();
+    performanceNowMock.uninstallPerformanceNowMock();
+    vi.useRealTimers();
   });
-  
-  test('should process research jobs', async () => {
-    // Start research task
-    const taskId = await researchService.startResearch('test query');
-    
-    // Find the job
-    const jobId = jobManager._jobs.keys().next().value;
-    const job = jobManager._jobs.get(jobId);
-    
-    // Manually complete the job with result
-    await jobManager.completeJob(jobId, { 
-      result: 'Research findings',
-      sources: ['source1', 'source2']
-    });
-    
-    // Check the research task completed
-    const result = await researchService.getResearchResult(taskId);
-    expect(result.status).toBe('completed');
-    expect(result.result).toBe('Research findings');
+
+  it('should complete a research request', async () => {
+    // Start research
+    const research = await researchService.startResearch('test query');
+
+    // Simulate time passing
+    vi.advanceTimersByTime(1000);
+
+    // Verify research completed successfully
+    expect(research.status).toBe('completed');
+    expect(research.results).toBeDefined();
   });
 });
 ```
 
-## Important Notes
+### Testing rate limiting and retries
 
-- The mock utilities are designed for testing only and should never be used in production code
-- Tests using these mocks should be maintained alongside the real implementations they simulate
-- When APIs change, update both the implementation and corresponding mocks
+```javascript
+import { vi, describe, beforeEach, afterEach, it, expect } from 'vitest';
+import { mockRateLimitError, mockPerplexityAPI, cleanupMocks } from '../utils/apiMocks';
+import performanceNowMock from '../utils/performanceNowMock';
+import PerplexityService from '../../services/perplexityService';
 
-By following these guidelines, we can create reliable, maintainable tests that accurately verify our system's behavior without relying on external dependencies or non-deterministic timing.
+describe('Rate limit handling', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    performanceNowMock.installPerformanceNowMock();
+  });
+
+  afterEach(() => {
+    cleanupMocks();
+    performanceNowMock.uninstallPerformanceNowMock();
+    vi.useRealTimers();
+  });
+
+  it('should retry after rate limit error', async () => {
+    // First request fails with rate limit
+    mockRateLimitError('perplexity', { retryAfter: 5 });
+
+    // Second request succeeds
+    mockPerplexityAPI({
+      response: { /* success response */ }
+    });
+
+    const perplexityService = new PerplexityService();
+    
+    // Start the request
+    const responsePromise = perplexityService.query('test query');
+
+    // Advance time past retry delay
+    performanceNowMock.advanceTimeAndFakeTimers(6000, vi);
+
+    // Get the response
+    const response = await responsePromise;
+    
+    // Verify successful retry
+    expect(response).toBeDefined();
+  });
+});
+```

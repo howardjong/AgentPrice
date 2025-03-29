@@ -1,216 +1,304 @@
 /**
- * @file mockJobManager.vitest.js
- * @description Tests for the mockJobManager utility
+ * Tests for the MockJobManager utility
  */
 
-import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createMockJobManager, createSimpleMockJobManager } from '../../utils/mockJobManager.js';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import MockJobManager, { JOB_STATES } from '../../utils/mockJobManager.js';
 
-describe('createMockJobManager', () => {
+describe('MockJobManager', () => {
   let jobManager;
-  
+
   beforeEach(() => {
-    // Using real timers to avoid test timeouts
-    jobManager = createMockJobManager();
-  });
-  
-  afterEach(() => {
-    jobManager.reset();
-  });
-  
-  test('should create and retrieve jobs', async () => {
-    // Arrange
-    const queueName = 'test-queue';
-    const jobName = 'test-job';
-    const jobData = { test: 'data' };
-    
-    // Act
-    const jobId = await jobManager.enqueueJob(queueName, jobName, jobData);
-    const jobStatus = await jobManager.getJobStatus(jobId);
-    
-    // Assert
-    expect(jobId).toBeDefined();
-    expect(jobStatus).toHaveProperty('id', jobId);
-    expect(jobStatus).toHaveProperty('status', 'waiting');
-    expect(jobStatus).toHaveProperty('data', jobData);
-  });
-  
-  test('should update job progress', async () => {
-    // Arrange
-    const jobId = await jobManager.enqueueJob('test-queue', 'test-job', {});
-    
-    // Act
-    await jobManager.updateJobProgress(jobId, 50);
-    const jobStatus = await jobManager.getJobStatus(jobId);
-    
-    // Assert
-    expect(jobStatus).toHaveProperty('progress', 50);
-  });
-  
-  test('should complete jobs with results', async () => {
-    // Arrange
-    const jobId = await jobManager.enqueueJob('test-queue', 'test-job', {});
-    const result = { success: true, data: 'test result' };
-    
-    // Act
-    await jobManager.completeJob(jobId, result);
-    const jobStatus = await jobManager.getJobStatus(jobId);
-    
-    // Assert
-    expect(jobStatus).toHaveProperty('status', 'completed');
-    expect(jobStatus).toHaveProperty('result', result);
-    expect(jobStatus).toHaveProperty('progress', 100);
-  });
-  
-  test('should mark jobs as failed', async () => {
-    // Arrange
-    const jobId = await jobManager.enqueueJob('test-queue', 'test-job', {});
-    const errorReason = 'Test error occurred';
-    
-    // Act
-    await jobManager.failJob(jobId, errorReason);
-    const jobStatus = await jobManager.getJobStatus(jobId);
-    
-    // Assert
-    expect(jobStatus).toHaveProperty('status', 'failed');
-    expect(jobStatus).toHaveProperty('error', errorReason);
-  });
-  
-  test('should register and execute processors', async () => {
-    // Arrange
-    const queueName = 'processor-test-queue';
-    const jobData = { input: 'test' };
-    const processor = vi.fn().mockImplementation(job => {
-      return { processed: job.data.input };
+    // Create a fresh instance for each test with fast processing
+    jobManager = new MockJobManager({
+      processingDelay: 50, // Fast processing for tests
+      verbose: false
     });
     
-    // Act - Register processor and add a job
-    await jobManager.registerProcessor(queueName, processor);
-    const jobId = await jobManager.enqueueJob(queueName, 'processor-job', jobData);
-    
-    // Need to manually process in test since auto-process is async
-    const queue = jobManager._queues.get(queueName);
-    const job = jobManager._jobs.get(jobId);
-    await processor(job);
-    await jobManager.completeJob(jobId, { processed: job.data.input });
-    
-    // Assert
-    expect(processor).toHaveBeenCalled();
-    const jobStatus = await jobManager.getJobStatus(jobId);
-    expect(jobStatus).toHaveProperty('status', 'completed');
-    expect(jobStatus.result).toHaveProperty('processed', 'test');
+    // Use vi.useFakeTimers for controlled time advancement
+    vi.useFakeTimers();
   });
-  
-  test('should simulate job progress over time', async () => {
-    // This test was causing timeouts, so we're simplifying it to not use timers
-    // Arrange
-    const jobId = await jobManager.enqueueJob('test-queue', 'progress-job', {});
-    
-    // Act - manually update progress instead of using simulateJobProgress
-    await jobManager.updateJobProgress(jobId, 33);
-    await jobManager.updateJobProgress(jobId, 66);
-    await jobManager.updateJobProgress(jobId, 100);
-    
-    // Get the final job status
-    const jobStatus = await jobManager.getJobStatus(jobId);
-    
-    // Assert
-    expect(jobStatus).toHaveProperty('progress', 100);
-  });
-});
 
-describe('createSimpleMockJobManager', () => {
-  let simpleJobManager;
-  
-  beforeEach(() => {
-    simpleJobManager = createSimpleMockJobManager();
-  });
-  
   afterEach(() => {
-    simpleJobManager.reset();
+    // Cleanup after each test
+    jobManager.cleanup();
+    vi.useRealTimers();
   });
-  
-  test('should create and retrieve jobs', async () => {
-    // Arrange
-    const queueName = 'simple-queue';
-    const jobName = 'simple-job';
-    const jobData = { test: 'simple data' };
-    
-    // Act
-    const jobId = await simpleJobManager.enqueueJob(queueName, jobName, jobData);
-    const jobStatus = await simpleJobManager.getJobStatus(jobId);
-    
-    // Assert
-    expect(jobId).toBeDefined();
-    expect(jobStatus).toHaveProperty('queueName', queueName);
-    expect(jobStatus).toHaveProperty('name', jobName);
-    expect(jobStatus).toHaveProperty('data', jobData);
-    expect(jobStatus).toHaveProperty('status', 'waiting');
-  });
-  
-  test('should update job progress and complete jobs', async () => {
-    // Arrange
-    const jobId = await simpleJobManager.enqueueJob('simple-queue', 'simple-job', {});
-    
-    // Act - Update progress
-    await simpleJobManager.updateJobProgress(jobId, 50);
-    let jobStatus = await simpleJobManager.getJobStatus(jobId);
-    
-    // Assert - Progress updated
-    expect(jobStatus).toHaveProperty('progress', 50);
-    
-    // Act - Complete job
-    const result = { output: 'success' };
-    await simpleJobManager.completeJob(jobId, result);
-    jobStatus = await simpleJobManager.getJobStatus(jobId);
-    
-    // Assert - Job completed
-    expect(jobStatus).toHaveProperty('status', 'completed');
-    expect(jobStatus).toHaveProperty('result', result);
-    expect(jobStatus).toHaveProperty('progress', 100);
-  });
-});
 
-// Example of how to use the mock job manager in a simple scenario
-describe('Basic Job Queue Example', () => {
-  let jobManager;
-  
-  beforeEach(() => {
-    jobManager = createMockJobManager({ autoProcess: false });
-  });
-  
-  afterEach(() => {
-    jobManager.reset();
-  });
-  
-  test('should handle a basic job processor', async () => {
-    // Arrange - Setup a simple processor
-    const queueName = 'test-jobs';
-    const processor = vi.fn().mockImplementation(async (job) => {
-      return { processed: true, input: job.data.value };
+  describe('Job Creation', () => {
+    it('should create a job with the correct properties', () => {
+      const job = jobManager.createJob('test-job', { value: 123 });
+      
+      expect(job).toBeDefined();
+      expect(job.id).toMatch(/^job:\d+$/);
+      
+      const internalJob = jobManager.getJob(job.id);
+      expect(internalJob).toBeDefined();
+      expect(internalJob.name).toBe('test-job');
+      expect(internalJob.data).toEqual({ value: 123 });
+      expect(internalJob.state).toBe(JOB_STATES.PENDING);
     });
-    
-    // Register processor
-    await jobManager.registerProcessor(queueName, processor);
-    
-    // Act - Create a job
-    const jobData = { value: 'test-input' };
-    const jobId = await jobManager.enqueueJob(queueName, 'test', jobData);
-    
-    // Get the processor and job
-    const job = jobManager._jobs.get(jobId);
-    
-    // Execute the processor manually
-    const result = await processor(job);
-    await jobManager.completeJob(jobId, result);
-    
-    // Get the final job status
-    const jobStatus = await jobManager.getJobStatus(jobId);
-    
-    // Assert
-    expect(processor).toHaveBeenCalled();
-    expect(jobStatus).toHaveProperty('status', 'completed');
-    expect(jobStatus.result).toHaveProperty('processed', true);
-    expect(jobStatus.result).toHaveProperty('input', 'test-input');
+
+    it('should create a delayed job', () => {
+      // Create a delayed job with auto-processing disabled
+      const job = jobManager.createJob('delayed-job', { value: 456 }, { 
+        delay: 1000,
+        autoProcess: false  // Prevent auto-processing
+      });
+      
+      const internalJob = jobManager.getJob(job.id);
+      expect(internalJob.state).toBe(JOB_STATES.DELAYED);
+      
+      // Advance time to trigger the delay expiration
+      vi.advanceTimersByTime(1000);
+      
+      // Now the job should be pending (not automatically processed)
+      expect(internalJob.state).toBe(JOB_STATES.PENDING);
+    });
+  });
+
+  describe('Job Processing', () => {
+    it('should automatically process a job to completion', async () => {
+      const job = jobManager.createJob('auto-job', { value: 789 });
+      
+      // Fast-forward time to allow processing to complete
+      vi.advanceTimersByTime(200);
+      
+      const completedJob = jobManager.getJob(job.id);
+      expect(completedJob.state).toBe(JOB_STATES.COMPLETED);
+      expect(completedJob.progress).toBe(100);
+      expect(completedJob.result).toBeDefined();
+    });
+
+    it('should update job progress during processing', () => {
+      const progressEvents = [];
+      
+      // Register a progress event handler to track updates
+      jobManager.on('progress', (job) => {
+        progressEvents.push({ jobId: job.id, progress: job.progress });
+      });
+      
+      // Create a job
+      const job = jobManager.createJob('progress-job', { value: 'test' });
+      
+      // Right after creation, there might not be progress updates yet
+      // We need to advance time a bit to allow the job processing to start
+      vi.advanceTimersByTime(10);
+      
+      // Now advance time in small increments to trigger progress updates
+      vi.advanceTimersByTime(20);
+      vi.advanceTimersByTime(20);
+      
+      // By now we should definitely have progress updates
+      expect(progressEvents.length).toBeGreaterThan(0);
+      
+      // Complete the processing
+      vi.advanceTimersByTime(50);
+      
+      // We should end up with multiple progress updates
+      expect(progressEvents.length).toBeGreaterThan(1);
+      
+      // The progress should increase over time and reach 100%
+      const finalProgress = progressEvents[progressEvents.length - 1].progress;
+      expect(finalProgress).toBe(100);
+      
+      // The progress values should include expected checkpoints
+      const allProgresses = progressEvents.map(e => e.progress);
+      expect(allProgresses).toContain(20); // First checkpoint
+      expect(allProgresses).toContain(40); // Second checkpoint
+    });
+  });
+
+  describe('Job State Transitions', () => {
+    it('should complete a job manually', () => {
+      const job = jobManager.createJob('manual-job', { value: 'manual' }, { 
+        autoProcess: false 
+      });
+      
+      const completedResult = { custom: 'result' };
+      jobManager.completeJob(job.id, completedResult);
+      
+      const completedJob = jobManager.getJob(job.id);
+      expect(completedJob.state).toBe(JOB_STATES.COMPLETED);
+      expect(completedJob.result).toEqual(completedResult);
+    });
+
+    it('should fail a job manually', () => {
+      const job = jobManager.createJob('fail-job', { value: 'fail' }, { 
+        autoProcess: false 
+      });
+      
+      const error = new Error('Custom error');
+      jobManager.failJob(job.id, error);
+      
+      const failedJob = jobManager.getJob(job.id);
+      expect(failedJob.state).toBe(JOB_STATES.FAILED);
+      expect(failedJob.error).toBe(error);
+    });
+
+    it('should retry a failed job', () => {
+      const job = jobManager.createJob('retry-job', { value: 'retry' }, { 
+        autoProcess: false 
+      });
+      
+      // Fail the job
+      jobManager.failJob(job.id, new Error('Failure before retry'));
+      
+      // Retry the job
+      jobManager.retryJob(job.id);
+      
+      const retriedJob = jobManager.getJob(job.id);
+      expect(retriedJob.state).toBe(JOB_STATES.PENDING);
+      
+      // Auto process should kick in
+      vi.advanceTimersByTime(200);
+      
+      // Job should be completed after retry
+      expect(retriedJob.state).toBe(JOB_STATES.COMPLETED);
+    });
+  });
+
+  describe('Events and Callbacks', () => {
+    it('should trigger completion events', async () => {
+      // Create a promise that resolves when the event is triggered
+      const eventPromise = new Promise(resolve => {
+        jobManager.on('completed', (completedJob) => {
+          try {
+            expect(completedJob.state).toBe(JOB_STATES.COMPLETED);
+            resolve();
+          } catch (error) {
+            resolve(error);
+          }
+        });
+      });
+      
+      // Create the job
+      const job = jobManager.createJob('event-job', { value: 'event' });
+      
+      // Progress time to complete the job
+      vi.advanceTimersByTime(200);
+      
+      // Wait for the event to be triggered
+      await eventPromise;
+    });
+
+    it('should trigger failure events', async () => {
+      // Create a promise that resolves when the event is triggered
+      const eventPromise = new Promise(resolve => {
+        // Force failure by setting failure rate to 100%
+        jobManager = new MockJobManager({
+          processingDelay: 50,
+          failureRate: 1.0 // Always fail
+        });
+        
+        jobManager.on('failed', (failedJob, error) => {
+          try {
+            expect(failedJob.state).toBe(JOB_STATES.FAILED);
+            expect(error).toBeDefined();
+            resolve();
+          } catch (err) {
+            resolve(err);
+          }
+        });
+      });
+      
+      // Create the job
+      const job = jobManager.createJob('failure-job', { value: 'fail' });
+      
+      // Progress time to fail the job
+      vi.advanceTimersByTime(200);
+      
+      // Wait for the event to be triggered
+      await eventPromise;
+    });
+
+    it('should handle job completion', () => {
+      const job = jobManager.createJob('finished-job', { value: 'await' });
+      
+      // Advance time to complete the job
+      vi.advanceTimersByTime(200);
+      
+      // Check job state directly
+      expect(job.isCompleted()).toBe(true);
+      
+      const jobObj = jobManager.getJob(job.id);
+      expect(jobObj.state).toBe(JOB_STATES.COMPLETED);
+      expect(jobObj.progress).toBe(100);
+    });
+
+    it('should handle job failure', () => {
+      // Configure manager to always fail jobs
+      jobManager = new MockJobManager({
+        processingDelay: 50,
+        failureRate: 1.0
+      });
+      
+      const job = jobManager.createJob('failing-job', { value: 'fail' });
+      
+      // Advance time to fail the job
+      vi.advanceTimersByTime(200);
+      
+      // Check job state directly
+      expect(job.isFailed()).toBe(true);
+      
+      const jobObj = jobManager.getJob(job.id);
+      expect(jobObj.state).toBe(JOB_STATES.FAILED);
+      expect(jobObj.error).toBeDefined();
+      expect(jobObj.error.message).toBe('Simulated job failure');
+    });
+  });
+
+  describe('Collection Management', () => {
+    it('should track completed jobs', () => {
+      // Create and complete multiple jobs
+      const job1 = jobManager.createJob('complete1', { value: 1 });
+      const job2 = jobManager.createJob('complete2', { value: 2 });
+      const job3 = jobManager.createJob('complete3', { value: 3 });
+      
+      // Advance time to complete the jobs
+      vi.advanceTimersByTime(200);
+      
+      const completedJobs = jobManager.getCompletedJobs();
+      expect(completedJobs.length).toBe(3);
+      expect(completedJobs.map(j => j.name)).toEqual([
+        'complete1', 'complete2', 'complete3'
+      ]);
+    });
+
+    it('should track failed jobs', () => {
+      // Configure to always fail
+      jobManager = new MockJobManager({
+        processingDelay: 50,
+        failureRate: 1.0
+      });
+      
+      // Create jobs that will fail
+      const job1 = jobManager.createJob('fail1', { value: 1 });
+      const job2 = jobManager.createJob('fail2', { value: 2 });
+      
+      // Advance time to fail the jobs
+      vi.advanceTimersByTime(200);
+      
+      const failedJobs = jobManager.getFailedJobs();
+      expect(failedJobs.length).toBe(2);
+      expect(failedJobs.map(j => j.name)).toEqual(['fail1', 'fail2']);
+    });
+
+    it('should retrieve all jobs', () => {
+      // Create mix of jobs
+      const job1 = jobManager.createJob('all1', { value: 1 });
+      const job2 = jobManager.createJob('all2', { value: 2 });
+      const job3 = jobManager.createJob('all3', { value: 3 }, { delay: 1000 }); // This will stay delayed
+      
+      // Advance time partially
+      vi.advanceTimersByTime(200);
+      
+      const allJobs = jobManager.getAllJobs();
+      expect(allJobs.length).toBe(3);
+      
+      // Find delayed job
+      const delayedJob = allJobs.find(j => j.name === 'all3');
+      expect(delayedJob.state).toBe(JOB_STATES.DELAYED);
+    });
   });
 });

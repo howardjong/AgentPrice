@@ -1,0 +1,28 @@
+{
+  "id": "mock-perplexity-id-456",
+  "model": "llama-3.1-sonar-large-128k-online",
+  "object": "chat.completion",
+  "created": 1724369265,
+  "citations": [
+    "https://example.com/research/source1",
+    "https://example.com/research/source2",
+    "https://example.com/research/source3",
+    "https://example.com/research/source4",
+    "https://example.com/research/source5"
+  ],
+  "choices": [
+    {
+      "index": 0,
+      "finish_reason": "stop",
+      "message": {
+        "role": "assistant",
+        "content": "This is a comprehensive mock deep research response from Perplexity using the larger sonar model. It includes multiple citations and detailed analysis of the requested topic.\n\nThe research shows several key findings:\n\n1. Finding one with supporting evidence\n2. Finding two with additional context\n3. Finding three with comparative analysis\n\nConclusion: This mock research response demonstrates the expected format and depth of a thorough analysis."
+      }
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 45,
+    "completion_tokens": 120,
+    "total_tokens": 165
+  }
+}

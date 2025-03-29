@@ -1,376 +1,477 @@
 /**
- * Mock Job Manager for Testing
+ * MockJobManager
  * 
- * This module provides a comprehensive mock implementation of the job manager
- * for testing long-running jobs and asynchronous workflows without requiring
- * a real Bull queue or Redis instance.
+ * This utility provides a complete mock implementation of the JobManager service
+ * for testing asynchronous job-based workflows without actual job execution.
+ * It simulates job creation, state transitions, and completion events.
+ * 
+ * Features:
+ * - Mock implementation of all JobManager methods
+ * - Control over job state transitions
+ * - Support for testing job events and callbacks
+ * - Ability to simulate long-running jobs
  */
 
-import { vi } from 'vitest';
-import { EventEmitter } from 'events';
-
-/**
- * Create a job object with standard structure matching Bull job format
- * 
- * @param {Object} jobData - Job data and configuration
- * @param {string} jobData.id - Job ID (optional, will be generated if not provided)
- * @param {string} jobData.name - Job name/type
- * @param {Object} jobData.data - Job payload data
- * @param {string} jobData.status - Job status (waiting, active, completed, failed)
- * @param {number} jobData.progress - Job progress (0-100)
- * @returns {Object} Mock job object
- */
-const createMockJob = (jobData = {}) => {
-  const defaults = {
-    id: `job-${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-    name: 'mock-job',
-    data: {},
-    status: 'waiting',
-    progress: 0,
-    attempts: 0,
-    timestamp: Date.now(),
-    processedOn: null,
-    finishedOn: null,
-    returnvalue: null,
-    failedReason: null,
-    stacktrace: null
-  };
-
-  const job = { ...defaults, ...jobData };
-  return job;
+// Job states
+export const JOB_STATES = {
+  PENDING: 'pending',
+  ACTIVE: 'active',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  DELAYED: 'delayed'
 };
 
 /**
- * Create a mock Job Manager that simulates Bull queue functionality
- * 
- * @param {Object} options - Configuration options
- * @param {Object} options.initialJobs - Map of initial jobs to populate the queue
- * @param {boolean} options.autoProcess - Automatically process jobs when added
- * @param {number} options.processingTime - Simulated processing time (ms)
- * @param {Function} options.defaultProcessor - Default job processor function
- * @returns {Object} Mock job manager interface
+ * MockJobManager class
  */
-export function createMockJobManager(options = {}) {
-  const {
-    initialJobs = {},
-    autoProcess = true,
-    processingTime = 100,
-    defaultProcessor = null
-  } = options;
+export class MockJobManager {
+  constructor(options = {}) {
+    this.jobs = new Map();
+    this.jobCounter = 1;
+    this.eventHandlers = {
+      completed: new Set(),
+      failed: new Set(),
+      progress: new Set(),
+      stalled: new Set(),
+      removed: new Set()
+    };
+    this.defaultDelay = options.defaultDelay || 0;
+    this.processingDelay = options.processingDelay || 100;
+    this.autoProcess = options.autoProcess !== false;
+    this.failureRate = options.failureRate || 0;
+    this.verbose = options.verbose || false;
+    this.completedJobs = [];
+    this.failedJobs = [];
+  }
 
-  // Internal state
-  const jobs = new Map(Object.entries(initialJobs));
-  const processors = new Map();
-  const eventEmitter = new EventEmitter();
-  const jobQueues = new Map();
-
-  // Create a mock queue for a specific queue name
-  const createQueue = (queueName) => {
-    if (jobQueues.has(queueName)) {
-      return jobQueues.get(queueName);
+  /**
+   * Log if verbose is enabled
+   * @param {String} message - Message to log
+   * @param {Object} data - Optional data to log
+   */
+  log(message, data = null) {
+    if (this.verbose) {
+      console.log(`[MockJobManager] ${message}`, data ? data : '');
     }
+  }
 
-    const queue = {
-      // Queue methods
-      add: vi.fn().mockImplementation((jobName, data, options = {}) => {
-        const jobId = options.jobId || `${queueName}-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-        const job = createMockJob({
-          id: jobId,
-          name: jobName,
-          data,
-          status: 'waiting',
-          progress: 0,
-          timestamp: Date.now()
-        });
-
-        jobs.set(jobId, job);
-        eventEmitter.emit('added', { jobId, queueName });
-
-        if (autoProcess && processors.has(queueName)) {
-          // Simulate asynchronous job processing
-          setTimeout(() => {
-            processJob(jobId, queueName);
-          }, processingTime);
-        }
-
-        return Promise.resolve(job);
-      }),
-
-      process: vi.fn().mockImplementation((concurrency, processFn) => {
-        const actualProcessFn = typeof concurrency === 'function' ? concurrency : processFn;
-        processors.set(queueName, actualProcessFn);
-        return queue;
-      }),
-
-      getJob: vi.fn().mockImplementation((jobId) => {
-        return Promise.resolve(jobs.get(jobId) || null);
-      }),
-
-      getJobs: vi.fn().mockImplementation((types = ['waiting', 'active', 'completed', 'failed']) => {
-        const filteredJobs = Array.from(jobs.values()).filter(job => 
-          types.includes(job.status) && job.name === queueName
-        );
-        return Promise.resolve(filteredJobs);
-      }),
-
-      on: vi.fn().mockImplementation((event, handler) => {
-        eventEmitter.on(event, handler);
-        return queue;
-      }),
-
-      // Mock Bull Queue events
-      emit: (event, data) => {
-        eventEmitter.emit(event, data);
-      }
+  /**
+   * Create a new job
+   * @param {String} name - Job name
+   * @param {Object} data - Job data
+   * @param {Object} options - Job options
+   * @returns {Object} The created job
+   */
+  createJob(name, data, options = {}) {
+    const jobId = `job:${this.jobCounter++}`;
+    const job = {
+      id: jobId,
+      name,
+      data: { ...data },
+      opts: { ...options },
+      timestamp: Date.now(),
+      state: options.delay ? JOB_STATES.DELAYED : JOB_STATES.PENDING,
+      progress: 0,
+      result: null,
+      error: null,
+      delay: options.delay || this.defaultDelay,
+      attempts: 0,
+      maxAttempts: options.attempts || 1,
+      finishedOn: null,
+      processedOn: null
     };
 
-    jobQueues.set(queueName, queue);
-    return queue;
-  };
+    this.jobs.set(jobId, job);
+    this.log(`Created job: ${name}`, { jobId, data });
 
-  // Process a job with the registered processor
-  const processJob = async (jobId, queueName) => {
-    const job = jobs.get(jobId);
-    if (!job) return null;
+    // Auto-process the job if enabled
+    if (this.autoProcess && !options.delay) {
+      setTimeout(() => this.processJob(jobId), this.processingDelay);
+    } else if (options.delay) {
+      setTimeout(() => {
+        job.state = JOB_STATES.PENDING;
+        this.log(`Job delay expired: ${name}`, { jobId });
+        if (this.autoProcess && options.autoProcess !== false) {
+          this.processJob(jobId);
+        }
+      }, options.delay);
+    }
 
-    // Update job status
-    job.status = 'active';
+    return {
+      id: jobId,
+      // Mock the job methods
+      update: (newData) => this.updateJob(jobId, newData),
+      setProgress: (progress) => this.setJobProgress(jobId, progress),
+      remove: () => this.removeJob(jobId),
+      retry: () => this.retryJob(jobId),
+      finished: () => this.jobFinished(jobId),
+      isCompleted: () => this.isJobCompleted(jobId),
+      isFailed: () => this.isJobFailed(jobId),
+      moveToCompleted: () => this.completeJob(jobId),
+      moveToFailed: (err) => this.failJob(jobId, err)
+    };
+  }
+
+  /**
+   * Process a job
+   * @param {String} jobId - Job ID
+   */
+  async processJob(jobId) {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      this.log(`Cannot process job: Job ${jobId} not found`);
+      return;
+    }
+
+    if (job.state !== JOB_STATES.PENDING) {
+      this.log(`Cannot process job: Job ${jobId} is not pending`);
+      return;
+    }
+
+    job.state = JOB_STATES.ACTIVE;
     job.processedOn = Date.now();
-    eventEmitter.emit('active', { jobId, queueName });
+    job.attempts += 1;
+    this.log(`Processing job: ${job.name}`, { jobId });
 
-    // Get the processor function
-    const processor = processors.get(queueName) || defaultProcessor;
-    if (!processor) {
-      job.status = 'failed';
-      job.failedReason = 'No processor registered';
-      eventEmitter.emit('failed', { jobId, queueName, reason: job.failedReason });
-      return job;
-    }
-
-    try {
-      // Call the processor with a job object that has progress tracking
-      const jobWithProgress = {
-        ...job,
-        progress: vi.fn().mockImplementation((value) => {
-          job.progress = value;
-          eventEmitter.emit('progress', { jobId, queueName, progress: value });
-          return Promise.resolve();
-        })
-      };
-
-      const result = await processor(jobWithProgress);
-      
-      // Update job with results
-      job.status = 'completed';
-      job.finishedOn = Date.now();
-      job.returnvalue = result;
-      job.progress = 100;
-      
-      eventEmitter.emit('completed', { jobId, queueName, result });
-      return job;
-    } catch (error) {
-      job.status = 'failed';
-      job.failedReason = error.message;
-      job.stacktrace = error.stack ? [error.stack] : [];
-      job.finishedOn = Date.now();
-      
-      eventEmitter.emit('failed', { jobId, queueName, error });
-      return job;
-    }
-  };
-
-  // Create the mock JobManager API
-  return {
-    // Internal testing utilities
-    _jobs: jobs,
-    _processors: processors,
-    _queues: jobQueues,
-    _eventEmitter: eventEmitter,
-
-    // Bull Queue API
-    createQueue: vi.fn().mockImplementation(createQueue),
+    // Simulate progress updates - first update should happen immediately for better testability
+    let progress = 20;
+    this.setJobProgress(jobId, progress);
     
-    // Job Manager API
-    enqueueJob: vi.fn().mockImplementation((queueName, jobName, data, options = {}) => {
-      const queue = createQueue(queueName);
-      return queue.add(jobName, data, options).then(job => job.id);
-    }),
-
-    getJobStatus: vi.fn().mockImplementation(async (jobId) => {
-      const job = jobs.get(jobId);
-      if (!job) return null;
-      
-      return {
-        id: job.id,
-        status: job.status,
-        progress: job.progress,
-        data: job.data,
-        result: job.returnvalue,
-        error: job.failedReason,
-        createdAt: new Date(job.timestamp),
-        processedAt: job.processedOn ? new Date(job.processedOn) : null,
-        finishedAt: job.finishedOn ? new Date(job.finishedOn) : null,
-        attempts: job.attempts,
-        stacktrace: job.stacktrace
-      };
-    }),
-
-    getJobsByStatus: vi.fn().mockImplementation(async (queueName, status) => {
-      return Array.from(jobs.values()).filter(job => 
-        job.status === status && job.name === queueName
-      );
-    }),
-
-    registerProcessor: vi.fn().mockImplementation((queueName, processFn, concurrency = 1) => {
-      const queue = createQueue(queueName);
-      queue.process(concurrency, processFn);
-      return true;
-    }),
-
-    completeJob: vi.fn().mockImplementation(async (jobId, result) => {
-      const job = jobs.get(jobId);
-      if (!job) return false;
-      
-      job.status = 'completed';
-      job.progress = 100;
-      job.finishedOn = Date.now();
-      job.returnvalue = result;
-      
-      eventEmitter.emit('completed', { jobId, queueName: job.name, result });
-      return true;
-    }),
-
-    failJob: vi.fn().mockImplementation(async (jobId, reason) => {
-      const job = jobs.get(jobId);
-      if (!job) return false;
-      
-      job.status = 'failed';
-      job.failedReason = reason;
-      job.finishedOn = Date.now();
-      
-      eventEmitter.emit('failed', { jobId, queueName: job.name, reason });
-      return true;
-    }),
-
-    updateJobProgress: vi.fn().mockImplementation(async (jobId, progress) => {
-      const job = jobs.get(jobId);
-      if (!job) return false;
-      
-      job.progress = progress;
-      eventEmitter.emit('progress', { jobId, queueName: job.name, progress });
-      return true;
-    }),
-
-    removeJob: vi.fn().mockImplementation(async (jobId) => {
-      return jobs.delete(jobId);
-    }),
-
-    getActiveJobs: vi.fn().mockImplementation(async (queueName) => {
-      return Array.from(jobs.values()).filter(job => 
-        job.status === 'active' && job.name === queueName
-      );
-    }),
-
-    // Test helper methods for simulating job behavior
-    simulateJobProgress: vi.fn().mockImplementation(async (jobId, steps = 5, stepTime = 100) => {
-      const job = jobs.get(jobId);
-      if (!job) return false;
-      
-      job.status = 'active';
-      job.processedOn = Date.now();
-      eventEmitter.emit('active', { jobId, queueName: job.name });
-      
-      for (let i = 0; i < steps; i++) {
-        await new Promise(resolve => setTimeout(resolve, stepTime));
-        const progress = Math.floor((i + 1) / steps * 100);
-        job.progress = progress;
-        eventEmitter.emit('progress', { jobId, queueName: job.name, progress });
+    const progressInterval = setInterval(() => {
+      progress += 20;
+      if (progress <= 100) {
+        this.setJobProgress(jobId, progress);
+      } else {
+        clearInterval(progressInterval);
       }
-      
-      return true;
-    }),
+    }, this.processingDelay / 5);
 
-    simulateJobCompletion: vi.fn().mockImplementation(async (jobId, result, delay = 0) => {
-      if (delay > 0) {
-        await new Promise(resolve => setTimeout(resolve, delay));
+    // Simulate completion or failure
+    setTimeout(() => {
+      clearInterval(progressInterval);
+      
+      // Decide if job should fail based on failure rate
+      if (Math.random() < this.failureRate) {
+        const error = new Error('Simulated job failure');
+        this.failJob(jobId, error);
+      } else {
+        // Complete the job with a sample result
+        const result = {
+          status: 'success',
+          timeStamp: Date.now(),
+          jobName: job.name,
+          data: job.data
+        };
+        this.completeJob(jobId, result);
       }
-      
-      return this.completeJob(jobId, result);
-    }),
+    }, this.processingDelay);
+  }
 
-    simulateJobFailure: vi.fn().mockImplementation(async (jobId, reason, delay = 0) => {
-      if (delay > 0) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-      
-      return this.failJob(jobId, reason);
-    }),
-
-    // Clean up method for after tests
-    reset: () => {
-      jobs.clear();
-      processors.clear();
-      jobQueues.clear();
-      eventEmitter.removeAllListeners();
+  /**
+   * Update job data
+   * @param {String} jobId - Job ID
+   * @param {Object} newData - New job data
+   */
+  updateJob(jobId, newData) {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      this.log(`Cannot update job: Job ${jobId} not found`);
+      return false;
     }
-  };
-}
 
-/**
- * Create a simple mock job manager with minimal functionality
- * Useful for basic tests where full job simulation is not required
- */
-export function createSimpleMockJobManager() {
-  const jobs = new Map();
-  
-  return {
-    enqueueJob: vi.fn().mockImplementation((queueName, jobName, data) => {
-      const jobId = `job-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
-      jobs.set(jobId, {
-        id: jobId,
-        queueName,
-        name: jobName,
-        data,
-        status: 'waiting',
-        progress: 0,
-        createdAt: new Date()
+    job.data = { ...job.data, ...newData };
+    this.log(`Updated job: ${job.name}`, { jobId, newData });
+    return true;
+  }
+
+  /**
+   * Set job progress
+   * @param {String} jobId - Job ID
+   * @param {Number} progress - Progress value (0-100)
+   */
+  setJobProgress(jobId, progress) {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      this.log(`Cannot set progress: Job ${jobId} not found`);
+      return false;
+    }
+
+    job.progress = Math.min(100, Math.max(0, progress));
+    this.log(`Job progress: ${job.name}`, { jobId, progress: job.progress });
+
+    // Trigger progress event
+    this.eventHandlers.progress.forEach(handler => {
+      try {
+        handler(job);
+      } catch (error) {
+        console.error('Error in progress event handler:', error);
+      }
+    });
+
+    return true;
+  }
+
+  /**
+   * Complete a job
+   * @param {String} jobId - Job ID
+   * @param {Object} result - Job result data
+   */
+  completeJob(jobId, result = {}) {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      this.log(`Cannot complete job: Job ${jobId} not found`);
+      return false;
+    }
+
+    job.state = JOB_STATES.COMPLETED;
+    job.result = result;
+    job.finishedOn = Date.now();
+    job.progress = 100;
+    this.completedJobs.push(job);
+    this.log(`Completed job: ${job.name}`, { jobId, result });
+
+    // Trigger completed event
+    this.eventHandlers.completed.forEach(handler => {
+      try {
+        handler(job);
+      } catch (error) {
+        console.error('Error in completed event handler:', error);
+      }
+    });
+
+    return true;
+  }
+
+  /**
+   * Fail a job
+   * @param {String} jobId - Job ID
+   * @param {Error} error - Error that caused the failure
+   */
+  failJob(jobId, error) {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      this.log(`Cannot fail job: Job ${jobId} not found`);
+      return false;
+    }
+
+    job.state = JOB_STATES.FAILED;
+    job.error = error || new Error('Job failed');
+    job.finishedOn = Date.now();
+    this.failedJobs.push(job);
+    this.log(`Failed job: ${job.name}`, { jobId, error: job.error.message });
+
+    // Trigger failed event
+    this.eventHandlers.failed.forEach(handler => {
+      try {
+        handler(job, job.error);
+      } catch (error) {
+        console.error('Error in failed event handler:', error);
+      }
+    });
+
+    // Auto-retry if attempts remain
+    if (job.attempts < job.maxAttempts) {
+      this.log(`Scheduling retry for job: ${job.name}`, { 
+        jobId, 
+        attempt: job.attempts, 
+        maxAttempts: job.maxAttempts 
       });
-      return Promise.resolve(jobId);
-    }),
-    
-    getJobStatus: vi.fn().mockImplementation((jobId) => {
-      const job = jobs.get(jobId);
-      if (!job) return Promise.resolve(null);
-      return Promise.resolve(job);
-    }),
-    
-    completeJob: vi.fn().mockImplementation((jobId, result) => {
-      const job = jobs.get(jobId);
-      if (!job) return Promise.resolve(false);
       
-      job.status = 'completed';
-      job.progress = 100;
-      job.result = result;
-      job.finishedAt = new Date();
-      
-      return Promise.resolve(true);
-    }),
-    
-    updateJobProgress: vi.fn().mockImplementation((jobId, progress) => {
-      const job = jobs.get(jobId);
-      if (!job) return Promise.resolve(false);
-      
-      job.progress = progress;
-      return Promise.resolve(true);
-    }),
-    
-    reset: () => {
-      jobs.clear();
+      setTimeout(() => {
+        job.state = JOB_STATES.PENDING;
+        this.processJob(jobId);
+      }, 100);
     }
-  };
+
+    return true;
+  }
+
+  /**
+   * Remove a job
+   * @param {String} jobId - Job ID
+   */
+  removeJob(jobId) {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      this.log(`Cannot remove job: Job ${jobId} not found`);
+      return false;
+    }
+
+    this.jobs.delete(jobId);
+    this.log(`Removed job: ${job.name}`, { jobId });
+
+    // Trigger removed event
+    this.eventHandlers.removed.forEach(handler => {
+      try {
+        handler(job);
+      } catch (error) {
+        console.error('Error in removed event handler:', error);
+      }
+    });
+
+    return true;
+  }
+
+  /**
+   * Retry a job
+   * @param {String} jobId - Job ID
+   */
+  retryJob(jobId) {
+    const job = this.jobs.get(jobId);
+    if (!job) {
+      this.log(`Cannot retry job: Job ${jobId} not found`);
+      return false;
+    }
+
+    if (job.state !== JOB_STATES.FAILED) {
+      this.log(`Cannot retry job: Job ${jobId} is not failed`);
+      return false;
+    }
+
+    job.state = JOB_STATES.PENDING;
+    this.log(`Retrying job: ${job.name}`, { jobId });
+
+    if (this.autoProcess) {
+      setTimeout(() => this.processJob(jobId), this.processingDelay);
+    }
+
+    return true;
+  }
+
+  /**
+   * Check if a job is completed
+   * @param {String} jobId - Job ID
+   * @returns {Boolean} Whether the job is completed
+   */
+  isJobCompleted(jobId) {
+    const job = this.jobs.get(jobId);
+    return job && job.state === JOB_STATES.COMPLETED;
+  }
+
+  /**
+   * Check if a job is failed
+   * @param {String} jobId - Job ID
+   * @returns {Boolean} Whether the job is failed
+   */
+  isJobFailed(jobId) {
+    const job = this.jobs.get(jobId);
+    return job && job.state === JOB_STATES.FAILED;
+  }
+
+  /**
+   * Wait until a job is finished (completed or failed)
+   * @param {String} jobId - Job ID
+   * @param {Number} timeout - Maximum wait time in ms
+   * @returns {Promise<Object>} The finished job
+   */
+  jobFinished(jobId, timeout = 5000) {
+    return new Promise((resolve, reject) => {
+      const job = this.jobs.get(jobId);
+      if (!job) {
+        reject(new Error(`Job ${jobId} not found`));
+        return;
+      }
+
+      if (job.state === JOB_STATES.COMPLETED) {
+        resolve(job);
+        return;
+      }
+
+      if (job.state === JOB_STATES.FAILED) {
+        reject(job.error || new Error('Job failed'));
+        return;
+      }
+
+      const timeoutId = setTimeout(() => {
+        completedHandler && this.eventHandlers.completed.delete(completedHandler);
+        failedHandler && this.eventHandlers.failed.delete(failedHandler);
+        reject(new Error(`Timeout waiting for job ${jobId} to finish`));
+      }, timeout);
+
+      const completedHandler = (finishedJob) => {
+        if (finishedJob.id === jobId) {
+          clearTimeout(timeoutId);
+          this.eventHandlers.completed.delete(completedHandler);
+          this.eventHandlers.failed.delete(failedHandler);
+          resolve(finishedJob);
+        }
+      };
+
+      const failedHandler = (finishedJob, error) => {
+        if (finishedJob.id === jobId) {
+          clearTimeout(timeoutId);
+          this.eventHandlers.completed.delete(completedHandler);
+          this.eventHandlers.failed.delete(failedHandler);
+          reject(error || new Error('Job failed'));
+        }
+      };
+
+      this.eventHandlers.completed.add(completedHandler);
+      this.eventHandlers.failed.add(failedHandler);
+    });
+  }
+
+  /**
+   * Register event handlers
+   * @param {String} event - Event name
+   * @param {Function} handler - Event handler
+   */
+  on(event, handler) {
+    if (!this.eventHandlers[event]) {
+      this.eventHandlers[event] = new Set();
+    }
+    this.eventHandlers[event].add(handler);
+    return this;
+  }
+
+  /**
+   * Clean up resources
+   */
+  cleanup() {
+    this.jobs.clear();
+    this.completedJobs = [];
+    this.failedJobs = [];
+    
+    // Clear all event handlers
+    Object.keys(this.eventHandlers).forEach(event => {
+      this.eventHandlers[event].clear();
+    });
+    
+    this.log('Cleaned up MockJobManager');
+  }
+
+  /**
+   * Get all jobs
+   * @returns {Array} Array of all jobs
+   */
+  getAllJobs() {
+    return Array.from(this.jobs.values());
+  }
+
+  /**
+   * Get a job by ID
+   * @param {String} jobId - Job ID
+   * @returns {Object} The job
+   */
+  getJob(jobId) {
+    return this.jobs.get(jobId);
+  }
+
+  /**
+   * Get completed jobs
+   * @returns {Array} Array of completed jobs
+   */
+  getCompletedJobs() {
+    return this.completedJobs;
+  }
+
+  /**
+   * Get failed jobs
+   * @returns {Array} Array of failed jobs
+   */
+  getFailedJobs() {
+    return this.failedJobs;
+  }
 }
 
-export default {
-  createMockJobManager,
-  createSimpleMockJobManager
-};
+export default MockJobManager;
