@@ -2,7 +2,7 @@ import express, { type Express, Request, Response } from "express";
 // Import Multer type definitions
 import type { Multer } from "multer";
 import { createServer, type Server } from "http";
-import { WebSocketServer, WebSocket } from "ws";
+import { Server as SocketIoServer } from "socket.io";
 import { storage } from "./storage";
 import { z } from "zod";
 import { claudeService } from "./services/claude";
@@ -93,6 +93,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.get('/websocket-debug', (req: Request, res: Response) => {
     res.sendFile(path.resolve('.', 'public', 'websocket-debug.html'));
+  });
+  
+  app.get('/socketio-debug', (req: Request, res: Response) => {
+    res.sendFile(path.resolve('.', 'public', 'socketio-debug.html'));
   });
   
   // Health endpoint
@@ -1355,191 +1359,247 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
   
-  // Setup WebSocket server for real-time updates
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-  
-  // Connected clients map
-  const clients = new Map<WebSocket, ClientMetadata>();
+  // Setup Socket.io server for real-time updates
+  const io = new SocketIoServer(httpServer, {
+    path: '/socket.io',
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST']
+    }
+  });
   
   // Client metadata interface
   interface ClientMetadata {
     id: string;
     lastActivity: number;
-    subscriptions?: string[];
+    subscriptions: string[];
   }
   
-  // WebSocket helper functions
+  // Store client data
+  const clientsData = new Map<string, ClientMetadata>();
+  
+  // Socket.io helper functions
   // Function to send system status to a client
-  function sendSystemStatus(ws: WebSocket) {
-    // Only send if connection is still open
-    if (ws.readyState === WebSocket.OPEN) {
-      try {
-        // Get health status synchronously (not a Promise)
-        const healthStatus = checkSystemHealth();
-        
-        // Send system status to the client
-        ws.send(JSON.stringify({
-          type: 'system_status',
-          timestamp: Date.now(),
-          status: healthStatus.status,
-          memory: {
-            usagePercent: Math.round(healthStatus.memory.usagePercent * 100) / 100,
-            healthy: healthStatus.memory.healthy
+  function sendSystemStatus(socketId: string) {
+    try {
+      // Get health status synchronously (not a Promise)
+      const healthStatus = checkSystemHealth();
+      
+      // Send system status to the client
+      io.to(socketId).emit('message', {
+        type: 'system_status',
+        timestamp: Date.now(),
+        status: healthStatus.status,
+        memory: {
+          usagePercent: Math.round(healthStatus.memory.usagePercent * 100) / 100,
+          healthy: healthStatus.memory.healthy
+        },
+        apiServices: {
+          claude: {
+            status: 'online',
+            requestCount: 0
           },
-          apiServices: {
-            claude: {
-              status: 'online',
-              requestCount: 0
-            },
-            perplexity: {
-              status: 'online',
-              requestCount: 0
-            }
-          },
-          optimization: {
-            enabled: true,
-            tokenSavings: 0,
-            tier: 'standard'
+          perplexity: {
+            status: 'online',
+            requestCount: 0
           }
-        }));
-      } catch (error) {
-        console.error('Error sending system status:', error);
-      }
+        },
+        optimization: {
+          enabled: true,
+          tokenSavings: 0,
+          tier: 'standard'
+        }
+      });
+    } catch (error) {
+      console.error('Error sending system status:', error);
     }
   }
   
   // Function to send API status to a client
-  async function sendApiStatus(ws: WebSocket) {
-    // Only send if connection is still open
-    if (ws.readyState === WebSocket.OPEN) {
-      try {
-        // Get API status from storage
-        const apiStatus = await storage.getApiStatus();
-        
-        // Send API status to the client with additional UI-friendly fields
-        ws.send(JSON.stringify({
-          type: 'api-status',
-          timestamp: Date.now(),
-          data: {
-            claude: {
-              status: apiStatus.claude.status,
-              model: apiStatus.claude.version || 'claude-3-7-sonnet-20250219',
-              responseTime: 0, // Not tracked in our base ApiStatus interface
-              costPerHour: 8.5, // Fixed value for UI
-              uptime: 99.8 // Fixed value for UI
-            },
-            perplexity: {
-              status: apiStatus.perplexity.status,
-              model: apiStatus.perplexity.version || 'sonar',
-              responseTime: 0, // Not tracked in our base ApiStatus interface
-              costPerHour: 5.2, // Fixed value for UI
-              uptime: 99.9 // Fixed value for UI
-            },
-            lastUpdated: new Date().toISOString(),
-            healthScore: 98 // Fixed value for UI
-          }
-        }));
-      } catch (error) {
-        console.error('Error sending API status:', error);
-      }
+  async function sendApiStatus(socketId: string) {
+    try {
+      // Get API status from storage
+      const apiStatus = await storage.getApiStatus();
+      
+      // Send API status to the client with additional UI-friendly fields
+      io.to(socketId).emit('message', {
+        type: 'api-status',
+        timestamp: Date.now(),
+        data: {
+          claude: {
+            status: apiStatus.claude.status,
+            model: apiStatus.claude.version || 'claude-3-7-sonnet-20250219',
+            responseTime: 0, // Not tracked in our base ApiStatus interface
+            costPerHour: 8.5, // Fixed value for UI
+            uptime: 99.8 // Fixed value for UI
+          },
+          perplexity: {
+            status: apiStatus.perplexity.status,
+            model: apiStatus.perplexity.version || 'sonar',
+            responseTime: 0, // Not tracked in our base ApiStatus interface
+            costPerHour: 5.2, // Fixed value for UI
+            uptime: 99.9 // Fixed value for UI
+          },
+          lastUpdated: new Date().toISOString(),
+          healthScore: 98 // Fixed value for UI
+        }
+      });
+    } catch (error) {
+      console.error('Error sending API status:', error);
     }
   }
   
-  // WebSocket server event handlers
-  wss.on('connection', (ws) => {
-    // Generate a unique client ID
-    const clientId = uuidv4();
+  // Socket.io event handlers
+  io.on('connection', (socket) => {
+    // Get the client ID from socket.id
+    const clientId = socket.id;
     const metadata: ClientMetadata = { 
       id: clientId, 
       lastActivity: Date.now(),
       subscriptions: ['all'] // Default subscription to all channels
     };
     
-    // Store client connection
-    clients.set(ws, metadata);
+    // Store client metadata
+    clientsData.set(clientId, metadata);
     
-    console.log(`WebSocket client connected: ${clientId}`);
-    console.log(`Total connected WebSocket clients: ${clients.size}`);
+    // Add socket to the 'all' room by default
+    socket.join('all');
     
-    // Send initial system status and API status - only if connection is open
-    if (ws.readyState === WebSocket.OPEN) {
-      try {
-        // Send both system status and API status on initial connection
-        sendSystemStatus(ws);
-        sendApiStatus(ws);
-      } catch (error) {
-        console.error(`Error sending initial status to ${clientId}:`, error);
-      }
+    console.log(`Socket.io client connected: ${clientId}`);
+    console.log(`Total connected Socket.io clients: ${io.engine.clientsCount}`);
+    
+    // Send initial system status and API status
+    try {
+      // Send both system status and API status on initial connection
+      sendSystemStatus(clientId);
+      sendApiStatus(clientId);
+    } catch (error) {
+      console.error(`Error sending initial status to ${clientId}:`, error);
     }
     
-    // Handle messages from clients
-    ws.on('message', (messageData) => {
+    // Handle subscription requests
+    socket.on('subscribe', (message) => {
       try {
-        console.log(`Received message from ${clientId}:`, messageData.toString());
-        const message = JSON.parse(messageData.toString());
+        console.log(`Subscription request from ${clientId}:`, message);
+        const topics = message.topics || message.channels || [];
+        
+        // Update client metadata
+        metadata.lastActivity = Date.now();
+        metadata.subscriptions = topics;
+        
+        // Leave all rooms first (except the default socket.id room)
+        socket.rooms.forEach(room => {
+          if (room !== clientId) {
+            socket.leave(room);
+          }
+        });
+        
+        // Join all requested topic rooms
+        topics.forEach(topic => {
+          socket.join(topic);
+        });
+        
+        // Always add to 'all' room for broadcast messages
+        socket.join('all');
+        
+        // Send confirmation
+        socket.emit('message', { 
+          type: 'subscription_update', 
+          status: 'success',
+          topics: topics 
+        });
+      } catch (error) {
+        console.error(`Error handling subscription from ${clientId}:`, error);
+        socket.emit('error', { message: 'Failed to process subscription request' });
+      }
+    });
+    
+    // Handle ping requests
+    socket.on('ping', (message) => {
+      metadata.lastActivity = Date.now();
+      socket.emit('message', { 
+        type: 'pong', 
+        time: Date.now(),
+        status: 'ok' 
+      });
+    });
+    
+    // Handle status requests
+    socket.on('request_status', () => {
+      metadata.lastActivity = Date.now();
+      sendSystemStatus(clientId);
+    });
+    
+    // Handle API status requests
+    socket.on('request_api_status', () => {
+      metadata.lastActivity = Date.now();
+      sendApiStatus(clientId);
+    });
+    
+    // Handle custom message format for backward compatibility
+    socket.on('message', (data) => {
+      try {
+        console.log(`Received message from ${clientId}:`, typeof data === 'string' ? data : JSON.stringify(data));
+        const message = typeof data === 'string' ? JSON.parse(data) : data;
         
         // Update client metadata
         metadata.lastActivity = Date.now();
         
         // Handle different message types
         if (message.type === 'subscribe') {
-          metadata.subscriptions = message.topics || message.channels || [];
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ 
-              type: 'subscription_update', 
-              status: 'success',
-              topics: metadata.subscriptions
-            }));
-          }
+          const topics = message.topics || message.channels || [];
+          metadata.subscriptions = topics;
+          
+          // Leave all rooms first (except the default socket.id room)
+          socket.rooms.forEach(room => {
+            if (room !== clientId) {
+              socket.leave(room);
+            }
+          });
+          
+          // Join all requested topic rooms
+          topics.forEach(topic => {
+            socket.join(topic);
+          });
+          
+          // Always add to 'all' room for broadcast messages
+          socket.join('all');
+          
+          socket.emit('message', { 
+            type: 'subscription_update', 
+            status: 'success',
+            topics: topics 
+          });
         } else if (message.type === 'ping') {
-          // Respond with pong message to keep connection alive
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ 
-              type: 'pong', 
-              time: Date.now(),
-              status: 'ok'
-            }));
-          }
+          socket.emit('message', { 
+            type: 'pong', 
+            time: Date.now(),
+            status: 'ok'
+          });
         } else if (message.type === 'request_status') {
-          // Allow clients to explicitly request a status update
-          if (ws.readyState === WebSocket.OPEN) {
-            sendSystemStatus(ws);
-          }
+          sendSystemStatus(clientId);
         } else if (message.type === 'request_api_status') {
-          // Allow clients to explicitly request API status
-          if (ws.readyState === WebSocket.OPEN) {
-            sendApiStatus(ws);
-          }
+          sendApiStatus(clientId);
         }
       } catch (error) {
-        console.error('Error processing WebSocket message:', error);
-        if (ws.readyState === WebSocket.OPEN) {
-          try {
-            ws.send(JSON.stringify({ 
-              type: 'error', 
-              message: 'Invalid message format'
-            }));
-          } catch (err) {
-            console.error('Failed to send error message:', err);
-          }
-        }
+        console.error(`Error processing message from ${clientId}:`, error);
+        socket.emit('error', { message: 'Invalid message format' });
       }
     });
     
     // Handle disconnection
-    ws.on('close', () => {
-      console.log(`WebSocket client disconnected: ${metadata.id}`);
-      clients.delete(ws);
+    socket.on('disconnect', (reason) => {
+      console.log(`Socket.io client disconnected: ${clientId}, reason: ${reason}`);
+      clientsData.delete(clientId);
     });
     
     // Handle errors
-    ws.on('error', (error) => {
-      console.error(`WebSocket error for client ${metadata.id}:`, error);
-      clients.delete(ws);
+    socket.on('error', (error) => {
+      console.error(`Socket.io error for client ${clientId}:`, error);
     });
   });
   
-  // Define WebSocket message structure
+  // Define message structure
   interface WebSocketMessage {
     type: string;
     timestamp: number;
@@ -1548,17 +1608,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Broadcast a message to all connected clients
   function broadcastMessage(message: WebSocketMessage) {
-    clients.forEach((metadata: ClientMetadata, client: WebSocket) => {
-      // Check if client is still connected
-      if (client.readyState === WebSocket.OPEN) {
-        // Check if client is subscribed to this message type
-        if (!metadata.subscriptions || 
-            metadata.subscriptions.includes('all') || 
-            metadata.subscriptions.includes(message.type)) {
-          client.send(JSON.stringify(message));
-        }
-      }
-    });
+    // Using Socket.io rooms for efficient broadcasting
+    // Broadcast to the specific message type room and to 'all' room
+    io.to(message.type).to('all').emit('message', message);
   }
   
   // Broadcast research progress updates
@@ -1585,17 +1637,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setInterval(() => {
     // Check for stale connections
     const now = Date.now();
-    clients.forEach((metadata: ClientMetadata, ws: WebSocket) => {
-      // If client hasn't been active for more than 30 minutes, close the connection
+    clientsData.forEach((metadata, clientId) => {
+      // If client hasn't been active for more than 30 minutes, consider it stale
       if (now - metadata.lastActivity > 30 * 60 * 1000) {
-        console.log(`Closing inactive WebSocket connection: ${metadata.id}`);
-        ws.terminate();
-        clients.delete(ws);
+        console.log(`Removing stale client data: ${metadata.id}`);
+        clientsData.delete(clientId);
       }
     });
     
     // Broadcast system status to all clients every minute
-    if (clients.size > 0) {
+    if (io.engine.clientsCount > 0) {
       try {
         // Get health status synchronously (not a Promise)
         const healthStatus = checkSystemHealth();
@@ -1630,8 +1681,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, 60000); // Run every 60 seconds
   
-  // Expose WebSocket functions to other modules
-  (global as any).websocket = {
+  // Expose Socket.io functions to other modules
+  (global as any).socketio = {
     broadcastMessage,
     broadcastResearchProgress,
     broadcastOptimizationStatus

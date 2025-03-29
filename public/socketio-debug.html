@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Socket.io Debug Tool</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .log {
+      background-color: #f5f5f5;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 10px;
+      height: 300px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+      font-family: monospace;
+    }
+    .controls {
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 8px 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    input, select {
+      padding: 8px;
+      margin-right: 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    .status {
+      margin-bottom: 20px;
+    }
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+    .connected { background-color: #4CAF50; }
+    .disconnected { background-color: #f44336; }
+    .error { background-color: #ff9800; }
+  </style>
+</head>
+<body>
+  <h1>Socket.io Debug Tool</h1>
+  
+  <div class="status">
+    <span class="status-indicator disconnected" id="status-indicator"></span>
+    <span id="status-text">Disconnected</span>
+  </div>
+  
+  <div class="controls">
+    <button id="connect-btn">Connect</button>
+    <button id="disconnect-btn" disabled>Disconnect</button>
+    <button id="clear-btn">Clear Log</button>
+  </div>
+  
+  <div class="controls">
+    <select id="message-type">
+      <option value="ping">Ping</option>
+      <option value="subscribe">Subscribe</option>
+      <option value="request_status">Request Status</option>
+      <option value="request_api_status">Request API Status</option>
+    </select>
+    <button id="send-btn" disabled>Send Message</button>
+  </div>
+  
+  <div class="controls">
+    <input type="text" id="custom-message" placeholder="Custom JSON message">
+    <button id="send-custom-btn" disabled>Send Custom</button>
+  </div>
+  
+  <div class="log" id="log-container"></div>
+  
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // DOM elements
+    const connectBtn = document.getElementById('connect-btn');
+    const disconnectBtn = document.getElementById('disconnect-btn');
+    const clearBtn = document.getElementById('clear-btn');
+    const sendBtn = document.getElementById('send-btn');
+    const sendCustomBtn = document.getElementById('send-custom-btn');
+    const messageType = document.getElementById('message-type');
+    const customMessage = document.getElementById('custom-message');
+    const logContainer = document.getElementById('log-container');
+    const statusIndicator = document.getElementById('status-indicator');
+    const statusText = document.getElementById('status-text');
+    
+    // Socket.io instance
+    let socket = null;
+    
+    // Log a message to the log container
+    function log(message, type = 'info') {
+      const timestamp = new Date().toISOString();
+      const entry = document.createElement('div');
+      entry.className = `log-entry log-${type}`;
+      entry.innerHTML = `<span class="log-time">[${timestamp.split('T')[1].slice(0, 8)}]</span> ${message}`;
+      logContainer.appendChild(entry);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+    
+    // Connect to Socket.io server
+    function connect() {
+      const url = window.location.origin;
+      
+      log(`Connecting to ${url}...`);
+      
+      try {
+        socket = io({
+          reconnection: true,
+          reconnectionAttempts: 5,
+          reconnectionDelay: 1000,
+          reconnectionDelayMax: 5000,
+          timeout: 20000
+        });
+        
+        socket.on('connect', () => {
+          log('Connection established', 'success');
+          statusIndicator.className = 'status-indicator connected';
+          statusText.textContent = 'Connected';
+          connectBtn.disabled = true;
+          disconnectBtn.disabled = false;
+          sendBtn.disabled = false;
+          sendCustomBtn.disabled = false;
+          
+          log(`Socket ID: ${socket.id}`);
+        });
+        
+        socket.on('disconnect', (reason) => {
+          log(`Connection closed: ${reason}`, 'warning');
+          statusIndicator.className = 'status-indicator disconnected';
+          statusText.textContent = 'Disconnected';
+          connectBtn.disabled = false;
+          disconnectBtn.disabled = true;
+          sendBtn.disabled = true;
+          sendCustomBtn.disabled = true;
+        });
+        
+        socket.on('connect_error', (error) => {
+          log(`Connection error: ${error.message}`, 'error');
+          statusIndicator.className = 'status-indicator error';
+          statusText.textContent = 'Error';
+        });
+        
+        socket.on('error', (error) => {
+          log(`Socket error: ${error}`, 'error');
+          statusIndicator.className = 'status-indicator error';
+          statusText.textContent = 'Error';
+        });
+        
+        socket.on('reconnect_attempt', (attemptNumber) => {
+          log(`Reconnection attempt #${attemptNumber}...`, 'info');
+        });
+        
+        socket.on('reconnect', (attemptNumber) => {
+          log(`Reconnected after ${attemptNumber} attempts`, 'success');
+          statusIndicator.className = 'status-indicator connected';
+          statusText.textContent = 'Connected';
+        });
+        
+        socket.on('reconnect_failed', () => {
+          log('Failed to reconnect after multiple attempts', 'error');
+        });
+        
+        socket.on('message', (data) => {
+          try {
+            log(`Received: ${JSON.stringify(data, null, 2)}`, 'received');
+          } catch (e) {
+            log(`Received raw data: ${data}`, 'received');
+          }
+        });
+      } catch (e) {
+        log(`Error creating Socket.io connection: ${e.message}`, 'error');
+      }
+    }
+    
+    // Disconnect from server
+    function disconnect() {
+      if (socket) {
+        log('Disconnecting...');
+        socket.disconnect();
+      }
+    }
+    
+    // Send a predefined message
+    function sendMessage() {
+      if (!socket || !socket.connected) {
+        log('Socket not connected', 'error');
+        return;
+      }
+      
+      const type = messageType.value;
+      let message = {};
+      
+      switch (type) {
+        case 'ping':
+          message = { time: Date.now() };
+          socket.emit('ping', message);
+          break;
+        case 'subscribe':
+          message = { topics: ['api-status', 'status-change', 'system_status', 'all'] };
+          socket.emit('subscribe', message);
+          break;
+        case 'request_status':
+          socket.emit('request_status');
+          break;
+        case 'request_api_status':
+          socket.emit('request_api_status');
+          break;
+      }
+      
+      log(`Sent ${type}: ${JSON.stringify(message)}`, 'sent');
+    }
+    
+    // Send a custom message
+    function sendCustomMessage() {
+      if (!socket || !socket.connected) {
+        log('Socket not connected', 'error');
+        return;
+      }
+      
+      try {
+        const message = JSON.parse(customMessage.value);
+        const eventType = message.type || 'message';
+        delete message.type; // Remove type from the payload if it exists
+        
+        socket.emit(eventType, message);
+        log(`Sent custom ${eventType}: ${JSON.stringify(message)}`, 'sent');
+      } catch (e) {
+        log(`Error parsing custom message: ${e.message}`, 'error');
+      }
+    }
+    
+    // Clear the log
+    function clearLog() {
+      logContainer.innerHTML = '';
+    }
+    
+    // Event listeners
+    connectBtn.addEventListener('click', connect);
+    disconnectBtn.addEventListener('click', disconnect);
+    clearBtn.addEventListener('click', clearLog);
+    sendBtn.addEventListener('click', sendMessage);
+    sendCustomBtn.addEventListener('click', sendCustomMessage);
+    
+    // Initialize
+    log('Socket.io Debug Tool initialized. Click "Connect" to start.');
+  </script>
+</body>
+</html>
