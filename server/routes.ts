@@ -1499,7 +1499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         // Join all requested topic rooms
-        topics.forEach(topic => {
+        topics.forEach((topic: string) => {
           socket.join(topic);
         });
         
@@ -1562,7 +1562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           // Join all requested topic rooms
-          topics.forEach(topic => {
+          topics.forEach((topic: string) => {
             socket.join(topic);
           });
           

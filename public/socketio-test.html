@@ -10,81 +10,241 @@
       max-width: 800px;
       margin: 0 auto;
       padding: 20px;
+      background-color: #f5f5f5;
+    }
+    h1 {
+      color: #333;
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 10px;
+    }
+    .status-panel {
+      display: flex;
+      align-items: center;
+      margin-bottom: 20px;
+      padding: 15px;
+      background-color: #fff;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .status-indicator {
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      margin-right: 10px;
+      background-color: grey;
+    }
+    .connected-indicator {
+      background-color: #4CAF50;
+    }
+    .disconnected-indicator {
+      background-color: #F44336;
+    }
+    .status-text {
+      font-weight: bold;
+    }
+    .log-container {
+      margin-bottom: 20px;
+      background-color: #fff;
+      border-radius: 5px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .log-header {
+      background-color: #333;
+      color: white;
+      padding: 10px 15px;
+      font-size: 14px;
+      font-weight: bold;
     }
     #log {
       height: 300px;
-      border: 1px solid #ccc;
-      margin-bottom: 20px;
-      padding: 10px;
+      padding: 10px 15px;
       overflow-y: auto;
       font-family: monospace;
+      font-size: 12px;
+      background-color: #fff;
     }
-    .connected { color: green; }
-    .disconnected { color: red; }
-    .message { color: blue; }
+    .buttons-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    #connect {
+      background-color: #4CAF50;
+      color: white;
+    }
+    #disconnect {
+      background-color: #F44336;
+      color: white;
+    }
+    #send-ping {
+      background-color: #2196F3;
+      color: white;
+    }
+    .connected { 
+      color: #4CAF50; 
+      font-weight: bold;
+    }
+    .disconnected { 
+      color: #F44336; 
+      font-weight: bold;
+    }
+    .message { 
+      color: #2196F3; 
+    }
+    .error {
+      color: #F44336;
+    }
+    .timestamp {
+      color: #999;
+      margin-right: 5px;
+    }
+    .debug-info {
+      background-color: #fff;
+      border-radius: 5px;
+      padding: 15px;
+      margin-top: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .debug-info h3 {
+      margin-top: 0;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 10px;
+    }
+    .debug-info pre {
+      background-color: #f8f8f8;
+      padding: 10px;
+      border-radius: 3px;
+      overflow-x: auto;
+    }
   </style>
 </head>
 <body>
-  <h1>Socket.IO Test</h1>
-  <div id="status">Disconnected</div>
-  <div id="log"></div>
-  <button id="connect">Connect</button>
-  <button id="disconnect" disabled>Disconnect</button>
-  <button id="send-ping">Send Ping</button>
+  <h1>Socket.IO Connection Test</h1>
+  
+  <div class="status-panel">
+    <div id="status-indicator" class="status-indicator disconnected-indicator"></div>
+    <div id="status" class="status-text">Disconnected</div>
+  </div>
+  
+  <div class="buttons-container">
+    <button id="connect">Connect</button>
+    <button id="disconnect" disabled>Disconnect</button>
+    <button id="send-ping" disabled>Send Ping</button>
+    <button id="clear-log">Clear Log</button>
+  </div>
+  
+  <div class="log-container">
+    <div class="log-header">Connection Log</div>
+    <div id="log"></div>
+  </div>
+  
+  <div class="debug-info">
+    <h3>Debug Information</h3>
+    <p>Browser: <span id="browser-info"></span></p>
+    <p>URL: <span id="url-info"></span></p>
+    <pre id="socket-options"></pre>
+  </div>
 
-  <script>
-    // We'll add the Socket.IO client directly via CDN to avoid any issues
-    document.write('<script src="https://cdn.socket.io/4.7.3/socket.io.min.js"><\/script>');
-  </script>
+  <script src="https://cdn.socket.io/4.7.3/socket.io.min.js"></script>
   
   <script>
-    // Wait for socket.io library to load
-    window.addEventListener('load', () => {
-      const status = document.getElementById('status');
+    document.addEventListener('DOMContentLoaded', () => {
+      const statusIndicator = document.getElementById('status-indicator');
+      const statusText = document.getElementById('status');
       const log = document.getElementById('log');
       const connectBtn = document.getElementById('connect');
       const disconnectBtn = document.getElementById('disconnect');
       const pingBtn = document.getElementById('send-ping');
+      const clearLogBtn = document.getElementById('clear-log');
+      const browserInfo = document.getElementById('browser-info');
+      const urlInfo = document.getElementById('url-info');
+      const socketOptions = document.getElementById('socket-options');
       
       let socket = null;
       
+      // Show debug info
+      browserInfo.textContent = navigator.userAgent;
+      urlInfo.textContent = window.location.href;
+      
       function addLog(message, className) {
         const entry = document.createElement('div');
-        entry.className = className || '';
-        entry.textContent = `${new Date().toISOString().slice(11, 19)} - ${message}`;
+        
+        const timestamp = document.createElement('span');
+        timestamp.className = 'timestamp';
+        timestamp.textContent = new Date().toISOString().slice(11, 19);
+        
+        const content = document.createElement('span');
+        content.className = className || '';
+        content.textContent = message;
+        
+        entry.appendChild(timestamp);
+        entry.appendChild(content);
+        
         log.appendChild(entry);
         log.scrollTop = log.scrollHeight;
       }
       
+      function updateUI(isConnected) {
+        if (isConnected) {
+          statusIndicator.className = 'status-indicator connected-indicator';
+          statusText.textContent = 'Connected';
+          statusText.className = 'status-text connected';
+          connectBtn.disabled = true;
+          disconnectBtn.disabled = false;
+          pingBtn.disabled = false;
+        } else {
+          statusIndicator.className = 'status-indicator disconnected-indicator';
+          statusText.textContent = 'Disconnected';
+          statusText.className = 'status-text disconnected';
+          connectBtn.disabled = false;
+          disconnectBtn.disabled = true;
+          pingBtn.disabled = true;
+        }
+      }
+      
       function connect() {
         try {
-          addLog('Connecting to Socket.IO server...');
+          addLog('Connecting to Socket.IO server...', 'message');
           
-          // Create socket connection
-          socket = io({
+          // Socket.io configuration
+          const options = {
             path: '/socket.io',
             reconnection: true,
             reconnectionAttempts: 5,
-            timeout: 10000
-          });
+            reconnectionDelay: 1000,
+            timeout: 10000,
+            transports: ['websocket', 'polling'] // Try WebSocket first, fall back to polling
+          };
+          
+          // Display options
+          socketOptions.textContent = JSON.stringify(options, null, 2);
+          
+          // Create socket connection
+          socket = io(options);
           
           // Setup event handlers
           socket.on('connect', () => {
-            status.textContent = 'Connected';
-            status.className = 'connected';
             addLog('Connected to server!', 'connected');
-            connectBtn.disabled = true;
-            disconnectBtn.disabled = false;
-            pingBtn.disabled = false;
+            addLog(`Socket ID: ${socket.id}`, 'connected');
+            updateUI(true);
           });
           
           socket.on('disconnect', (reason) => {
-            status.textContent = 'Disconnected';
-            status.className = 'disconnected';
             addLog(`Disconnected: ${reason}`, 'disconnected');
-            connectBtn.disabled = false;
-            disconnectBtn.disabled = true;
-            pingBtn.disabled = true;
+            updateUI(false);
           });
           
           socket.on('connect_error', (error) => {
@@ -94,6 +254,32 @@
           socket.on('message', (data) => {
             addLog(`Received: ${JSON.stringify(data)}`, 'message');
           });
+          
+          socket.on('error', (error) => {
+            addLog(`Socket error: ${error.message || JSON.stringify(error)}`, 'error');
+          });
+          
+          socket.on('pong', (data) => {
+            addLog(`Received pong: ${JSON.stringify(data)}`, 'message');
+          });
+          
+          // Connect to different namespaces for testing
+          socket.on('reconnect_attempt', (attemptNumber) => {
+            addLog(`Reconnection attempt #${attemptNumber}`, 'message');
+          });
+          
+          socket.on('reconnect', (attemptNumber) => {
+            addLog(`Reconnected after ${attemptNumber} attempts`, 'connected');
+            updateUI(true);
+          });
+          
+          socket.on('reconnect_error', (error) => {
+            addLog(`Reconnection error: ${error.message}`, 'error');
+          });
+          
+          socket.on('reconnect_failed', () => {
+            addLog('Failed to reconnect', 'error');
+          });
         } catch (error) {
           addLog(`Error initializing socket: ${error.message}`, 'error');
         }
@@ -101,8 +287,8 @@
       
       function disconnect() {
         if (socket) {
+          addLog('Manually disconnecting...', 'message');
           socket.disconnect();
-          socket = null;
         }
       }
       
@@ -110,16 +296,26 @@
         if (socket && socket.connected) {
           const pingData = { time: Date.now() };
           socket.emit('ping', pingData);
-          addLog(`Sent ping: ${JSON.stringify(pingData)}`);
+          addLog(`Sent ping: ${JSON.stringify(pingData)}`, 'message');
         } else {
           addLog('Cannot send ping: not connected', 'error');
         }
+      }
+      
+      function clearLog() {
+        log.innerHTML = '';
+        addLog('Log cleared', 'message');
       }
       
       // Event listeners
       connectBtn.addEventListener('click', connect);
       disconnectBtn.addEventListener('click', disconnect);
       pingBtn.addEventListener('click', sendPing);
+      clearLogBtn.addEventListener('click', clearLog);
+      
+      // Initialize
+      addLog('Socket.IO test page loaded', 'message');
+      addLog('Click "Connect" to establish a connection', 'message');
     });
   </script>
 </body>
