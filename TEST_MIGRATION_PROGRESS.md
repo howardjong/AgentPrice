@@ -24,6 +24,13 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 | perplexity-deep-research | N/A | ✅ perplexity-deep-research.vitest.js | Complete | March 29, 2025 |
 | single-query-workflow | N/A | ✅ single-query-workflow.vitest.js | Complete | March 29, 2025 |
 | claude-chart-generation | N/A | ✅ claude-chart-generation.vitest.js | Complete | March 29, 2025 |
+| **Middleware Tests** | | | | |
+| requestLogger | N/A | ✅ requestLogger.vitest.js | Complete | March 29, 2025 |
+| errorHandler | N/A | ✅ errorHandler.vitest.js | Complete | March 29, 2025 |
+| **Controller Tests** | | | | |
+| queryController | N/A | ✅ queryController.vitest.js | Complete | March 29, 2025 |
+| chartsController | N/A | ✅ chartsController.vitest.js | Complete | March 29, 2025 |
+| researchController | N/A | ✅ researchController.vitest.js | Complete | March 29, 2025 |
 
 ## Migration Plan
 
@@ -86,6 +93,34 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 
 ## Recent Progress
 
+### March 29, 2025 (latest)
+- Implemented comprehensive controller tests with consistent pattern:
+  - Created queryController.vitest.js for testing query routing and processing (15 tests passing)
+  - Created chartsController.vitest.js for testing chart generation and visualization (9 tests passing)
+  - Created researchController.vitest.js for testing research job management (9 tests passing)
+- Used supertest for HTTP request/response testing with proper route isolation
+- Improved mock services to properly simulate API responses and behaviors
+- Created realistic mock storage implementations for conversation history
+- Established consistent error handling patterns across all controller tests
+- Applied factory function approach for service mocking
+- Implemented comprehensive edge case testing (e.g., invalid inputs, service errors)
+- Adopted consistent test structure across all controller components
+- Enhanced test coverage of major API endpoints in server/routes.ts
+
+### March 29, 2025 (continued)
+- Expanded middleware test coverage with additional component tests:
+  - Created tests for requestLogger middleware with 5 tests passing
+  - Created tests for errorHandler middleware with 5 tests passing
+  - Fixed and updated existing requestTracer middleware tests (7 tests passing)
+- Identified and resolved ES module compatibility issues in middleware tests
+- Improved mock implementations of logger to support all required methods
+- Adopted supertest for HTTP middleware testing with proper middleware isolation
+- Fixed issues with process.hrtime mocking for duration calculations
+- Successfully enhanced test suite with 17 comprehensive middleware tests
+- Used proper factory function approach for ES Module mocking in Vitest
+- Improved simulation of HTTP requests and responses for middleware testing
+- Adopted a consistent approach to testing Express middleware components
+
 ### March 29, 2025
 - Created new workflow-focused test directory: tests/unit/workflows/
 - Implemented focused test for perplexityService.performDeepResearch method specifically for the single-query-workflow
@@ -128,13 +163,20 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
    - ✅ Implement perplexityService.performDeepResearch test
    - ✅ Create a dedicated test file for the workflow components
    - ✅ Test chart generation functionality
-4. Execute the new workflow-focused tests to verify they pass with current implementation
-5. Continue Phase 4 by migrating tests for remaining middleware components
-6. Address the complex mockJobManager tests that were temporarily skipped
-7. Update the test scripts to better handle error cases and promise rejections
-8. Add workarounds for performance.now mocking in time-sensitive tests
-9. Implement formal guidelines for mocking in Vitest vs Jest to prevent future issues 
-10. Implement websocket tests with the migration approach established for HTTP requests
-11. Create integration tests to cover the skipped mockJobManager functionality
-12. Catalog ES module vs CommonJS specific patterns that caused issues in the migration
-13. Consider adding these workflow-focused tests to the test-single-query-workflow Replit workflow
+4. ✅ Continue Phase 4 by migrating tests for middleware components
+   - ✅ Created tests for requestLogger middleware (5 tests passing)
+   - ✅ Created tests for errorHandler middleware (5 tests passing)
+   - ✅ Fixed/updated existing requestTracer middleware tests (7 tests passing)
+5. ✅ Implement tests for controller components
+   - ✅ Created queryController.vitest.js (15 tests passing)
+   - ✅ Created chartsController.vitest.js (9 tests passing)
+   - ✅ Created researchController.vitest.js (9 tests passing)
+6. Execute the new workflow-focused tests to verify they pass with current implementation
+7. Address the complex mockJobManager tests that were temporarily skipped
+8. Update the test scripts to better handle error cases and promise rejections
+9. Add workarounds for performance.now mocking in time-sensitive tests
+10. Implement formal guidelines for mocking in Vitest vs Jest to prevent future issues 
+11. Implement websocket tests with the migration approach established for HTTP requests
+12. Create integration tests to cover the skipped mockJobManager functionality
+13. Catalog ES module vs CommonJS specific patterns that caused issues in the migration
+14. Consider adding these workflow-focused tests to the test-single-query-workflow Replit workflow

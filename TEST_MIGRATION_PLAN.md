@@ -55,7 +55,10 @@ This document outlines the comprehensive plan for migrating our test suite from 
   - ✅ Created `tests/unit/workflows/single-query-workflow.vitest.js` to test the entire workflow with integration tests
   - ✅ Created `tests/unit/workflows/claude-chart-generation.vitest.js` to validate chart generation with Plotly.js
 - ⏳ Migrate remaining components
-  - ⏳ Create tests for remaining middleware components
+  - ✅ Create tests for middleware components
+    - ✅ Created `tests/unit/middlewares/requestLogger.vitest.js` (5 tests passing)
+    - ✅ Created `tests/unit/middlewares/errorHandler.vitest.js` (5 tests passing)
+    - ✅ Fixed `tests/unit/middlewares/requestTracer.vitest.js` (7 tests passing)
   - ⏳ Address complex mockJobManager tests that were temporarily skipped
   - ⏳ Implement remaining controller tests
 - ⏳ Remove Jest dependencies
