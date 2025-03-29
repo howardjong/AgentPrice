@@ -1,211 +1,237 @@
 /**
- * Service Router for intelligent routing between LLM services
+ * Service Router
+ * 
+ * This module intelligently routes requests between different AI services (Claude & Perplexity)
+ * based on query needs, service availability, and optimization rules.
  */
+
 import logger from '../utils/logger.js';
-import claudeService from './claudeService.js';
-import perplexityService from './perplexityService.js';
+import ClaudeService from './claudeService.js';
+import PerplexityService from './perplexityService.js';
 
+/**
+ * Service Router class for managing AI service selection
+ */
 class ServiceRouter {
-  constructor() {
-    logger.info('Service Router initialized');
-    
-    // Keywords that suggest the need for web research
-    this.researchKeywords = [
-      'search', 'research', 'find', 'latest', 'recent', 'news',
-      'current', 'today', 'information about', 'data on',
-      'search the web', 'look up', 'what is', 'who is'
+  /**
+   * Create a ServiceRouter instance
+   * @param {Object} options - Configuration options
+   * @param {Object} options.claudeOptions - Options for Claude service
+   * @param {Object} options.perplexityOptions - Options for Perplexity service
+   * @param {Object} options.cacheProvider - Cache provider
+   * @param {Object} options.costTracker - Cost tracking service
+   */
+  constructor(options = {}) {
+    const {
+      claudeOptions = {},
+      perplexityOptions = {},
+      cacheProvider = null,
+      costTracker = null
+    } = options;
+
+    // Initialize services with common cache provider
+    this.claudeService = new ClaudeService({
+      ...claudeOptions,
+      cacheProvider
+    });
+
+    this.perplexityService = new PerplexityService({
+      ...perplexityOptions,
+      cacheProvider
+    });
+
+    this.cacheProvider = cacheProvider;
+    this.costTracker = costTracker;
+    this.servicesHealth = {
+      claude: true,
+      perplexity: true
+    };
+
+    // Initialize request patterns for routing decisions
+    this.internetAccessPatterns = [
+      /current events/i,
+      /latest news/i,
+      /what happened (today|yesterday|this week|this month)/i,
+      /recent developments/i,
+      /updated information/i,
+      /stock (price|market)/i,
+      /weather/i,
+      /sports (results|scores)/i
     ];
-    
-    // Keywords that suggest the need for visualization
-    this.visualizationKeywords = [
-      'visualize', 'chart', 'graph', 'plot', 'diagram',
-      'display', 'visualization', 'show me', 'create a chart',
-      'generate a graph', 'data visualization'
+
+    this.deepResearchPatterns = [
+      /in-depth analysis/i,
+      /comprehensive research/i,
+      /detailed (report|investigation)/i,
+      /academic (research|paper|study)/i,
+      /scholarly (articles|sources)/i,
+      /deep research/i
+    ];
+
+    this.imageGenerationPatterns = [
+      /generate (an?|the) image/i,
+      /create (an?|the) (image|picture|graphic)/i,
+      /visualize/i,
+      /make (an?|the) (image|picture|graphic)/i
+    ];
+
+    this.chartGenerationPatterns = [
+      /create (an?|the|a) (chart|graph|plot|visualization)/i,
+      /generate (an?|the|a) (chart|graph|plot|visualization)/i,
+      /visualize this data/i,
+      /(create|make) (an?|the|a) (bar|line|pie|scatter|donut|area) (chart|graph|plot)/i
     ];
   }
 
   /**
-   * Determine the best service to use for a given message
-   * @param {string} message - The user message to analyze
-   * @param {string} [explicitService] - Optional explicitly requested service
-   * @returns {string} The service to use ('claude' or 'perplexity')
+   * Route a query to the appropriate service
+   * @param {String} query - The user query
+   * @param {Object} options - Routing options
+   * @returns {Promise<Object>} - The response from the selected service
    */
-  determineService(message, explicitService, options = {}) {
-    // If deep research is confirmed, use Perplexity with deep research settings
-    if (options.confirmDeepResearch) {
-      return { 
-        service: 'perplexity',
-        mode: 'deep',
-        estimatedTime: '15-30 minutes'
-      };
-    }
+  async routeQuery(query, options = {}) {
+    const {
+      preferredService = null,
+      forceDeepResearch = false,
+      skipCache = false,
+      systemPrompt = null
+    } = options;
 
-    // If a service is explicitly specified, use it (but verify it's available)
-    if (explicitService) {
-      const requestedService = explicitService.toLowerCase();
-      
-      // Check if explicitly requesting Perplexity but it's not available
-      if (requestedService === 'perplexity' && !perplexityService.isConnected) {
-        logger.warn('User explicitly requested Perplexity but service is not available, falling back to Claude');
-        return 'claude';
-      }
-      
-      logger.info(`Using explicitly requested service: ${requestedService}`);
-      return requestedService;
-    }
-    
-    // First check if Perplexity is available at all before deciding
-    if (!perplexityService.isConnected) {
-      logger.info('Perplexity service not available, automatically routing to Claude');
-      return 'claude';
-    }
-    
-    // Check if research is needed based on keywords
-    const needsResearch = this.researchKeywords.some(keyword => 
-      message.toLowerCase().includes(keyword.toLowerCase())
-    );
-    
-    // Check if visualization is needed based on keywords
-    const needsVisualization = this.visualizationKeywords.some(keyword => 
-      message.toLowerCase().includes(keyword.toLowerCase())
-    );
-    
-    // Make a decision based on the analysis
-    if (needsResearch && !needsVisualization) {
-      logger.info('Research query detected, should confirm deep research');
-      return {
-        service: 'needs_confirmation',
-        suggestedAction: 'deep_research',
-        message: 'This query may benefit from deep, comprehensive research which can take up to 30 minutes. Would you like to proceed with in-depth research?'
-      };
-    } else {
-      logger.info('Router determined general processing/visualization is needed, routing to Claude');
-      return {
-        service: 'claude',
-        mode: 'default'
-      };
-    }
-  }
-
-  /**
-   * Route the message to the appropriate service
-   * @param {Array} messages - Array of message objects with role and content
-   * @param {string} [service] - Optional explicitly requested service
-   * @returns {Promise<Object>} The response from the chosen service
-   */
-  async routeMessage(messages, service) {
-    if (!messages || messages.length === 0) {
-      logger.error('No messages provided for routing');
-      return {
-        status: 'error',
-        message: 'No messages provided',
-        error: 'Empty message array'
-      };
-    }
-    
-    // Get the last user message
-    const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
-    if (!lastUserMessage) {
-      logger.error('No user message found in the conversation');
-      return {
-        status: 'error',
-        message: 'No user message found',
-        error: 'No user role in messages'
-      };
-    }
-    
-    // Determine which service to use
-    const serviceToUse = service || this.determineService(lastUserMessage.content);
-    
     try {
-      // Validate service parameter before using it
-      const validatedService = typeof serviceToUse === 'object' ? 
-        serviceToUse.service || 'claude' : 
-        serviceToUse || 'claude';
+      // First check for explicit routing choices
+      if (preferredService === 'claude') {
+        logger.debug('Using Claude service based on explicit preference');
+        return await this.claudeService.query(query, { skipCache, system: systemPrompt });
+      }
+
+      if (preferredService === 'perplexity') {
+        logger.debug('Using Perplexity service based on explicit preference');
         
-      if (validatedService === 'perplexity') {
-        // Check if Perplexity service is available
-        if (!perplexityService.isConnected) {
-          logger.warn('Perplexity service not available, falling back to Claude with research instructions');
-          
-          // Prepare enhanced messages for Claude to handle research request
-          const enhancedMessages = [...messages];
-          
-          // Find the last user message to enhance
-          const lastUserIndex = enhancedMessages.findLastIndex(m => m.role === 'user');
-          
-          if (lastUserIndex !== -1) {
-            // Add a note about Perplexity service being unavailable
-            enhancedMessages[lastUserIndex].content = 
-              `${enhancedMessages[lastUserIndex].content}\n\n[Note: This is a research question, but real-time internet search is currently unavailable. Please provide the most accurate information you have as of your training data.]`;
-            
-            // Add a system message at the beginning with research instructions
-            enhancedMessages.unshift({
-              role: 'system',
-              content: 'You are acting as a research assistant. The user is asking for information that would ideally be researched with real-time internet access, but that capability is currently unavailable. Please:' +
-                '\n1. Provide the most accurate information you have from your training data' +
-                '\n2. Clearly state when information might be outdated or when you\'re uncertain' +
-                '\n3. Suggest follow-up questions the user could ask to narrow down or clarify their research' +
-                '\n4. If applicable, suggest reliable sources the user could consult for more up-to-date information'
-            });
-          }
-          
-          // Use Claude with enhanced research-focused instructions
-          logger.info('Using Claude with research-focused instructions');
-          return claudeService.processConversation(enhancedMessages);
+        if (forceDeepResearch || this._matchesDeepResearchPattern(query)) {
+          logger.debug('Using Perplexity deep research mode');
+          return await this.perplexityService.deepResearch(query, { skipCache, systemPrompt });
         }
         
-        logger.info('Routing message to Perplexity service');
-        return perplexityService.performResearch(messages);
-      } else {
-        // Default to Claude
-        logger.info('Routing message to Claude service');
-        return claudeService.processConversation(messages);
+        return await this.perplexityService.query(query, { skipCache, systemPrompt });
       }
+
+      // If no explicit preference, make intelligent routing decision
+      const needsInternet = this._needsInternetAccess(query);
+      const needsDeepResearch = forceDeepResearch || this._matchesDeepResearchPattern(query);
+      const needsChartGeneration = this._needsChartGeneration(query);
+
+      // Track the routing decision for analytics
+      if (this.costTracker) {
+        this.costTracker.trackDecision(
+          needsInternet ? 'internet_access' : 'no_internet',
+          needsDeepResearch ? 'deep_research' : 'standard_query',
+          needsChartGeneration ? 'chart_generation' : 'text_only'
+        );
+      }
+
+      // Handle special cases first
+      if (needsChartGeneration) {
+        logger.debug('Routing to Claude for chart generation');
+        return await this.claudeService.generateChart(query, { skipCache });
+      }
+
+      // Handle internet-requiring queries
+      if (needsInternet) {
+        logger.debug('Query requires internet access, routing to Perplexity');
+        
+        if (needsDeepResearch) {
+          logger.debug('Using Perplexity deep research mode');
+          return await this.perplexityService.deepResearch(query, { skipCache, systemPrompt });
+        }
+        
+        return await this.perplexityService.query(query, { skipCache, systemPrompt });
+      }
+
+      // Default to Claude for standard queries
+      logger.debug('Using Claude for standard query');
+      return await this.claudeService.query(query, { skipCache, system: systemPrompt });
     } catch (error) {
-      logger.error(`Error in service routing: ${error.message}`);
+      logger.error(`Error routing query: ${error.message}`, { stack: error.stack });
       
-      // If Perplexity fails, fall back to Claude with an explanation
-      if (serviceToUse === 'perplexity') {
-        logger.info('Perplexity service failed, falling back to Claude with explanation');
-        
-        // Create a modified message array for Claude
-        const fallbackMessages = [...messages];
-        const lastUserIndex = fallbackMessages.findLastIndex(m => m.role === 'user');
-        
-        if (lastUserIndex !== -1) {
-          // Add a note about the fallback
-          fallbackMessages[lastUserIndex].content = 
-            `${fallbackMessages[lastUserIndex].content}\n\n[Note: The research service encountered an error. Providing information based on available knowledge.]`;
-        }
-        
-        // Add a system message explaining the situation
-        fallbackMessages.unshift({
-          role: 'system',
-          content: 'The user requested information that would normally be researched with real-time internet access, but that service encountered an error. Please provide your best response based on your training data, acknowledging any limitations in the currency of your information.'
-        });
-        
-        try {
-          return claudeService.processConversation(fallbackMessages);
-        } catch (claudeError) {
-          logger.error(`Fallback to Claude also failed: ${claudeError.message}`);
-          return {
-            status: 'error',
-            message: 'Both services failed to process the request',
-            error: `Original error: ${error.message}. Claude fallback error: ${claudeError.message}`
-          };
-        }
+      // Try to gracefully fall back to an alternative service
+      if (error.message.includes('Claude') && this.servicesHealth.perplexity) {
+        logger.warn('Falling back to Perplexity service due to Claude error');
+        this.servicesHealth.claude = false;
+        return await this.perplexityService.query(query, { skipCache, systemPrompt });
       }
       
-      return {
-        status: 'error',
-        message: `Service routing error: ${error.message}`,
-        error: error.message
-      };
+      if (error.message.includes('Perplexity') && this.servicesHealth.claude) {
+        logger.warn('Falling back to Claude service due to Perplexity error');
+        this.servicesHealth.perplexity = false;
+        return await this.claudeService.query(query, { skipCache, system: systemPrompt });
+      }
+      
+      // If fallback also fails, re-throw with better context
+      throw new Error(`Failed to route query to any available service: ${error.message}`);
     }
+  }
+
+  /**
+   * Generate a chart using Claude
+   * @param {String} description - Chart description
+   * @param {Object} options - Chart options
+   * @returns {Promise<Object>} - The chart generation response
+   */
+  async generateChart(description, options = {}) {
+    return await this.claudeService.generateChart(description, options);
+  }
+
+  /**
+   * Analyze an image using Claude
+   * @param {String} base64Image - Base64 encoded image
+   * @param {String} prompt - Analysis prompt
+   * @param {Object} options - Analysis options
+   * @returns {Promise<Object>} - The image analysis response
+   */
+  async analyzeImage(base64Image, prompt, options = {}) {
+    return await this.claudeService.analyzeImage(base64Image, prompt, options);
+  }
+
+  /**
+   * Check if a query needs internet access
+   * @param {String} query - The user query
+   * @returns {Boolean} - True if query likely needs internet access
+   * @private
+   */
+  _needsInternetAccess(query) {
+    // Check against internet access patterns
+    return this.internetAccessPatterns.some(pattern => pattern.test(query));
+  }
+
+  /**
+   * Check if a query matches deep research patterns
+   * @param {String} query - The user query
+   * @returns {Boolean} - True if query likely needs deep research
+   * @private
+   */
+  _matchesDeepResearchPattern(query) {
+    // Check against deep research patterns
+    return this.deepResearchPatterns.some(pattern => pattern.test(query));
+  }
+
+  /**
+   * Check if a query needs chart generation
+   * @param {String} query - The user query
+   * @returns {Boolean} - True if query likely involves chart generation
+   * @private
+   */
+  _needsChartGeneration(query) {
+    // Check against chart generation patterns
+    return this.chartGenerationPatterns.some(pattern => pattern.test(query));
+  }
+
+  /**
+   * Clean up resources when router is no longer needed
+   */
+  destroy() {
+    this.claudeService.destroy();
+    this.perplexityService.destroy();
   }
 }
 
-// Create and export a singleton instance
-const serviceRouter = new ServiceRouter();
-export default serviceRouter;
+export default ServiceRouter;

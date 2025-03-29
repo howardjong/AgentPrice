@@ -7,61 +7,73 @@ import express from 'express';
 import request from 'supertest';
 import { v4 as uuidv4 } from 'uuid';
 
-// Create mocks for services
-vi.mock('../../../services/serviceRouter.js', () => {
+// Mock the service modules before importing
+const mockServiceRouter = {
+  routeQuery: vi.fn(),
+  classifyQuery: vi.fn()
+};
+
+// Create proper ES module mocks
+vi.mock('../../../services/serviceRouter.js', async () => {
   return {
-    default: {
-      routeQuery: vi.fn().mockImplementation(async ({ query, requiresResearch, chartType }) => {
-        // Simulate different response types based on the query type
-        if (chartType) {
-          return {
-            response: `Generated chart for ${chartType}`,
-            chartData: { type: chartType, data: { /* mock data */ } },
-            chartHtml: `<div id="chart-${chartType}">Mock chart HTML</div>`,
-            modelUsed: 'claude-3-7-sonnet-20250219'
-          };
-        } else if (requiresResearch) {
-          return {
-            response: 'Research-based response',
-            sources: ['source1', 'source2'],
-            modelUsed: 'perplexity-sonar-deep-research'
-          };
-        } else {
-          return {
-            response: 'Regular response from Claude',
-            modelUsed: 'claude-3-7-sonnet-20250219'
-          };
-        }
-      }),
-      classifyQuery: vi.fn().mockImplementation((query) => {
-        // Simple classification based on keywords
-        const needsResearch = query.includes('research') || 
-                              query.includes('latest') || 
-                              query.includes('current');
-        
-        const isChartRequest = query.includes('chart') || 
-                               query.includes('visualization') || 
-                               query.includes('plot');
-        
-        let chartType = null;
-        if (isChartRequest) {
-          if (query.includes('van westendorp') || query.includes('price sensitivity')) {
-            chartType = 'van_westendorp';
-          } else if (query.includes('conjoint')) {
-            chartType = 'conjoint';
-          } else {
-            chartType = 'bar'; // default chart type
-          }
-        }
-        
-        return {
-          requiresResearch: needsResearch,
-          chartType: isChartRequest ? chartType : null,
-          confidence: 0.85
-        };
-      })
-    }
+    default: mockServiceRouter
   };
+});
+
+// Setup the mock implementations
+beforeEach(() => {
+  // Setup mock for routeQuery
+  mockServiceRouter.routeQuery.mockImplementation(async ({ query, requiresResearch, chartType }) => {
+    // Simulate different response types based on the query type
+    if (chartType) {
+      return {
+        response: `Generated chart for ${chartType}`,
+        chartData: { type: chartType, data: { /* mock data */ } },
+        chartHtml: `<div id="chart-${chartType}">Mock chart HTML</div>`,
+        modelUsed: 'claude-3-7-sonnet-20250219'
+      };
+    } else if (requiresResearch) {
+      return {
+        response: 'Research-based response',
+        sources: ['source1', 'source2'],
+        modelUsed: 'perplexity-sonar-deep-research'
+      };
+    } else {
+      return {
+        response: 'Regular response from Claude',
+        modelUsed: 'claude-3-7-sonnet-20250219'
+      };
+    }
+  });
+
+  // Setup mock for classifyQuery
+  mockServiceRouter.classifyQuery.mockImplementation((query) => {
+    // Simple classification based on keywords
+    const needsResearch = query.includes('research') || 
+                          query.includes('latest') || 
+                          query.includes('current');
+    
+    const isChartRequest = query.includes('chart') || 
+                           query.includes('visualization') || 
+                           query.includes('plot');
+    
+    let chartType = null;
+    if (isChartRequest) {
+      if (query.includes('van westendorp') || query.includes('price sensitivity')) {
+        chartType = 'van_westendorp';
+      } else if (query.includes('conjoint')) {
+        chartType = 'conjoint';
+      } else {
+        chartType = 'bar'; // default chart type
+      }
+    }
+    
+    return {
+      requiresResearch: needsResearch,
+      chartType: isChartRequest ? chartType : null,
+      confidence: 0.85
+    };
+  });
 });
 
 // Create a test UUID to use consistently
@@ -110,13 +122,23 @@ const chatMessageSchema = {
   })
 };
 
+// Setup the mock implementations before each test
+beforeEach(() => {
+  // Reset the chatMessageSchema mock to default behavior
+  chatMessageSchema.parse.mockImplementation((body) => {
+    if (!body.message) {
+      throw new Error('Message is required');
+    }
+    return body;
+  });
+});
+
 // Helper to create a basic Express app with query routes
 function createTestApp() {
   const app = express();
   app.use(express.json());
   
-  // Mock service router import
-  const serviceRouter = vi.importActual('../../../services/serviceRouter.js').default;
+  // Use our mock service router instead of the actual one
   
   // Setup query-related routes (simulating what's in server/routes.ts)
   app.get('/api/status', async (req, res) => {
@@ -159,8 +181,8 @@ function createTestApp() {
         citations: null
       });
       
-      // Process the query through serviceRouter
-      const queryResponse = await serviceRouter.routeQuery({
+      // Process the query through our mock serviceRouter
+      const queryResponse = await mockServiceRouter.routeQuery({
         query: message,
         conversationId: conversation.id,
         messages: [...previousMessages, userMessage],
@@ -200,7 +222,7 @@ function createTestApp() {
         return res.status(400).json({ message: 'Query parameter is required' });
       }
       
-      const classification = await serviceRouter.classifyQuery(query);
+      const classification = await mockServiceRouter.classifyQuery(query);
       res.json(classification);
     } catch (error) {
       res.status(500).json({ message: `Failed to classify query: ${error.message}` });
@@ -263,6 +285,15 @@ describe('Query Controller API Tests', () => {
     });
     
     it('should use an existing conversation if ID is provided', async () => {
+      // Mock the conversation to be returned
+      mockStorage.getConversation.mockImplementationOnce(async (id) => {
+        return {
+          id: 'existing-convo-id',
+          userId: null,
+          title: 'Existing conversation'
+        };
+      });
+      
       const response = await request(app)
         .post('/api/conversation')
         .send({
@@ -289,8 +320,8 @@ describe('Query Controller API Tests', () => {
     });
     
     it('should return chart data for visualization requests', async () => {
-      const { default: serviceRouter } = await import('../../../services/serviceRouter.js');
-      serviceRouter.routeQuery.mockResolvedValueOnce({
+      // Use our mock directly
+      mockServiceRouter.routeQuery.mockResolvedValueOnce({
         response: 'Here is the price sensitivity chart',
         chartData: {
           type: 'van_westendorp',
@@ -313,8 +344,8 @@ describe('Query Controller API Tests', () => {
     });
     
     it('should return source citations for research queries', async () => {
-      const { default: serviceRouter } = await import('../../../services/serviceRouter.js');
-      serviceRouter.routeQuery.mockResolvedValueOnce({
+      // Use our mock directly
+      mockServiceRouter.routeQuery.mockResolvedValueOnce({
         response: 'Based on the latest research...',
         sources: [
           { title: 'Research Paper 1', url: 'https://example.com/paper1' },
@@ -400,8 +431,8 @@ describe('Query Controller API Tests', () => {
     });
     
     it('should handle service errors gracefully', async () => {
-      const { default: serviceRouter } = await import('../../../services/serviceRouter.js');
-      serviceRouter.classifyQuery.mockRejectedValueOnce(new Error('Classification failed'));
+      // Use our mock directly
+      mockServiceRouter.classifyQuery.mockRejectedValueOnce(new Error('Classification failed'));
       
       const response = await request(app)
         .post('/api/classify-query')

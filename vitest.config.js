@@ -35,7 +35,7 @@ export default defineConfig({
     },
     
     // Test filtering
-    include: ['**/*.{test,spec,vitest}.{js,mjs,cjs,ts,jsx,tsx}'],
+    include: ['**/*.{test,spec,vitest}.{js,mjs,cjs,ts,jsx,tsx}', '**/websocket/**/*.vitest.js'],
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

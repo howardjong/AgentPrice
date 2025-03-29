@@ -31,6 +31,10 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 | queryController | N/A | ✅ queryController.vitest.js | Complete | March 29, 2025 |
 | chartsController | N/A | ✅ chartsController.vitest.js | Complete | March 29, 2025 |
 | researchController | N/A | ✅ researchController.vitest.js | Complete | March 29, 2025 |
+| **WebSocket Tests** | | | | |
+| system-monitoring | N/A | ✅ system-monitoring.vitest.js | Complete | March 29, 2025 |
+| api-service-status | N/A | ✅ api-service-status.vitest.js | Complete | March 29, 2025 |
+| websocket-integration | N/A | ✅ websocket-integration.vitest.js | Complete | March 29, 2025 |
 
 ## Migration Plan
 
@@ -94,6 +98,23 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 ## Recent Progress
 
 ### March 29, 2025 (latest)
+- Implemented WebSocket test suite for real-time system monitoring:
+  - Created system-monitoring.vitest.js for general monitoring (4 tests passing)
+  - Created api-service-status.vitest.js for API health tracking (5 tests passing)
+  - Created websocket-integration.vitest.js for server integration (6 tests passing)
+- Added tests for real-time WebSocket events and subscriptions
+- Created test framework for simulating and validating WebSocket communication
+- Implemented tests for event-based notification system
+- Verified proper handling of connection lifecycle events
+- Established patterns for testing pub/sub functionality over WebSockets
+- Improved test isolation for multi-client WebSocket scenarios
+- Added test coverage for error handling in WebSocket communication
+- Added integration tests for HTTP and WebSocket server coexistence
+- Implemented broadcast and multi-client communication testing
+- Verified correct WebSocket path configuration and routing
+- Added tests for client registration and message handling patterns
+
+### March 29, 2025 (earlier)
 - Implemented comprehensive controller tests with consistent pattern:
   - Created queryController.vitest.js for testing query routing and processing (15 tests passing)
   - Created chartsController.vitest.js for testing chart generation and visualization (9 tests passing)
@@ -171,12 +192,15 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
    - ✅ Created queryController.vitest.js (15 tests passing)
    - ✅ Created chartsController.vitest.js (9 tests passing)
    - ✅ Created researchController.vitest.js (9 tests passing)
-6. Execute the new workflow-focused tests to verify they pass with current implementation
-7. Address the complex mockJobManager tests that were temporarily skipped
-8. Update the test scripts to better handle error cases and promise rejections
-9. Add workarounds for performance.now mocking in time-sensitive tests
-10. Implement formal guidelines for mocking in Vitest vs Jest to prevent future issues 
-11. Implement websocket tests with the migration approach established for HTTP requests
+6. ✅ Implement WebSocket tests for real-time monitoring
+   - ✅ Created system-monitoring.vitest.js (4 tests passing)
+   - ✅ Created api-service-status.vitest.js (5 tests passing)
+   - ✅ Created websocket-integration.vitest.js (6 tests passing)
+7. Execute the new workflow-focused tests to verify they pass with current implementation
+8. Address the complex mockJobManager tests that were temporarily skipped
+9. Update the test scripts to better handle error cases and promise rejections
+10. Add workarounds for performance.now mocking in time-sensitive tests
+11. Implement formal guidelines for mocking in Vitest vs Jest to prevent future issues
 12. Create integration tests to cover the skipped mockJobManager functionality
 13. Catalog ES module vs CommonJS specific patterns that caused issues in the migration
 14. Consider adding these workflow-focused tests to the test-single-query-workflow Replit workflow
