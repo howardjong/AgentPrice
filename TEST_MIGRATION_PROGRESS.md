@@ -1,6 +1,6 @@
 # Test Migration Progress
 
-This document tracks the progress of migrating Jest unit tests to Vitest.
+This document tracks the progress of migrating Jest unit tests to Vitest and manual tests to automated Vitest tests.
 
 ## Migration Status
 
@@ -320,4 +320,65 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
     - ✅ Fixed perplexityService.js module exports
     - ✅ Updated routes.ts imports to use namespace imports for ES modules
     - ✅ Documented module export/import patterns for complex services
-17. ⬜ Consider adding these workflow-focused tests to the test-single-query-workflow Replit workflow
+
+## Manual Test Migration Status
+
+This section tracks the progress of migrating manual tests to automated Vitest tests.
+
+| Manual Test | Vitest Test | Status | Priority | Category |
+|-------------|-------------|--------|----------|----------|
+| **Priority 1: Core Functionality Tests** |||||
+| test-plotly-integration.js | plotly-visualization.vitest.js | ⬜ Not Started | High | Chart Visualization |
+| test-plotly-integration-minimal.js | plotly-minimal.vitest.js | ⬜ Not Started | High | Chart Visualization |
+| testDeepResearch.js | deep-research-workflow.vitest.js | ⬜ Not Started | High | Research |
+| testCostOptimization.js | cost-optimization.vitest.js | ⬜ Not Started | High | Optimization |
+| apiCallOptimization.js | api-call-optimization.vitest.js | ⬜ Not Started | High | Optimization |
+| **Priority 2: Model & API Tests** |||||
+| testPerplexityModelExtraction.js | perplexity-model-extraction.vitest.js | ⬜ Not Started | Medium | Model Testing |
+| testDeepResearchModelExtraction.js | deep-research-model-extraction.vitest.js | ⬜ Not Started | Medium | Model Testing |
+| testRateLimitRecovery.js | rate-limit-recovery.vitest.js | ⬜ Not Started | Medium | Rate Limiting |
+| testRateLimiter.js | rate-limiter.vitest.js | ⬜ Not Started | Medium | Rate Limiting |
+| **Priority 3: System Health Tests** |||||
+| systemHealthDashboard.js | system-health-monitoring.vitest.js | ⬜ Not Started | Medium | Health Monitoring |
+| system-health-check.js | health-check.vitest.js | ⬜ Not Started | Medium | Health Monitoring |
+| test-tiered-response.js | tiered-response.vitest.js | ⬜ Not Started | Medium | Service Response |
+
+### Manual Tests to Retain as Utilities
+
+The following manual tests will be kept as utilities without migration to Vitest:
+
+| Manual Test | Category | Reason for Keeping |
+|-------------|----------|-------------------|
+| create-prompt-version.js | Prompt Management | Administrative utility |
+| set-active-prompt.js | Prompt Management | Administrative utility |
+| compare-prompt-versions.js | Prompt Management | Comparison utility |
+| version-perplexity-prompt.js | Prompt Management | Versioning utility |
+| memoryLeakAnalysis.js | Performance | Memory analysis tool |
+| memory-pressure-test.js | Performance | Load testing tool |
+| compare-performance.js | Performance | Benchmarking utility |
+| optimizeSystemPerformance.js | Performance | Tuning utility |
+| check-claude-model-details.js | API Validation | Credential testing |
+| checkClaudeModel.js | API Validation | Model verification |
+
+### Manual Tests to Eliminate After Migration
+
+The following manual tests will be removed after successful migration to Vitest:
+
+| Manual Test | Category | Replacement |
+|-------------|----------|------------|
+| inMemoryStoreTest.js | Storage | Covered by existing storage tests |
+| requestMonitorTest.js | Middleware | Covered by middleware tests |
+| redisConnectionTest.js | Connection | To be replaced with mock-based tests |
+| redisServiceTest.js | Connection | To be replaced with mock-based tests |
+| test-single-query-workflow.js | Workflow | Already covered by single-query-workflow.vitest.js |
+| test-workflow-integration.js | Workflow | Covered by integration tests |
+| fileSystemCheck.js | Utility | Replaced by mocked FS operations |
+| testComponentLoader.js | Utility | Redundant with other tests |
+| test-component-loader.js | Utility | Redundant with other tests |
+| test-variable-fix.js | Debug | Temporary debugging script |
+| test-redis-timeout.js | Debug | Specific timeout scenario testing |
+| fixed-apply-optimizations.js | Optimization | Redundant with newer tests |
+| fixed-check-optimization-settings.js | Optimization | Redundant with newer tests |
+| fixed-optimization-settings.js | Optimization | Redundant with newer tests |
+| serve-charts.js | Chart | Interactive test replaced by automated validation |
+| test-chart-viewer.js | Chart | Interactive test replaced by automated validation |

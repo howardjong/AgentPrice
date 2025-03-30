@@ -212,6 +212,91 @@ Our test migration will be considered successful when:
 4. Complex integration scenarios are adequately tested
 5. The test suite provides comprehensive coverage
 
+## Manual Tests Migration Plan
+
+This section outlines our strategy for handling the ~50 manual tests in the codebase. Based on our analysis, we will:
+
+1. Migrate critical manual tests to Vitest for better automated testing
+2. Keep certain tests as manual utilities where appropriate
+3. Eliminate redundant tests after migration
+
+### Manual Tests to Migrate to Vitest
+
+#### Priority 1: Core Functionality Tests (High Priority)
+- **Chart Visualization Tests**
+  - `test-plotly-integration.js` → To be migrated to `plotly-visualization.vitest.js`
+  - `test-plotly-integration-minimal.js` → To be migrated to `plotly-minimal.vitest.js`
+  
+- **Long-Running Research Tests**
+  - `testDeepResearch.js` → To be migrated to `deep-research-workflow.vitest.js`
+  
+- **Cost Optimization Tests**
+  - `testCostOptimization.js` → To be migrated to `cost-optimization.vitest.js`
+  - `apiCallOptimization.js` → To be migrated to `api-call-optimization.vitest.js`
+
+#### Priority 2: Model & API Tests (Medium Priority)
+- **Model-Specific Tests**
+  - `testPerplexityModelExtraction.js` → To be migrated to `perplexity-model-extraction.vitest.js` 
+  - `testDeepResearchModelExtraction.js` → To be migrated to `deep-research-model-extraction.vitest.js`
+  
+- **Rate Limiting Tests**
+  - `testRateLimitRecovery.js` → To be migrated to `rate-limit-recovery.vitest.js`
+  - `testRateLimiter.js` → To be migrated to `rate-limiter.vitest.js`
+
+#### Priority 3: System Health Tests (Medium Priority)
+- **Health Monitoring Tests**
+  - `systemHealthDashboard.js` → To be migrated to `system-health-monitoring.vitest.js`
+  - `system-health-check.js` → To be migrated to `health-check.vitest.js`
+  
+- **Service Response Tests**
+  - `test-tiered-response.js` → To be migrated to `tiered-response.vitest.js`
+
+### Manual Tests to Retain as Utilities
+
+The following tests should remain as manual tools due to their nature:
+
+1. **Interactive Management Tools**
+   - `create-prompt-version.js` - Administrative utility for prompt management
+   - `set-active-prompt.js` - Administrative utility for prompt management
+   - `compare-prompt-versions.js` - Utility for comparing prompt versions
+   - `version-perplexity-prompt.js` - Utility for prompt versioning
+
+2. **Memory and Performance Analysis Tools**
+   - `memoryLeakAnalysis.js` - Tool for investigating memory leaks
+   - `memory-pressure-test.js` - Tool for testing performance under load
+   - `compare-performance.js` - Benchmarking utility
+   - `optimizeSystemPerformance.js` - Performance tuning utility
+
+3. **API Key Validation Tools**
+   - `check-claude-model-details.js` - Tool for validating API credentials
+   - `checkClaudeModel.js` - Tool for checking model availability
+
+### Manual Tests to Eliminate After Migration
+
+The following tests can be eliminated after proper migration to Vitest:
+
+1. **Basic Service Tests**
+   - `inMemoryStoreTest.js` - Functionality covered by storage tests
+   - `requestMonitorTest.js` - Covered by middleware tests
+   - `redisConnectionTest.js` - To be replaced with mock-based tests
+   - `redisServiceTest.js` - To be replaced with mock-based tests
+
+2. **Duplicate Workflow Tests**
+   - `test-single-query-workflow.js` - Already covered by `single-query-workflow.vitest.js`
+   - `test-workflow-integration.js` - Covered by integration tests
+
+3. **Utility Tests**
+   - `fileSystemCheck.js` - Replaced by mocked FS operations
+   - `testComponentLoader.js` and `test-component-loader.js` - Redundant
+
+4. **Debug-Only Scripts**
+   - `test-variable-fix.js` - Temporary debugging script
+   - `test-redis-timeout.js` - Specific timeout scenario
+
+5. **Redundant Optimization Tests**
+   - `fixed-apply-optimizations.js`, `fixed-check-optimization-settings.js`, etc.
+   - `serve-charts.js` and `test-chart-viewer.js` - Interactive tests replaced by automated validation
+
 ## Next Steps
 
 1. ✅ Complete Nock setup for HTTP mocking in the Perplexity workflow test
@@ -233,3 +318,7 @@ Our test migration will be considered successful when:
     - ✅ Converted claudeService.js from CommonJS to ES modules  
     - ✅ Fixed perplexityService.js exports to use consistent ES module syntax
     - ✅ Updated server/routes.ts imports to use namespace imports for ES modules
+14. 🟢 Begin migration of critical manual tests, starting with:
+    - ⬜ Create `plotly-visualization.vitest.js` from `test-plotly-integration.js`
+    - ⬜ Create `deep-research-workflow.vitest.js` from `testDeepResearch.js`
+    - ⬜ Create `cost-optimization.vitest.js` from `testCostOptimization.js`
