@@ -7,8 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CircuitBreaker } from '../../../utils/monitoring.js';
-import logger from '../../../utils/logger.js'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import logger from '../../../utils/logger.js';
 
 // Mock dependencies
 vi.mock('../../../utils/logger.js', () => {

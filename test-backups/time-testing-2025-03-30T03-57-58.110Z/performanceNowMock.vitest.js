@@ -3,8 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import performanceNowMock from '../../utils/performanceNowMock.js'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import performanceNowMock from '../../utils/performanceNowMock.js';
 
 describe('performanceNowMock', () => {
   const originalPerformanceNow = performance.now;

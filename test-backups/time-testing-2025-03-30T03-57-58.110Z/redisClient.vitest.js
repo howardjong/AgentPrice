@@ -3,8 +3,7 @@
  */
 
 import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
-import redisClient, { InMemoryStore } from '../../../services/redisService.js'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import redisClient, { InMemoryStore } from '../../../services/redisService.js';
 
 // Mock logger to prevent console output during tests
 vi.mock('../../../utils/logger.js', () => ({

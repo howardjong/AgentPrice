@@ -1,6 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import CircuitBreaker from '../../../utils/circuitBreaker.js';
+import { CircuitBreaker } from '../../../utils/circuitBreaker.js';
 
 // Mock the logger
 vi.mock('../../../utils/logger', () => ({
@@ -14,10 +14,15 @@ vi.mock('../../../utils/logger', () => ({
 
 describe('CircuitBreaker', () => {
   let circuitBreaker;
+  const originalDateNow = Date.now;
 
   beforeEach(() => {
     // Reset mocks between tests
     vi.clearAllMocks();
+    
+    // Mock Date.now
+    let currentTime = 1000;
+    global.Date.now = vi.fn(() => currentTime);
     
     // Create a new circuit breaker for each test
     circuitBreaker = new CircuitBreaker({
@@ -30,48 +35,53 @@ describe('CircuitBreaker', () => {
   afterEach(() => {
     // Clean up
     circuitBreaker = null;
+    global.Date.now = originalDateNow;
   });
 
   it('should start in closed state', () => {
+    expect(circuitBreaker.getState()).toBe('CLOSED');
     expect(circuitBreaker.isOpen()).toBe(false);
   });
 
   it('should transition to open state after failures exceed threshold', () => {
     // Register enough failures to trip the circuit
-    circuitBreaker.registerFailure();
-    circuitBreaker.registerFailure();
-    circuitBreaker.registerFailure();
+    circuitBreaker.recordFailure();
+    circuitBreaker.recordFailure();
+    circuitBreaker.recordFailure();
     
+    expect(circuitBreaker.getState()).toBe('OPEN');
     expect(circuitBreaker.isOpen()).toBe(true);
   });
 
   it('should handle reset timeout', () => {
     // Register failures to trip the circuit
-    circuitBreaker.registerFailure();
-    circuitBreaker.registerFailure();
-    circuitBreaker.registerFailure();
+    circuitBreaker.recordFailure();
+    circuitBreaker.recordFailure();
+    circuitBreaker.recordFailure();
     
     expect(circuitBreaker.isOpen()).toBe(true);
     
-    // Manually reset to simulate timeout
-    circuitBreaker.state.status = 'CLOSED';
+    // Manually force state to closed
+    circuitBreaker.forceState('CLOSED', 'Test reset');
     
     // Should be closed now
     expect(circuitBreaker.isOpen()).toBe(false);
   });
 
   it('should track consecutive failures', () => {
-    circuitBreaker.registerFailure();
-    circuitBreaker.registerFailure();
+    circuitBreaker.recordFailure();
+    circuitBreaker.recordFailure();
     
-    expect(circuitBreaker.getFailureCount()).toBe(2);
+    const stats = circuitBreaker.getStats();
+    expect(stats.failureCount).toBe(2);
   });
 
   it('should reset failure count on success', () => {
-    circuitBreaker.registerFailure();
-    circuitBreaker.registerFailure();
-    circuitBreaker.registerSuccess();
+    circuitBreaker.recordFailure();
+    circuitBreaker.recordFailure();
+    circuitBreaker.recordSuccess();
     
-    expect(circuitBreaker.getFailureCount()).toBe(0);
+    const stats = circuitBreaker.getStats();
+    expect(stats.failureCount).toBe(0);
   });
 });

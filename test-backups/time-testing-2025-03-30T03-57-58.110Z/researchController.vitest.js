@@ -5,8 +5,7 @@
  */
 import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
 import express from 'express';
-import request from 'supertest'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import request from 'supertest';
 
 describe('Research Controller API Tests', () => {
   let mockResearchService;

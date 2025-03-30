@@ -11,8 +11,7 @@ import axios from 'axios';
 import MockAdapter from 'axios-mock-adapter';
 import ClaudeService from '../../../services/claudeService.js';
 import ContextManager from '../../../services/contextManager.js';
-import RateLimiter from '../../../utils/rateLimiter.js'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import RateLimiter from '../../../utils/rateLimiter.js';
 
 // Mock the logger to avoid issues with winston
 vi.mock('../../../utils/logger.js', () => {

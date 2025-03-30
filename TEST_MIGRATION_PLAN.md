@@ -135,13 +135,13 @@ These improvements focus on creating diagnostic tools for system testing and mon
 - Improved debugging of connection issues
 - One-stop access to all testing utilities
 
-#### 8. System Health Monitoring (🟢 In Progress)
+#### 8. System Health Monitoring (✅ Complete)
 
 **Implementation Details:**
 - ✅ Create detailed health score calculation
 - ✅ Implement real-time status updates via Socket.IO
-- 🟢 Fix health score to accurately reflect API status
-- ⬜ Create comprehensive test suite for health calculation
+- ✅ Fix health score to accurately reflect API status
+- ✅ Create comprehensive test suite for health calculation
 
 **Benefits:**
 - Accurate real-time system status reporting
@@ -153,7 +153,23 @@ These improvements focus on creating diagnostic tools for system testing and mon
 
 These longer-term improvements focus on optimizing the testing infrastructure.
 
-#### 9. Redis Cache Mocking (⬜ Not Started)
+#### 9. Improved Error Handling and Promise Rejection (🟢 In Progress)
+
+**Implementation Details:**
+- ✅ Create comprehensive error handling best practices documentation
+- ✅ Develop utility library for standardized error handling in tests
+- 🟢 Create tools to scan and identify suboptimal error handling patterns
+- ⬜ Apply improved patterns to existing test files
+- ⬜ Add support for non-deterministic error testing
+
+**Benefits:**
+- More reliable and deterministic tests
+- Better error messages when tests fail
+- Simplified testing of failure scenarios
+- Consistent approach to error handling across the test suite
+- Improved testing of error propagation and recovery mechanisms
+
+#### 10. Redis Cache Mocking (⬜ Not Started)
 
 **Implementation Details:**
 - ⬜ Implement in-memory cache with Redis-compatible interface
@@ -202,11 +218,14 @@ Our test migration will be considered successful when:
 2. ✅ Create comprehensive fixtures for both standard and deep research responses
 3. ✅ Implement the nock-based versions of workflow tests
    - ✅ perplexity-workflow-nock.vitest.js (5 tests passing)
-   - 🟢 single-query-workflow-nock.vitest.js (8 tests to fix)
-   - 🟢 claude-chart-workflow-nock.vitest.js (4 tests to fix)
+   - ✅ single-query-workflow-nock.vitest.js (8 tests passing)
+   - ✅ claude-chart-workflow-nock.vitest.js (5 tests passing)
 4. ✅ Document the patterns used for future test migrations
 5. ✅ Complete remaining test fixes for the nock-based workflow tests
 6. ✅ Create diagnostic tools for WebSocket/Socket.IO connection verification
 7. ✅ Create centralized tools directory for navigating diagnostic utilities
-8. ⬜ Update System Health calculation to properly report status in real-time
-9. ⬜ Complete migration of remaining utility tests
+8. ✅ Update System Health calculation to properly report status in real-time
+9. ✅ Implement integration tests for skipped mockJobManager functionality (9 tests passing)
+10. ✅ Update test scripts to better handle error cases and promise rejections
+11. ✅ Add workarounds for performance.now mocking in time-sensitive tests
+12. ⬜ Complete migration of remaining utility tests

@@ -3,8 +3,7 @@
  * @description Tests for the WebSocket-based system monitoring functionality
  */
 import { describe, it, expect, vi } from 'vitest';
-import { WebSocket } from 'ws'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import { WebSocket } from 'ws';
 
 describe('WebSocket System Monitoring', () => {
   // Mock system status data for testing

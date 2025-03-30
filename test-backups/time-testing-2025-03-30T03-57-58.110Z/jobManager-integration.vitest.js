@@ -7,8 +7,7 @@
  */
 
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
-import { setTimeout } from 'timers/promises'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import { setTimeout } from 'timers/promises';
 
 // Store original env to restore after tests
 const originalEnv = { ...process.env };

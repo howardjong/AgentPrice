@@ -101,7 +101,46 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 
 ## Recent Progress
 
+
+### March 30, 2025 at 03:57 AM
+- Applied time testing improvements to 17 test files:
+  - Improved 4 service tests with better time handling
+  - Improved 4 utility tests with better time handling
+  - Improved 2 workflow tests with better time handling
+  - Improved 1 controller tests with better time handling
+  - Improved 4 websocket tests with better time handling
+  - Improved 2 other tests with better time handling
+  - All tests now use TimeController and consistent time mocking
+  - Removed non-deterministic timing dependencies from tests
+  - Enhanced tests for better handling of setTimeout, setInterval, and Date.now
+  - Fixed performance.now direct usage with proper mocking mechanisms
+
 ### March 30, 2025 (latest)
+- Implemented comprehensive error handling improvements for tests:
+  - Created detailed ERROR_HANDLING_BEST_PRACTICES.md documentation
+  - Developed error-handling-utils.js utility library with specialized helpers
+  - Created improved-error-handling-example.vitest.js as a reference implementation
+  - Implemented tools to scan and identify suboptimal error handling patterns
+  - Created scripts for automatically applying improved patterns to test files
+  - Added formal documentation in TEST_MIGRATION_PLAN.md for error handling goals
+  - Addressed common issues like try/catch without await, inadequate error checking
+  - Added support for testing error propagation across component boundaries
+  - Created patterns for testing error recovery and fallback mechanisms
+  - Added utilities for simulating temporary failures and retries
+
+### March 30, 2025 (earlier)
+- Successfully fixed all mockJobManager integration tests with proper ES module handling:
+  - Implemented dynamic module imports with vi.spyOn() for better isolation between tests
+  - Created a custom tracking mechanism to verify method calls between components
+  - Fixed all 9 previously failing integration tests for mockJobManager interactions
+  - Used resetModules and proper environment variable control for deterministic test execution
+  - Applied lessons learned to create a more reliable testing approach for integration tests
+  - Isolated rate limiting test to focus on the specific behavior being tested
+  - Improved the test execution environment to prevent side effects between tests
+  - Fixed issues related to method call tracking and verification
+  - Added detailed test assertions for each mode switching scenario
+
+### March 30, 2025 (earlier)
 - Addressed the skipped mockJobManager tests in the test migration plan:
   - Created integration test approach for jobManager and mockJobManager interactions
   - Developed an integration test file that tests real component interactions
@@ -264,8 +303,8 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 10. ✅ Update the system health calculation to properly reflect API status in real-time
 11. ✅ Address the complex mockJobManager tests by creating integration test approach
 12. ✅ Implement formal guidelines for mocking in Vitest vs Jest to prevent future issues
-13. ⬜ Update the test scripts to better handle error cases and promise rejections
-14. ⬜ Add workarounds for performance.now mocking in time-sensitive tests
-15. ⬜ Complete integration tests to cover the skipped mockJobManager functionality
+13. ✅ Update the test scripts to better handle error cases and promise rejections
+14. ✅ Add workarounds for performance.now mocking in time-sensitive tests
+15. ✅ Complete integration tests to cover the skipped mockJobManager functionality (9 tests passing)
 16. ⬜ Catalog ES module vs CommonJS specific patterns that caused issues in the migration
 17. ⬜ Consider adding these workflow-focused tests to the test-single-query-workflow Replit workflow

@@ -13,8 +13,7 @@ import MockAdapter from 'axios-mock-adapter';
 import PerplexityService from '../../../services/perplexityService.js';
 import JobManager from '../../../services/jobManager.js';
 import RateLimiter from '../../../utils/rateLimiter.js';
-import ContextManager from '../../../services/contextManager.js'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import ContextManager from '../../../services/contextManager.js';
 
 // Mock the logger to avoid issues with winston
 vi.mock('../../../utils/logger.js', () => {

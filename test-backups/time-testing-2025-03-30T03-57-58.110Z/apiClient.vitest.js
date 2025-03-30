@@ -198,8 +198,7 @@ vi.mock('../../../utils/apiClient.js', () => {
 });
 
 // Import the module under test after mocks are set up
-import { RobustAPIClient } from '../../../utils/apiClient.js'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import { RobustAPIClient } from '../../../utils/apiClient.js';
 
 describe('RobustAPIClient', () => {
   let client;

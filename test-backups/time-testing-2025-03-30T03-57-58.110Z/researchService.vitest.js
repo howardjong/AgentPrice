@@ -6,8 +6,7 @@ import {
   mockJobManager, 
   mockLogger,
   resetAllMocks
-} from '../../mocks/serviceMocks.js'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+} from '../../mocks/serviceMocks.js';
 
 // Mock all dependencies
 vi.mock('../../../services/claudeService.js', () => ({

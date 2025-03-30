@@ -1,6 +1,5 @@
 import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
-import { CircuitBreaker } from '../../utils/monitoring.js'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import { CircuitBreaker } from '../../utils/monitoring.js';
 
 // We need to mock parts of the CircuitBreaker to make it testable
 vi.mock('../../utils/logger', () => ({
