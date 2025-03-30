@@ -2,7 +2,10 @@
  * Tests for the MockJobManager utility
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
+import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
+import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
+import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
 import MockJobManager, { JOB_STATES } from '../../utils/mockJobManager.js'
 import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
 

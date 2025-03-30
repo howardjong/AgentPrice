@@ -9,7 +9,6 @@
 import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
 import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
 import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
-import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
 
 // Mock all required services directly
 vi.mock('../../../utils/logger.js', () => ({

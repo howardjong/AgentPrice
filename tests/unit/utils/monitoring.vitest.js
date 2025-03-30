@@ -5,7 +5,10 @@
  * that provides fault tolerance and timeout handling.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
+import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
+import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
+import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
 import { CircuitBreaker } from '../../../utils/monitoring.js';
 import logger from '../../../utils/logger.js'
 import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
@@ -150,7 +153,10 @@ describe('CircuitBreaker', () => {
         await circuitBreaker.executeRequest('failingService', mockFn);
       } catch (error) {
         // Expected to throw
-        expect(error.message).toBe('still failing');
+        expect(error).toMatchObject({
+      message: '$1',
+      name: expect.any(String)
+    });
       }
       
       // Verify it went to half-open before executing

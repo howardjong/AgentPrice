@@ -1,0 +1,114 @@
+Found 29 files to process
+Error handling utilities file already exists
+Processing file: tests/unit/services/serviceRouter.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/services/serviceRouter.vitest.js.bak
+- Applied 1 improvements to tests/unit/services/serviceRouter.vitest.js
+Processing file: tests/unit/utils/monitoring.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/utils/monitoring.vitest.js.bak
+- Applied 1 improvements to tests/unit/utils/monitoring.vitest.js
+Processing file: tests/unit/utils/costTracker.vitest.js
+- No improvements needed for this file
+Processing file: tests/unit/utils/apiClient.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/utils/apiClient.vitest.js.bak
+- Applied 1 improvements to tests/unit/utils/apiClient.vitest.js
+Processing file: tests/unit/utils/performanceNowMock.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/utils/performanceNowMock.vitest.js.bak
+- Applied 1 improvements to tests/unit/utils/performanceNowMock.vitest.js
+Processing file: tests/unit/utils/mockJobManager.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/utils/mockJobManager.vitest.js.bak
+- Applied 1 improvements to tests/unit/utils/mockJobManager.vitest.js
+Processing file: tests/unit/utils/improved-monitoring.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/utils/improved-monitoring.vitest.js.bak
+- Applied 1 improvements to tests/unit/utils/improved-monitoring.vitest.js
+Processing file: tests/unit/utils/improved-apiClient.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/utils/improved-apiClient.vitest.js.bak
+- Applied 1 improvements to tests/unit/utils/improved-apiClient.vitest.js
+Processing file: tests/unit/utils/improved-performanceNowMock.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/utils/improved-performanceNowMock.vitest.js.bak
+- Applied 1 improvements to tests/unit/utils/improved-performanceNowMock.vitest.js
+Processing file: tests/unit/utils/improved-mockJobManager.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/utils/improved-mockJobManager.vitest.js.bak
+- Applied 1 improvements to tests/unit/utils/improved-mockJobManager.vitest.js
+Processing file: tests/unit/utils/cost-optimization.vitest.js
+- No improvements needed for this file
+Processing file: tests/unit/circuitBreaker.vitest.js
+- No improvements needed for this file
+Processing file: tests/unit/apiClient.vitest.js
+- No improvements needed for this file
+Processing file: tests/unit/workflows/single-query-workflow.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/workflows/single-query-workflow.vitest.js.bak
+- Applied 1 improvements to tests/unit/workflows/single-query-workflow.vitest.js
+Processing file: tests/unit/workflows/perplexity-workflow-nock.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/workflows/perplexity-workflow-nock.vitest.js.bak
+- Applied 1 improvements to tests/unit/workflows/perplexity-workflow-nock.vitest.js
+Processing file: tests/unit/workflows/claude-chart-workflow-nock.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/workflows/claude-chart-workflow-nock.vitest.js.bak
+- Applied 1 improvements to tests/unit/workflows/claude-chart-workflow-nock.vitest.js
+Processing file: tests/unit/workflows/service-router-mock.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/workflows/service-router-mock.vitest.js.bak
+- Applied 1 improvements to tests/unit/workflows/service-router-mock.vitest.js
+Processing file: tests/unit/workflows/single-query-workflow-nock.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/workflows/single-query-workflow-nock.vitest.js.bak
+- Applied 1 improvements to tests/unit/workflows/single-query-workflow-nock.vitest.js
+Processing file: tests/unit/workflows/deep-research-workflow.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/workflows/deep-research-workflow.vitest.js.bak
+- Applied 1 improvements to tests/unit/workflows/deep-research-workflow.vitest.js
+Processing file: tests/unit/controllers/queryController.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/controllers/queryController.vitest.js.bak
+- Applied 1 improvements to tests/unit/controllers/queryController.vitest.js
+Processing file: tests/unit/controllers/researchController.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/controllers/researchController.vitest.js.bak
+- Applied 1 improvements to tests/unit/controllers/researchController.vitest.js
+Processing file: tests/unit/controllers/chart-test-debug.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/controllers/chart-test-debug.vitest.js.bak
+- Applied 1 improvements to tests/unit/controllers/chart-test-debug.vitest.js
+Processing file: tests/unit/controllers/chartsController.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/controllers/chartsController.vitest.js.bak
+- Applied 1 improvements to tests/unit/controllers/chartsController.vitest.js
+Processing file: tests/unit/controllers/chartsController.simplified.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/controllers/chartsController.simplified.vitest.js.bak
+- Applied 1 improvements to tests/unit/controllers/chartsController.simplified.vitest.js
+Processing file: tests/unit/controllers/improved-researchController.vitest.js
+- Added error handling utility imports
+- Created backup at tests/unit/controllers/improved-researchController.vitest.js.bak
+- Applied 1 improvements to tests/unit/controllers/improved-researchController.vitest.js
+Processing file: tests/unit/websocket/websocket-simplified.vitest.js
+- No improvements needed for this file
+Processing file: tests/unit/websocket/improved-websocket-simplified.vitest.js
+- No improvements needed for this file
+Processing file: tests/unit/improved-circuitBreaker.vitest.js
+- No improvements needed for this file
+Processing file: tests/examples/improved-error-handling-example.vitest.js
+- Added error handling utility imports
+- Created backup at tests/examples/improved-error-handling-example.vitest.js.bak
+- Applied 1 improvements to tests/examples/improved-error-handling-example.vitest.js
+
+Improvement Summary:
+- Improved: 22 files
+- Skipped: 7 files
+- Failed: 0 files
+
+Next Steps:
+1. Review the changes in each improved file
+2. Run tests to ensure they still pass
+3. Adjust any assertions that need more specific error checks

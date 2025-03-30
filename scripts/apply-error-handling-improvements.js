@@ -6,9 +6,9 @@
  * and basic error message checking.
  */
 
-const fs = require('fs').promises;
-const path = require('path');
-const { execSync } = require('child_process');
+import fs from 'fs/promises';
+import path from 'path';
+import { execSync } from 'child_process';
 
 // Patterns to replace
 const replacements = [
@@ -141,7 +141,9 @@ async function main() {
     console.log(`Found ${files.length} files to process`);
     
     // Create error handling utils file if it doesn't exist
-    const utilsDir = path.join(__dirname, '..', 'tests', 'utils');
+    const currentFileUrl = import.meta.url;
+    const currentDirPath = new URL('.', currentFileUrl).pathname;
+    const utilsDir = path.join(currentDirPath, '..', 'tests', 'utils');
     const utilsFile = path.join(utilsDir, 'error-handling-utils.js');
     
     try {

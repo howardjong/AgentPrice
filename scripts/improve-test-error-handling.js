@@ -5,10 +5,12 @@
  * and suggests better patterns to follow.
  */
 
-const fs = require('fs').promises;
-const path = require('path');
-const { promisify } = require('util');
-const exec = promisify(require('child_process').exec);
+import fs from 'fs/promises';
+import path from 'path';
+import { promisify } from 'util';
+import { exec as execCallback } from 'child_process';
+
+const exec = promisify(execCallback);
 
 // Pattern definitions
 const patterns = {

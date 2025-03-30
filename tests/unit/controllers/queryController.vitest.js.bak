@@ -5,7 +5,6 @@
 import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
 import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
 import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
-import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
 import express from 'express';
 import request from 'supertest';
 import { v4 as uuidv4 } from 'uuid';

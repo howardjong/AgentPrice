@@ -5,12 +5,12 @@
  * need for internet-connected information, and current service health.
  */
 
-const claudeService = require('./claudeService');
-const perplexityService = require('./perplexityService');
-const jobManager = require('./jobManager');
-const logger = require('../utils/logger');
-const { v4: uuidv4 } = require('uuid');
-const costTracker = require('../utils/costTracker');
+import claudeService from './claudeService.js';
+import perplexityService, { SONAR_MODELS } from './perplexityService.js';
+import jobManager from './jobManager.js';
+import logger from '../utils/logger.js';
+import { v4 as uuidv4 } from 'uuid';
+import costTracker from '../utils/costTracker.js';
 
 // Default model selections
 const MODELS = {
@@ -23,10 +23,10 @@ const MODELS = {
   },
   // Perplexity models
   perplexity: {
-    default: perplexityService.SONAR_MODELS.small,
-    highQuality: perplexityService.SONAR_MODELS.large,
-    standard: perplexityService.SONAR_MODELS.small,
-    fast: perplexityService.SONAR_MODELS.small,
+    default: SONAR_MODELS.small,
+    highQuality: SONAR_MODELS.large,
+    standard: SONAR_MODELS.small,
+    fast: SONAR_MODELS.small,
   }
 };
 
@@ -510,7 +510,7 @@ function getHealthStatus() {
   };
 }
 
-module.exports = {
+export default {
   processText,
   processConversation,
   processMultimodal,

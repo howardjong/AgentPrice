@@ -7,7 +7,6 @@
 import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
 import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
 import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
-import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
 
 // Mock all of the fs module with inline data to avoid hoisting issues
 vi.mock('fs', () => ({

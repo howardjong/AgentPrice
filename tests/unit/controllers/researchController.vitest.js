@@ -4,6 +4,9 @@
  * This file replaces complex test patterns with simpler approaches to avoid eval() usage
  */
 import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
+import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
+import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
+import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
 import express from 'express';
 import request from 'supertest'
 import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;

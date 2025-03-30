@@ -2,11 +2,13 @@
  * Service Router Unit Tests
  */
 import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
-import { serviceRouter } from '../../../server/services/router';
+import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
+import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
+import serviceRouter from '../../../services/serviceRouter.js';
 
 // Import dependencies to mock
-import { claudeService } from '../../../server/services/claude';
-import { perplexityService } from '../../../server/services/perplexity';
+import claudeService from '../../../services/claudeService.js';
+import perplexityService from '../../../services/perplexityService.js';
 import logger from '../../../utils/logger.js';
 
 // Mock dependencies
@@ -19,43 +21,26 @@ vi.mock('../../../utils/logger.js', () => ({
   }
 }));
 
-vi.mock('../../../server/services/claude', () => ({
-  claudeService: {
+vi.mock('../../../services/claudeService.js', () => ({
+  default: {
     processConversation: vi.fn().mockResolvedValue({
       status: 'success',
       message: 'Claude processed the message',
-      response: 'Claude response'
+      data: { content: 'Claude response' }
     })
   }
 }));
 
-vi.mock('../../../server/services/perplexity', () => {
-  const sonarModels = {
-    small: 'llama-3.1-sonar-small-128k-online',
-    large: 'llama-3.1-sonar-large-128k-online',
-    huge: 'llama-3.1-sonar-huge-128k-online'
-  };
-  
-  return {
-    perplexityService: {
-      isConnected: true,  // Keep for backward compatibility
-      getStatus: vi.fn().mockReturnValue({
-        service: 'Perplexity API',
-        status: 'connected',
-        lastUsed: null,
-        version: 'sonar',
-        error: undefined
-      }),
-      performResearch: vi.fn().mockResolvedValue({
-        status: 'success',
-        message: 'Perplexity performed research',
-        response: 'Perplexity response',
-        citations: []
-      })
-    },
-    SONAR_MODELS: sonarModels
-  };
-});
+vi.mock('../../../services/perplexityService.js', () => ({
+  default: {
+    isConnected: true,
+    performResearch: vi.fn().mockResolvedValue({
+      status: 'success',
+      message: 'Perplexity performed research',
+      data: { content: 'Perplexity response', citations: [] }
+    })
+  }
+}));
 
 // Helper function to log test progress and memory usage
 const traceTest = (testName) => {
@@ -98,13 +83,9 @@ describe('ServiceRouter', () => {
     
     it('should fall back to claude when perplexity is explicitly requested but unavailable', () => {
       traceTest('should fall back to claude when perplexity is explicitly requested but unavailable');
-      // Mock getStatus to return disconnected
-      perplexityService.getStatus.mockReturnValueOnce({
-        service: 'Perplexity API',
-        status: 'disconnected',
-        lastUsed: null,
-        version: 'sonar',
-        error: 'API key not configured'
+      // Set isConnected to false
+      Object.defineProperty(perplexityService, 'isConnected', {
+        value: false
       });
       
       const result = serviceRouter.determineService('any message', 'perplexity');
@@ -152,13 +133,9 @@ describe('ServiceRouter', () => {
     
     it('should automatically route to claude when perplexity is unavailable', () => {
       traceTest('should automatically route to claude when perplexity is unavailable');
-      // Mock getStatus to return disconnected
-      perplexityService.getStatus.mockReturnValueOnce({
-        service: 'Perplexity API',
-        status: 'disconnected',
-        lastUsed: null,
-        version: 'sonar',
-        error: 'API key not configured'
+      // Set isConnected to false
+      Object.defineProperty(perplexityService, 'isConnected', {
+        value: false
       });
       
       const result = serviceRouter.determineService('search for the latest news');
@@ -217,13 +194,9 @@ describe('ServiceRouter', () => {
     
     it('should fall back to claude with enhanced instructions when perplexity is unavailable', async () => {
       traceTest('should fall back to claude with enhanced instructions when perplexity is unavailable');
-      // Mock getStatus to return disconnected
-      perplexityService.getStatus.mockReturnValueOnce({
-        service: 'Perplexity API',
-        status: 'disconnected',
-        lastUsed: null,
-        version: 'sonar',
-        error: 'API key not configured'
+      // Set isConnected to false
+      Object.defineProperty(perplexityService, 'isConnected', {
+        value: false
       });
       
       const messages = [
