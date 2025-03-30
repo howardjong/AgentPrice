@@ -101,6 +101,15 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 
 ## Recent Progress
 
+### March 30, 2025 (latest)
+- Resolved module compatibility issues by standardizing on ES modules:
+  - Converted claudeService.js from CommonJS to ES modules
+  - Fixed perplexityService.js exports to use consistent ES module syntax
+  - Updated server/routes.ts imports to use namespace imports for ES modules
+  - Resolved "not provide an export named 'default'" errors in imports
+  - Successfully restarted the application with proper ES module compatibility
+  - Documented proper patterns for ES module imports and exports
+  - Added considerations for mocking ES modules in future tests
 
 ### March 30, 2025 at 03:57 AM
 - Applied time testing improvements to 17 test files:
@@ -306,5 +315,9 @@ This document tracks the progress of migrating Jest unit tests to Vitest.
 13. ✅ Update the test scripts to better handle error cases and promise rejections
 14. ✅ Add workarounds for performance.now mocking in time-sensitive tests
 15. ✅ Complete integration tests to cover the skipped mockJobManager functionality (9 tests passing)
-16. ⬜ Catalog ES module vs CommonJS specific patterns that caused issues in the migration
+16. 🟢 Catalog ES module vs CommonJS specific patterns that caused issues in the migration
+    - ✅ Converted claudeService.js from CommonJS to ES modules
+    - ✅ Fixed perplexityService.js module exports
+    - ✅ Updated routes.ts imports to use namespace imports for ES modules
+    - ✅ Documented module export/import patterns for complex services
 17. ⬜ Consider adding these workflow-focused tests to the test-single-query-workflow Replit workflow

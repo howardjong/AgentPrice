@@ -4,13 +4,13 @@
  * Handles deep research operations and manages long-running research jobs
  */
 
-const { v4: uuidv4 } = require('uuid');
-const claudeService = require('./claudeService');
-const perplexityService = require('./perplexityService');
-const jobManager = require('./jobManager');
-const logger = require('../utils/logger');
-const path = require('path');
-const fs = require('fs/promises');
+import { v4 as uuidv4 } from 'uuid';
+import * as claudeService from './claudeService.js';
+import * as perplexityService from './perplexityService.js';
+import * as jobManager from './jobManager.js';
+import logger from '../utils/logger.js';
+import path from 'path';
+import * as fs from 'fs/promises';
 
 // Directory for saving research results
 const RESEARCH_DIR = process.env.RESEARCH_DIR || 'reports';
@@ -392,7 +392,7 @@ async function getResearchReport(reportId) {
   }
 }
 
-module.exports = {
+export {
   initialize,
   startResearchJob,
   getResearchStatus,

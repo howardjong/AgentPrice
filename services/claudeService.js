@@ -4,12 +4,12 @@
  * This service provides an interface to Anthropic's Claude AI models
  */
 
-const Anthropic = require('@anthropic-ai/sdk');
-const { v4: uuidv4 } = require('uuid');
-const logger = require('../utils/logger');
-const CircuitBreaker = require('../utils/circuitBreaker');
-const RobustAPIClient = require('../utils/apiClient');
-const costTracker = require('../utils/costTracker');
+import Anthropic from '@anthropic-ai/sdk';
+import { v4 as uuidv4 } from 'uuid';
+import logger from '../utils/logger.js';
+import CircuitBreaker from '../utils/circuitBreaker.js';
+import RobustAPIClient from '../utils/apiClient.js';
+import * as costTracker from '../utils/costTracker.js';
 
 // the newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
 const DEFAULT_MODEL = 'claude-3-7-sonnet-20250219';
@@ -284,7 +284,7 @@ function getHealthStatus() {
   };
 }
 
-module.exports = {
+export {
   processText,
   processMultimodal,
   processConversation,

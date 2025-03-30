@@ -5,9 +5,9 @@
  * It automatically delegates to mockJobManager when in development/test mode.
  */
 
-const Bull = require('bull');
-const logger = require('../utils/logger');
-const mockJobManager = require('./mockJobManager');
+import Bull from 'bull';
+import logger from '../utils/logger.js';
+import * as mockJobManager from './mockJobManager.js';
 
 // Check if we should use the mock job manager
 const USE_MOCK_JOB_MANAGER = process.env.USE_MOCK_JOB_MANAGER === 'true' || 
@@ -218,7 +218,7 @@ async function close() {
   logger.info('All job queues closed');
 }
 
-module.exports = {
+export {
   enqueueJob,
   getJobStatus,
   registerProcessor,

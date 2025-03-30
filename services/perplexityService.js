@@ -5,14 +5,14 @@
  * and handles research capabilities with online search and analysis.
  */
 
-const axios = require('axios');
-const { v4: uuidv4 } = require('uuid');
-const logger = require('../utils/logger');
-const CircuitBreaker = require('../utils/circuitBreaker');
-const RobustAPIClient = require('../utils/apiClient');
-const costTracker = require('../utils/costTracker');
-const fs = require('fs/promises');
-const path = require('path');
+import axios from 'axios';
+import { v4 as uuidv4 } from 'uuid';
+import logger from '../utils/logger.js';
+import CircuitBreaker from '../utils/circuitBreaker.js';
+import RobustAPIClient from '../utils/apiClient.js';
+import * as costTracker from '../utils/costTracker.js';
+import * as fs from 'fs/promises';
+import path from 'path';
 
 // Default model configuration
 const DEFAULT_MODEL = 'llama-3.1-sonar-small-128k-online';
@@ -457,7 +457,7 @@ function getHealthStatus() {
   };
 }
 
-module.exports = {
+export {
   processWebQuery,
   processConversation,
   conductDeepResearch,

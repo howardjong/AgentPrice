@@ -9,9 +9,9 @@ import { claudeService } from "./services/claude";
 import { perplexityService } from "./services/perplexity";
 import { serviceRouter } from "./services/router";
 // @ts-ignore - Ignore missing type definitions for research services
-import { researchService } from "../services/researchService.js";
+import * as researchService from "../services/researchService.js";
 // @ts-ignore - Ignore missing type definitions for job manager
-import { jobManager } from "../services/jobManager.js";
+import * as jobManager from "../services/jobManager.js";
 import { 
   chatMessageSchema, 
   visualizeSchema,
@@ -1846,23 +1846,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   function broadcastResearchProgress(jobId: string, progress: number, status: string) {
-    const message: WebSocketMessage = {
+    broadcastMessage({
       type: 'research_progress',
       timestamp: Date.now(),
       jobId,
       progress,
       status
-    };
-    broadcastMessage(message);
+    });
   }
   
   function broadcastOptimizationStatus(status: any) {
-    const message: WebSocketMessage = {
+    broadcastMessage({
       type: 'optimization_status',
       timestamp: Date.now(),
       ...status
-    };
-    broadcastMessage(message);
+    });
   }
   
 

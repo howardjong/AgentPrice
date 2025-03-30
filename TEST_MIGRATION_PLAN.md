@@ -228,4 +228,8 @@ Our test migration will be considered successful when:
 9. ✅ Implement integration tests for skipped mockJobManager functionality (9 tests passing)
 10. ✅ Update test scripts to better handle error cases and promise rejections
 11. ✅ Add workarounds for performance.now mocking in time-sensitive tests
-12. ⬜ Complete migration of remaining utility tests
+12. 🟢 Complete migration of remaining utility tests
+13. ✅ Standardize service modules to use ES modules format
+    - ✅ Converted claudeService.js from CommonJS to ES modules  
+    - ✅ Fixed perplexityService.js exports to use consistent ES module syntax
+    - ✅ Updated server/routes.ts imports to use namespace imports for ES modules

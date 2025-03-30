@@ -5,8 +5,8 @@
  * and research topics for testing purposes.
  */
 
-import { initiateResearch } from './researchService.js';
-import mockJobManager from './mockJobManager.js';
+import * as researchService from './researchService.js';
+import * as mockJobManager from './mockJobManager.js';
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger.js';
 
@@ -60,7 +60,7 @@ async function initializeMockProductQuestions(options = {}) {
     } else {
       // Standard approach using initiateResearch which will use the job system
       for (const question of MOCK_PRODUCT_QUESTIONS) {
-        const result = await initiateResearch(question, {
+        const result = await researchService.startResearchJob(question, {
           generateClarifyingQuestions: true,
           origin: 'mock-initialization',
           priority: 'low', // Lower priority for mock questions
@@ -113,7 +113,7 @@ async function initializeMockResearchTopics(options = {}) {
     } else {
       // Standard approach
       for (const topic of MOCK_RESEARCH_TOPICS) {
-        const result = await initiateResearch(topic, {
+        const result = await researchService.startResearchJob(topic, {
           generateClarifyingQuestions: true,
           generateCharts: ['bar', 'pie'],
           origin: 'mock-initialization',

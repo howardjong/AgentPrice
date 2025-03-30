@@ -5,8 +5,8 @@
  * for testing and development without requiring Redis.
  */
 
-const logger = require('../utils/logger');
-const { v4: uuidv4 } = require('uuid');
+import logger from '../utils/logger.js';
+import { v4 as uuidv4 } from 'uuid';
 
 // In-memory storage for mock jobs
 const mockJobs = new Map();
@@ -264,7 +264,7 @@ function clearAllMocks() {
   logger.info('Cleared all mock job manager data');
 }
 
-module.exports = {
+export {
   enqueueJob,
   getJobStatus,
   registerProcessor,
