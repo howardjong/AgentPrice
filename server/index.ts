@@ -42,15 +42,25 @@ process.env.USE_MOCK_JOB_MANAGER = 'true';
 
 const app = express();
 
-// Enable CORS for all routes (important for Socket.io)
+// Enhanced CORS setup for WebSocket compatibility
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
+  // Allow requests from any origin
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  
+  // Allow all necessary methods
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  // Extend allowed headers for Socket.IO
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers');
+  
+  // Allow credentials
   res.header('Access-Control-Allow-Credentials', 'true');
   
+  // Set max age for preflight requests
+  res.header('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  // Handle preflight requests
   if (req.method === 'OPTIONS') {
-    // Handle preflight requests
     res.sendStatus(200);
   } else {
     next();

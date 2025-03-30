@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import io, { Socket } from 'socket.io-client';
 
 // Define types for API status data
 interface ApiService {
@@ -67,109 +68,187 @@ const SystemStatusMonitor: React.FC = () => {
   const [connected, setConnected] = useState<boolean>(false);
   const [reconnectAttempts, setReconnectAttempts] = useState<number>(0);
   
-  // Websocket connection reference
-  const wsRef = useRef<WebSocket | null>(null);
+  // Socket.IO connection reference
+  const socketRef = useRef<Socket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Connect to the WebSocket server
-  const connectWebSocket = () => {
-    // Determine the correct WebSocket protocol (wss for https, ws for http)
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
-    
+  // Connect to the Socket.IO server
+  const connectSocketIO = () => {
     // Close existing connection if it exists
-    if (wsRef.current) {
-      wsRef.current.close();
+    if (socketRef.current) {
+      socketRef.current.disconnect();
     }
     
-    // Create new WebSocket connection
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    // Create new Socket.IO connection with more robust configuration
+    const socket = io({
+      path: '/socket.io',
+      transports: ['polling', 'websocket'], // Try polling first, then upgrade
+      reconnectionAttempts: 10, // Max reconnection attempts
+      reconnectionDelay: 1000, // Initial delay (will be multiplied by backoff factor)
+      reconnectionDelayMax: 10000, // Maximum delay between reconnection attempts
+      timeout: 20000, // Connection timeout
+      autoConnect: true, // Auto-connect on instantiation
+      forceNew: true // Create a new connection instead of reusing existing
+    });
     
-    // Set up event handlers
-    ws.onopen = () => {
-      console.log('WebSocket connected');
+    socketRef.current = socket;
+    
+    // Connection events
+    socket.on('connect', () => {
+      console.log('Socket.IO connected with ID:', socket.id);
       setConnected(true);
       setReconnectAttempts(0);
       
       // Subscribe to topics we're interested in
-      ws.send(JSON.stringify({
-        type: 'subscribe',
+      socket.emit('subscribe', {
         topics: ['api-status', 'status-change', 'system_status', 'all']
-      }));
-    };
+      });
+      
+      // Request initial status
+      socket.emit('request_status');
+      socket.emit('request_api_status');
+    });
     
-    ws.onclose = () => {
-      console.log('WebSocket disconnected');
+    socket.on('connect_error', (error) => {
+      console.error('Socket.IO connection error:', error);
+      if (!connected) {
+        // Only increment reconnect attempts if we weren't connected
+        setReconnectAttempts(prev => prev + 1);
+      }
+    });
+    
+    socket.on('disconnect', (reason) => {
+      console.log('Socket.IO disconnected, reason:', reason);
       setConnected(false);
-      handleReconnect();
-    };
+      
+      // If the disconnection wasn't initiated by the client
+      if (reason !== 'io client disconnect') {
+        // Socket.IO will handle automatic reconnection
+        console.log('Socket.IO will attempt automatic reconnection');
+      }
+    });
     
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      // The onclose handler will be called after this
-    };
+    socket.on('reconnect', (attemptNumber) => {
+      console.log(`Socket.IO reconnected after ${attemptNumber} attempts`);
+      setReconnectAttempts(0);
+    });
     
-    ws.onmessage = (event) => {
+    socket.on('reconnect_attempt', (attemptNumber) => {
+      console.log(`Socket.IO reconnect attempt #${attemptNumber}`);
+      setReconnectAttempts(attemptNumber);
+    });
+    
+    socket.on('reconnect_error', (error) => {
+      console.error('Socket.IO reconnection error:', error);
+    });
+    
+    socket.on('reconnect_failed', () => {
+      console.error('Socket.IO reconnection failed after maximum attempts');
+      // Manual reconnection will be needed
+      handleManualReconnect();
+    });
+    
+    // Message handling
+    socket.on('message', (data) => {
       try {
-        const message = JSON.parse(event.data) as WebSocketMessage;
-        
         // Handle different message types
+        const message = typeof data === 'string' ? JSON.parse(data) : data;
+        
         switch (message.type) {
           case 'api-status':
+            console.log('Received API status update:', message.data);
             setApiStatus(message.data);
             break;
           
           case 'status-change':
+            console.log('Received status change:', message.data);
             setStatusChanges(prev => [message.data, ...prev].slice(0, 10)); // Keep last 10 changes
             break;
           
           case 'system_status':
+            console.log('Received system status update');
             setSystemStatus(message);
+            break;
+            
+          case 'pong':
+            console.log('Received pong response:', message);
             break;
             
           default:
             console.log('Unknown message type:', message);
         }
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+        console.error('Error parsing Socket.IO message:', error);
       }
-    };
+    });
+    
+    // Error event
+    socket.on('error', (error) => {
+      console.error('Socket.IO error:', error);
+    });
+    
+    // Set up health check ping
+    const pingInterval = setInterval(() => {
+      if (socket.connected) {
+        socket.emit('ping', { time: Date.now() });
+      }
+    }, 30000); // Every 30 seconds
+    
+    // Store the interval for cleanup
+    socket._pingInterval = pingInterval;
   };
   
-  // Handle WebSocket reconnection with exponential backoff
-  const handleReconnect = () => {
+  // Manual reconnection with exponential backoff when Socket.IO's reconnection fails
+  const handleManualReconnect = () => {
     // Clear any existing reconnect attempt
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
     }
     
-    // Calculate backoff delay (capped at 30 seconds)
+    // Calculate backoff delay (capped at 60 seconds)
     const nextAttempt = reconnectAttempts + 1;
     const reconnectDelay = Math.min(
-      30000, // Max 30 seconds
-      1000 * Math.pow(1.5, Math.min(nextAttempt, 10)) // Exponential backoff
+      60000, // Max 60 seconds
+      1000 * Math.pow(2, Math.min(nextAttempt, 10)) // Exponential backoff
     );
     
-    console.log(`Attempting to reconnect in ${reconnectDelay}ms (attempt ${nextAttempt})...`);
+    console.log(`Manually reconnecting in ${reconnectDelay}ms (attempt ${nextAttempt})...`);
     
     // Set reconnect timeout
     reconnectTimeoutRef.current = setTimeout(() => {
       setReconnectAttempts(nextAttempt);
-      connectWebSocket();
+      connectSocketIO();
     }, reconnectDelay);
   };
   
-  // Set up WebSocket connection on component mount
+  // Set up Socket.IO connection on component mount
   useEffect(() => {
-    connectWebSocket();
+    connectSocketIO();
     
-    // Clean up function to close WebSocket and clear timeouts on unmount
+    // Set up periodic status requests
+    const statusInterval = setInterval(() => {
+      if (socketRef.current && socketRef.current.connected) {
+        socketRef.current.emit('request_status');
+        socketRef.current.emit('request_api_status');
+      }
+    }, 60000); // Every minute
+    
+    // Clean up function to close Socket.IO and clear intervals/timeouts on unmount
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
+      if (socketRef.current) {
+        // Clear the ping interval
+        if (socketRef.current._pingInterval) {
+          clearInterval(socketRef.current._pingInterval);
+        }
+        
+        // Disconnect the socket
+        socketRef.current.disconnect();
       }
       
+      // Clear the status update interval
+      clearInterval(statusInterval);
+      
+      // Clear any reconnect timeout
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }

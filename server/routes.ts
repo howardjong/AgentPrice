@@ -1378,13 +1378,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       preflightContinue: false
     },
     // Add more robust transport configuration
-    transports: ['websocket', 'polling'],
-    allowUpgrades: true,
-    pingTimeout: 30000,
-    pingInterval: 15000,
+    transports: ['polling', 'websocket'], // Prefer polling first for better reliability
+    allowUpgrades: true, 
+    pingTimeout: 60000, // Increased ping timeout
+    pingInterval: 25000, // Increased ping interval
     maxHttpBufferSize: 1e6, // 1MB
     // Connection and retry options
-    connectTimeout: 45000, // Longer timeout for initial connection
+    connectTimeout: 45000 // Longer timeout for initial connection
   });
   
   // Client metadata interface
