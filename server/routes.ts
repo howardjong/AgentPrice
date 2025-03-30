@@ -8,6 +8,7 @@ import { z } from "zod";
 import { claudeService } from "./services/claude";
 import { perplexityService } from "./services/perplexity";
 import { serviceRouter } from "./services/router";
+import crypto from "crypto";
 // @ts-ignore - Ignore missing type definitions for research services
 import * as researchService from "../services/researchService.js";
 // @ts-ignore - Ignore missing type definitions for job manager
@@ -709,12 +710,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/chat', async (req: Request, res: Response) => {
     try {
       const { message, conversationId, service } = chatMessageSchema.parse(req.body);
+      const requestId = (req as any).id || crypto.randomUUID();
+
+      // Broadcast that we've received the request
+      broadcastMessage({
+        type: 'chat_status',
+        timestamp: Date.now(),
+        requestId,
+        status: 'received',
+        message: 'Query received, processing...'
+      });
 
       // Get or create a conversation
       let conversation;
       if (conversationId) {
         conversation = await storage.getConversation(conversationId);
         if (!conversation) {
+          broadcastMessage({
+            type: 'chat_status',
+            timestamp: Date.now(),
+            requestId,
+            status: 'error',
+            error: `Conversation with ID ${conversationId} not found`
+          });
           return res.status(404).json({ message: `Conversation with ID ${conversationId} not found` });
         }
       } else {
@@ -743,8 +761,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { role: 'user', content: message }
       ];
 
+      // Broadcast that we're routing the message to the appropriate service
+      broadcastMessage({
+        type: 'chat_status',
+        timestamp: Date.now(),
+        requestId,
+        status: 'processing',
+        message: 'Routing to optimal AI service...',
+        conversationId: conversation.id
+      });
+
       // Route the message to appropriate service
       const result = await serviceRouter.routeMessage(messageHistory, service);
+
+      // Broadcast that we've received a response
+      broadcastMessage({
+        type: 'chat_status',
+        timestamp: Date.now(),
+        requestId,
+        status: 'completed',
+        service: result.service,
+        message: 'Response generated successfully',
+        conversationId: conversation.id
+      });
 
       // Save the assistant message
       const assistantMessage = await storage.createMessage({
@@ -765,6 +804,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error: any) {
       console.error('Error processing chat message:', error);
+      
+      // Broadcast the error
+      broadcastMessage({
+        type: 'chat_status',
+        timestamp: Date.now(),
+        requestId: (req as any).id || 'unknown',
+        status: 'error',
+        error: error.message
+      });
+      
       res.status(500).json({ message: `Failed to process chat message: ${error.message}` });
     }
   });
