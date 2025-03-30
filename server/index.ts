@@ -87,13 +87,22 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Import resource manager
+// Import resource manager and component loader for memory optimization
 import resourceManager from '../utils/resourceManager.js';
+import componentLoader from '../utils/componentLoader.js';
 
 // Initialize required services with resource optimization
 async function initializeServices() {
   try {
-    // Start resource management
+    // Configure component loader for lazy loading
+    componentLoader.configure({
+      lazyLoad: true, 
+      preloadCritical: true,
+      enableCache: true,
+      unloadThreshold: 900000 // 15 minutes
+    });
+    
+    // Start resource management with more aggressive settings
     resourceManager.start();
     logger.info('Resource manager started');
     

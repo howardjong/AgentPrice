@@ -9,14 +9,14 @@ import logger from './logger.js';
 
 class ResourceManager {
   constructor() {
-    // Default properties
+    // Default properties with more aggressive memory settings
     this.isActive = false;
-    this.maxConcurrentRequests = 5;
-    this.poolSize = 5;
-    this.memoryThreshold = 70;
-    this.cpuThreshold = 50;
-    this.monitoringInterval = 300000; // 5 minutes
-    this.cleanupInterval = 1200000;   // 20 minutes
+    this.maxConcurrentRequests = 3;  // Reduced from 5
+    this.poolSize = 3;               // Reduced from 5
+    this.memoryThreshold = 50;       // Reduced from 70
+    this.cpuThreshold = 40;          // Reduced from 50
+    this.monitoringInterval = 180000; // 3 minutes (reduced from 5)
+    this.cleanupInterval = 600000;    // 10 minutes (reduced from 20)
     this.connectionPools = new Map();
     this.monitoringTimer = null;
     this.cleanupTimer = null;

@@ -11,12 +11,12 @@
 
 import logger from '../utils/logger.js';
 
-// Default configuration
+// Default configuration with increased intervals to reduce CPU/memory overhead
 const DEFAULT_CONFIG = {
-  healthCheckInterval: 60000, // Check health every 60 seconds
-  broadcastInterval: 30000,   // Broadcast health every 30 seconds
-  memoryWarningThreshold: 0.7, // Warning at 70% memory usage
-  memoryCriticalThreshold: 0.9 // Critical at 90% memory usage
+  healthCheckInterval: 180000, // Check health every 180 seconds (increased from 60s)
+  broadcastInterval: 120000,   // Broadcast health every 120 seconds (increased from 30s)
+  memoryWarningThreshold: 0.6, // Warning at 60% memory usage (reduced from 70%)
+  memoryCriticalThreshold: 0.8 // Critical at 80% memory usage (reduced from 90%)
 };
 
 // Health status thresholds

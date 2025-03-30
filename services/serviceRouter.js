@@ -7,7 +7,7 @@
 
 import claudeService from './claudeService.js';
 import perplexityService, { SONAR_MODELS } from './perplexityService.js';
-import jobManager from './jobManager.js';
+import * as jobManager from './jobManager.js';
 import logger from '../utils/logger.js';
 import { v4 as uuidv4 } from 'uuid';
 import costTracker from '../utils/costTracker.js';

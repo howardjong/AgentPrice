@@ -175,29 +175,42 @@ class ComponentLoader {
    * @returns {string} Full path to the component
    */
   resolveComponentPath(componentName) {
-    // Common component locations
+    // Check if this is a service
+    if (componentName.includes('Service') || 
+        componentName === 'serviceRouter' || 
+        componentName === 'jobManager' || 
+        componentName === 'initializeMockResearch' ||
+        componentName === 'researchService') {
+      return `../services/${componentName}.js`;
+    }
+    
+    // Check if this is a utility
+    if (componentName === 'logger' ||
+        componentName === 'resourceManager' ||
+        componentName === 'smartCache' ||
+        componentName === 'apiClient' ||
+        componentName === 'circuitBreaker') {
+      return `../utils/${componentName}.js`;
+    }
+    
+    // Check if this is a middleware
+    if (componentName === 'requestTracer' ||
+        componentName === 'errorHandler' ||
+        componentName === 'rateLimiter') {
+      return `../middlewares/${componentName}.js`;
+    }
+    
+    // For any other names, try common directories
     const locations = [
-      '../utils',
       '../services',
+      '../utils',
       '../models',
       '../middlewares',
       '../controllers'
     ];
     
-    // Try to find component in various directories
-    for (const location of locations) {
-      const relativePath = path.join(location, `${componentName}.js`);
-      try {
-        // This would ideally use a synchronous file check
-        // but for this implementation, we'll just return the path
-        return relativePath;
-      } catch (error) {
-        // Skip to next location
-      }
-    }
-    
-    // Default path
-    return `../utils/${componentName}.js`;
+    // Default to services directory as most components will be there
+    return `../services/${componentName}.js`;
   }
 
   /**

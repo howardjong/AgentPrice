@@ -1,5 +1,5 @@
-import { claudeService } from './claude';
-import { perplexityService } from './perplexity';
+import { claudeService } from './claude.js';
+import { perplexityService } from './perplexity.js';
 
 // Keywords that indicate a research query
 const RESEARCH_KEYWORDS = [

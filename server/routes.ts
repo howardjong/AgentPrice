@@ -5,34 +5,34 @@ import { createServer, type Server } from "http";
 import { Server as SocketIoServer } from "socket.io";
 import { storage } from "./storage";
 import { z } from "zod";
-import { claudeService } from "./services/claude";
-import { perplexityService } from "./services/perplexity";
-import { serviceRouter } from "./services/router";
 import crypto from "crypto";
-// @ts-ignore - Ignore missing type definitions for research services
-import * as researchService from "../services/researchService.js";
-// @ts-ignore - Ignore missing type definitions for job manager
-import * as jobManager from "../services/jobManager.js";
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
 import { 
   chatMessageSchema, 
   visualizeSchema,
   insertMessageSchema,
   deepResearchSchema
 } from "@shared/schema";
-// @ts-ignore - Ignore missing type definitions for initializeMockResearch module
-import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
-import { checkSystemHealth } from './services/healthCheck';
+import { ServiceRouter } from './services/router.js';
+import { claudeService } from './services/claude.js';
+import { perplexityService } from './services/perplexity.js';
+
+// Dynamic service loading with componentLoader for memory optimization
+// @ts-ignore - Ignore missing type definitions for componentLoader
+import componentLoader from '../utils/componentLoader.js';
+// @ts-ignore - Ignore missing type definitions for logger
+import logger from '../utils/logger.js';
+
+import { checkSystemHealth } from './services/healthCheck.js';
 import { 
   generateTestApiStatus, 
   generateTestSystemStatus, 
   generateStatusChange,
   generateScenarioChanges 
-} from './services/diagnostic';
-import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
-import fs from 'fs';
-import multer from 'multer';
-
+} from './services/diagnostic.js';
 // Define interfaces for service responses
 interface ClaudeResult {
   response: string;
@@ -90,7 +90,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Initialize services
+  // Note: Claude and Perplexity services are imported at the top of the file
+  logger.info('Loading Claude and Perplexity services directly');
+  
+  // Create router instance
+  const serviceRouter = new ServiceRouter();
+  
+  // Load job manager for background tasks (only when needed)
+  const jobManagerModule = await componentLoader.load('jobManager');
+  const jobManager = jobManagerModule.default || jobManagerModule;
+  
+  // Load research service for deep research capabilities
+  const researchServiceModule = await componentLoader.load('researchService');
+  const researchService = researchServiceModule.default || researchServiceModule;
+  
+  // Get initial service status
   const claudeStatus = claudeService.getStatus();
   const perplexityStatus = perplexityService.getStatus();
 
@@ -585,7 +599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Create a Bull job for the research task
+      // Create a Bull job for the research task using the exported function
       const jobId = await jobManager.enqueueJob('research', {
         query,
         conversationId: conversation?.id,
@@ -1550,12 +1564,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize mock research data (for testing purposes)
   app.post('/api/mock-init', async (req: Request, res: Response) => {
     try {
+      // Dynamically load the mock research initializer only when needed
+      logger.info('Lazy loading mock research initializer');
+      const mockResearchModule = await componentLoader.load('initializeMockResearch');
+      const { initializeAllMockResearch } = mockResearchModule;
+      
+      // Initialize mock research data with options
       const options = req.body || {};
       await initializeAllMockResearch(options);
-      res.json({ success: true, message: 'Mock research data initialized' });
+      
+      res.json({ 
+        success: true, 
+        message: 'Mock research data initialized',
+        timestamp: new Date().toISOString()
+      });
     } catch (error: any) {
-      console.error('Error initializing mock research data:', error);
-      res.status(500).json({ success: false, error: error.message });
+      logger.error('Error initializing mock research data:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
     }
   });
 
