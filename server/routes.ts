@@ -1404,6 +1404,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get health status synchronously (not a Promise)
       const healthStatus = checkSystemHealth();
       
+      // Calculate health score as a percentage (0-100)
+      // Based on memory health, API keys present, and filesystem status
+      const memoryScore = healthStatus.memory.healthy ? 40 : 10;
+      const apiKeysScore = healthStatus.apiKeys.allKeysPresent ? 30 : 
+                          (healthStatus.apiKeys.anthropic || healthStatus.apiKeys.perplexity ? 15 : 0);
+      const fileSystemScore = healthStatus.fileSystem.allDirsExist ? 30 : 10;
+      const healthScore = memoryScore + apiKeysScore + fileSystemScore;
+      
       // Send system status to the client
       io.to(socketId).emit('message', {
         type: 'system_status',
@@ -1427,7 +1435,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           enabled: true,
           tokenSavings: 0,
           tier: 'standard'
-        }
+        },
+        healthScore: healthScore // Added health score field
       });
     } catch (error) {
       console.error('Error sending system status:', error);
@@ -1672,6 +1681,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Get health status synchronously (not a Promise)
         const healthStatus = checkSystemHealth();
         
+        // Calculate health score as a percentage (0-100)
+        // Based on memory health, API keys present, and filesystem status
+        const memoryScore = healthStatus.memory.healthy ? 40 : 10;
+        const apiKeysScore = healthStatus.apiKeys.allKeysPresent ? 30 : 
+                           (healthStatus.apiKeys.anthropic || healthStatus.apiKeys.perplexity ? 15 : 0);
+        const fileSystemScore = healthStatus.fileSystem.allDirsExist ? 30 : 10;
+        const healthScore = memoryScore + apiKeysScore + fileSystemScore;
+        
         broadcastMessage({
           type: 'system_status',
           timestamp: Date.now(),
@@ -1694,7 +1711,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             enabled: true,
             tokenSavings: 0,
             tier: 'standard'
-          }
+          },
+          healthScore: healthScore // Added health score field
         });
       } catch (error) {
         console.error('Error broadcasting system status:', error);

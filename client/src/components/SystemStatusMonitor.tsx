@@ -56,6 +56,7 @@ interface SystemStatusMessage {
     tokenSavings: number;
     tier: string;
   };
+  healthScore?: number; // Added health score field
 }
 
 type WebSocketMessage = ApiStatusMessage | StatusChangeMessage | SystemStatusMessage;
@@ -194,8 +195,8 @@ const SystemStatusMonitor: React.FC = () => {
       }
     }, 30000); // Every 30 seconds
     
-    // Store the interval for cleanup
-    socket._pingInterval = pingInterval;
+    // Store the interval for cleanup (using a custom property)
+    (socket as any).pingIntervalId = pingInterval;
   };
   
   // Manual reconnection with exponential backoff when Socket.IO's reconnection fails
@@ -237,8 +238,8 @@ const SystemStatusMonitor: React.FC = () => {
     return () => {
       if (socketRef.current) {
         // Clear the ping interval
-        if (socketRef.current._pingInterval) {
-          clearInterval(socketRef.current._pingInterval);
+        if ((socketRef.current as any).pingIntervalId) {
+          clearInterval((socketRef.current as any).pingIntervalId);
         }
         
         // Disconnect the socket
