@@ -1742,6 +1742,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/diagnostic-tool', (req: Request, res: Response) => {
     res.sendFile(path.resolve('.', 'public', 'diagnostic-tool.html'));
   });
+  
+  app.get('/tools', (req: Request, res: Response) => {
+    res.sendFile(path.resolve('.', 'public', 'tools-directory.html'));
+  });
 
   // Generate test API status for simulation
   app.get('/api/diagnostic/simulate-status/:scenario', (req: Request, res: Response) => {
