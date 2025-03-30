@@ -102,6 +102,20 @@ This document tracks the progress of migrating Jest unit tests to Vitest and man
 ## Recent Progress
 
 ### March 30, 2025 (latest)
+- Implemented comprehensive Plotly visualization tests:
+  - Created plotly-visualization.vitest.js with 8 tests passing
+  - Implemented comprehensive tests for Van Westendorp price sensitivity visualizations
+  - Added tests for Conjoint Analysis chart generation
+  - Added tests for Bar Chart visualizations
+  - Included error handling tests for API failures and unknown chart types
+  - Removed need for test-plotly-integration-minimal.js by using proper mocking
+  - Added tests for generating insights from chart data
+  - Implemented tests that verify Plotly's responsive configuration
+  - Ensured visualization tests work without making real API calls
+  - Updated TEST_MIGRATION_PLAN.md and TEST_MIGRATION_PROGRESS.md to track completion
+  - Implemented the generatePlotlyVisualization function in claudeService.js
+
+### March 30, 2025 (earlier)
 - Resolved module compatibility issues by standardizing on ES modules:
   - Converted claudeService.js from CommonJS to ES modules
   - Fixed perplexityService.js exports to use consistent ES module syntax
@@ -328,8 +342,8 @@ This section tracks the progress of migrating manual tests to automated Vitest t
 | Manual Test | Vitest Test | Status | Priority | Category |
 |-------------|-------------|--------|----------|----------|
 | **Priority 1: Core Functionality Tests** |||||
-| test-plotly-integration.js | plotly-visualization.vitest.js | ⬜ Not Started | High | Chart Visualization |
-| test-plotly-integration-minimal.js | plotly-minimal.vitest.js | ⬜ Not Started | High | Chart Visualization |
+| test-plotly-integration.js | plotly-visualization.vitest.js | ✅ Completed | High | Chart Visualization |
+| test-plotly-integration-minimal.js | N/A | ✅ Eliminated | High | Covered by mocked tests in plotly-visualization.vitest.js |
 | testDeepResearch.js | deep-research-workflow.vitest.js | ⬜ Not Started | High | Research |
 | testCostOptimization.js | cost-optimization.vitest.js | ⬜ Not Started | High | Optimization |
 | apiCallOptimization.js | api-call-optimization.vitest.js | ⬜ Not Started | High | Optimization |

@@ -10,6 +10,7 @@ import logger from '../utils/logger.js';
 import CircuitBreaker from '../utils/circuitBreaker.js';
 import RobustAPIClient from '../utils/apiClient.js';
 import * as costTracker from '../utils/costTracker.js';
+import promptManager from './promptManager.js';
 
 // the newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
 const DEFAULT_MODEL = 'claude-3-7-sonnet-20250219';
@@ -284,9 +285,179 @@ function getHealthStatus() {
   };
 }
 
+/**
+ * Generate an interactive Plotly visualization configuration based on research data
+ * 
+ * @param {Object} data - The data to visualize
+ * @param {string} type - The type of visualization (bar, line, pie, van_westendorp, conjoint, etc.)
+ * @param {string} title - The title for the visualization
+ * @param {string} description - Additional context or description
+ * @returns {Promise<Object>} Plotly configuration and insights
+ */
+async function generatePlotlyVisualization(data, type, title, description) {
+  const requestId = uuidv4();
+  const model = DEFAULT_MODEL;
+  const maxTokens = 3000;
+  const temperature = 0.2; // Lower temperature for more deterministic outputs
+  
+  logger.info(`Generating ${type} visualization with Claude [${requestId}]`, { 
+    type,
+    title,
+    dataSize: JSON.stringify(data).length
+  });
+  
+  try {
+    // Get the appropriate system prompt for this visualization type
+    const promptType = `visualization/plotly/${type}`;
+    let systemPrompt;
+    
+    try {
+      systemPrompt = await promptManager.getPrompt('claude', promptType);
+      logger.debug(`Loaded visualization prompt for ${type}`);
+    } catch (promptError) {
+      logger.warn(`Failed to load specific prompt for ${type}, using default visualization prompt`, {
+        error: promptError.message
+      });
+      
+      // Use a default prompt if the specific one isn't available
+      systemPrompt = `You are an expert data visualization specialist.
+Your task is to create a Plotly.js configuration for the provided data.
+Return a JSON response with:
+1. plotlyConfig: Complete Plotly configuration with data, layout, and config objects
+2. insights: An array of 3-5 key insights derived from the data
+3. modelUsed: The model name used to generate this response
+
+Your visualization must be interactive, using Plotly's responsive features.
+For chart type "${type}", optimize the visualization for clarity and insight.`;
+    }
+    
+    const startTime = Date.now();
+    
+    // Generate the visualization code
+    const response = await circuitBreaker.execute(() => {
+      return robustAnthropicClient.execute(async () => {
+        return anthropicClient.messages.create({
+          model,
+          max_tokens: maxTokens,
+          system: systemPrompt,
+          messages: [
+            {
+              role: "user",
+              content: `
+Generate a Plotly.js visualization for the following data:
+Title: ${title}
+Description: ${description}
+Type: ${type}
+Data: ${JSON.stringify(data)}
+
+Respond with a valid JSON object containing:
+1. "plotlyConfig" (with "data", "layout", and "config" objects)
+2. "insights" (array of text insights about the data)
+3. "modelUsed" (the model name)
+
+For Van Westendorp charts, also include "pricePoints".
+For Conjoint Analysis, also include "optimalCombination".
+Make the visualization responsive and interactive.`
+            }
+          ],
+          temperature
+        });
+      });
+    });
+    
+    const duration = Date.now() - startTime;
+    
+    // Track costs for the API call
+    costTracker.trackAPIUsage({
+      service: 'anthropic',
+      model,
+      tokensUsed: response.usage?.total_tokens || 0,
+      duration,
+      purpose: 'visualization'
+    });
+    
+    logger.info(`Plotly visualization generation completed [${requestId}]`, {
+      duration,
+      tokens: response.usage?.total_tokens || 'unknown',
+      type
+    });
+    
+    // Extract and parse JSON response
+    let result;
+    try {
+      const content = response.content[0]?.text || '';
+      
+      // Try to extract JSON from the content
+      const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
+                        content.match(/```\n([\s\S]*?)\n```/) ||
+                        content.match(/\{[\s\S]*\}/);
+      
+      const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : content;
+      result = JSON.parse(jsonString);
+      
+      // Ensure the response has the expected structure
+      if (!result.plotlyConfig) {
+        result.plotlyConfig = {
+          data: [],
+          layout: { title },
+          config: { responsive: true }
+        };
+      }
+      
+      if (!result.insights || !Array.isArray(result.insights)) {
+        result.insights = ['No specific insights were generated for this visualization.'];
+      }
+      
+      result.modelUsed = response.model;
+      
+      // Add special fields based on chart type
+      if (type === 'van_westendorp' && !result.pricePoints) {
+        result.pricePoints = {
+          optimalPrice: 0,
+          indifferencePrice: 0,
+          pointOfMarginalExpensiveness: 0,
+          pointOfMarginalCheapness: 0
+        };
+      }
+      
+      if (type === 'conjoint' && !result.optimalCombination) {
+        result.optimalCombination = {};
+      }
+      
+      return result;
+    } catch (parseError) {
+      logger.error(`Error parsing Plotly visualization response [${requestId}]`, {
+        error: parseError.message,
+        content: response.content?.[0]?.text?.substring(0, 500) + '...'
+      });
+      throw new Error(`Failed to parse visualization response: ${parseError.message}`);
+    }
+  } catch (error) {
+    logger.error(`Error generating Plotly visualization [${requestId}]`, {
+      error: error.message,
+      type,
+      title
+    });
+    throw new Error(`Plotly visualization generation failed: ${error.message}`);
+  }
+}
+
+// Create default export object
+const claudeService = {
+  processText,
+  processMultimodal,
+  processConversation,
+  generatePlotlyVisualization,
+  getHealthStatus
+};
+
+export default claudeService;
+
+// Also export individual functions
 export {
   processText,
   processMultimodal,
   processConversation,
+  generatePlotlyVisualization,
   getHealthStatus
 };

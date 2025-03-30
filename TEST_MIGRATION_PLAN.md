@@ -81,7 +81,7 @@ These improvements focus on the essential tools needed for effective testing wit
 
 After establishing core infrastructure, these improvements enhance our testing capabilities.
 
-#### 4. Request/Response Recording (⬜ Not Started)
+#### 4. Request/Response Recording (⬜ Not Started) - LOW PRIORITY
 
 **Implementation Details:**
 - ⬜ Add utilities to capture and sanitize real API responses
@@ -93,7 +93,7 @@ After establishing core infrastructure, these improvements enhance our testing c
 - Reduces manual fixture creation effort
 - Ensures tests use representative data
 
-#### 5. MockServiceFactory (⬜ Not Started)
+#### 5. MockServiceFactory (⬜ Not Started) - LOW PRIORITY
 
 **Implementation Details:**
 - ⬜ Create factory class for service instantiation
@@ -105,7 +105,7 @@ After establishing core infrastructure, these improvements enhance our testing c
 - Ensures consistent service mocking
 - Reduces boilerplate in test files
 
-#### 6. Integration Test Helpers (⬜ Not Started)
+#### 6. Integration Test Helpers (⬜ Not Started) - LOW PRIORITY
 
 **Implementation Details:**
 - ⬜ Create utilities for multi-service test scenarios
@@ -153,7 +153,7 @@ These improvements focus on creating diagnostic tools for system testing and mon
 
 These longer-term improvements focus on optimizing the testing infrastructure.
 
-#### 9. Improved Error Handling and Promise Rejection (🟢 In Progress)
+#### 9. Improved Error Handling and Promise Rejection (🟢 In Progress) - HIGH PRIORITY
 
 **Implementation Details:**
 - ✅ Create comprehensive error handling best practices documentation
@@ -169,7 +169,7 @@ These longer-term improvements focus on optimizing the testing infrastructure.
 - Consistent approach to error handling across the test suite
 - Improved testing of error propagation and recovery mechanisms
 
-#### 10. Redis Cache Mocking (⬜ Not Started)
+#### 10. Redis Cache Mocking (⬜ Not Started) - MEDIUM PRIORITY
 
 **Implementation Details:**
 - ⬜ Implement in-memory cache with Redis-compatible interface
@@ -181,7 +181,7 @@ These longer-term improvements focus on optimizing the testing infrastructure.
 - No need for external Redis during testing
 - Predictable cache behavior in tests
 
-#### 10. Test Environment Configuration (⬜ Not Started)
+#### 11. Test Environment Configuration (⬜ Not Started) - LOW PRIORITY
 
 **Implementation Details:**
 - ⬜ Create configuration system for test environments
@@ -319,6 +319,6 @@ The following tests can be eliminated after proper migration to Vitest:
     - ✅ Fixed perplexityService.js exports to use consistent ES module syntax
     - ✅ Updated server/routes.ts imports to use namespace imports for ES modules
 14. 🟢 Begin migration of critical manual tests, starting with:
-    - ⬜ Create `plotly-visualization.vitest.js` from `test-plotly-integration.js`
+    - ✅ Create `plotly-visualization.vitest.js` from `test-plotly-integration.js` (8 tests passing)
     - ⬜ Create `deep-research-workflow.vitest.js` from `testDeepResearch.js`
     - ⬜ Create `cost-optimization.vitest.js` from `testCostOptimization.js`
