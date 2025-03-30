@@ -1948,7 +1948,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             tokenSavings: 0,
             tier: 'standard'
           },
-          healthScore: healthScore, // Added health score field
+          healthScore: healthScore // Added health score field
         });
       } catch (error) {
         console.error('Error broadcasting system status:', error);
