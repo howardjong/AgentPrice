@@ -40,6 +40,23 @@ const requestTracking = {
 };
 
 /**
+ * Reset all rate limiting data (primarily for testing)
+ */
+function reset() {
+  for (const provider in requestTracking) {
+    requestTracking[provider].requestTimestamps = [];
+    
+    if (provider === 'claude') {
+      requestTracking[provider].tokenCounts = [];
+      requestTracking[provider].totalTokensThisMinute = 0;
+    } else if (provider === 'perplexity') {
+      requestTracking[provider].deepResearchTimestamps = [];
+    }
+  }
+  logger.debug('Rate limiter state reset');
+}
+
+/**
  * Check if a request would exceed the rate limit for a provider
  * @param {string} provider - The API provider (claude or perplexity)
  * @param {Object} options - Additional options
@@ -222,7 +239,13 @@ function getRateLimitStats(provider) {
       timestamp => timestamp > oneHourAgo
     ).length;
     
+    // Add deepResearchLastMinute for the test
+    const deepResearchLastMinute = tracking.deepResearchTimestamps.filter(
+      timestamp => timestamp > oneMinuteAgo
+    ).length;
+    
     stats.deepResearchLastHour = deepResearchLastHour;
+    stats.deepResearchLastMinute = deepResearchLastMinute;
     stats.deepResearchUsagePercent = (deepResearchLastHour / config.deepResearchPerHour) * 100;
     stats.dailyUsagePercent = (requestsLastDay / config.requestsPerDay) * 100;
   }
@@ -278,10 +301,55 @@ function updateRateLimitConfig(provider, newConfig) {
   });
 }
 
+/**
+ * Schedule a function to run while respecting rate limits
+ * @param {Function} fn - The function to execute
+ * @param {string} provider - The API provider (claude or perplexity)
+ * @param {boolean} isDeepResearch - Whether this is a deep research request (for Perplexity)
+ * @returns {Promise<any>} - The result of the function
+ */
+async function schedule(fn, provider, isDeepResearch = false) {
+  // Check if we would exceed rate limits
+  const options = { isDeepResearch };
+  
+  // Wait until we're under the rate limit
+  await waitForRateLimit(provider, options);
+  
+  // For perplexity, ensure requests are spaced out by at least 1 second
+  const now = Date.now();
+  const tracking = requestTracking[provider] || { requestTimestamps: [] };
+  const lastRequestTime = tracking.requestTimestamps.length > 0 ? 
+    Math.max(...tracking.requestTimestamps) : 0;
+  
+  // If this is a perplexity request, ensure at least 1 second spacing between requests
+  if (provider === 'perplexity' && lastRequestTime > 0) {
+    const timeSinceLastRequest = now - lastRequestTime;
+    if (timeSinceLastRequest < 1000) {
+      const waitTime = 1000 - timeSinceLastRequest;
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+  }
+  
+  try {
+    // Execute the function
+    const result = await fn();
+    
+    // Record the request
+    recordRequest(provider, { isDeepResearch });
+    
+    return result;
+  } catch (error) {
+    logger.error(`Error in rate-limited function for ${provider}: ${error.message}`);
+    throw error;
+  }
+}
+
 export default {
   wouldExceedRateLimit,
   recordRequest,
   getRateLimitStats,
   waitForRateLimit,
-  updateRateLimitConfig
+  updateRateLimitConfig,
+  schedule,
+  reset
 };

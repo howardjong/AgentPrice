@@ -785,14 +785,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         conversationId: conversation.id
       });
 
-      // Save the assistant message
+      // Save the assistant message with proper TypeScript type handling
       const assistantMessage = await storage.createMessage({
         conversationId: conversation.id,
         role: 'assistant',
-        content: result.response,
-        service: result.service,
-        visualizationData: result.visualizationData || null,
-        citations: result.citations || null
+        content: result.response ?? "No response received",
+        service: result.service ?? "system",
+        visualizationData: result.visualizationData ?? null,
+        citations: result.citations ?? null
       });
 
       res.json({
@@ -1635,7 +1635,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const claudeStatus = healthStatus.apiKeys.anthropic ? 'connected' : 'offline';
       const perplexityStatus = healthStatus.apiKeys.perplexity ? 'connected' : 'offline';
       
-      // Send system status to the client using a properly formatted WebSocketMessage
+      // Create the system status message
       const systemStatusMessage: WebSocketMessage = {
         type: 'system_status',
         timestamp: Date.now(),
@@ -1662,8 +1662,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         healthScore: healthScore
       };
       
-      // Send to specific socket directly
-      io.to(socketId).emit('message', systemStatusMessage);
+      // Use the unified broadcast function to send to the specific client
+      broadcastMessage(systemStatusMessage, { socketId });
     } catch (error) {
       console.error('Error sending system status:', error);
     }
@@ -1727,8 +1727,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
       
-      // Send to specific socket directly
-      io.to(socketId).emit('message', apiStatusMessage);
+      // Use the unified broadcast function to send to the specific client
+      broadcastMessage(apiStatusMessage, { socketId });
     } catch (error) {
       console.error('Error sending API status:', error);
     }
@@ -1891,13 +1891,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     [key: string]: any;
   }
   
-  // Broadcast a message to all connected clients
-  function broadcastMessage(message: WebSocketMessage) {
-    // Using Socket.io rooms for efficient broadcasting
-    // Broadcast to the specific message type room and to 'all' room
-    if (io && message && message.type) {
-      io.to(message.type).to('all').emit('message', message);
+  /**
+   * Unified function to broadcast messages through WebSockets
+   * @param message The WebSocketMessage to broadcast
+   * @param options Optional parameters for specialized broadcasting
+   * @param options.roomNames Specific room names to broadcast to (defaults to message.type and 'all')
+   * @param options.socketId Specific socket ID to send to (for direct client communication)
+   */
+  function broadcastMessage(
+    message: WebSocketMessage, 
+    options?: { 
+      roomNames?: string[],
+      socketId?: string 
     }
+  ) {
+    if (!io || !message || !message.type) {
+      console.warn('Cannot broadcast: missing io, message, or message type');
+      return;
+    }
+    
+    // Case 1: Send to specific client by socket ID
+    if (options?.socketId) {
+      io.to(options.socketId).emit('message', message);
+      return;
+    }
+    
+    // Case 2: Send to specific rooms
+    if (options?.roomNames && options.roomNames.length > 0) {
+      // For Socket.io, we can pass an array of rooms directly to "in" or "to" method
+      io.to(options.roomNames).emit('message', message);
+      return;
+    }
+    
+    // Case 3: Default - broadcast to message.type room and 'all' room
+    io.to([message.type, 'all']).emit('message', message);
   }
   
   function broadcastResearchProgress(jobId: string, progress: number, status: string) {
