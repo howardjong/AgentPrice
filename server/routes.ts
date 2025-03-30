@@ -1405,18 +1405,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Socket.io helper functions
   // Function to send system status to a client
-  function sendSystemStatus(socketId: string) {
+  async function sendSystemStatus(socketId: string) {
     try {
       // Get health status synchronously (not a Promise)
       const healthStatus = checkSystemHealth();
       
       // Calculate health score as a percentage (0-100)
-      // Based on memory health, API keys present, and filesystem status
-      const memoryScore = healthStatus.memory.healthy ? 40 : 10;
-      const apiKeysScore = healthStatus.apiKeys.allKeysPresent ? 30 : 
-                          (healthStatus.apiKeys.anthropic || healthStatus.apiKeys.perplexity ? 15 : 0);
-      const fileSystemScore = healthStatus.fileSystem.allDirsExist ? 30 : 10;
-      const healthScore = memoryScore + apiKeysScore + fileSystemScore;
+      // Based on memory health, API keys present, filesystem status, and API service status
+      const memoryScore = healthStatus.memory.healthy ? 30 : 10;
+      const apiKeysScore = healthStatus.apiKeys.allKeysPresent ? 20 : 
+                          (healthStatus.apiKeys.anthropic || healthStatus.apiKeys.perplexity ? 10 : 0);
+      const fileSystemScore = healthStatus.fileSystem.allDirsExist ? 20 : 5;
+      
+      // Get current API service status from storage (if available)
+      let apiServicesScore = 30; // Default if we can't get actual status
+      try {
+        const apiStatus = await storage.getApiStatus();
+        // Need to cast string to type that includes all possible values to avoid TS errors
+        const claudeApiStatus = apiStatus.claude.status as string;
+        const perplexityApiStatus = apiStatus.perplexity.status as string;
+        
+        const claudeScore = claudeApiStatus === 'connected' ? 15 : 
+                           claudeApiStatus === 'degraded' ? 10 :
+                           claudeApiStatus === 'recovering' ? 8 : 
+                           claudeApiStatus === 'throttled' ? 5 : 0;
+        
+        const perplexityScore = perplexityApiStatus === 'connected' ? 15 : 
+                               perplexityApiStatus === 'degraded' ? 10 :
+                               perplexityApiStatus === 'recovering' ? 8 : 
+                               perplexityApiStatus === 'throttled' ? 5 : 0;
+        
+        apiServicesScore = claudeScore + perplexityScore;
+      } catch (error) {
+        console.warn('Could not get API service status for health score calculation:', error);
+      }
+      
+      const healthScore = memoryScore + apiKeysScore + fileSystemScore + apiServicesScore;
       
       // Determine API service status based on API keys
       const claudeStatus = healthStatus.apiKeys.anthropic ? 'connected' : 'offline';
@@ -1459,6 +1483,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get API status from storage
       const apiStatus = await storage.getApiStatus();
       
+      // Get health status for scoring
+      const healthStatus = checkSystemHealth();
+      
+      // Calculate API-specific health score
+      // Similar to the system health score but more focused on API services
+      const memoryScore = healthStatus.memory.healthy ? 20 : 5;
+      const apiKeysScore = healthStatus.apiKeys.allKeysPresent ? 20 : 
+                         (healthStatus.apiKeys.anthropic || healthStatus.apiKeys.perplexity ? 10 : 0);
+      
+      // Calculate API service status score
+      // Need to cast string to type that includes all possible values to avoid TS errors
+      const claudeApiStatus = apiStatus.claude.status as string;
+      const perplexityApiStatus = apiStatus.perplexity.status as string;
+      
+      const claudeScore = claudeApiStatus === 'connected' ? 30 : 
+                         claudeApiStatus === 'degraded' ? 20 :
+                         claudeApiStatus === 'recovering' ? 15 : 
+                         claudeApiStatus === 'throttled' ? 10 : 0;
+      
+      const perplexityScore = perplexityApiStatus === 'connected' ? 30 : 
+                             perplexityApiStatus === 'degraded' ? 20 :
+                             perplexityApiStatus === 'recovering' ? 15 : 
+                             perplexityApiStatus === 'throttled' ? 10 : 0;
+      
+      // Calculate final API health score
+      const apiHealthScore = memoryScore + apiKeysScore + 
+                            (claudeScore + perplexityScore) / 2; // Average API scores
+      
       // Send API status to the client with additional UI-friendly fields
       io.to(socketId).emit('message', {
         type: 'api-status',
@@ -1479,7 +1531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             uptime: 99.9 // Fixed value for UI
           },
           lastUpdated: new Date().toISOString(),
-          healthScore: 98 // Fixed value for UI
+          healthScore: Math.round(apiHealthScore) // Calculated API health score
         }
       });
     } catch (error) {
@@ -1674,7 +1726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
   
   // Schedule periodic status broadcast
-  setInterval(() => {
+  setInterval(async () => {
     // Check for stale connections
     const now = Date.now();
     clientsData.forEach((metadata, clientId) => {
@@ -1692,12 +1744,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const healthStatus = checkSystemHealth();
         
         // Calculate health score as a percentage (0-100)
-        // Based on memory health, API keys present, and filesystem status
-        const memoryScore = healthStatus.memory.healthy ? 40 : 10;
-        const apiKeysScore = healthStatus.apiKeys.allKeysPresent ? 30 : 
-                           (healthStatus.apiKeys.anthropic || healthStatus.apiKeys.perplexity ? 15 : 0);
-        const fileSystemScore = healthStatus.fileSystem.allDirsExist ? 30 : 10;
-        const healthScore = memoryScore + apiKeysScore + fileSystemScore;
+        // Based on memory health, API keys present, filesystem status, and API service status
+        const memoryScore = healthStatus.memory.healthy ? 30 : 10;
+        const apiKeysScore = healthStatus.apiKeys.allKeysPresent ? 20 : 
+                           (healthStatus.apiKeys.anthropic || healthStatus.apiKeys.perplexity ? 10 : 0);
+        const fileSystemScore = healthStatus.fileSystem.allDirsExist ? 20 : 5;
+        
+        // Get current API service status from storage (if available)
+        let apiServicesScore = 30; // Default if we can't get actual status
+        try {
+          const apiStatus = await storage.getApiStatus();
+          // Need to cast string to type that includes all possible values to avoid TS errors
+          const claudeApiStatus = apiStatus.claude.status as string;
+          const perplexityApiStatus = apiStatus.perplexity.status as string;
+          
+          const claudeScore = claudeApiStatus === 'connected' ? 15 : 
+                             claudeApiStatus === 'degraded' ? 10 :
+                             claudeApiStatus === 'recovering' ? 8 : 
+                             claudeApiStatus === 'throttled' ? 5 : 0;
+          
+          const perplexityScore = perplexityApiStatus === 'connected' ? 15 : 
+                                 perplexityApiStatus === 'degraded' ? 10 :
+                                 perplexityApiStatus === 'recovering' ? 8 : 
+                                 perplexityApiStatus === 'throttled' ? 5 : 0;
+          
+          apiServicesScore = claudeScore + perplexityScore;
+        } catch (error) {
+          console.warn('Could not get API service status for health score calculation:', error);
+        }
+        
+        const healthScore = memoryScore + apiKeysScore + fileSystemScore + apiServicesScore;
         
         // Determine API service status based on API keys
         const claudeStatus = healthStatus.apiKeys.anthropic ? 'connected' : 'offline';
@@ -1892,7 +1968,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         case 'broadcast-health':
           // Simulate a health status broadcast
           if (io) {
-            const healthScore = options?.healthScore || 98;
+            // Get actual health status first as a base
+            const healthStatus = checkSystemHealth();
+            
+            // Allow override of specific values through options
+            const memoryUsage = options?.memoryUsage || Math.round(healthStatus.memory.usagePercent * 100) / 100;
+            const memoryHealthy = options?.memoryUsage ? options.memoryUsage < 80 : healthStatus.memory.healthy;
+            const claudeStatus = options?.claudeStatus || (healthStatus.apiKeys.anthropic ? 'connected' : 'offline');
+            const perplexityStatus = options?.perplexityStatus || (healthStatus.apiKeys.perplexity ? 'connected' : 'offline');
+            
+            // Calculate dynamic health score
+            let healthScore = options?.healthScore;
+            if (!healthScore) {
+              // Use our standard health score calculation
+              const memoryScore = memoryHealthy ? 30 : 10;
+              const apiKeysScore = healthStatus.apiKeys.allKeysPresent ? 20 : 
+                                (healthStatus.apiKeys.anthropic || healthStatus.apiKeys.perplexity ? 10 : 0);
+              const fileSystemScore = healthStatus.fileSystem.allDirsExist ? 20 : 5;
+              
+              // API services score based on provided status values
+              const claudeScore = claudeStatus === 'connected' ? 15 : 
+                                claudeStatus === 'degraded' ? 10 :
+                                claudeStatus === 'recovering' ? 8 : 
+                                claudeStatus === 'throttled' ? 5 : 0;
+              
+              const perplexityScore = perplexityStatus === 'connected' ? 15 : 
+                                    perplexityStatus === 'degraded' ? 10 :
+                                    perplexityStatus === 'recovering' ? 8 : 
+                                    perplexityStatus === 'throttled' ? 5 : 0;
+              
+              // Calculate final score
+              healthScore = memoryScore + apiKeysScore + fileSystemScore + claudeScore + perplexityScore;
+            }
+            
+            // Determine overall status based on health score
             const status = healthScore > 80 ? 'healthy' : 
                           healthScore > 50 ? 'degraded' : 'critical';
             
@@ -1901,16 +2010,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
               timestamp: Date.now(),
               status,
               memory: {
-                usagePercent: options?.memoryUsage || 45.2,
-                healthy: options?.memoryUsage ? options.memoryUsage < 80 : true
+                usagePercent: memoryUsage,
+                healthy: memoryHealthy
               },
               apiServices: {
                 claude: {
-                  status: options?.claudeStatus || 'connected',
+                  status: claudeStatus,
                   requestCount: Math.floor(Math.random() * 500)
                 },
                 perplexity: {
-                  status: options?.perplexityStatus || 'connected',
+                  status: perplexityStatus,
                   requestCount: Math.floor(Math.random() * 500)
                 }
               },
@@ -1940,6 +2049,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Send a specific perplexity status update
           if (io) {
             const status = options?.status || 'connected';
+            
+            // Calculate health score based on status
+            let healthScore = options?.healthScore;
+            
+            if (!healthScore) {
+              // Status-based health score calculation if not provided
+              const healthStatus = checkSystemHealth();
+              const memoryScore = healthStatus.memory.healthy ? 20 : 5;
+              const apiKeysScore = healthStatus.apiKeys.allKeysPresent ? 20 : 
+                                (healthStatus.apiKeys.anthropic || healthStatus.apiKeys.perplexity ? 10 : 0);
+              
+              const claudeScore = 30; // Always 'connected' in this test case
+              
+              // Perplexity score based on status
+              const perplexityScore = status === 'connected' ? 30 : 
+                                    status === 'degraded' ? 20 :
+                                    status === 'recovering' ? 15 : 
+                                    status === 'throttled' ? 10 : 0;
+              
+              // Calculate final health score
+              healthScore = Math.round(memoryScore + apiKeysScore + (claudeScore + perplexityScore) / 2);
+            }
+            
             const apiStatus = {
               claude: {
                 status: 'connected',
@@ -1956,7 +2088,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 uptime: options?.uptime || 99.9
               },
               lastUpdated: new Date().toISOString(),
-              healthScore: options?.healthScore || 98
+              healthScore: healthScore
             };
             
             io.emit('message', {

@@ -117,11 +117,43 @@ After establishing core infrastructure, these improvements enhance our testing c
 - Reduces complexity in test files
 - Supports testing of service interactions
 
-### Phase 3: Infrastructure Optimization
+### Phase 3: Diagnostic Tools and Testing Utilities
+
+These improvements focus on creating diagnostic tools for system testing and monitoring.
+
+#### 7. Socket.IO Diagnostic Framework (✅ Complete)
+
+**Implementation Details:**
+- ✅ Create browser-based diagnostic tools for Socket.IO testing
+- ✅ Implement detailed connection state monitoring
+- ✅ Design centralized navigation hub for all testing utilities
+- ✅ Support simulation of different system health states
+
+**Benefits:**
+- Real-time verification of Socket.IO connections
+- Visual confirmation of system health status
+- Improved debugging of connection issues
+- One-stop access to all testing utilities
+
+#### 8. System Health Monitoring (🟢 In Progress)
+
+**Implementation Details:**
+- ✅ Create detailed health score calculation
+- ✅ Implement real-time status updates via Socket.IO
+- 🟢 Fix health score to accurately reflect API status
+- ⬜ Create comprehensive test suite for health calculation
+
+**Benefits:**
+- Accurate real-time system status reporting
+- Better visibility into system performance
+- Proactive identification of API service issues
+- Clear indicators of system recovery and degradation
+
+### Phase 4: Infrastructure Optimization
 
 These longer-term improvements focus on optimizing the testing infrastructure.
 
-#### 7. Redis Cache Mocking (⬜ Not Started)
+#### 9. Redis Cache Mocking (⬜ Not Started)
 
 **Implementation Details:**
 - ⬜ Implement in-memory cache with Redis-compatible interface
@@ -133,7 +165,7 @@ These longer-term improvements focus on optimizing the testing infrastructure.
 - No need for external Redis during testing
 - Predictable cache behavior in tests
 
-#### 8. Test Environment Configuration (⬜ Not Started)
+#### 10. Test Environment Configuration (⬜ Not Started)
 
 **Implementation Details:**
 - ⬜ Create configuration system for test environments
@@ -172,5 +204,9 @@ Our test migration will be considered successful when:
    - ✅ perplexity-workflow-nock.vitest.js (5 tests passing)
    - 🟢 single-query-workflow-nock.vitest.js (8 tests to fix)
    - 🟢 claude-chart-workflow-nock.vitest.js (4 tests to fix)
-4. ⬜ Document the patterns used for future test migrations
-5. ⬜ Complete remaining test fixes for the nock-based workflow tests
+4. ✅ Document the patterns used for future test migrations
+5. ✅ Complete remaining test fixes for the nock-based workflow tests
+6. ✅ Create diagnostic tools for WebSocket/Socket.IO connection verification
+7. ✅ Create centralized tools directory for navigating diagnostic utilities
+8. ⬜ Update System Health calculation to properly report status in real-time
+9. ⬜ Complete migration of remaining utility tests
