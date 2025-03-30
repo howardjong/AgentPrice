@@ -38,7 +38,6 @@ vi.mock('../../../server/services/perplexity', () => {
   
   return {
     perplexityService: {
-      isConnected: true,  // Keep for backward compatibility
       getStatus: vi.fn().mockReturnValue({
         service: 'Perplexity API',
         status: 'connected',
@@ -68,10 +67,13 @@ describe('ServiceRouter', () => {
   
   beforeEach(() => {
     vi.clearAllMocks();
-    // Reset perplexityService.isConnected to true for most tests
-    Object.defineProperty(perplexityService, 'isConnected', {
-      value: true,
-      writable: true
+    // Reset mocks for each test
+    perplexityService.getStatus.mockReturnValue({
+      service: 'Perplexity API',
+      status: 'connected',
+      lastUsed: null,
+      version: 'sonar',
+      error: undefined
     });
   });
   
