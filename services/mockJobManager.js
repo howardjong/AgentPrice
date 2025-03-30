@@ -1,318 +1,273 @@
 /**
  * Mock Job Manager
  * 
- * This is a simple in-memory implementation of a job queue system
- * that doesn't require Redis. It's intended for development and testing.
+ * Provides a memory-based implementation of the job manager interface
+ * for testing and development without requiring Redis.
  */
 
-import logger from '../utils/logger.js';
-import { EventEmitter } from 'events';
-import { v4 as uuidv4 } from 'uuid';
+const logger = require('../utils/logger');
+const { v4: uuidv4 } = require('uuid');
 
-class MockQueue extends EventEmitter {
-  constructor(name) {
-    super();
-    this.name = name;
-    this.jobs = new Map();
-    this.processors = [];
-    this.jobStates = new Map();  // Stores the state of each job
-    this.jobProgress = new Map(); // Stores the progress of each job
-    this.processingJobs = new Set();
-  }
+// In-memory storage for mock jobs
+const mockJobs = new Map();
+const mockQueues = new Map();
+const mockProcessors = new Map();
 
-  async add(data, options = {}) {
-    const id = options.jobId || uuidv4();
-    const job = {
-      id,
-      data,
-      timestamp: Date.now(),
-      attemptsMade: 0,
+/**
+ * Create a mock queue
+ * @param {string} name - Queue name
+ * @param {Object} options - Queue options
+ * @returns {Object} - Mock queue object
+ */
+function createMockQueue(name, options = {}) {
+  logger.info(`Creating mock queue: ${name}`);
+  
+  // Create the queue if it doesn't exist
+  if (!mockQueues.has(name)) {
+    mockQueues.set(name, {
+      name,
       options,
-      _progress: 0,
-      priority: options.priority || 0, // Add priority to the job
-      updateProgress: (percent) => {
-        job._progress = percent;
-        this.jobProgress.set(id, percent);
-        this.emit('progress', job, percent);
-      }
-    };
-
-    this.jobs.set(id, job);
-    this.jobStates.set(id, 'waiting');
-
-    logger.debug(`Added job ${id} to mock queue ${this.name}`);
-
-    // Schedule job for processing
-    setImmediate(() => this.processNextJob());
-
-    return job;
+      jobs: new Map(),
+      processors: []
+    });
   }
+  
+  return mockQueues.get(name);
+}
 
-  async getJob(id) {
-    return this.jobs.get(id);
-  }
-
-  process(concurrency, processor) {
-    if (typeof concurrency === 'function') {
-      processor = concurrency;
-      concurrency = 1;
+/**
+ * Enqueue a job in the mock job manager
+ * @param {string} queueName - Name of the queue
+ * @param {Object} data - Job data
+ * @param {Object} options - Job options
+ * @returns {Promise<string>} - Job ID
+ */
+async function enqueueJob(queueName, data, options = {}) {
+  // Create queue if it doesn't exist
+  const queue = createMockQueue(queueName);
+  
+  // Create a unique job ID
+  const jobId = options.jobId || `mock-${queueName}-${uuidv4().substring(0, 8)}`;
+  
+  // Create the job
+  const job = {
+    id: jobId,
+    data,
+    options,
+    queue: queueName,
+    timestamp: Date.now(),
+    status: 'waiting',
+    progress: 0,
+    result: null,
+    error: null,
+    processedOn: null,
+    finishedOn: null,
+    attempts: 0,
+    updateProgress: async (progress) => {
+      job.progress = progress;
+      return job;
     }
+  };
+  
+  // Store the job
+  mockJobs.set(jobId, job);
+  queue.jobs.set(jobId, job);
+  
+  // Process the job asynchronously if there are registered processors
+  setTimeout(async () => {
+    await processMockJob(queueName, jobId);
+  }, options.delay || 10); // Short delay to simulate async processing
+  
+  return jobId;
+}
 
-    this.processors.push({ processor, concurrency });
-
-    // Start processing jobs
-    setImmediate(() => this.processNextJob());
-
-    return this;
+/**
+ * Process a mock job with registered processors
+ * @param {string} queueName - Queue name
+ * @param {string} jobId - Job ID
+ * @returns {Promise<void>}
+ */
+async function processMockJob(queueName, jobId) {
+  // Get the job
+  const job = mockJobs.get(jobId);
+  if (!job) {
+    logger.warn(`Job ${jobId} not found for processing`);
+    return;
   }
-
-  async processNextJob() {
-    // Check if we have processors
-    if (this.processors.length === 0) return;
-
-    // Get the next waiting job
-    let nextJobId = null;
-    let highestPriority = Infinity;
-
-    for (const [id, state] of this.jobStates.entries()) {
-      const job = this.jobs.get(id);
-      if (state === 'waiting' && !this.processingJobs.has(id) && job.priority < highestPriority) {
-        nextJobId = id;
-        highestPriority = job.priority;
-      }
-    }
-
-
-    if (nextJobId === null) return;
-
-    // Get the job
-    const job = this.jobs.get(nextJobId);
-    if (!job) return;
-
-    // Mark job as active
-    this.jobStates.set(nextJobId, 'active');
-    this.processingJobs.add(nextJobId);
+  
+  // Get the processor for this queue
+  const processor = mockProcessors.get(queueName);
+  if (!processor) {
+    logger.info(`No processor registered for queue ${queueName}, job ${jobId} remains in waiting state`);
+    return;
+  }
+  
+  try {
+    // Update job status
+    job.status = 'active';
     job.processedOn = Date.now();
-
-    // Get a processor
-    const { processor } = this.processors[0];
-
-    try {
-      // Process the job
-      this.emit('active', job);
-
-      const done = (error, result) => {
-        this.processingJobs.delete(nextJobId);
-
-        if (error) {
-          job.attemptsMade++;
-          job.failedReason = error.message;
-
-          if (job.attemptsMade < (job.options.attempts || 3)) {
-            // Retry the job
-            this.jobStates.set(nextJobId, 'waiting');
-            logger.warn(`Job ${nextJobId} in mock queue ${this.name} failed, retrying (${job.attemptsMade}/${job.options.attempts || 3})`, {
-              error: error.message
-            });
-
-            // Add delay before retry
-            setTimeout(() => this.processNextJob(), 1000 * job.attemptsMade);
-          } else {
-            // Mark job as failed
-            this.jobStates.set(nextJobId, 'failed');
-            job.finishedOn = Date.now();
-            this.emit('failed', job, error);
-            logger.error(`Job ${nextJobId} in mock queue ${this.name} failed permanently`, {
-              error: error.message,
-              attempts: job.attemptsMade
-            });
-          }
-        } else {
-          // Mark job as completed
-          this.jobStates.set(nextJobId, 'completed');
-          job.returnvalue = result;
-          job.finishedOn = Date.now();
-          this.emit('completed', job, result);
-          logger.info(`Job ${nextJobId} in mock queue ${this.name} completed`, {
-            duration: job.finishedOn - job.processedOn
-          });
-        }
-
-        // Process next job
-        setImmediate(() => this.processNextJob());
-      };
-
-      const result = processor(job, done);
-
-      // If processor returns a promise, handle it
-      if (result instanceof Promise) {
-        result.then(
-          result => done(null, result),
-          error => done(error)
-        );
+    job.attempts += 1;
+    
+    // Process the job
+    logger.info(`Processing mock job ${jobId} in queue ${queueName}`);
+    const result = await processor(job);
+    
+    // Update job on success
+    job.status = 'completed';
+    job.finishedOn = Date.now();
+    job.result = result;
+    job.progress = 100;
+    
+    // Call success handler if provided
+    if (job.options.successHandler) {
+      try {
+        await job.options.successHandler(job);
+      } catch (handlerError) {
+        logger.warn(`Error in success handler for job ${jobId}`, {
+          error: handlerError.message
+        });
       }
-    } catch (error) {
-      // Handle synchronous errors
-      this.processingJobs.delete(nextJobId);
-      job.attemptsMade++;
-      job.failedReason = error.message;
-      this.jobStates.set(nextJobId, 'failed');
-      job.finishedOn = Date.now();
-      this.emit('failed', job, error);
-
-      logger.error(`Job ${nextJobId} in mock queue ${this.name} failed with uncaught error`, {
-        error: error.message
-      });
-
-      // Process next job
-      setImmediate(() => this.processNextJob());
+    }
+  } catch (error) {
+    // Update job on failure
+    job.status = 'failed';
+    job.finishedOn = Date.now();
+    job.error = {
+      message: error.message,
+      stack: error.stack
+    };
+    
+    logger.error(`Error processing mock job ${jobId}`, {
+      error: error.message,
+      queue: queueName
+    });
+    
+    // Call error handler if provided
+    if (job.options.errorHandler) {
+      try {
+        await job.options.errorHandler(job, error);
+      } catch (handlerError) {
+        logger.warn(`Error in error handler for job ${jobId}`, {
+          error: handlerError.message
+        });
+      }
     }
   }
+}
 
-  async getJobCounts() {
-    const counts = {
+/**
+ * Get the status of a job
+ * @param {string} jobId - Job ID
+ * @returns {Promise<Object>} - Job status
+ */
+async function getJobStatus(jobId) {
+  const job = mockJobs.get(jobId);
+  
+  if (!job) {
+    throw new Error(`Job ${jobId} not found`);
+  }
+  
+  return {
+    id: job.id,
+    status: job.status,
+    progress: job.progress,
+    result: job.result,
+    error: job.error ? job.error.message : null,
+    queueName: job.queue,
+    timestamp: job.timestamp,
+    processedOn: job.processedOn,
+    finishedOn: job.finishedOn,
+    attempts: job.attempts
+  };
+}
+
+/**
+ * Register a processor function for a queue
+ * @param {string} queueName - Queue name
+ * @param {Function} processorFn - Processor function
+ * @param {Object} options - Processor options
+ * @returns {void}
+ */
+function registerProcessor(queueName, processorFn, options = {}) {
+  // Create queue if it doesn't exist
+  createMockQueue(queueName);
+  
+  // Register the processor
+  mockProcessors.set(queueName, processorFn);
+  
+  const concurrency = options.concurrency || 1;
+  logger.info(`Registered processor for queue ${queueName} with concurrency ${concurrency}`);
+  
+  // Process any waiting jobs in this queue
+  processWaitingJobs(queueName);
+}
+
+/**
+ * Process waiting jobs in a queue
+ * @param {string} queueName - Queue name
+ */
+function processWaitingJobs(queueName) {
+  const queue = mockQueues.get(queueName);
+  if (!queue) return;
+  
+  // Find all waiting jobs for this queue
+  for (const [jobId, job] of queue.jobs.entries()) {
+    if (job.status === 'waiting') {
+      processMockJob(queueName, jobId);
+    }
+  }
+}
+
+/**
+ * Get job counts for a queue
+ * @param {string} queueName - Queue name
+ * @returns {Promise<Object>} - Job counts by status
+ */
+async function getJobCounts(queueName) {
+  const queue = mockQueues.get(queueName);
+  
+  if (!queue) {
+    return {
       waiting: 0,
       active: 0,
       completed: 0,
       failed: 0,
       delayed: 0
     };
-
-    for (const state of this.jobStates.values()) {
-      counts[state] = (counts[state] || 0) + 1;
+  }
+  
+  // Count jobs by status
+  const counts = {
+    waiting: 0,
+    active: 0,
+    completed: 0,
+    failed: 0,
+    delayed: 0
+  };
+  
+  for (const job of queue.jobs.values()) {
+    if (counts[job.status] !== undefined) {
+      counts[job.status]++;
     }
-
-    return counts;
   }
-
-  async getState() {
-    return Array.from(this.jobStates.values());
-  }
-
-  async close() {
-    this.processors = [];
-    return Promise.resolve();
-  }
+  
+  return counts;
 }
 
-class MockJobManager {
-  constructor() {
-    this.queues = {};
-    this.monitorInterval = null;
-  }
-
-  createQueue(name, options = {}) {
-    if (this.queues[name]) {
-      return this.queues[name];
-    }
-
-    logger.info(`Creating mock queue: ${name}`);
-    const queue = new MockQueue(name);
-    this.queues[name] = queue;
-    return queue;
-  }
-
-  async enqueueJob(queueName, data, options = {}) {
-    const queue = this.createQueue(queueName);
-    logger.debug(`Enqueueing job in ${queueName}`, { data });
-
-    const job = await queue.add(data, options);
-    return job.id;
-  }
-
-  async getJobStatus(queueName, jobId) {
-    const queue = this.createQueue(queueName);
-    const job = await queue.getJob(jobId);
-
-    if (!job) {
-      return { status: 'not_found' };
-    }
-
-    const state = await job.getState?.() || queue.jobStates.get(jobId) || 'unknown';
-    const progress = job._progress || queue.jobProgress.get(jobId) || 0;
-
-    return { 
-      id: job.id,
-      status: state, 
-      progress, 
-      attempts: job.attemptsMade,
-      data: job.data,
-      createdAt: job.timestamp,
-      processingTime: job.finishedOn ? job.finishedOn - job.processedOn : null,
-      waitTime: job.processedOn ? job.processedOn - job.timestamp : null
-    };
-  }
-
-  registerProcessor(queueName, processor, concurrency = 1) {
-    const queue = this.createQueue(queueName);
-
-    queue.process(concurrency, async (job, done) => {
-      try {
-        logger.info(`Processing job ${job.id} in queue ${queueName}`, { jobId: job.id });
-        const start = performance.now();
-
-        job.progress = function(percent) {
-          job.updateProgress(percent);
-        };
-
-        const result = await processor(job);
-        const duration = performance.now() - start;
-
-        logger.info(`Job ${job.id} processing completed in ${duration.toFixed(0)}ms`, { 
-          jobId: job.id,
-          duration: duration.toFixed(0)
-        });
-
-        done(null, result);
-      } catch (error) {
-        logger.error(`Error processing job ${job.id} in queue ${queueName}`, { 
-          jobId: job.id, 
-          error: error.message,
-          stack: error.stack
-        });
-        done(error);
-      }
-    });
-
-    logger.info(`Registered processor for queue ${queueName} with concurrency ${concurrency}`);
-    return queue;
-  }
-
-  startMonitoring() {
-    if (this.monitorInterval) {
-      clearInterval(this.monitorInterval);
-    }
-
-    this.monitorInterval = setInterval(async () => {
-      try {
-        for (const [queueName, queue] of Object.entries(this.queues)) {
-          const counts = await queue.getJobCounts();
-          logger.debug(`Queue ${queueName} status`, { counts });
-
-          if (counts.waiting > 100) {
-            logger.warn(`Large backlog in queue ${queueName}`, { waiting: counts.waiting });
-          }
-
-          if (counts.failed > 10) {
-            logger.warn(`High failure rate in queue ${queueName}`, { failed: counts.failed });
-          }
-        }
-      } catch (error) {
-        logger.error('Error in queue monitoring', { error: error.message });
-      }
-    }, 60000);
-  }
-
-  stop() {
-    if (this.monitorInterval) {
-      clearInterval(this.monitorInterval);
-      this.monitorInterval = null;
-    }
-
-    return Promise.all(Object.values(this.queues).map(queue => queue.close()));
-  }
+/**
+ * Clear all mock data (for testing)
+ */
+function clearAllMocks() {
+  mockJobs.clear();
+  mockQueues.clear();
+  mockProcessors.clear();
+  logger.info('Cleared all mock job manager data');
 }
 
-// Create and export a singleton instance
-const mockJobManager = new MockJobManager();
-export default mockJobManager;
+module.exports = {
+  enqueueJob,
+  getJobStatus,
+  registerProcessor,
+  getJobCounts,
+  clearAllMocks
+};

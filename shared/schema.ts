@@ -107,3 +107,54 @@ export const deepResearchSchema = z.object({
 });
 
 export type DeepResearchRequest = z.infer<typeof deepResearchSchema>;
+
+// Research Jobs schema
+export const researchJobs = pgTable("research_jobs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id"),
+  query: text("query").notNull(),
+  status: text("status").notNull().default("queued"), // 'queued', 'processing', 'completed', 'failed'
+  progress: integer("progress").default(0),
+  jobId: text("job_id").notNull(), // Bull job ID
+  options: jsonb("options"),
+  result: jsonb("result"),
+  error: text("error"),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertResearchJobSchema = createInsertSchema(researchJobs).pick({
+  userId: true,
+  query: true,
+  jobId: true,
+  options: true,
+});
+
+export type InsertResearchJob = z.infer<typeof insertResearchJobSchema>;
+export type ResearchJob = typeof researchJobs.$inferSelect;
+
+// Research Reports schema
+export const researchReports = pgTable("research_reports", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").notNull(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  summary: text("summary"),
+  citations: jsonb("citations"),
+  followUpQuestions: jsonb("follow_up_questions"),
+  filePath: text("file_path"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertResearchReportSchema = createInsertSchema(researchReports).pick({
+  jobId: true,
+  title: true,
+  content: true,
+  summary: true,
+  citations: true,
+  followUpQuestions: true,
+  filePath: true,
+});
+
+export type InsertResearchReport = z.infer<typeof insertResearchReportSchema>;
+export type ResearchReport = typeof researchReports.$inferSelect;

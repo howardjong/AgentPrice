@@ -8,7 +8,7 @@
 
 import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import { setTimeout } from 'timers/promises'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../../../utils/time-testing-utils.js';
+import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '@test-utils/time-testing-utils.js';
 
 // Store original env to restore after tests
 const originalEnv = { ...process.env };
@@ -68,7 +68,7 @@ describe('jobManager Integration Tests', () => {
     Object.defineProperty(process.env, 'USE_MOCK_JOB_MANAGER', { value: 'true' });
     
     // First import mock job manager to spy on it
-    const { default: mockJobManager } = await import('../../../services/mockJobManager.js');
+    const { default: mockJobManager } = await import('@services/mockJobManager.js');
     
     // Add spies to track method calls
     vi.spyOn(mockJobManager, 'enqueueJob').mockImplementation(async (...args) => {
@@ -82,7 +82,7 @@ describe('jobManager Integration Tests', () => {
     });
     
     // Now import job manager which should use the mock implementation
-    const { default: jobManager } = await import('../../../services/jobManager.js');
+    const { default: jobManager } = await import('@services/jobManager.js');
     
     // Perform operations with job manager
     const jobId = await jobManager.enqueueJob('test-queue', { data: 'test' });
@@ -120,12 +120,12 @@ describe('jobManager Integration Tests', () => {
     });
     
     // Also import mockJobManager to verify it's NOT used
-    const { default: mockJobManager } = await import('../../../services/mockJobManager.js');
+    const { default: mockJobManager } = await import('@services/mockJobManager.js');
     vi.spyOn(mockJobManager, 'enqueueJob');
     vi.spyOn(mockJobManager, 'getJobStatus');
     
     // Now import job manager which should use the real implementation
-    const { default: jobManager } = await import('../../../services/jobManager.js');
+    const { default: jobManager } = await import('@services/jobManager.js');
     
     // Perform operations with job manager
     const jobId = await jobManager.enqueueJob('test-queue', { data: 'test' });
@@ -145,7 +145,7 @@ describe('jobManager Integration Tests', () => {
     Object.defineProperty(process.env, 'USE_MOCK_JOB_MANAGER', { value: 'true' });
     
     // First import mock job manager to spy on it
-    const { default: mockJobManager } = await import('../../../services/mockJobManager.js');
+    const { default: mockJobManager } = await import('@services/mockJobManager.js');
     
     // Add spies to track method calls
     vi.spyOn(mockJobManager, 'completeJob').mockImplementation(async (...args) => {
@@ -154,7 +154,7 @@ describe('jobManager Integration Tests', () => {
     });
     
     // Now import job manager which should use the mock implementation
-    const { default: jobManager } = await import('../../../services/jobManager.js');
+    const { default: jobManager } = await import('@services/jobManager.js');
     
     // Complete a job
     const result = await jobManager.completeJob('test-job-id', { result: 'success' });
@@ -174,11 +174,11 @@ describe('jobManager Integration Tests', () => {
     Object.defineProperty(process.env, 'USE_MOCK_JOB_MANAGER', { value: 'true' });
     
     // First import mock job manager to spy on it
-    const { default: mockJobManager } = await import('../../../services/mockJobManager.js');
+    const { default: mockJobManager } = await import('@services/mockJobManager.js');
     vi.spyOn(mockJobManager, 'enqueueJob');
     
     // Mock logger to verify rate limiting was applied
-    vi.mock('../../../utils/logger.js', () => ({
+    vi.mock('@utils/logger.js', () => ({
       default: {
         info: vi.fn(),
         error: vi.fn(),
@@ -188,10 +188,10 @@ describe('jobManager Integration Tests', () => {
     }));
     
     // Import logger to check if rate limiting was logged
-    const logger = (await import('../../../utils/logger.js')).default;
+    const logger = (await import('@utils/logger.js')).default;
     
     // Now import job manager which should use the mock implementation
-    const { default: jobManager } = await import('../../../services/jobManager.js');
+    const { default: jobManager } = await import('@services/jobManager.js');
     
     // Enqueue a job that should trigger rate limiting
     await jobManager.enqueueJob('deep-research', { 
@@ -213,11 +213,11 @@ describe('jobManager Integration Tests', () => {
     Object.defineProperty(process.env, 'USE_MOCK_JOB_MANAGER', { value: 'true' });
     
     // First import mock job manager to spy on it
-    const { default: mockJobManager } = await import('../../../services/mockJobManager.js');
+    const { default: mockJobManager } = await import('@services/mockJobManager.js');
     vi.spyOn(mockJobManager, 'registerProcessor');
     
     // Now import job manager which should use the mock implementation
-    const { default: jobManager } = await import('../../../services/jobManager.js');
+    const { default: jobManager } = await import('@services/jobManager.js');
     
     // Define a processor function
     const processor = async (job) => {
@@ -239,13 +239,13 @@ describe('jobManager Integration Tests', () => {
     Object.defineProperty(process.env, 'USE_MOCK_JOB_MANAGER', { value: 'true' });
     
     // First import mock job manager to spy on it
-    const { default: mockJobManager } = await import('../../../services/mockJobManager.js');
+    const { default: mockJobManager } = await import('@services/mockJobManager.js');
     
     // Make getJobStatus reject with an error
     vi.spyOn(mockJobManager, 'getJobStatus').mockRejectedValue(new Error('Test error'));
     
     // Now import job manager which should use the mock implementation
-    const { default: jobManager } = await import('../../../services/jobManager.js');
+    const { default: jobManager } = await import('@services/jobManager.js');
     
     // Attempt to get status of job, should reject
     await expect(jobManager.getJobStatus('any-id')).rejects.toThrow('Test error');
@@ -259,8 +259,8 @@ describe('jobManager Integration Tests', () => {
     Object.defineProperty(process.env, 'USE_MOCK_JOB_MANAGER', { value: 'true' });
     
     // First import both modules to establish references
-    const { default: mockJobManager } = await import('../../../services/mockJobManager.js');
-    const { default: jobManagerModule } = await import('../../../services/jobManager.js');
+    const { default: mockJobManager } = await import('@services/mockJobManager.js');
+    const { default: jobManagerModule } = await import('@services/jobManager.js');
     
     // Add spies to track method calls
     vi.spyOn(mockJobManager, 'enqueueJob').mockImplementation(async (queueName, data) => {
@@ -280,7 +280,7 @@ describe('jobManager Integration Tests', () => {
     
     // First test with mock job manager
     Object.defineProperty(process.env, 'USE_MOCK_JOB_MANAGER', { value: 'true' });
-    const { default: jobManagerMock } = await import('../../../services/jobManager.js');
+    const { default: jobManagerMock } = await import('@services/jobManager.js');
     
     // Reset modules for clean state
     vi.resetModules();
@@ -300,7 +300,7 @@ describe('jobManager Integration Tests', () => {
       }))
     }));
     
-    const { default: jobManagerReal } = await import('../../../services/jobManager.js');
+    const { default: jobManagerReal } = await import('@services/jobManager.js');
     
     // Verify both expose the same methods
     expect(Object.keys(jobManagerMock)).toEqual(Object.keys(jobManagerReal));
@@ -318,11 +318,11 @@ describe('jobManager Integration Tests', () => {
     Object.defineProperty(process.env, 'USE_MOCK_JOB_MANAGER', { value: 'true' });
     
     // First import mock job manager to spy on it
-    const { default: mockJobManager } = await import('../../../services/mockJobManager.js');
+    const { default: mockJobManager } = await import('@services/mockJobManager.js');
     vi.spyOn(mockJobManager, 'enqueueJob');
     
     // Now import job manager which should use the mock implementation
-    const { default: jobManager } = await import('../../../services/jobManager.js');
+    const { default: jobManager } = await import('@services/jobManager.js');
     
     // Define custom job options
     const customOptions = {

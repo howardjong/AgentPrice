@@ -1,0 +1,567 @@
+import express, { type Express, Request, Response } from "express";
+import { createServer, type Server } from "http";
+import { Server as SocketIoServer } from "socket.io";
+import { storage } from "./storage";
+import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
+
+// Import our services
+const claudeService = require('../services/claudeService');
+const perplexityService = require('../services/perplexityService');
+const serviceRouter = require('../services/serviceRouter');
+const researchService = require('../services/researchService');
+const jobManager = require('../services/jobManager');
+
+// Define multer storage for file uploads
+const multerStorage = multer.diskStorage({
+  destination: function (req: any, file: any, cb: any) {
+    // Create uploads directory if it doesn't exist
+    const uploadsDir = path.resolve('./uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    cb(null, uploadsDir);
+  },
+  filename: function (req: any, file: any, cb: any) {
+    // Generate unique filename with timestamp
+    const uniqueFilename = `${Date.now()}-${uuidv4().slice(0, 8)}-${file.originalname}`;
+    cb(null, uniqueFilename);
+  }
+});
+
+const upload = multer({ 
+  storage: multerStorage,
+  limits: {
+    fileSize: 1024 * 1024 * 10, // 10MB max file size
+  }
+});
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize services
+  try {
+    await researchService.initialize();
+    console.log('Research service initialized');
+  } catch (error: any) {
+    console.error('Failed to initialize research service:', error.message);
+  }
+  
+  // Create HTTP server
+  const httpServer = createServer(app);
+  
+  // Create Socket.IO server
+  const io = new SocketIoServer(httpServer, {
+    cors: {
+      origin: "*",
+      methods: ["GET", "POST"]
+    },
+    connectionStateRecovery: {
+      // the backup duration of the sessions and the packets
+      maxDisconnectionDuration: 2 * 60 * 1000,
+      // whether to skip middlewares upon successful recovery
+      skipMiddlewares: true,
+    }
+  });
+  
+  // Socket.IO connection handler
+  io.on('connection', (socket) => {
+    console.log(`New client connected: ${socket.id}`);
+    
+    // Send initial system status
+    socket.emit('system:status', serviceRouter.getHealthStatus());
+    
+    // Handle system health check requests
+    socket.on('system:healthCheck', async () => {
+      try {
+        const healthStatus = serviceRouter.getHealthStatus();
+        socket.emit('system:status', healthStatus);
+      } catch (error: any) {
+        console.error('Error checking system health:', error);
+        socket.emit('system:error', { message: error.message });
+      }
+    });
+    
+    // Handle text query requests
+    socket.on('query:text', async (data) => {
+      try {
+        const { text, options = {} } = data;
+        
+        // Start processing and emit an acknowledgment
+        socket.emit('query:processing', { requestId: options.requestId || uuidv4() });
+        
+        // Process the text query
+        const result = await serviceRouter.processText(text, options);
+        
+        // Emit the result
+        socket.emit('query:result', result);
+      } catch (error: any) {
+        console.error('Error processing text query:', error);
+        socket.emit('query:error', { message: error.message });
+      }
+    });
+    
+    // Handle conversation requests
+    socket.on('query:conversation', async (data) => {
+      try {
+        const { messages, options = {} } = data;
+        
+        // Start processing and emit an acknowledgment
+        socket.emit('query:processing', { requestId: options.requestId || uuidv4() });
+        
+        // Process the conversation
+        const result = await serviceRouter.processConversation(messages, options);
+        
+        // Emit the result
+        socket.emit('query:result', result);
+      } catch (error: any) {
+        console.error('Error processing conversation:', error);
+        socket.emit('query:error', { message: error.message });
+      }
+    });
+    
+    // Handle research requests
+    socket.on('research:start', async (data) => {
+      try {
+        const { query, options = {} } = data;
+        
+        // Start the research job
+        const jobResult = await serviceRouter.conductDeepResearch(query, options);
+        
+        // Emit the job details
+        socket.emit('research:jobStarted', jobResult);
+        
+        // Set up a poll to check job status and emit updates
+        const jobId = jobResult.jobId;
+        const checkInterval = setInterval(async () => {
+          try {
+            const status = await serviceRouter.getResearchStatus(jobId);
+            
+            // Emit status update
+            socket.emit('research:status', { 
+              jobId, 
+              status: status.status,
+              progress: status.progress || 0
+            });
+            
+            // If the job is completed or failed, stop polling
+            if (['completed', 'failed'].includes(status.status)) {
+              clearInterval(checkInterval);
+              
+              if (status.status === 'completed') {
+                socket.emit('research:completed', { 
+                  jobId,
+                  result: status.result
+                });
+              } else {
+                socket.emit('research:failed', { 
+                  jobId,
+                  error: status.error
+                });
+              }
+            }
+          } catch (error: any) {
+            console.error(`Error checking job ${jobId} status:`, error);
+            socket.emit('research:error', { jobId, message: error.message });
+            clearInterval(checkInterval);
+          }
+        }, 2000); // Check every 2 seconds
+        
+        // Clean up the interval when the socket disconnects
+        socket.on('disconnect', () => {
+          clearInterval(checkInterval);
+        });
+      } catch (error: any) {
+        console.error('Error starting research:', error);
+        socket.emit('research:error', { message: error.message });
+      }
+    });
+    
+    // Handle research status check requests
+    socket.on('research:checkStatus', async (data) => {
+      try {
+        const { jobId } = data;
+        const status = await serviceRouter.getResearchStatus(jobId);
+        
+        socket.emit('research:status', { 
+          jobId, 
+          status: status.status,
+          progress: status.progress || 0
+        });
+        
+        if (status.status === 'completed') {
+          socket.emit('research:completed', { 
+            jobId,
+            result: status.result
+          });
+        } else if (status.status === 'failed') {
+          socket.emit('research:failed', { 
+            jobId,
+            error: status.error
+          });
+        }
+      } catch (error: any) {
+        console.error(`Error checking research status:`, error);
+        socket.emit('research:error', { message: error.message });
+      }
+    });
+    
+    // Handle multimodal requests
+    socket.on('query:multimodal', async (data) => {
+      try {
+        const { content, options = {} } = data;
+        
+        // Start processing and emit an acknowledgment
+        socket.emit('query:processing', { requestId: options.requestId || uuidv4() });
+        
+        // Process the multimodal content
+        const result = await serviceRouter.processMultimodal(content, options);
+        
+        // Emit the result
+        socket.emit('query:result', result);
+      } catch (error: any) {
+        console.error('Error processing multimodal query:', error);
+        socket.emit('query:error', { message: error.message });
+      }
+    });
+    
+    // Handle disconnections
+    socket.on('disconnect', () => {
+      console.log(`Client disconnected: ${socket.id}`);
+    });
+  });
+  
+  // Health check endpoint
+  app.get('/api/health', (req: Request, res: Response) => {
+    try {
+      const healthStatus = serviceRouter.getHealthStatus();
+      
+      const statusCode = 
+        healthStatus.overall.status === 'operational' ? 200 :
+        healthStatus.overall.status === 'degraded' ? 200 : 503;
+      
+      res.status(statusCode).json(healthStatus);
+    } catch (error: any) {
+      console.error('Health check failed:', error);
+      res.status(500).json({
+        status: 'error',
+        message: `Health check failed: ${error.message}`,
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+  
+  // Claude service health endpoint
+  app.get('/api/health/claude', (req: Request, res: Response) => {
+    try {
+      const healthStatus = claudeService.getHealthStatus();
+      res.json(healthStatus);
+    } catch (error: any) {
+      console.error('Claude health check failed:', error);
+      res.status(500).json({
+        status: 'error',
+        message: `Claude health check failed: ${error.message}`
+      });
+    }
+  });
+  
+  // Perplexity service health endpoint
+  app.get('/api/health/perplexity', (req: Request, res: Response) => {
+    try {
+      const healthStatus = perplexityService.getHealthStatus();
+      res.json(healthStatus);
+    } catch (error: any) {
+      console.error('Perplexity health check failed:', error);
+      res.status(500).json({
+        status: 'error',
+        message: `Perplexity health check failed: ${error.message}`
+      });
+    }
+  });
+  
+  // Chat with Claude endpoint
+  app.post('/api/claude/chat', async (req: Request, res: Response) => {
+    try {
+      const { messages, options = {} } = req.body;
+      
+      if (!Array.isArray(messages)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Messages must be an array'
+        });
+      }
+      
+      const result = await claudeService.processConversation(messages, options);
+      
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('Claude chat error:', error);
+      res.status(500).json({
+        success: false,
+        message: `Claude chat failed: ${error.message}`
+      });
+    }
+  });
+  
+  // Query with Perplexity endpoint
+  app.post('/api/perplexity/query', async (req: Request, res: Response) => {
+    try {
+      const { query, options = {} } = req.body;
+      
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Query must be a non-empty string'
+        });
+      }
+      
+      const result = await perplexityService.processWebQuery(query, options);
+      
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('Perplexity query error:', error);
+      res.status(500).json({
+        success: false,
+        message: `Perplexity query failed: ${error.message}`
+      });
+    }
+  });
+  
+  // Conversation with Perplexity endpoint
+  app.post('/api/perplexity/conversation', async (req: Request, res: Response) => {
+    try {
+      const { messages, options = {} } = req.body;
+      
+      if (!Array.isArray(messages)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Messages must be an array'
+        });
+      }
+      
+      const result = await perplexityService.processConversation(messages, options);
+      
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('Perplexity conversation error:', error);
+      res.status(500).json({
+        success: false,
+        message: `Perplexity conversation failed: ${error.message}`
+      });
+    }
+  });
+  
+  // Smart router endpoint - text processing
+  app.post('/api/router/text', async (req: Request, res: Response) => {
+    try {
+      const { text, options = {} } = req.body;
+      
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Text must be a non-empty string'
+        });
+      }
+      
+      const result = await serviceRouter.processText(text, options);
+      
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('Router text processing error:', error);
+      res.status(500).json({
+        success: false,
+        message: `Router text processing failed: ${error.message}`
+      });
+    }
+  });
+  
+  // Smart router endpoint - conversation processing
+  app.post('/api/router/conversation', async (req: Request, res: Response) => {
+    try {
+      const { messages, options = {} } = req.body;
+      
+      if (!Array.isArray(messages)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Messages must be an array'
+        });
+      }
+      
+      const result = await serviceRouter.processConversation(messages, options);
+      
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('Router conversation error:', error);
+      res.status(500).json({
+        success: false,
+        message: `Router conversation processing failed: ${error.message}`
+      });
+    }
+  });
+  
+  // Multimodal processing endpoint
+  app.post('/api/router/multimodal', upload.array('files'), async (req: Request, res: Response) => {
+    try {
+      const files = req.files as Express.Multer.File[];
+      const { text, options } = req.body;
+      
+      // Create content array for multimodal processing
+      const content: any[] = [];
+      
+      // Add text content if provided
+      if (text) {
+        content.push({
+          type: 'text',
+          text
+        });
+      }
+      
+      // Add image content from uploaded files
+      if (files && files.length > 0) {
+        for (const file of files) {
+          // Read the file
+          const fileData = fs.readFileSync(file.path);
+          
+          // Convert to base64
+          const base64Data = fileData.toString('base64');
+          
+          // Add to content array
+          content.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: file.mimetype,
+              data: base64Data
+            }
+          });
+        }
+      }
+      
+      if (content.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'No content provided'
+        });
+      }
+      
+      // Process multimodal content
+      const result = await serviceRouter.processMultimodal(content, JSON.parse(options || '{}'));
+      
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('Multimodal processing error:', error);
+      res.status(500).json({
+        success: false,
+        message: `Multimodal processing failed: ${error.message}`
+      });
+    }
+  });
+  
+  // Research endpoints
+  
+  // Start a research job
+  app.post('/api/research/start', async (req: Request, res: Response) => {
+    try {
+      const { query, options = {} } = req.body;
+      
+      if (!query || typeof query !== 'string') {
+        return res.status(400).json({
+          success: false,
+          message: 'Query must be a non-empty string'
+        });
+      }
+      
+      const result = await serviceRouter.conductDeepResearch(query, options);
+      
+      res.json({
+        success: true,
+        ...result
+      });
+    } catch (error: any) {
+      console.error('Research start error:', error);
+      res.status(500).json({
+        success: false,
+        message: `Research job failed to start: ${error.message}`
+      });
+    }
+  });
+  
+  // Check research job status
+  app.get('/api/research/status/:jobId', async (req: Request, res: Response) => {
+    try {
+      const { jobId } = req.params;
+      
+      const status = await serviceRouter.getResearchStatus(jobId);
+      
+      res.json({
+        success: true,
+        jobId,
+        ...status
+      });
+    } catch (error: any) {
+      console.error('Research status check error:', error);
+      res.status(500).json({
+        success: false,
+        message: `Failed to check research status: ${error.message}`
+      });
+    }
+  });
+  
+  // List saved research reports
+  app.get('/api/research/reports', async (req: Request, res: Response) => {
+    try {
+      const reports = await researchService.listResearchReports();
+      
+      res.json({
+        success: true,
+        reports
+      });
+    } catch (error: any) {
+      console.error('List research reports error:', error);
+      res.status(500).json({
+        success: false,
+        message: `Failed to list research reports: ${error.message}`
+      });
+    }
+  });
+  
+  // Get a specific research report
+  app.get('/api/research/reports/:reportId', async (req: Request, res: Response) => {
+    try {
+      const { reportId } = req.params;
+      
+      const report = await researchService.getResearchReport(reportId);
+      
+      res.json({
+        success: true,
+        report
+      });
+    } catch (error: any) {
+      console.error('Get research report error:', error);
+      res.status(500).json({
+        success: false,
+        message: `Failed to get research report: ${error.message}`
+      });
+    }
+  });
+  
+  return httpServer;
+}

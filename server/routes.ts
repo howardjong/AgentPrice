@@ -8,10 +8,15 @@ import { z } from "zod";
 import { claudeService } from "./services/claude";
 import { perplexityService } from "./services/perplexity";
 import { serviceRouter } from "./services/router";
+// @ts-ignore - Ignore missing type definitions for research services
+import { researchService } from "../services/researchService.js";
+// @ts-ignore - Ignore missing type definitions for job manager
+import { jobManager } from "../services/jobManager.js";
 import { 
   chatMessageSchema, 
   visualizeSchema,
-  insertMessageSchema 
+  insertMessageSchema,
+  deepResearchSchema
 } from "@shared/schema";
 // @ts-ignore - Ignore missing type definitions for initializeMockResearch module
 import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
@@ -562,6 +567,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error('Error performing research:', error);
       res.status(500).json({ message: `Failed to perform research: ${error.message}` });
+    }
+  });
+  
+  // Deep Research Endpoint - uses Perplexity for in-depth, long-running research with job queue
+  app.post('/api/deep-research', async (req: Request, res: Response) => {
+    try {
+      const { query, conversationId, options } = deepResearchSchema.parse(req.body);
+      
+      // Get or create a conversation if conversationId is provided
+      let conversation;
+      if (conversationId) {
+        conversation = await storage.getConversation(conversationId);
+        if (!conversation) {
+          return res.status(404).json({ message: `Conversation with ID ${conversationId} not found` });
+        }
+      }
+      
+      // Create a Bull job for the research task
+      const jobId = await jobManager.enqueueJob('research', {
+        query,
+        conversationId: conversation?.id,
+        options
+      });
+      
+      // Create a research job record in storage
+      const researchJob = await storage.createResearchJob({
+        userId: null, // Can be updated if user authentication is implemented
+        query,
+        jobId,
+        options
+      });
+      
+      // If there's a conversation, add a system message indicating research has started
+      if (conversation) {
+        await storage.createMessage({
+          conversationId: conversation.id,
+          role: 'system',
+          content: `Deep research task started for query: "${query}". You will be notified when results are available.`,
+          service: 'system',
+          visualizationData: null,
+          citations: null
+        });
+      }
+      
+      // Return the research job record
+      res.json({
+        success: true,
+        jobId: researchJob.id,
+        bullJobId: jobId,
+        status: 'queued',
+        message: `Deep research task for "${query}" has been queued and will be processed shortly.`
+      });
+    } catch (error: any) {
+      console.error('Error starting deep research job:', error);
+      res.status(500).json({
+        success: false,
+        message: `Failed to start deep research: ${error.message}`
+      });
+    }
+  });
+  
+  // Endpoint to get research job status
+  app.get('/api/research-job/:id', async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid job ID format'
+        });
+      }
+      
+      const job = await storage.getResearchJob(id);
+      if (!job) {
+        return res.status(404).json({
+          success: false,
+          message: `Research job with ID ${id} not found`
+        });
+      }
+      
+      res.json({
+        success: true,
+        job
+      });
+    } catch (error: any) {
+      console.error('Error fetching research job:', error);
+      res.status(500).json({
+        success: false,
+        message: `Failed to fetch research job: ${error.message}`
+      });
+    }
+  });
+  
+  // Endpoint to list research jobs
+  app.get('/api/research-jobs', async (req: Request, res: Response) => {
+    try {
+      const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+      const jobs = await storage.listResearchJobs(userId);
+      
+      res.json({
+        success: true,
+        jobs
+      });
+    } catch (error: any) {
+      console.error('Error listing research jobs:', error);
+      res.status(500).json({
+        success: false,
+        message: `Failed to list research jobs: ${error.message}`
+      });
+    }
+  });
+  
+  // Endpoint to get research reports for a job
+  app.get('/api/research-reports/:jobId', async (req: Request, res: Response) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      if (isNaN(jobId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid job ID format'
+        });
+      }
+      
+      const reports = await storage.listResearchReports(jobId);
+      
+      res.json({
+        success: true,
+        reports
+      });
+    } catch (error: any) {
+      console.error('Error fetching research reports:', error);
+      res.status(500).json({
+        success: false,
+        message: `Failed to fetch research reports: ${error.message}`
+      });
     }
   });
 
@@ -1705,25 +1845,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
   
-  // Broadcast research progress updates
   function broadcastResearchProgress(jobId: string, progress: number, status: string) {
-    broadcastMessage({
+    const message: WebSocketMessage = {
       type: 'research_progress',
+      timestamp: Date.now(),
       jobId,
       progress,
-      status,
-      timestamp: Date.now()
-    });
+      status
+    };
+    broadcastMessage(message);
   }
   
-  // Broadcast system optimization status
   function broadcastOptimizationStatus(status: any) {
-    broadcastMessage({
+    const message: WebSocketMessage = {
       type: 'optimization_status',
-      status,
-      timestamp: Date.now()
-    });
+      timestamp: Date.now(),
+      ...status
+    };
+    broadcastMessage(message);
   }
+  
+
   
   // Schedule periodic status broadcast
   setInterval(async () => {

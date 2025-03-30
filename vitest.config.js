@@ -14,6 +14,15 @@ import path from 'path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname),
+      '@utils': path.resolve(__dirname, 'utils'),
+      '@services': path.resolve(__dirname, 'services'),
+      '@tests': path.resolve(__dirname, 'tests'),
+      '@test-utils': path.resolve(__dirname, 'tests/utils')
+    }
+  },
   test: {
     // Global setup/teardown
     setupFiles: ['./tests/vitest.setup.js'],
