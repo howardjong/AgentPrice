@@ -16,6 +16,12 @@ import {
 // @ts-ignore - Ignore missing type definitions for initializeMockResearch module
 import { initializeAllMockResearch } from '../services/initializeMockResearch.js';
 import { checkSystemHealth } from './services/healthCheck';
+import { 
+  generateTestApiStatus, 
+  generateTestSystemStatus, 
+  generateStatusChange,
+  generateScenarioChanges 
+} from './services/diagnostic';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
@@ -1728,5 +1734,270 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
   
   // Return server instance
+  // Diagnostic API endpoints for testing
+  app.get('/api/diagnostic/socketio-test', (req: Request, res: Response) => {
+    res.sendFile(path.resolve('.', 'public', 'socketio-diagnostic.html'));
+  });
+  
+  app.get('/diagnostic-tool', (req: Request, res: Response) => {
+    res.sendFile(path.resolve('.', 'public', 'diagnostic-tool.html'));
+  });
+
+  // Generate test API status for simulation
+  app.get('/api/diagnostic/simulate-status/:scenario', (req: Request, res: Response) => {
+    try {
+      const { scenario } = req.params;
+      const allowedScenarios = ['normal', 'degraded', 'error', 'critical', 'throttled', 'recovering'];
+      
+      if (!allowedScenarios.includes(scenario)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid scenario. Allowed values are: ${allowedScenarios.join(', ')}`
+        });
+      }
+      
+      // Generate a simulated API status
+      const simulatedStatus = generateTestApiStatus(scenario);
+      
+      // Optional: Send to Socket.IO clients
+      if (io) {
+        console.log(`Broadcasting simulated API status for scenario: ${scenario}`);
+        io.emit('message', {
+          type: 'api-status',
+          data: simulatedStatus
+        });
+      }
+      
+      return res.json({
+        success: true,
+        scenario,
+        status: simulatedStatus
+      });
+    } catch (error: any) {
+      console.error('Error simulating API status:', error);
+      return res.status(500).json({
+        success: false,
+        error: `Failed to simulate API status: ${error.message}`
+      });
+    }
+  });
+  
+  // Generate test system status for simulation
+  app.get('/api/diagnostic/simulate-system/:scenario', (req: Request, res: Response) => {
+    try {
+      const { scenario } = req.params;
+      const allowedScenarios = ['normal', 'memory-pressure', 'optimizing', 'critical'];
+      
+      if (!allowedScenarios.includes(scenario)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid scenario. Allowed values are: ${allowedScenarios.join(', ')}`
+        });
+      }
+      
+      // Generate a simulated system status
+      const simulatedStatus = generateTestSystemStatus(scenario);
+      
+      // Optional: Send to Socket.IO clients
+      if (io) {
+        console.log(`Broadcasting simulated system status for scenario: ${scenario}`);
+        io.emit('message', simulatedStatus);
+      }
+      
+      return res.json({
+        success: true,
+        scenario,
+        status: simulatedStatus
+      });
+    } catch (error: any) {
+      console.error('Error simulating system status:', error);
+      return res.status(500).json({
+        success: false,
+        error: `Failed to simulate system status: ${error.message}`
+      });
+    }
+  });
+  
+  // Generate status change events for scenarios
+  app.get('/api/diagnostic/simulate-changes/:scenario', (req: Request, res: Response) => {
+    try {
+      const { scenario } = req.params;
+      const allowedScenarios = ['recovery', 'degradation', 'failure'];
+      
+      if (!allowedScenarios.includes(scenario)) {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid scenario. Allowed values are: ${allowedScenarios.join(', ')}`
+        });
+      }
+      
+      // Generate simulated status changes
+      const statusChanges = generateScenarioChanges(scenario);
+      
+      // Optional: Send to Socket.IO clients (with delay between events)
+      if (io) {
+        console.log(`Broadcasting simulated status changes for scenario: ${scenario}`);
+        
+        // Send each change with a delay to simulate real-time updates
+        statusChanges.forEach((change, index) => {
+          setTimeout(() => {
+            io.emit('message', {
+              type: 'status-change',
+              data: change
+            });
+          }, index * 2000); // 2 second delay between events
+        });
+      }
+      
+      return res.json({
+        success: true,
+        scenario,
+        changes: statusChanges
+      });
+    } catch (error: any) {
+      console.error('Error simulating status changes:', error);
+      return res.status(500).json({
+        success: false,
+        error: `Failed to simulate status changes: ${error.message}`
+      });
+    }
+  });
+  
+  // Custom test command endpoint
+  app.post('/api/diagnostic/test-command', (req: Request, res: Response) => {
+    try {
+      const { command, options } = req.body;
+      
+      if (!command) {
+        return res.status(400).json({
+          success: false,
+          error: 'Command is required'
+        });
+      }
+      
+      // Process different test commands
+      switch (command) {
+        case 'broadcast-health':
+          // Simulate a health status broadcast
+          if (io) {
+            const healthScore = options?.healthScore || 98;
+            const status = healthScore > 80 ? 'healthy' : 
+                          healthScore > 50 ? 'degraded' : 'critical';
+            
+            const systemStatus = {
+              type: 'system_status',
+              timestamp: Date.now(),
+              status,
+              memory: {
+                usagePercent: options?.memoryUsage || 45.2,
+                healthy: options?.memoryUsage ? options.memoryUsage < 80 : true
+              },
+              apiServices: {
+                claude: {
+                  status: options?.claudeStatus || 'connected',
+                  requestCount: Math.floor(Math.random() * 500)
+                },
+                perplexity: {
+                  status: options?.perplexityStatus || 'connected',
+                  requestCount: Math.floor(Math.random() * 500)
+                }
+              },
+              optimization: {
+                enabled: true,
+                tokenSavings: Math.floor(Math.random() * 500000),
+                tier: options?.tier || 'standard'
+              },
+              healthScore
+            };
+            
+            io.emit('message', systemStatus);
+            
+            return res.json({
+              success: true,
+              message: 'System status broadcast sent',
+              systemStatus
+            });
+          } else {
+            return res.status(500).json({
+              success: false,
+              error: 'Socket.IO is not initialized'
+            });
+          }
+          
+        case 'test-perplexity-status':
+          // Send a specific perplexity status update
+          if (io) {
+            const status = options?.status || 'connected';
+            const apiStatus = {
+              claude: {
+                status: 'connected',
+                model: 'claude-3-7-sonnet-20250219',
+                responseTime: 950,
+                costPerHour: 8.5,
+                uptime: 99.8
+              },
+              perplexity: {
+                status: status,
+                model: 'sonar',
+                responseTime: options?.responseTime || 850,
+                costPerHour: 5.2,
+                uptime: options?.uptime || 99.9
+              },
+              lastUpdated: new Date().toISOString(),
+              healthScore: options?.healthScore || 98
+            };
+            
+            io.emit('message', {
+              type: 'api-status',
+              data: apiStatus
+            });
+            
+            return res.json({
+              success: true,
+              message: 'Perplexity status update sent',
+              apiStatus
+            });
+          } else {
+            return res.status(500).json({
+              success: false,
+              error: 'Socket.IO is not initialized'
+            });
+          }
+          
+        case 'ping-clients':
+          // Send a ping to all clients
+          if (io) {
+            io.emit('message', {
+              type: 'ping',
+              time: Date.now(),
+              status: 'ok'
+            });
+            
+            return res.json({
+              success: true,
+              message: 'Ping sent to all clients'
+            });
+          } else {
+            return res.status(500).json({
+              success: false,
+              error: 'Socket.IO is not initialized'
+            });
+          }
+          
+        default:
+          return res.status(400).json({
+            success: false,
+            error: `Unknown command: ${command}`
+          });
+      }
+    } catch (error: any) {
+      console.error('Error executing test command:', error);
+      return res.status(500).json({
+        success: false,
+        error: `Failed to execute test command: ${error.message}`
+      });
+    }
+  });
+
   return httpServer;
 }
