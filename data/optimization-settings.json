@@ -123,5 +123,12 @@
       "heapUsed": 8487472,
       "rss": 63553536
     }
+  },
+  "memory": {
+    "lowMemoryMode": true,
+    "aggressiveGcEnabled": true,
+    "gcInterval": 60000,
+    "maxCacheSize": 100,
+    "enableFuzzyMatch": false
   }
 }

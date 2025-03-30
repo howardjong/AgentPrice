@@ -1,5 +1,4 @@
 
-#!/usr/bin/env node
 /**
  * Aggressive Memory Relief Script
  * 
@@ -15,8 +14,8 @@ if (!global.gc) {
 }
 
 // Import required modules
-const fs = require('fs').promises;
-const path = require('path');
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 // Current memory usage
 function getMemoryUsage() {
@@ -58,43 +57,11 @@ function forceGarbageCollection(iterations = 3) {
 }
 
 // Clear all non-essential module caches to free memory
+// Note: Module cache clearing is different in ESM, we'll skip this step
 function clearModuleCaches() {
-  console.log('\n🗑️ Clearing module caches...');
-  
-  // Get a list of all cached modules
-  const cachedModules = Object.keys(require.cache);
-  let clearedCount = 0;
-  
-  // Preserve essential system modules
-  const essentialModules = [
-    'fs', 'path', 'os', 'util', 'events', 'stream',
-    'http', 'https', 'net', 'crypto', 'buffer', 'url'
-  ];
-  
-  // Clear non-essential module caches
-  for (const modulePath of cachedModules) {
-    // Skip essential modules and node_modules for safety
-    const isEssential = essentialModules.some(name => 
-      modulePath.includes(`/node_modules/${name}/`) || 
-      modulePath.includes(`\\node_modules\\${name}\\`) ||
-      modulePath.endsWith(`/${name}.js`) ||
-      modulePath.endsWith(`\\${name}.js`)
-    );
-    
-    // Only clear caches for application's own modules
-    // Skip node_modules to prevent breaking imports
-    const isApplicationModule = !modulePath.includes('node_modules') && 
-                               (modulePath.includes('/utils/') || 
-                                modulePath.includes('/services/') ||
-                                modulePath.includes('/middlewares/'));
-    
-    if (!isEssential && isApplicationModule) {
-      delete require.cache[modulePath];
-      clearedCount++;
-    }
-  }
-  
-  console.log(`Cleared ${clearedCount} module caches`);
+  console.log('\n🗑️ Module cache clearing skipped (not applicable in ESM mode)');
+  // ESM modules are cached differently and clearing isn't directly supported
+  // as it was in CommonJS with require.cache
 }
 
 // Clean temporary files in data directory
