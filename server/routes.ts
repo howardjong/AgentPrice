@@ -1418,6 +1418,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const fileSystemScore = healthStatus.fileSystem.allDirsExist ? 30 : 10;
       const healthScore = memoryScore + apiKeysScore + fileSystemScore;
       
+      // Determine API service status based on API keys
+      const claudeStatus = healthStatus.apiKeys.anthropic ? 'connected' : 'offline';
+      const perplexityStatus = healthStatus.apiKeys.perplexity ? 'connected' : 'offline';
+      
       // Send system status to the client
       io.to(socketId).emit('message', {
         type: 'system_status',
@@ -1429,11 +1433,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         apiServices: {
           claude: {
-            status: 'online',
+            status: claudeStatus,
             requestCount: 0
           },
           perplexity: {
-            status: 'online',
+            status: perplexityStatus,
             requestCount: 0
           }
         },
@@ -1695,6 +1699,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const fileSystemScore = healthStatus.fileSystem.allDirsExist ? 30 : 10;
         const healthScore = memoryScore + apiKeysScore + fileSystemScore;
         
+        // Determine API service status based on API keys
+        const claudeStatus = healthStatus.apiKeys.anthropic ? 'connected' : 'offline';
+        const perplexityStatus = healthStatus.apiKeys.perplexity ? 'connected' : 'offline';
+        
         broadcastMessage({
           type: 'system_status',
           timestamp: Date.now(),
@@ -1705,11 +1713,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           },
           apiServices: {
             claude: {
-              status: 'online',
+              status: claudeStatus,
               requestCount: 0
             },
             perplexity: {
-              status: 'online',
+              status: perplexityStatus,
               requestCount: 0
             }
           },
