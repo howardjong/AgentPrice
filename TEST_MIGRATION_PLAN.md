@@ -318,7 +318,7 @@ The following tests can be eliminated after proper migration to Vitest:
     - ✅ Converted claudeService.js from CommonJS to ES modules  
     - ✅ Fixed perplexityService.js exports to use consistent ES module syntax
     - ✅ Updated server/routes.ts imports to use namespace imports for ES modules
-14. 🟢 Begin migration of critical manual tests, starting with:
-    - ✅ Create `plotly-visualization.vitest.js` from `test-plotly-integration.js` (8 tests passing)
-    - ⬜ Create `deep-research-workflow.vitest.js` from `testDeepResearch.js`
-    - ⬜ Create `cost-optimization.vitest.js` from `testCostOptimization.js`
+14. ✅ Complete migration of critical manual tests:
+    - ✅ Created `plotly-visualization.vitest.js` from `test-plotly-integration.js` (8 tests passing)
+    - ✅ Created `deep-research-workflow.vitest.js` from `testDeepResearch.js` (3 tests passing)
+    - ✅ Created `cost-optimization.vitest.js` from `testCostOptimization.js` (17 tests passing)
