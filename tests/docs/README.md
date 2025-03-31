@@ -7,6 +7,7 @@ This directory contains comprehensive documentation related to testing in our pr
 
 - [`/guidelines`](./guidelines/README.md) - Best practices, frameworks, and guidelines for testing
 - [`/migration`](./migration/README.md) - Documentation about our Jest to Vitest test migration effort
+- [`/coverage`](./coverage/README.md) - Test coverage planning, tracking, and reporting
 
 ## Key Documentation Files
 
@@ -22,6 +23,11 @@ This directory contains comprehensive documentation related to testing in our pr
 - [Migration Plan](./migration/TEST_MIGRATION_PLAN.md) - The comprehensive plan for test migration
 - [Migration Progress](./migration/TEST_MIGRATION_PROGRESS.md) - Current progress tracking
 - [Migration Summary](./migration/summary.md) - Overview of completed migration tasks
+
+### Test Coverage
+
+- [Coverage Plan](./coverage/TEST_COVERAGE_PLAN.md) - Detailed coverage goals and implementation strategy
+- [Coverage Status](./coverage/TEST_COVERAGE_STATUS_2025-03-31.md) - Current coverage metrics and analysis
 
 ## Maintenance
 
