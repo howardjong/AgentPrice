@@ -1,169 +1,175 @@
 # Test Coverage Plan
 
-This document outlines the approach to achieve and maintain comprehensive test coverage across the Multi-LLM Research System. The goal is to ensure at least 80% coverage for branches, functions, lines, and statements.
+## Current Coverage Status
+As of March 31, 2025, our coverage metrics are:
+- Statements: 1.72%
+- Branches: 18.93%
+- Functions: 13.77% 
+- Lines: 1.72%
 
-## Coverage Requirements
+**Goal**: Achieve at least 80% coverage for branches, functions, lines, and statements through targeted test implementation.
 
-| Metric     | Target | Current | Status |
-|------------|--------|---------|--------|
-| Branches   | 80%    | TBD     | TBD    |
-| Functions  | 80%    | TBD     | TBD    |
-| Lines      | 80%    | TBD     | TBD    |
-| Statements | 80%    | TBD     | TBD    |
+## High Priority Components
+These components are the core of our application and require thorough testing first:
 
-## Priority Areas for Testing
+### 1. Service Layer (✓ = Completed, ⚠️ = In Progress, ❌ = Not Started)
 
-### 1. Service Modules
+| Component | Status | Coverage Priority | Notes |
+|-----------|--------|-------------------|-------|
+| serviceRouter.js | ⚠️ | Critical | Central component that routes requests between LLM services |
+| claudeService.js | ✓ | Critical | Handles Claude AI interactions |
+| perplexityService.js | ❌ | Critical | Manages Perplexity API for deep research |
+| healthMonitor.js | ⚠️ | High | System health monitoring and reporting |
+| jobManager.js | ❌ | High | Manages long-running job processes |
+| contextManager.js | ❌ | High | Maintains conversation context |
+| redisService.js | ⚠️ | High | Caching and persistence layer |
 
-All service modules should have corresponding test files that verify:
-- Core functionality
-- Error handling
-- Integration with other services
-- Boundary conditions
-- Performance constraints
+### 2. Controllers (✓ = Completed, ⚠️ = In Progress, ❌ = Not Started)
 
-Priority services:
-- Claude service (`server/services/claude.ts`)
-- Perplexity service (`server/services/perplexity.ts`)
-- Router service (`server/services/router.ts`)
-- Health check service (`server/services/healthCheck.ts`)
-- Diagnostic service (`server/services/diagnostic.ts`)
-- Redis service (`services/redisService.js`)
-- Context manager (`services/contextManager.js`)
-- Prompt manager (`services/promptManager.js`)
-- Job manager (`services/jobManager.js`)
-- Research service (`services/researchService.js`)
+| Component | Status | Coverage Priority | Notes |
+|-----------|--------|-------------------|-------|
+| chartsController | ❌ | Critical | Visualization generation |
+| queryController | ❌ | Critical | Handles query routing and responses |
+| researchController | ❌ | Critical | Manages research workflows |
 
-### 2. API Endpoints/Controllers
+### 3. Server & WebSocket (✓ = Completed, ⚠️ = In Progress, ❌ = Not Started)
 
-All API endpoints should have comprehensive tests that verify:
-- Request validation
-- Response formatting
-- Error handling
-- Authentication (where applicable)
-- Rate limiting (where applicable)
-- Proper storage interactions
+| Component | Status | Coverage Priority | Notes |
+|-----------|--------|-------------------|-------|
+| server/routes.ts | ⚠️ | Critical | API routing and WebSocket implementation |
+| WebSocket Integration | ⚠️ | Critical | Real-time client-server communication |
+| WebSocket Error Handling | ❌ | High | Error cases for WebSocket connections |
 
-Priority endpoints:
-- Chat/Conversation endpoint
-- Research endpoint
-- Visualization endpoint
-- Health endpoint
-- Status endpoint
-- Deep research endpoint
-- File analysis endpoint
+### 4. Utilities (✓ = Completed, ⚠️ = In Progress, ❌ = Not Started)
 
-### 3. Error Handling
+| Component | Status | Coverage Priority | Notes |
+|-----------|--------|-------------------|-------|
+| cost-optimization.js | ✓ | High | API cost reduction techniques |
+| apiClient.js | ❌ | High | API request handling and retries |
+| circuitBreaker.js | ❌ | Medium | Circuit breaker pattern for API calls |
+| promptManager.js | ❌ | Medium | Managing prompts for LLM requests |
 
-Comprehensive error handling tests should verify:
-- Invalid input handling
-- Service failure recovery
-- Circuit breaker behavior
-- Rate limit handling
-- Network error recovery
-- Timeout handling
-- Error propagation
+## Test Implementation Plan
 
-### 4. End-to-End Workflows
+### Phase 1: Core Service Tests
 
-Complete workflow tests should verify:
-- Chat workflow
-- Research workflow
-- Chart generation workflow
-- Deep research workflow
-- File analysis workflow
+1. **Service Router Tests**
+   - Test routing logic between Claude and Perplexity
+   - Test fallback mechanisms
+   - Test error handling
+   
+2. **Claude Service Tests**
+   - Test basic query functionality with mocked API
+   - Test error handling and retries
+   - Test streaming responses
+   
+3. **Perplexity Service Tests**
+   - Test deep research functionality with mocked API
+   - Test rate limiting behavior
+   - Test error handling
 
-### 5. WebSocket/Socket.IO Functionality
+### Phase 2: Controller Tests
 
-Test socket-based communication:
-- Connection establishment
-- Event broadcasting
-- Client reconnection
-- Error handling
-- Distributed event propagation
+1. **Charts Controller Tests**
+   - Test Van Westendorp chart generation
+   - Test Conjoint Analysis chart generation
+   - Test error handling for invalid data
 
-## Test Implementation Strategy
+2. **Query Controller Tests**
+   - Test query dispatching
+   - Test response formatting
+   - Test error handling
 
-### 1. Unit Tests
+3. **Research Controller Tests**
+   - Test long-running research job creation
+   - Test job status updates
+   - Test research result retrieval
 
-- Use appropriate mocking to isolate components
-- Test each function with multiple input scenarios
-- Verify both success and failure paths
-- Test boundary conditions and edge cases
+### Phase 3: WebSocket & Integration Tests
 
-### 2. Integration Tests
+1. **WebSocket Basic Tests**
+   - Test connection establishment ✓
+   - Test message broadcasting ⚠️
+   - Test client reconnection behavior
 
-- Test interactions between multiple components
-- Use controlled test environments
-- Verify data flow through multiple services
-- Test service-to-service communication
+2. **WebSocket Error Tests**
+   - Test connection failures
+   - Test timeout handling
+   - Test recovery mechanisms
 
-### 3. API Tests
+3. **Integration Tests**
+   - Test end-to-end query flow
+   - Test research workflow
+   - Test visualization generation
 
-- Test each API endpoint with valid and invalid requests
-- Verify correct status codes and response formats
-- Test with and without authentication
-- Test rate limiting behavior
+### Phase 4: Utility Tests
 
-### 4. Workflow Tests
+1. **API Client Tests**
+   - Test request retry logic
+   - Test timeout handling
+   - Test response parsing
 
-- Test complete business processes
-- Verify proper state transitions
-- Test long-running operations
-- Verify resource cleanup
+2. **Circuit Breaker Tests**
+   - Test failure threshold behavior
+   - Test recovery after failures
+   - Test half-open state behavior
 
-### 5. Mock Strategies
+3. **Prompt Manager Tests**
+   - Test prompt templating
+   - Test dynamic variable substitution
+   - Test prompt optimization
 
-- Use controlled Redis mock for caching tests
-- Use Nock for external API mocks
-- Use Socket.IO mocks for WebSocket testing
-- Use file system mocks for file I/O tests
+## Progress Tracking
 
-## Implementation Plan
+| Phase | Target Completion | Status | Current Coverage |
+|-------|-------------------|--------|------------------|
+| Phase 1 | April 5, 2025 | In Progress | - Claude service: 75.35% Lines, 71.79% Branches, 100% Functions<br>- Router service: 61.67% Lines, 82.5% Branches, 100% Functions<br>- Perplexity service: 97.72% Lines, 76.66% Branches, 100% Functions |
+| Phase 2 | April 10, 2025 | Not Started | |
+| Phase 3 | April 15, 2025 | Started | 1.72% Statements, 18.93% Branches, 13.77% Functions, 1.72% Lines |
+| Phase 4 | April 20, 2025 | Partially Started | Cost optimization tested |
 
-### Phase 1: Service Module Tests
-1. Verify all services have corresponding test files
-2. Ensure basic functionality is tested
-3. Add error handling tests
-4. Add integration tests
+## Coverage Measurement Process
 
-### Phase 2: API Endpoint Tests
-1. Test all endpoints with basic functionality tests
-2. Add input validation tests
-3. Add error handling tests
-4. Test authentication and authorization
+1. After implementing each test file, run:
+   ```
+   npx vitest run <test-file-path> --coverage
+   ```
 
-### Phase 3: End-to-End Workflow Tests
-1. Implement tests for complete workflows
-2. Test long-running processes
-3. Test error recovery in workflows
-4. Test resource cleanup
+2. For overall coverage assessment, run:
+   ```
+   npx vitest run --coverage
+   ```
 
-### Phase 4: Performance and Edge Case Tests
-1. Test system under load
-2. Test resource-intensive operations
-3. Test boundary conditions
-4. Test timeout and recovery behavior
+3. Update this document with progress after each significant test implementation.
 
-## Tools
+## Test Implementation Guidelines
 
-- **Run Coverage Check**: `node scripts/run-coverage.js`
-- **Coverage Reports**: Located in `./reports/coverage/`
-- **Test Documentation**: Update this document with current coverage data
+1. **Mocking External Services**:
+   - Use `nock` for HTTP request mocking
+   - Use appropriate mocks for Redis, WebSockets, etc.
+   - Create reusable mock factories
 
-## Measuring Success
+2. **Preventing API Calls**:
+   - No real API calls to Claude or Perplexity in tests
+   - Use environment variables to control test modes
+   - Create comprehensive mock response libraries
 
-Success will be measured by:
-1. Achieving 80%+ coverage in all metrics
-2. All services having corresponding test files
-3. All API endpoints having comprehensive tests
-4. Robust error handling tests in place
-5. End-to-end workflow tests verifying complete functionality
+3. **Testing Asynchronous Code**:
+   - Use proper async/await patterns in tests
+   - Set appropriate timeouts for long-running operations
+   - Implement proper cleanup after each test
+
+4. **Error Handling Testing**:
+   - Test both happy path and error scenarios
+   - Verify error propagation
+   - Test recovery mechanisms
 
 ## Next Steps
 
-1. Run the coverage script to establish current baseline
-2. Identify gaps in test coverage
-3. Prioritize missing tests based on critical functionality
-4. Implement missing tests
-5. Re-run coverage checks to validate improvements
+1. ✅ Implement basic tests for Claude service - COMPLETED
+2. ✅ Implement basic tests for Perplexity service - COMPLETED
+3. Complete service router tests by implementing proper mocks for routeMessage function
+4. Continue improving WebSocket tests with error handling cases
+5. Implement controller tests for charts and queries
+6. Run comprehensive coverage report to check progress
+7. Address any coverage gaps identified in the report

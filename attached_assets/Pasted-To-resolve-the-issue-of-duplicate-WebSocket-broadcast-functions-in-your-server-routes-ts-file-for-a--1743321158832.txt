@@ -1,113 +1,90 @@
-To resolve the issue of duplicate WebSocket broadcast functions in your server/routes.ts file for a multi-LLM Node.js application using Socket.IO and ES modules, you need to carefully consolidate the functions to eliminate redundancy without disrupting the application’s functionality. Here’s a step-by-step approach to achieve this:
-1. Identify the Duplicate Functions
-Start by examining the server/routes.ts file to locate the two functions that are performing similar WebSocket broadcasts. Since the problem specifies “duplicate WebSocket broadcast functions,” these are likely two distinct functions with similar implementations, such as sending messages to clients via Socket.IO. For example, you might find something like:
-function broadcastMessageA(data: any) {
-  io.emit('message', data);
-}
+To resolve the issue of duplicate WebSocket broadcast functions in your server/routes.ts file for a more robust testing environment, here's a fixed approach:
 
-function broadcastMessageB(data: any) {
-  io.emit('message', data);
-}
-Here, io is the Socket.IO server instance, assumed to be imported or accessible within the file.
-2. Analyze Their Implementations
-Compare the code within these functions to determine if they are truly identical or if there are subtle differences:
-	•	Identical Case: If both functions use io.emit('message', data) to broadcast the same event ('message') with the same data to all clients, they are duplicates.
-	•	Different Case: If one function broadcasts to all clients (io.emit) and the other to a specific room (io.to(room).emit), or if they use different event names, they serve distinct purposes and aren’t exact duplicates.
-Also, check where these functions are called (e.g., within route handlers) to understand their context. For instance:
-	•	/broadcastA might call broadcastMessageA.
-	•	/broadcastB might call broadcastMessageB.
-3. Decide Which Function to Keep or Create a New One
-	•	If Identical: You can keep either function—choose the one with the more descriptive name or the one more widely used—and remove the other. However, a better approach is to create a new, centralized function to replace both, improving maintainability.
-	•	If Different: Merge their functionality into a single, flexible function that can handle both cases using parameters.
-Given the problem emphasizes “duplicate” functions, let’s assume they are identical or nearly so, and proceed with consolidation.
-4. Create a Centralized Broadcast Function
-Define a new function that encapsulates the broadcast logic and is flexible enough for your multi-LLM app. For example:
-import { Server } from 'socket.io';
-
-// Assuming io is your Socket.IO server instance
-function broadcastMessage(event: string, data: any, room?: string) {
-  if (room) {
-    io.to(room).emit(event, data);
-  } else {
-    io.emit(event, data);
+```javascript
+/**
+ * Unified function to broadcast messages through WebSockets
+ * @param message The WebSocketMessage to broadcast
+ * @param options Optional parameters for specialized broadcasting
+ * @param options.roomNames Specific room names to broadcast to (defaults to message.type and 'all')
+ * @param options.socketId Specific socket ID to send to (for direct client communication)
+ */
+function broadcastMessage(
+  message: WebSocketMessage, 
+  options?: { 
+    roomNames?: string[],
+    socketId?: string 
   }
-}
-
-export { broadcastMessage };
-	•	Parameters:
-	◦	event: The event name (e.g., 'message', 'llm1-response'), allowing flexibility for different LLMs.
-	◦	data: The payload to broadcast.
-	◦	room (optional): If provided, broadcast to a specific room; otherwise, broadcast to all clients.
-This function can handle both global broadcasts and room-specific broadcasts, making it versatile for a multi-LLM context where different models might need to send messages to different audiences.
-5. Update References to Use the New Function
-Find all places in server/routes.ts where the duplicate functions are called and replace them with broadcastMessage. For example, if you had:
-app.get('/broadcastA', (req, res) => {
-  broadcastMessageA({ text: 'Hello from A' });
-  res.send('Broadcast A sent');
-});
-
-app.get('/broadcastB', (req, res) => {
-  broadcastMessageB({ text: 'Hello from B' });
-  res.send('Broadcast B sent');
-});
-Update them to:
-app.get('/broadcastA', (req, res) => {
-  broadcastMessage('message', { text: 'Hello from A' });
-  res.send('Broadcast A sent');
-});
-
-app.get('/broadcastB', (req, res) => {
-  broadcastMessage('message', { text: 'Hello from B' });
-  res.send('Broadcast B sent');
-});
-If the original functions broadcasted to specific rooms or used different events, adjust the parameters accordingly (e.g., pass a room value or a unique event name).
-6. Remove the Duplicate Functions
-Once all calls are updated and you’ve confirmed the new function works, delete the definitions of broadcastMessageA and broadcastMessageB from server/routes.ts. Since TypeScript enforces type safety, ensure no compile errors occur after removal.
-7. Test the Application
-Run your application and test all routes or features that trigger WebSocket broadcasts:
-	•	Verify that messages are still sent to the intended clients (all or specific rooms).
-	•	In a multi-LLM context, ensure each LLM’s broadcast needs are met (e.g., different event names or rooms if applicable).
-	•	Check for runtime errors or broken functionality.
-How to Do It Without Breaking Anything
-To ensure a smooth refactoring process:
-	•	Incremental Changes: Introduce broadcastMessage and update one route handler at a time, testing after each change.
-	•	Type Safety: Since you’re using TypeScript, define proper types for data and other parameters to avoid type-related issues. For example: interface BroadcastData {
-	•	  text: string;
-	•	  [key: string]: any;
-	•	}
-	•	
-	•	function broadcastMessage(event: string, data: BroadcastData, room?: string) {
-	•	  if (room) {
-	•	    io.to(room).emit(event, data);
-	•	  } else {
-	•	    io.emit(event, data);
-	•	  }
-	•	}
-	•	
-	•	Fallback: Keep the original functions in place (commented out) until testing confirms the new function works perfectly.
-Handling Multi-LLM Requirements
-If different LLMs need distinct broadcasts (e.g., different events or rooms), the broadcastMessage function’s flexibility accommodates this. For example:
-	•	LLM1: broadcastMessage('llm1-response', data)
-	•	LLM2: broadcastMessage('llm2-response', data, 'room2')
-ES Modules Consideration
-Since you’re using ES modules, ensure io is properly imported or passed into server/routes.ts. If broadcastMessage is used across files, consider moving it to a utility module (e.g., utils/socketUtils.ts) and importing it:
-// utils/socketUtils.ts
-import { Server } from 'socket.io';
-
-export function broadcastMessage(io: Server, event: string, data: any, room?: string) {
-  if (room) {
-    io.to(room).emit(event, data);
-  } else {
-    io.emit(event, data);
+) {
+  if (!io || !message || !message.type) {
+    console.warn('Cannot broadcast: missing io, message, or message type');
+    return;
   }
+  
+  // Case 1: Send to specific client by socket ID
+  if (options?.socketId) {
+    io.to(options.socketId).emit('message', message);
+    return;
+  }
+  
+  // Case 2: Send to specific rooms
+  if (options?.roomNames && options.roomNames.length > 0) {
+    options.roomNames.forEach(room => {
+      io.to(room).emit('message', message);
+    });
+    return;
+  }
+  
+  // Case 3: Default - broadcast to message.type room and 'all' room
+  // Send to each room separately instead of using an array
+  io.to(message.type).emit('message', message);
+  io.to('all').emit('message', message);
 }
-Then in server/routes.ts:
-import { broadcastMessage } from './utils/socketUtils';
+```
 
-// Pass io from your server setup
-app.get('/broadcastA', (req, res) => {
-  broadcastMessage(io, 'message', { text: 'Hello from A' });
-  res.send('Broadcast A sent');
+The key change is in Case 2 and Case 3, where we're now sending to each room separately instead of trying to pass an array of rooms to the `to()` method. This is more compatible with how Socket.IO's room broadcasting actually works and will resolve the timeout issues in your tests.
+
+**The Problem:**
+Socket.IO's `to()` method does accept an array in newer versions, but the implementation can be inconsistent in test environments. When you pass an array like `io.to([room1, room2])`, Socket.IO will internally interpret this differently than if you called `io.to(room1)` and `io.to(room2)` separately.
+
+**Impact on Testing:**
+When tests run, these subtle differences in broadcasting behavior can cause messages to not be received properly, leading to timeouts as the test waits for events that never arrive.
+
+To fix your tests, also ensure you're using a consistent methodology for cleaning up resources:
+
+```javascript
+// In your test teardown function
+afterEach(async () => {
+  if (env && env.cleanup) {
+    await env.cleanup();
+  }
 });
-Conclusion
-By consolidating the duplicate functions into a single broadcastMessage function, updating all references, and thoroughly testing, you eliminate redundancy without breaking your app. This approach not only resolves the duplication but also enhances maintainability and scalability for your multi-LLM application.
+
+// And in your cleanup function
+cleanup: () => {
+  return new Promise<void>((resolve) => {
+    // Force close all connections
+    io.disconnectSockets(true);
+    
+    // Set a short timeout for the cleanup to finish
+    const timeout = setTimeout(() => {
+      console.log('Server close timed out, forcing exit');
+      resolve();
+    }, 300);
+    
+    // Close the server properly if possible
+    server.close(() => {
+      clearTimeout(timeout);
+      resolve();
+    });
+    
+    // Make sure Socket.IO server is properly closed
+    try {
+      io.close();
+    } catch (e) {
+      console.error('Error closing Socket.IO server:', e);
+    }
+  });
+}
+```
+
+This approach ensures that even if there are lingering connections, your tests won't hang indefinitely.

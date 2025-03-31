@@ -1947,13 +1947,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Case 2: Send to specific rooms
     if (options?.roomNames && options.roomNames.length > 0) {
-      // For Socket.io, we can pass an array of rooms directly to "in" or "to" method
-      io.to(options.roomNames).emit('message', message);
+      // Send to each room separately instead of using an array
+      options.roomNames.forEach(room => {
+        io.to(room).emit('message', message);
+      });
       return;
     }
     
     // Case 3: Default - broadcast to message.type room and 'all' room
-    io.to([message.type, 'all']).emit('message', message);
+    // Send to each room separately for better compatibility
+    io.to(message.type).emit('message', message);
+    io.to('all').emit('message', message);
   }
   
   function broadcastResearchProgress(jobId: string, progress: number, status: string) {
