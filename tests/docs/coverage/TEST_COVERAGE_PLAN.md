@@ -165,6 +165,25 @@ These components are the core of our application and require thorough testing fi
    - Verify error propagation
    - Test recovery mechanisms
 
+5. **Socket.IO Testing Strategy**:
+   - Avoid testing actual reconnection sequences due to inherent complexity
+   - Focus on testing connection and disconnection as discrete operations
+   - Use event simulation for reconnection scenarios rather than forcing actual network disconnections
+   - Implement comprehensive client-side event logging for diagnostics
+   - Use controlled client configuration with test-optimized settings:
+     ```javascript
+     {
+       reconnectionAttempts: 5,   // Limited attempts for faster test completion
+       reconnectionDelay: 100,    // Minimal delay for faster tests
+       reconnectionDelayMax: 500, // Bounded max delay
+       timeout: 2000,             // Connection timeout
+       autoConnect: false,        // Explicit connection control
+       forceNew: true,            // Prevent connection pooling issues
+     }
+     ```
+   - Always implement explicit cleanup with server and client disconnection
+   - Use the `waitForEvent` utility with timeouts to prevent hanging tests
+
 ## Next Steps
 
 ### Completed Items
@@ -191,14 +210,20 @@ These components are the core of our application and require thorough testing fi
 
 ### Current Action Items (As of March 31, 2025)
 1. ✅ Implement comprehensive Redis service tests - COMPLETED (30 tests passing)
-2. ▶️ Run comprehensive coverage report to check overall progress
-3. ▶️ Address any remaining coverage gaps identified in the report
-4. ▶️ Create final test coverage documentation for all components
-5. ▶️ Perform system-wide integration testing for end-to-end workflows
+2. ✅ Address Socket.IO reconnection testing challenges - COMPLETED (Documented strategy)
+3. ▶️ Run comprehensive coverage report to check overall progress
+4. ▶️ Address any remaining coverage gaps identified in the report
+5. ▶️ Create final test coverage documentation for all components
+6. ▶️ Perform system-wide integration testing for end-to-end workflows
 
 ### Future Enhancements (Low Priority)
 1. ⬜ Implement Request/Response Recording for fixture generation
 2. ⬜ Create a MockServiceFactory for simplified test setup
 3. ⬜ Develop Integration Test Helpers for complex multi-service tests
 4. ⬜ Design a Test Environment Configuration system for flexible test control
-5. ⬜ Publish comprehensive testing documentation for team use
+5. ⬜ Create a Socket.IO test utilities library with:
+   - Reliable server start/stop helpers
+   - Event tracking and validation utilities
+   - Controlled client configuration presets
+   - Comprehensive timeout and cleanup management
+6. ⬜ Publish comprehensive testing documentation for team use

@@ -1,0 +1,200 @@
+**Core Strategy:** Prioritize **explicit control, robust cleanup, and event-driven waiting** over relying solely on default timings or overly complex simulations. We'll aim to make the *actual* reconnection testable but within tighter bounds.
+
+---
+
+### 1. Robust Setup & Teardown (Foundation)
+
+This is non-negotiable for reliable tests. Each test involving server state changes should ideally start fresh.
+
+**Key Principles:**
+*   Use `beforeEach` / `afterEach` for isolation.
+*   Wait for server `listen` and `close` events explicitly.
+*   Clean up *all* listeners and connections.
+
+```javascript
+// test/socket-helpers.mjs
+import { createServer } from 'node:http';
+import { Server as SocketIOServer } from 'socket.io';
+import { io as SocketIOClient } from 'socket.io-client';
+
+// --- Server Helper ---
+let currentHttpServer = null;
+let currentIoServer = null;
+
+export async function startTestServer(port) {
+  return new Promise((resolve, reject) => {
+    const httpServer = createServer();
+    const io = new SocketIOServer(httpServer, {
+      // Optional: Configure ping intervals for faster failure detection if needed
+      // pingInterval: 5000,
+      // pingTimeout: 10000,
+    });
+
+    httpServer.on('error', reject); // Catch startup errors like EADDRINUSE
+
+    httpServer.listen(port, () => {
+      console.log(`[Test Server] Listening on port ${port}`);
+      currentHttpServer = httpServer;
+      currentIoServer = io;
+      resolve({ httpServer, io });
+    });
+  });
+}
+
+export async function stopTestServer() {
+  return new Promise(async (resolve, reject) => {
+    if (!currentHttpServer && !currentIoServer) {
+      return resolve();
+    }
+
+    const serverToClose = currentHttpServer;
+    const ioToClose = currentIoServer;
+
+    currentHttpServer = null;
+    currentIoServer = null;
+
+    try {
+        if (ioToClose) {
+            // Force disconnect all clients before closing server
+            ioToClose.sockets.disconnectSockets(true);
+            // Wait a tick for disconnects to process (optional but can help)
+            await new Promise(setImmediate);
+            ioToClose.close((err) => {
+                if (err) console.error('[Test Server] Error closing Socket.IO:', err);
+            });
+            console.log('[Test Server] Socket.IO server closed');
+        }
+
+        if (serverToClose) {
+            serverToClose.close((err) => {
+                if (err) {
+                    console.error('[Test Server] Error closing HTTP server:', err);
+                    return reject(err);
+                }
+                console.log('[Test Server] HTTP server closed');
+                resolve();
+            });
+            // Ensure no lingering connections keep it open
+            serverToClose.removeAllListeners(); // Clean up listeners like 'error'
+        } else {
+            resolve();
+        }
+    } catch (error) {
+        console.error('[Test Server] Exception during shutdown:', error);
+        reject(error);
+    }
+  });
+}
+
+// --- Client Helper ---
+export function createTestClient(port, options = {}) {
+  // Use test-friendly defaults, allow overrides
+  const defaultOptions = {
+    reconnection: true,
+    reconnectionAttempts: 5,   // Lower attempts for faster failure in tests
+    reconnectionDelay: 100,    // Very short initial delay
+    reconnectionDelayMax: 500, // Max delay also short
+    timeout: 2000,             // Connection timeout
+    autoConnect: false,        // Connect explicitly in tests
+    forceNew: true,            // Ensure a new connection each time
+  };
+
+  const client = SocketIOClient(`http://localhost:${port}`, {
+    ...defaultOptions,
+    ...options,
+  });
+  return client;
+}
+
+// --- Event Waiting Utility ---
+export function waitForEvent(emitter, event, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      emitter.off(event, listener); // Clean up listener on timeout
+      reject(new Error(`Timeout waiting for "${event}" event after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    const listener = (...args) => {
+      clearTimeout(timeout);
+      resolve(...args);
+    };
+
+    emitter.once(event, listener); // Use 'once' to auto-cleanup the listener on success
+  });
+}
+```
+
+**Usage in Test File (`*.test.mjs`):**
+
+```javascript
+import { beforeEach, afterEach, test, expect, vi } from 'vitest';
+import { startTestServer, stopTestServer, createTestClient, waitForEvent } from './socket-helpers.mjs';
+
+const TEST_PORT = 3001; // Use a specific port for testing
+
+beforeEach(async () => {
+  // Ensure any previous server is stopped before starting a new one
+  await stopTestServer();
+  // Start a fresh server for each test
+  await startTestServer(TEST_PORT);
+});
+
+afterEach(async () => {
+  // Stop the server after each test
+  await stopTestServer();
+});
+
+test('should reconnect after server restart', { timeout: 15000 }, async () => { // Increased test timeout
+  let client = createTestClient(TEST_PORT);
+  let initialConnect = false;
+  let reconnected = false;
+
+  client.on('connect', () => {
+    if (initialConnect) {
+      console.log('[Client] Reconnected successfully!');
+      reconnected = true;
+    } else {
+      console.log('[Client] Initial connection successful!');
+      initialConnect = true;
+    }
+  });
+  client.on('disconnect', (reason) => {
+    console.log(`[Client] Disconnected: ${reason}`);
+  });
+  client.on('connect_error', (err) => {
+    console.error(`[Client] Connection Error: ${err.message}`);
+  });
+  client.on('reconnect_attempt', (attempt) => {
+    console.log(`[Client] Reconnect attempt #${attempt}`);
+  });
+   client.on('reconnect_failed', () => {
+    console.error('[Client] Reconnection failed after max attempts');
+  });
+
+  // 1. Initial Connect
+  client.connect();
+  await waitForEvent(client, 'connect', 3000); // Wait with timeout
+  expect(initialConnect).toBe(true);
+  expect(client.connected).toBe(true);
+
+  // 2. Stop the Server
+  console.log('[Test] Stopping server...');
+  await stopTestServer();
+  // Wait for the client to detect the disconnect
+  await waitForEvent(client, 'disconnect', 5000); // Server stop should trigger disconnect
+  expect(client.connected).toBe(false);
+
+  // 3. Restart the Server
+  console.log('[Test] Restarting server...');
+  await startTestServer(TEST_PORT); // Start it again on the same port
+
+  // 4. Wait for Reconnection
+  console.log('[Test] Waiting for client reconnection...');
+  // Wait for the 'connect' event again, which signifies reconnection here
+  await waitForEvent(client, 'connect', 8000); // Allow time for backoff/retry attempts
+  expect(reconnected).toBe(true);
+  expect(client.connected).toBe(true);
+
+  // 5. Cleanup
+  client.disconnect(); // Explicitly disconnect the client
+  client.removeAllListeners(); // Remove all listeners added
