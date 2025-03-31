@@ -6,6 +6,18 @@
  RUN  v3.0.9 /home/runner/workspace
       Coverage enabled with v8
 
+stdout | tests/unit/utils/redis-test-utils.function-coverage.vitest.js
+✅ Vitest setup complete
+
+stdout | tests/unit/utils/redis-test-utils.function-coverage.vitest.js
+✅ Vitest setup complete
+
+stdout | tests/unit/utils/redis-test-utils.enhanced.vitest.js
+✅ Vitest setup complete
+
+stdout | tests/unit/utils/redis-test-utils.enhanced.vitest.js
+✅ Vitest setup complete
+
 stdout | tests/unit/utils/redis-test-utils.vitest.js
 ✅ Vitest setup complete
 
@@ -19,39 +31,94 @@ stdout | tests/unit/utils/redis-test-utils.vitest.js
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > populateMockRedis > should populate a mock client with string data
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > populateMockRedis > should populate a mock client with hash data
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Error Simulation > should simulate Redis errors
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Mock Redis Client > should skip initialization when empty data is provided
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > populateMockRedis > should handle empty data object
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > populateMockRedis > should handle array values
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > populateMockRedis > should handle null values
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Error Simulation > should use default error message when none provided
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Error Simulation > should use default timeout value when none provided
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Error Simulation > should simulate disconnection for all standard Redis operations
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Testable Redis Client > should support method chaining and accessing the original interface
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Mock Redis Service > should access methods through service interface
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Mock Redis Service > should support method chaining on service methods
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Redis Module Mock > should create Redis instance with constructor function
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Redis Module Mock > should create Cluster instances
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover connect method on Redis service
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover getClient method on Redis service
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover ping method with success response
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover ping method with error response
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover getWithFallback method
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover set method with and without expiry
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover stop method success and failure
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover service _simulateTimeout method
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover service _simulateDisconnection method
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover service _populate method
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover service _inspect method
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Testable Redis Client Methods > should cover _simulateTimeout and ensure it supports chaining
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Testable Redis Client Methods > should cover _simulateDisconnection and ensure it supports chaining
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Testable Redis Client Methods > should cover _populate in testable client
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Testable Redis Client Methods > should cover _inspect in testable client
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Module Constructor Tests > should cover Redis constructor function
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Module Constructor Tests > should cover Redis.Cluster constructor
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Module Constructor Tests > should cover the exported mockRedisModule
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Timeout and Disconnect Simulation > should properly trigger the timeout callback inside simulateRedisTimeout
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Timeout and Disconnect Simulation > should cover specific Redis methods when simulating disconnection
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Error Simulation > should simulate Redis timeouts
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Error Simulation > should simulate Redis disconnection
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should create a testable Redis client with extra methods
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should provide access to the original client methods
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should support chaining of test methods
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should provide inspection capabilities
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should simulate error through _simulateError method
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should simulate timeout through _simulateTimeout method
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should simulate disconnection through _simulateDisconnection method
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should populate data through _populate method
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should provide detailed inspection through _inspect method
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should create a mock Redis service
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should initialize with provided data
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should support simulation methods directly
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should support method mocking
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should get client instance
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should handle ping success and failure
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should use fallback value when key does not exist
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should use fallback value when get throws error
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should set values with and without expiry
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should handle set errors gracefully
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should handle service operations
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should handle service operation errors
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Redis Module Mock > should create a Redis module mock
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Redis Module Mock > should return a mock client when instantiated
  ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Redis Module Mock > should support cluster clients
- ✓ tests/unit/utils/redis-test-utils.vitest.js (20 tests) 169ms
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Redis Module Mock > should instantiate with options
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Redis Module Mock > should create a working client when instantiated
+ ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Redis Module Mock > should create working cluster clients
+ ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js (12 tests) 118ms
+ ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js (20 tests) 124ms
+ ✓ tests/unit/utils/redis-test-utils.vitest.js (36 tests) 175ms
 
- Test Files  1 passed (1)
-      Tests  20 passed (20)
-   Start at  21:08:01
-   Duration  2.31s (transform 91ms, setup 32ms, collect 61ms, tests 169ms, environment 0ms, prepare 118ms)
+ Test Files  3 passed (3)
+      Tests  68 passed (68)
+   Start at  21:43:08
+   Duration  2.04s (transform 105ms, setup 78ms, collect 156ms, tests 417ms, environment 1ms, prepare 273ms)
 
 
- Test Files  1 passed (1)
-      Tests  20 passed (20)
-   Start at  21:08:01
-   Duration  2.31s (transform 91ms, setup 32ms, collect 61ms, tests 169ms, environment 0ms, prepare 118ms)
+ Test Files  3 passed (3)
+      Tests  68 passed (68)
+   Start at  21:43:08
+   Duration  2.05s (transform 105ms, setup 78ms, collect 156ms, tests 417ms, environment 1ms, prepare 273ms)
 
  % Coverage report from v8
 -------------------|---------|----------|---------|---------|-------------------
 File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
 -------------------|---------|----------|---------|---------|-------------------
-All files          |    2.67 |    26.66 |   14.47 |    2.67 |                   
- workspace         |       0 |    16.66 |   16.66 |       0 |                   
+All files          |    2.81 |    34.72 |   19.46 |    2.81 |                   
+ workspace         |       0 |     9.09 |    9.09 |       0 |                   
+  ...e-coverage.js |       0 |        0 |       0 |       0 | 1-91              
   ...zle.config.ts |       0 |        0 |       0 |       0 | 1-14              
+  ...t-coverage.js |       0 |        0 |       0 |       0 | 1-63              
+  ...n-coverage.js |       0 |        0 |       0 |       0 | 1-141             
+  ...s-coverage.js |       0 |        0 |       0 |       0 | 1-63              
+  ...-functions.js |       0 |        0 |       0 |       0 | 1-153             
   get-coverage.js  |       0 |        0 |       0 |       0 | 1-43              
   ...ind.config.ts |       0 |      100 |     100 |       0 | 3-90              
   temp-test.js     |       0 |        0 |       0 |       0 | 1-16              
@@ -178,7 +245,7 @@ All files          |    2.67 |    26.66 |   14.47 |    2.67 |
   serviceRouter.js |       0 |        0 |       0 |       0 | 1-523             
  workspace/shared  |       0 |        0 |       0 |       0 |                   
   schema.ts        |       0 |        0 |       0 |       0 | 1-157             
- workspace/utils   |    6.15 |       52 |   25.22 |    6.15 |                   
+ workspace/utils   |    6.61 |     63.7 |   36.03 |    6.61 |                   
   apiClient.js     |       0 |        0 |       0 |       0 | 1-231             
   ...hProcessor.js |       0 |        0 |       0 |       0 | 1-492             
   cacheMonitor.js  |       0 |        0 |       0 |       0 | 1-155             
@@ -204,9 +271,9 @@ All files          |    2.67 |    26.66 |   14.47 |    2.67 |
   ...tScorecard.js |       0 |        0 |       0 |       0 | 1-601             
   ...tVersioner.js |       0 |        0 |       0 |       0 | 1-199             
   rateLimiter.js   |       0 |        0 |       0 |       0 | 1-355             
-  ...ck-adapter.js |    58.9 |    85.71 |   46.15 |    58.9 | ...92-209,215-216 
-  redis-mock.js    |   37.24 |       44 |   17.07 |   37.24 | ...06-807,814-816 
-  ...test-utils.js |   83.07 |    93.54 |   55.55 |   83.07 | ...40-241,245-246 
+  ...ck-adapter.js |    58.9 |    92.85 |   46.15 |    58.9 | ...92-209,215-216 
+  redis-mock.js    |   37.97 |    51.85 |   17.07 |   37.97 | ...06-807,814-816 
+  ...test-utils.js |   99.23 |    98.11 |     100 |   99.23 | 197-198           
   ...rceManager.js |       0 |        0 |       0 |       0 | 1-404             
   smartCache.js    |       0 |        0 |       0 |       0 | 1-683             
   systemHealth.js  |       0 |        0 |       0 |       0 | 1-80              
