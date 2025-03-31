@@ -1,4 +1,3 @@
-
 # Testing Documentation
 
 This directory contains comprehensive documentation related to testing in our project.
@@ -25,9 +24,9 @@ This directory contains comprehensive documentation related to testing in our pr
 
 ### Test Migration
 
-- [Migration Plan](./migration/TEST_MIGRATION_PLAN.md) - The comprehensive plan for test migration
-- [Migration Progress](./migration/TEST_MIGRATION_PROGRESS.md) - Current progress tracking
-- [Migration Summary](./migration/summary.md) - Overview of completed migration tasks
+This directory contains documentation related to our Jest to Vitest test migration:
+
+- [Migration Master Document](./migration/README.md) - Comprehensive guide to our Jest to Vitest migration (strategy, progress, patterns, and best practices)
 
 ### Test Coverage
 
