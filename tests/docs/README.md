@@ -26,7 +26,9 @@ This directory contains comprehensive documentation related to testing in our pr
 
 This directory contains documentation related to our Jest to Vitest test migration:
 
-- [Migration Master Document](./migration/README.md) - Comprehensive guide to our Jest to Vitest migration (strategy, progress, patterns, and best practices)
+- [Migration Master Document](./migration/README.md) - Complete reference for Jest to Vitest migration
+  - Fully consolidated from all documents including those in the archive folder
+  - Includes strategy, progress tracking, implementation guidelines, mocking patterns, and troubleshooting
 
 ### Test Coverage
 
