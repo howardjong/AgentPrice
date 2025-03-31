@@ -47,10 +47,20 @@ As of March 31, 2025, we have successfully completed all high and medium priorit
    - Browser-based diagnostic tools
    - Real-time connection monitoring
    - System health status visualization
-   - Comprehensive testing utilities in socketio-test-utilities.js
-   - Advanced cleanup patterns for reliable tests
-   - Promise-based event waiting utilities
-   - Resource tracking for socket instances
+   - Comprehensive testing utilities in socketio-test-utilities.js with:
+     - Advanced resource cleanup with explicit listener removal
+     - Detailed error tracking and diagnostics
+     - Robust event waiting patterns with error handling
+     - Systematic socket instance tracking
+   - Reference implementation patterns:
+     - simple-disconnect.vitest.js - Reliable disconnect testing
+     - basic-socketio.vitest.js - Basic communication pattern
+     - ultra-minimal-socketio.vitest.js - Minimal reliable example
+   - Comprehensive documentation in SOCKETIO_TESTING_BEST_PRACTICES.md covering:
+     - Reliable test patterns with examples
+     - Avoiding common timeout issues
+     - Evidence-based recommendations
+     - Resource management strategies
 
 5. **System Health Monitoring** ✅
    - Health score calculation
@@ -119,10 +129,21 @@ As of March 31, 2025, we have successfully completed all high and medium priorit
 
 5. **Follow Socket.IO Testing Best Practices**
    - Use socketio-test-utilities.js for all Socket.IO tests
-   - Follow the patterns in basic-socketio.vitest.js
-   - Ensure proper resource cleanup in all WebSocket tests
-   - Review SOCKETIO_TESTING_BEST_PRACTICES.md for guidelines
-   - Implement shorter timeouts and better cleanup for tests
+   - Follow the patterns in simple-disconnect.vitest.js and basic-socketio.vitest.js
+   - Implement reliable resource management:
+     - Always use removeAllListeners() to prevent memory leaks
+     - Implement try/catch/finally patterns for guaranteed cleanup
+     - Track all client instances for complete teardown
+     - Use short timeouts (100-500ms) for socket operations
+   - Avoid complex reconnection tests in automated environments:
+     - Test disconnect handling and reconnection events separately
+     - Consider manual testing for complex reconnection scenarios
+     - Use event simulation rather than actual network disconnection
+   - Implement detailed logging for debugging:
+     - Log connection/disconnection events with timestamps
+     - Include client status information in error messages
+     - Track and report cleanup steps
+   - Review SOCKETIO_TESTING_BEST_PRACTICES.md for detailed guidelines
 
 ## Conclusion
 

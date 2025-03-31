@@ -101,45 +101,90 @@ export function createSocketTestEnv(options = {}) {
      */
     shutdown: () => {
       return new Promise(resolve => {
-        // First disconnect all clients
-        for (const client of activeClients) {
-          if (client && client.connected) {
-            try {
-              client.disconnect();
-            } catch (e) {
-              console.error("Error disconnecting client:", e);
+        // Track shutdown steps for better error diagnosis
+        const shutdownSteps = [];
+        
+        try {
+          // First disconnect all clients and remove all event listeners
+          shutdownSteps.push('Disconnecting clients');
+          for (const client of activeClients) {
+            if (client) {
+              // Remove all listeners first to prevent reconnection attempts
+              try {
+                client.removeAllListeners();
+                shutdownSteps.push(`Removed listeners from client ${client.id || 'unknown'}`);
+              } catch (e) {
+                console.error("Error removing client listeners:", e);
+              }
+              
+              // Then disconnect if connected
+              if (client.connected) {
+                try {
+                  client.disconnect();
+                  shutdownSteps.push(`Disconnected client ${client.id || 'unknown'}`);
+                } catch (e) {
+                  console.error("Error disconnecting client:", e);
+                }
+              }
             }
           }
-        }
-        activeClients.clear();
-        
-        // Force disconnect all sockets
-        try {
-          io.disconnectSockets(true);
+          activeClients.clear();
+          shutdownSteps.push('Cleared active clients');
+          
+          // Force disconnect all sockets on the server
+          shutdownSteps.push('Disconnecting server sockets');
+          try {
+            io.disconnectSockets(true);
+            shutdownSteps.push('Disconnected all server sockets');
+          } catch (e) {
+            console.error("Error disconnecting server sockets:", e);
+          }
+          
+          // Remove all event listeners from the io instance
+          try {
+            io.removeAllListeners();
+            shutdownSteps.push('Removed all IO event listeners');
+          } catch (e) {
+            console.error("Error removing IO listeners:", e);
+          }
+          
+          // Close the server with a short timeout to prevent hanging
+          shutdownSteps.push('Closing server');
+          const timeout = setTimeout(() => {
+            console.log("Server close timed out, forcing shutdown");
+            shutdownSteps.push('Server close timed out');
+            
+            try {
+              io.close();
+              shutdownSteps.push('Closed IO after timeout');
+            } catch (e) {
+              console.error("Error closing io after timeout:", e);
+            }
+            
+            console.log('Shutdown steps completed:', shutdownSteps.join(' -> '));
+            resolve();
+          }, 300);
+          
+          server.close(() => {
+            clearTimeout(timeout);
+            shutdownSteps.push('Server closed successfully');
+            
+            try {
+              io.close();
+              shutdownSteps.push('Closed IO normally');
+            } catch (e) {
+              console.error("Error closing io:", e);
+            }
+            
+            console.log('Shutdown steps completed:', shutdownSteps.join(' -> '));
+            resolve();
+          });
         } catch (e) {
-          console.error("Error disconnecting sockets:", e);
+          console.error('Unexpected error during shutdown:', e);
+          shutdownSteps.push(`ERROR: ${e.message}`);
+          console.log('Shutdown steps (with error):', shutdownSteps.join(' -> '));
+          resolve(); // Still resolve to prevent test hanging
         }
-        
-        // Close the server with a short timeout to prevent hanging
-        const timeout = setTimeout(() => {
-          console.log("Server close timed out, forcing shutdown");
-          try {
-            io.close();
-          } catch (e) {
-            console.error("Error closing io:", e);
-          }
-          resolve();
-        }, 300);
-        
-        server.close(() => {
-          clearTimeout(timeout);
-          try {
-            io.close();
-          } catch (e) {
-            console.error("Error closing io:", e);
-          }
-          resolve();
-        });
       });
     }
   };
@@ -191,7 +236,7 @@ export function promiseWithTimeout(ms, message = 'Operation timed out') {
 }
 
 /**
- * Wait for a specific event from a socket.io client
+ * Wait for a specific event from a socket.io client with improved error handling
  * @param {Object} client - Socket.io client
  * @param {string} event - Event name to wait for
  * @param {number} timeoutMs - Timeout in milliseconds
@@ -199,43 +244,128 @@ export function promiseWithTimeout(ms, message = 'Operation timed out') {
  */
 export function waitForEvent(client, event, timeoutMs = 500) {
   return new Promise((resolve, reject) => {
+    // Handle case where client is not connected
+    if (!client.connected) {
+      console.warn(`Warning: Waiting for event ${event} on disconnected client`);
+    }
+    
+    // Create a cleanup function for consistent listener removal
+    const cleanupListeners = () => {
+      try {
+        client.off(event);
+        client.off('error');
+        client.off('disconnect');
+      } catch (err) {
+        console.error(`Error removing event listeners for ${event}:`, err);
+      }
+    };
+    
+    // Set timeout to prevent hanging
     const timeout = setTimeout(() => {
-      client.off(event);
-      reject(new Error(`Timeout waiting for ${event} event`));
+      cleanupListeners();
+      
+      // Include client status in the error for better debugging
+      const status = {
+        connected: client.connected,
+        id: client.id || 'unknown',
+        hasListeners: client.hasListeners ? client.hasListeners(event) : 'unknown'
+      };
+      
+      reject(new Error(`Timeout waiting for ${event} event after ${timeoutMs}ms. Client status: ${JSON.stringify(status)}`));
     }, timeoutMs);
     
+    // Listen for the requested event
     client.once(event, (data) => {
       clearTimeout(timeout);
+      cleanupListeners();
       resolve(data);
+    });
+    
+    // Also listen for errors that might prevent the event
+    client.once('error', (err) => {
+      clearTimeout(timeout);
+      cleanupListeners();
+      reject(new Error(`Error while waiting for ${event}: ${err.message}`));
+    });
+    
+    // Listen for disconnects that would prevent the event
+    client.once('disconnect', (reason) => {
+      clearTimeout(timeout);
+      cleanupListeners();
+      reject(new Error(`Client disconnected while waiting for ${event}. Reason: ${reason}`));
     });
   });
 }
 
 /**
- * Wait for socket.io client to connect
+ * Wait for socket.io client to connect with robust error handling
  * @param {Object} client - Socket.io client
  * @param {number} timeoutMs - Timeout in milliseconds
  * @returns {Promise<void>} Promise that resolves when connected
  */
 export function waitForConnect(client, timeoutMs = 500) {
+  // If already connected, resolve immediately
   if (client.connected) {
     return Promise.resolve();
   }
   
   return new Promise((resolve, reject) => {
+    // Set up event cleanup function to ensure proper resource management
+    const cleanupEvents = () => {
+      try {
+        client.off('connect');
+        client.off('connect_error');
+        client.off('connect_timeout');
+        client.off('error');
+      } catch (err) {
+        console.error('Error cleaning up connection event listeners:', err);
+      }
+    };
+    
+    // Set a timeout to avoid hanging
     const timeout = setTimeout(() => {
-      client.off('connect');
-      reject(new Error('Connection timeout'));
+      cleanupEvents();
+      
+      // Track status information for better debugging
+      const status = {
+        connected: client.connected,
+        connecting: client.connecting,
+        id: client.id,
+        disconnected: client.disconnected
+      };
+      
+      reject(new Error(`Connection timeout after ${timeoutMs}ms. Client status: ${JSON.stringify(status)}`));
     }, timeoutMs);
     
+    // Success handler
     client.once('connect', () => {
       clearTimeout(timeout);
+      cleanupEvents();
       resolve();
     });
     
+    // Error handlers for different failure scenarios
     client.once('connect_error', (err) => {
       clearTimeout(timeout);
+      cleanupEvents();
       reject(new Error(`Connection error: ${err.message}`));
     });
+    
+    client.once('connect_timeout', () => {
+      clearTimeout(timeout);
+      cleanupEvents();
+      reject(new Error('Connection attempt timed out'));
+    });
+    
+    client.once('error', (err) => {
+      clearTimeout(timeout);
+      cleanupEvents();
+      reject(new Error(`Socket error: ${err.message}`));
+    });
+    
+    // Ensure connection is attempted
+    if (!client.connected && !client.connecting) {
+      client.connect();
+    }
   });
 }

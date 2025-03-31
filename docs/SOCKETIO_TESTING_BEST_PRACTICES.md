@@ -1,281 +1,154 @@
 # Socket.IO Testing Best Practices
 
-This document outlines best practices for writing reliable Socket.IO tests without timeout issues.
+## Summary of Findings
 
-## Common Issues
+After extensive testing and experimentation, we've determined that Socket.IO testing requires careful attention to resource management, cleanup, and simplicity. Our testing has revealed that:
 
-Socket.IO tests often run into specific problems:
+1. **Simple tests pass reliably**: Tests focusing on a single Socket.IO operation (like connect/disconnect) pass reliably when properly implemented.
+2. **Reconnection tests are problematic**: Even with best practices applied, complex reconnection tests tend to time out in automated environments.
+3. **Explicit cleanup is critical**: Proper resource cleanup, especially event listener removal, is essential to prevent memory leaks and timeout issues.
+4. **Short timeouts are better**: Using shorter timeouts (100-500ms) for socket operations helps identify problems faster.
 
-1. **Timeout issues**: Tests hang and time out, especially with reconnection tests
-2. **Resource leaks**: Socket connections not properly closed, leading to accumulating resources
-3. **Event race conditions**: Test completes before all events are processed
-4. **Cleanup failures**: Server or socket instances not properly shut down
+## Recommended Testing Patterns
 
-## Best Practices
+### 1. Use the Template Pattern
 
-### 1. Use Small Timeouts
+For reliable Socket.IO tests, follow the pattern in `simple-disconnect.vitest.js`:
 
-Always use small timeouts for Socket.IO options:
+- Create a cleanup tracking system that runs in reverse order
+- Wrap socket operations in try/catch blocks
+- Use explicit timeouts for all async operations
+- Implement explicit cleanup even on test failure
+- Log all connection and disconnection events
+- Use once() instead of on() for event listeners when appropriate
+- Explicitly call removeAllListeners() before disconnecting
 
-```javascript
-const io = new Server(httpServer, {
-  pingTimeout: 100,       // Default is 20000 (too long for tests)
-  pingInterval: 50,       // Default is 25000 (too long for tests)  
-  connectTimeout: 200,    // Default is 45000 (too long for tests)
-  transports: ['websocket'] // Skip polling to make tests faster
-});
-```
-
-### 2. Proper Resource Cleanup
-
-Clean up in correct order and use force disconnection:
+### 2. Testing Disconnect
 
 ```javascript
-afterEach(async () => {
-  // 1. Disconnect clients first
-  if (client && client.connected) {
-    client.disconnect();
-  }
+// Wait for disconnect
+await new Promise((resolve, reject) => {
+  const timeout = setTimeout(() => {
+    reject(new Error('Disconnect timeout'));
+  }, 1000);
   
-  // 2. Force disconnect all server sockets
-  if (io) {
-    io.disconnectSockets(true);
-  }
-  
-  // 3. Close the server with timeout
-  if (server) {
-    await new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        console.log('Server close timed out, forcing exit');
-        resolve();
-      }, 100);
-      
-      server.close(() => {
-        clearTimeout(timeout);
-        resolve();
-      });
-    });
-  }
-  
-  // 4. Explicitly close the Socket.IO instance
-  if (io) {
-    try {
-      io.close();
-    } catch (e) {
-      console.error('Error closing Socket.IO:', e);
-    }
-  }
-});
-```
-
-### 3. Wait For Events Using Promises
-
-Always wrap event listening in promises with timeouts:
-
-```javascript
-// Wait for a specific event
-function waitForEvent(client, event, timeoutMs = 300) {
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      client.off(event);
-      reject(new Error(`Timeout waiting for ${event} event`));
-    }, timeoutMs);
-    
-    client.once(event, (data) => {
-      clearTimeout(timeout);
-      resolve(data);
-    });
+  client.once('disconnect', () => {
+    clearTimeout(timeout);
+    console.log('Client disconnected');
+    resolve();
   });
-}
+});
 
-// Example usage:
-const response = await waitForEvent(client, 'custom_response', 300);
+// Verify disconnection
+expect(client.connected).toBe(false);
+
+// Explicitly remove listeners
+client.removeAllListeners();
 ```
 
-### 4. Track Client Instances
-
-Keep track of all client instances to ensure complete cleanup:
+### 3. Test Setup and Teardown
 
 ```javascript
-const clients = new Set();
-
-function createClient() {
-  const client = ioc(`http://localhost:${port}`, {
+// Set up a fresh Socket.IO server for each test
+beforeEach(async () => {
+  // Create and start HTTP server
+  httpServer = createServer();
+  
+  // Create Socket.IO server with minimal configuration
+  io = new Server(httpServer, {
     transports: ['websocket'],
-    timeout: 100
+    pingTimeout: 100,
+    pingInterval: 50,
+    connectTimeout: 200
   });
-  clients.add(client);
-  return client;
-}
+  
+  // Start server
+  await new Promise((resolve) => {
+    httpServer.listen(PORT, resolve);
+  });
+  
+  // Register cleanup actions
+  cleanupActions.push(async () => {
+    if (io) {
+      io.close();
+    }
+    if (httpServer && httpServer.listening) {
+      await new Promise(resolve => {
+        httpServer.close(resolve);
+      });
+    }
+  });
+});
 
-afterEach(() => {
-  // Disconnect all clients
-  for (const client of clients) {
-    if (client.connected) {
-      client.disconnect();
+// Clean up all resources after tests
+afterAll(async () => {
+  // Execute all cleanup actions in reverse order
+  while (cleanupActions.length > 0) {
+    const cleanup = cleanupActions.pop();
+    try {
+      await cleanup();
+    } catch (e) {
+      console.error('Cleanup error:', e);
     }
   }
-  clients.clear();
 });
 ```
 
-### 5. Avoid Complex Reconnection Tests
+## Recommendations for Reliable Tests
 
-Our testing has found that reconnection tests are particularly prone to issues in automated test environments. We recommend:
+1. **Keep tests focused**: Test one Socket.IO operation at a time
+2. **Implement systematic cleanup**: Use a cleanup tracking system
+3. **Add explicit error handling**: Wrap operations in try/catch blocks
+4. **Use short timeouts**: Prevent tests from hanging indefinitely
+5. **Log everything**: Add detailed logging for debugging
+6. **Handle reconnection testing separately**: Consider manual verification for complex reconnection scenarios
+7. **Track all resources**: Keep track of all clients, servers, and event listeners
+8. **Use proper Socket.IO configuration**: Set short ping intervals and timeouts for testing
+9. **Implement error tracking**: Log all errors and connection issues
+10. **Always use removeAllListeners()**: Prevent memory leaks from event listeners
 
-1. **Avoid reconnection tests in CI/CD**: These tests are very environment-sensitive and prone to timeouts
-2. **Test disconnection separately**: Test client-side and server-side disconnect handling separately
-3. **Use simple event assertions**: Instead of testing actual reconnection, verify that reconnection events fire as expected
-4. **Triggered disconnect**: Instead of shutting down the server, use `socket.disconnect(true)` 
-5. **Socket events**: Test socket reconnect events directly rather than creating complex scenarios
-6. **Consider manual testing**: For comprehensive reconnection scenarios, use manual testing or specialized test environments
-7. **Simulate events**: In some cases, it's better to simulate reconnection events than to test actual network reconnection
+## What We've Learned About Socket.IO Testing
 
-After extensive testing, we've found that websocket reconnection tests are fundamentally difficult to make reliable in automated test environments due to timing issues, socket cleanup, and state management challenges. Focus on testing the application's ability to handle reconnection events rather than the actual reconnection mechanism.
+Socket.IO testing presents unique challenges due to its event-driven, asynchronous nature and the complexity of network interactions. Our testing has revealed:
 
-### 6. Test Structure
+1. **Event listener cleanup is critical**: Forgetting to remove event listeners leads to memory leaks and test timeouts.
+2. **Reconnection is particularly challenging**: Socket.IO's reconnection mechanism is difficult to test in an automated environment.
+3. **Order of operations matters**: The sequence of disconnect, event listener removal, and server shutdown affects test reliability.
+4. **Explicit is better than implicit**: Never rely on Socket.IO's automatic cleanup; always implement explicit cleanup.
+5. **Error handling is essential**: Proper error handling prevents tests from silently failing.
 
-Follow this structure for reliable tests:
+## Working Test Examples
 
-```javascript
-describe('Socket.IO Feature', () => {
-  // 1. Declare state variables
-  let server, io, port, client;
-  
-  // 2. Setup fresh environment for each test
-  beforeEach(() => {
-    // Create server, io, etc.
-  });
-  
-  // 3. Clean up ALL resources
-  afterEach(async () => {
-    // Properly clean up everything
-  });
-  
-  // 4. Keep tests focused and small
-  it('should perform a specific action', async () => {
-    // Setup
-    io.on('connection', (socket) => {
-      // Simple handlers
-    });
-    
-    // Execute with promise-based waiting
-    client = createClient();
-    await waitForConnection(client);
-    
-    // Verify with assertions
-    expect(client.connected).toBe(true);
-  });
-});
-```
+### Simple Disconnect Test
+See `tests/unit/websocket/simple-disconnect.vitest.js` for a simple disconnect test that passes reliably.
 
-### 7. Handling Authentication
+### Basic Socket.IO Communication
+See `tests/unit/websocket/basic-socketio.vitest.js` for basic communication patterns.
 
-For authentication tests:
+### Minimal Socket.IO Test
+See `tests/unit/websocket/ultra-minimal-socketio.vitest.js` for the absolute minimal test that passes reliably.
 
-```javascript
-it('should authenticate properly', async () => {
-  // Add middleware
-  io.use((socket, next) => {
-    const token = socket.handshake.auth.token;
-    if (token !== 'valid-token') {
-      return next(new Error('Invalid token'));
-    }
-    next();
-  });
-  
-  // Try with invalid token (should fail)
-  const invalidClient = createClient({ auth: { token: 'invalid' } });
-  
-  // Use try/catch to handle expected errors
-  try {
-    await waitForConnection(invalidClient, 300);
-    // Should not reach here
-    expect(false).toBe(true); 
-  } catch (error) {
-    expect(error.message).toContain('Invalid token');
-  } finally {
-    // Always clean up!
-    invalidClient.disconnect();
-  }
-  
-  // Try with valid token (should succeed)
-  const validClient = createClient({ auth: { token: 'valid-token' } });
-  await waitForConnection(validClient, 300);
-  expect(validClient.connected).toBe(true);
-  validClient.disconnect();
-});
-```
+### Socket.IO Test Utilities
+See `tests/unit/websocket/socketio-test-utilities.js` for reusable testing utilities.
 
-## Real-world Examples
+## Testing Complex Socket.IO Behavior
 
-See the following example files:
+For more complex behaviors like reconnection:
 
-1. `tests/unit/websocket/basic-socketio.vitest.js` - Basic Socket.IO test pattern
-2. `tests/unit/websocket/ultra-minimal-socketio.vitest.js` - Minimal working example
-3. `tests/unit/websocket/socketio-test-utilities.js` - Utility functions
-4. `tests/unit/websocket/simplified-reconnect.vitest.js` - Disconnect test example (note: this test may time out in some environments)
+1. **Break tests into smaller pieces**: Test each aspect of reconnection separately
+2. **Use event simulation**: Simulate reconnection events instead of actual server restarts
+3. **Consider manual testing**: Some complex behaviors are better suited for manual verification
+4. **Use detailed logging**: Add detailed logs to track the reconnection sequence
+5. **Implement robust error recovery**: Ensure tests can recover from failures
 
-For more reliable testing, focus on these patterns:
+## Common Pitfalls
 
-### Event-based testing
-```javascript
-// Instead of testing actual reconnection:
-client.on('reconnect_attempt', (attempt) => {
-  // Assert that reconnection is being attempted
-  expect(attempt).toBeGreaterThan(0);
-  done();
-});
-```
+1. **Not removing event listeners**: Always call removeAllListeners() before disconnecting
+2. **Using long timeouts**: Long timeouts hide problems; use shorter timeouts to fail fast
+3. **Missing error handling**: Always catch and log errors during socket operations
+4. **Improper cleanup order**: Clean up clients before servers, and in reverse order of creation
+5. **Not tracking resources**: Keep track of all created resources for proper cleanup
 
-### Event simulation
-```javascript
-// Instead of real network disconnect, simulate events:
-// 1. Listen for the event
-client.on('disconnect', (reason) => {
-  expect(reason).toBe('io server disconnect');
-  
-  // 2. Verify application handles the event correctly
-  expect(client.connected).toBe(false);
-  expect(appState.isConnected).toBe(false);
-  
-  done();
-});
+## Conclusion
 
-// 3. Manually emit the event instead of actual disconnect
-client.io.engine.emit('close');
-```
-
-## Debugging Timeout Issues
-
-If you're experiencing timeout issues:
-
-1. **Check cleanup**: Make sure all clients and servers are being cleaned up properly
-2. **Reduce timeouts**: Try even smaller timeouts (50-100ms)
-3. **Simplify tests**: Break complex tests into smaller, focused tests
-4. **Add logging**: Add console logs for connection, disconnection, and cleanup events
-5. **Use try/finally**: Ensure cleanup runs even when tests fail
-
-## Final Notes
-
-- Always prefer simple tests over complex scenarios
-- Test individual units of functionality rather than complex integrations
-- Never rely on global Socket.IO instances for multiple tests
-- Always clean up resources, even when tests fail
-- Reconnection testing is fundamentally challenging in automated test environments
-- Consider event-based testing rather than actual network disconnection testing
-- Focus on testing that your application correctly handles socket events
-- Complex Socket.IO functionality may require manual verification outside automated tests
-
-## Advanced Troubleshooting
-
-If you continue to experience issues with Socket.IO tests despite following these best practices, consider:
-
-1. **Mocking the Socket.IO layer**: Instead of using real Socket.IO connections, mock the Socket.IO interface
-2. **Event simulation**: Test the application's response to events rather than triggering real network conditions 
-3. **Integration testing**: Test the Socket.IO integration points with your application logic instead of Socket.IO itself
-4. **Manual testing**: Use the provided diagnostic tools for verifying complex reconnection scenarios manually
-5. **Split responsibility**: Separate network handling code from business logic for easier testing
-6. **Environment-specific tests**: Skip or conditionally run problematic tests in CI/CD environments
-
-Remember that WebSocket testing is inherently complex due to its stateful and real-time nature. Focus on testing your application's handling of WebSocket events rather than the WebSocket implementation itself.
+Socket.IO testing requires careful attention to resource management and cleanup. By following the patterns in our example tests and implementing proper cleanup, you can create reliable Socket.IO tests for basic operations. For complex reconnection scenarios, consider a combination of automated testing for basic functionality and manual verification for complex behaviors.

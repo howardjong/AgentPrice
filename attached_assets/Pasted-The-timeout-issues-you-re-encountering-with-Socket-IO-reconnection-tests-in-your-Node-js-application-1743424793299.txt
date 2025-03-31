@@ -1,0 +1,460 @@
+The timeout issues you’re encountering with Socket.IO reconnection tests in your Node.js application (using ES modules on Replit with Vitest) stem from the problems outlined in the images:
+	1	Long timeouts causing tests to run too long (from the second image).
+	2	The reconnection test is causing timeout issues (from the first image).
+	3	Complex server restart/reconnection logic that doesn’t properly clean up resources (second image).
+	4	Missing proper disconnect handling for clients (second image).
+	5	Insufficient error tracking and cleanup (second image).
+	6	Explicit server and client shutdown is critical (first image).
+Additionally, the first image notes that waitForConnect and other test utilities are good patterns, which suggests that some of your existing test utilities are working well, but the reconnection logic needs improvement.
+Let’s break this down and provide a comprehensive solution to address these Socket.IO timeout issues in your Node.js application. I’ll provide practical examples, code patterns, and strategies tailored for your setup (Node.js with ES modules, Replit, Vitest, and Socket.IO).
+
+Step 1: Address Long Timeouts in Tests
+The default timeout for Vitest is 5 seconds per test (5000ms). For reconnection tests involving Socket.IO, especially with long-running tasks (~30 minutes in your case), this can easily lead to timeouts. You need to adjust the timeout settings for your tests and implement a more efficient polling mechanism for reconnection.
+Solution: Increase Test Timeout and Use `waitFor` Utility
+Since the waitForConnect utility is noted as a good pattern, let’s assume you’re using Vitest’s waitFor (or a similar utility) to poll for connection states. We’ll adjust the test timeout and ensure the reconnection logic doesn’t hang indefinitely.
+Example: Adjusting Test Timeout and Using waitFor
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { io as Client } from 'socket.io-client';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+
+// Server setup
+const httpServer = createServer();
+const io = new Server(httpServer);
+
+// Client setup
+let clientSocket;
+
+beforeEach(async () => {
+  await new Promise((resolve) => {
+    httpServer.listen(3000, resolve);
+  });
+
+  io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+  });
+
+  clientSocket = Client('http://localhost:3000');
+  await waitForConnect(clientSocket);
+});
+
+afterEach(async () => {
+  clientSocket.disconnect();
+  io.close();
+  await new Promise((resolve) => httpServer.close(resolve));
+});
+
+// Utility to wait for connection
+async function waitForConnect(socket) {
+  return new Promise((resolve, reject) => {
+    if (socket.connected) return resolve();
+    socket.on('connect', resolve);
+    socket.on('connect_error', reject);
+    setTimeout(() => reject(new Error('Connection timeout')), 10000); // 10s timeout
+  });
+}
+
+describe('Socket.IO Reconnection Tests', () => {
+  it('should reconnect after a server restart', async () => {
+    // Simulate server restart
+    io.close();
+    await new Promise((resolve) => httpServer.close(resolve));
+
+    // Restart server
+    await new Promise((resolve) => {
+      httpServer.listen(3000, resolve);
+    });
+
+    // Wait for reconnection with a longer timeout
+    await waitForConnect(clientSocket).catch((err) => {
+      throw new Error(`Reconnection failed: ${err.message}`);
+    });
+
+    expect(clientSocket.connected).toBe(true);
+  }, { timeout: 30000 }); // Increase timeout to 30 seconds for this test
+});
+Key Points:
+	•	The timeout: 30000 option in the it block increases the test timeout to 30 seconds, giving enough time for reconnection.
+	•	The waitForConnect utility polls for the connect event and includes a fallback timeout (10 seconds) to avoid hanging indefinitely.
+	•	The beforeEach and afterEach hooks ensure proper setup and teardown of the server and client.
+
+Step 2: Fix Complex Server Restart/Reconnection Logic
+The issue of “complex server restart/reconnection logic that doesn’t properly clean up resources” suggests that your server or client might be holding onto resources (e.g., open sockets, event listeners) after a restart, leading to timeouts or memory leaks.
+Solution: Implement Explicit Cleanup for Server and Client
+Socket.IO requires explicit cleanup to avoid resource leaks. You need to ensure that both the server and client properly close connections and remove event listeners during teardown.
+Example: Explicit Server and Client Shutdown
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { io as Client } from 'socket.io-client';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+
+let httpServer;
+let io;
+let clientSocket;
+
+beforeEach(async () => {
+  httpServer = createServer();
+  io = new Server(httpServer);
+
+  await new Promise((resolve) => {
+    httpServer.listen(3000, resolve);
+  });
+
+  io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+  });
+
+  clientSocket = Client('http://localhost:3000', {
+    reconnection: true,
+    reconnectionAttempts: 3,
+    reconnectionDelay: 1000,
+  });
+
+  await waitForConnect(clientSocket);
+});
+
+afterEach(async () => {
+  // Disconnect client and remove all listeners
+  if (clientSocket) {
+    clientSocket.removeAllListeners();
+    clientSocket.disconnect();
+  }
+
+  // Close server and remove all listeners
+  if (io) {
+    io.removeAllListeners();
+    io.close();
+  }
+
+  // Close HTTP server
+  if (httpServer) {
+    await new Promise((resolve) => httpServer.close(resolve));
+    httpServer.removeAllListeners();
+  }
+});
+
+async function waitForConnect(socket) {
+  return new Promise((resolve, reject) => {
+    if (socket.connected) return resolve();
+    socket.on('connect', resolve);
+    socket.on('connect_error', reject);
+    setTimeout(() => reject(new Error('Connection timeout')), 10000);
+  });
+}
+
+describe('Socket.IO Reconnection Tests', () => {
+  it('should handle server restart and reconnect', async () => {
+    // Simulate server restart
+    io.close();
+    await new Promise((resolve) => httpServer.close(resolve));
+
+    // Restart server
+    httpServer = createServer();
+    io = new Server(httpServer);
+    await new Promise((resolve) => {
+      httpServer.listen(3000, resolve);
+    });
+
+    // Wait for reconnection
+    await waitForConnect(clientSocket);
+    expect(clientSocket.connected).toBe(true);
+  }, { timeout: 30000 });
+});
+Key Points:
+	•	The afterEach hook explicitly closes the client (clientSocket.disconnect()), server (io.close()), and HTTP server (httpServer.close()).
+	•	removeAllListeners() is called on both the client and server to prevent event listener leaks.
+	•	The client is configured with reconnection options (reconnection: true, reconnectionAttempts: 3, reconnectionDelay: 1000) to control reconnection behavior.
+
+Step 3: Add Proper Disconnect Handling for Clients
+The issue of “missing proper disconnect handling for clients” means that your client might not be handling disconnections gracefully, leading to timeouts or failed reconnection attempts.
+Solution: Handle Disconnect Events and Reconnection Logic
+Add event listeners for disconnect and connect_error events on the client to manage disconnections and reconnection attempts.
+Example: Client Disconnect Handling
+import { io as Client } from 'socket.io-client';
+
+let clientSocket;
+
+async function setupClient() {
+  clientSocket = Client('http://localhost:3000', {
+    reconnection: true,
+    reconnectionAttempts: 3,
+    reconnectionDelay: 1000,
+  });
+
+  // Handle disconnect
+  clientSocket.on('disconnect', (reason) => {
+    console.log('Disconnected:', reason);
+    if (reason === 'io server disconnect') {
+      // Server disconnected, attempt manual reconnection
+      clientSocket.connect();
+    }
+  });
+
+  // Handle connection errors
+  clientSocket.on('connect_error', (err) => {
+    console.error('Connection error:', err.message);
+  });
+
+  // Handle successful reconnection
+  clientSocket.on('reconnect', (attempt) => {
+    console.log('Reconnected after', attempt, 'attempts');
+  });
+
+  // Handle reconnection failure
+  clientSocket.on('reconnect_failed', () => {
+    console.error('Reconnection failed after maximum attempts');
+  });
+
+  await waitForConnect(clientSocket);
+}
+
+async function waitForConnect(socket) {
+  return new Promise((resolve, reject) => {
+    if (socket.connected) return resolve();
+    socket.on('connect', resolve);
+    socket.on('connect_error', reject);
+    setTimeout(() => reject(new Error('Connection timeout')), 10000);
+  });
+}
+Key Points:
+	•	The disconnect event listener logs the reason for disconnection and attempts manual reconnection if the server initiated the disconnect.
+	•	The connect_error event logs errors during connection attempts.
+	•	The reconnect and reconnect_failed events provide feedback on reconnection attempts.
+
+Step 4: Improve Error Tracking and Cleanup
+The issue of “insufficient error tracking and cleanup” suggests that errors during reconnection or disconnection might not be properly logged or handled, leading to silent failures.
+Solution: Add Robust Error Handling and Logging
+Wrap your Socket.IO operations in try-catch blocks and log errors to ensure you can debug issues effectively.
+Example: Error Handling in Tests
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { io as Client } from 'socket.io-client';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+
+let httpServer;
+let io;
+let clientSocket;
+
+beforeEach(async () => {
+  try {
+    httpServer = createServer();
+    io = new Server(httpServer);
+
+    await new Promise((resolve) => {
+      httpServer.listen(3000, resolve);
+    });
+
+    io.on('connection', (socket) => {
+      console.log('Client connected:', socket.id);
+    });
+
+    clientSocket = Client('http://localhost:3000', {
+      reconnection: true,
+      reconnectionAttempts: 3,
+      reconnectionDelay: 1000,
+    });
+
+    await waitForConnect(clientSocket);
+  } catch (err) {
+    console.error('Setup failed:', err.message);
+    throw err;
+  }
+});
+
+afterEach(async () => {
+  try {
+    if (clientSocket) {
+      clientSocket.removeAllListeners();
+      clientSocket.disconnect();
+    }
+    if (io) {
+      io.removeAllListeners();
+      io.close();
+    }
+    if (httpServer) {
+      await new Promise((resolve) => httpServer.close(resolve));
+      httpServer.removeAllListeners();
+    }
+  } catch (err) {
+    console.error('Teardown failed:', err.message);
+    throw err;
+  }
+});
+
+async function waitForConnect(socket) {
+  return new Promise((resolve, reject) => {
+    if (socket.connected) return resolve();
+    socket.on('connect', resolve);
+    socket.on('connect_error', (err) => {
+      console.error('Connection error in waitForConnect:', err.message);
+      reject(err);
+    });
+    setTimeout(() => reject(new Error('Connection timeout')), 10000);
+  });
+}
+
+describe('Socket.IO Reconnection Tests', () => {
+  it('should handle server restart and reconnect', async () => {
+    try {
+      io.close();
+      await new Promise((resolve) => httpServer.close(resolve));
+
+      httpServer = createServer();
+      io = new Server(httpServer);
+      await new Promise((resolve) => {
+        httpServer.listen(3000, resolve);
+      });
+
+      await waitForConnect(clientSocket);
+      expect(clientSocket.connected).toBe(true);
+    } catch (err) {
+      console.error('Test failed:', err.message);
+      throw err;
+    }
+  }, { timeout: 30000 });
+});
+Key Points:
+	•	Try-catch blocks in beforeEach, afterEach, and the test itself ensure that errors are caught and logged.
+	•	Errors in waitForConnect are logged and propagated to fail the test if necessary.
+
+Step 5: Integrate with Your Workflow Requirements
+Your application involves long-running tasks, Redis integration, rate limiting, and token optimization. While these don’t directly cause the timeout issues, they might exacerbate resource usage during reconnection tests. Let’s ensure Socket.IO integrates well with these requirements.
+Solution: Use Redis for Socket.IO State Management
+Since you’re already using Redis for state management, you can use the socket.io-redis adapter to manage Socket.IO state across server restarts. This ensures that client connections are preserved during restarts, reducing reconnection issues.
+Example: Socket.IO with Redis Adapter
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+import { createClient } from 'redis';
+import { createAdapter } from '@socket.io/redis-adapter';
+
+const httpServer = createServer();
+const io = new Server(httpServer);
+
+// Redis setup
+const redisClient = createClient({
+  url: 'redis://localhost:6379', // Adjust for Replit's Redis setup
+});
+await redisClient.connect();
+
+const pubClient = redisClient;
+const subClient = redisClient.duplicate();
+await subClient.connect();
+
+// Attach Redis adapter to Socket.IO
+io.adapter(createAdapter(pubClient, subClient));
+
+// Start server
+await new Promise((resolve) => {
+  httpServer.listen(3000, resolve);
+});
+
+io.on('connection', (socket) => {
+  console.log('Client connected:', socket.id);
+});
+Key Points:
+	•	The Redis adapter ensures that Socket.IO can manage client connections across server restarts, reducing the likelihood of timeout issues.
+	•	Adjust the Redis URL based on Replit’s environment (you might need to use Replit’s built-in Redis or an external service like Upstash).
+
+Step 6: Optimize Reconnection Tests for Long-Running Tasks
+Since your workflows involve long-running tasks (~30 minutes), you need to ensure that reconnection tests don’t interfere with these tasks. Use a mock task to simulate long-running behavior during tests.
+Example: Simulate Long-Running Task with Reconnection
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { io as Client } from 'socket.io-client';
+import { createServer } from 'http';
+import { Server } from 'socket.io';
+
+let httpServer;
+let io;
+let clientSocket;
+
+beforeEach(async () => {
+  httpServer = createServer();
+  io = new Server(httpServer);
+
+  await new Promise((resolve) => {
+    httpServer.listen(3000, resolve);
+  });
+
+  io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+
+    // Simulate a long-running task
+    socket.on('start-long-task', async () => {
+      console.log('Starting long-running task...');
+      await new Promise((resolve) => setTimeout(resolve, 60000)); // Simulate 1-minute task
+      socket.emit('task-complete', 'Task finished');
+    });
+  });
+
+  clientSocket = Client('http://localhost:3000', {
+    reconnection: true,
+    reconnectionAttempts: 3,
+    reconnectionDelay: 1000,
+  });
+
+  await waitForConnect(clientSocket);
+});
+
+afterEach(async () => {
+  if (clientSocket) {
+    clientSocket.removeAllListeners();
+    clientSocket.disconnect();
+  }
+  if (io) {
+    io.removeAllListeners();
+    io.close();
+  }
+  if (httpServer) {
+    await new Promise((resolve) => httpServer.close(resolve));
+    httpServer.removeAllListeners();
+  }
+});
+
+async function waitForConnect(socket) {
+  return new Promise((resolve, reject) => {
+    if (socket.connected) return resolve();
+    socket.on('connect', resolve);
+    socket.on('connect_error', reject);
+    setTimeout(() => reject(new Error('Connection timeout')), 10000);
+  });
+}
+
+describe('Socket.IO Long-Running Task with Reconnection', () => {
+  it('should reconnect during a long-running task', async () => {
+    // Start a long-running task
+    clientSocket.emit('start-long-task');
+
+    // Simulate server restart after 5 seconds
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    io.close();
+    await new Promise((resolve) => httpServer.close(resolve));
+
+    // Restart server
+    httpServer = createServer();
+    io = new Server(httpServer);
+    await new Promise((resolve) => {
+      httpServer.listen(3000, resolve);
+    });
+
+    // Wait for reconnection
+    await waitForConnect(clientSocket);
+    expect(clientSocket.connected).toBe(true);
+
+    // Wait for task completion
+    const taskResult = await new Promise((resolve) => {
+      clientSocket.on('task-complete', (result) => resolve(result));
+    });
+    expect(taskResult).toBe('Task finished');
+  }, { timeout: 120000 }); // 2-minute timeout for long-running task
+});
+Key Points:
+	•	The test simulates a long-running task (1 minute) and a server restart during the task.
+	•	The client reconnects after the server restarts, and the task completes successfully.
+	•	The test timeout is increased to 2 minutes to accommodate the long-running task.
+
+Final Recommendations
+	1	Rate Limiting and Token Optimization: Since you’re managing LLM API usage, ensure that Socket.IO reconnection attempts don’t trigger excessive API calls. Use a rate limiter (e.g., rate-limiter-flexible) to control reconnection attempts.
+	2	Prompt Caching: Cache prompts in Redis to avoid redundant API calls during reconnection. For example, store the last prompt in Redis and reuse it if the client reconnects.
+	3	Circuit Breakers: Implement a circuit breaker pattern (e.g., using opossum) to prevent excessive reconnection attempts if the server is down for an extended period.
+	4	Replit Environment: Ensure that Replit’s environment variables (e.g., for Redis) are correctly configured. Replit may have limitations on long-running processes, so consider using a background worker for long tasks.
+By implementing these solutions, you should be able to resolve the timeout issues in your Socket.IO reconnection tests while ensuring compatibility with your Node.js (ES modules), Replit, and Vitest setup. Let me know if you need further clarification or additional examples!
