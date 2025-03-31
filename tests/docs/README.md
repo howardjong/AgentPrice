@@ -18,6 +18,10 @@ This directory contains comprehensive documentation related to testing in our pr
 - [Error Handling Best Practices](./guidelines/ERROR_HANDLING_BEST_PRACTICES.md) - Testing error scenarios
 - [Time Testing Best Practices](./guidelines/TIME_TESTING_BEST_PRACTICES.md) - Testing time-dependent code
 - [Non-Deterministic Error Testing](./guidelines/NON_DETERMINISTIC_ERROR_TESTING.md) - Testing for flaky network conditions and race conditions
+- [Test Development Guide](./guidelines/TEST_DEVELOPMENT_GUIDE.md) - Comprehensive guide for developing tests
+- [Vitest Mocking Guide](./guidelines/VITEST_MOCKING_GUIDE.md) - Quick reference guide for Vitest mocking
+- [Vitest Mocking Guidelines](./guidelines/VITEST_MOCKING_GUIDELINES.md) - Detailed guidelines for mocking with Vitest
+- [Vitest Module Mocking Guidelines](./guidelines/VITEST_MODULE_MOCKING_GUIDELINES.md) - Guidelines for ES module mocking in Vitest
 
 ### Test Migration
 
