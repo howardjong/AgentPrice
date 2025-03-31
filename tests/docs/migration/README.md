@@ -1,4 +1,3 @@
-
 # Test Migration Documentation
 
 This directory contains documentation related to our Jest to Vitest test migration effort.
