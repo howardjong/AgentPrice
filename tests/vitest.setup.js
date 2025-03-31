@@ -1,86 +1,94 @@
 /**
- * Vitest setup file
+ * Vitest Setup File
  * 
- * This file is executed before all test files. It:
- * 1. Sets up global test environment configuration
- * 2. Handles memory management to prevent OOM errors
- * 3. Provides clean-up functions for test runs
+ * This file runs before all tests to set up the testing environment.
+ * It includes:
+ * - Global test helpers
+ * - Environment variable setup
+ * - Global error handling
+ * - Utility functions for socket.io and websocket tests
  */
 
-import { afterAll, afterEach, beforeAll, beforeEach, vi, expect } from 'vitest';
-import { resetAllMocks } from './utils/test-helpers.js';
+// Ensure environment is set to test
+process.env.NODE_ENV = 'test';
 
-// Track memory usage for debugging
-const logMemoryUsage = () => {
-  const memUsage = process.memoryUsage();
-  console.log('Memory Usage:');
-  console.log(`RSS: ${Math.round(memUsage.rss / 1024 / 1024)}MB`);
-  console.log(`Heap Total: ${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`);
-  console.log(`Heap Used: ${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`);
+// Set up test timeout behavior
+const originalSetTimeout = setTimeout;
+global.setTimeout = (fn, ms, ...args) => {
+  // Make debugging easier by setting a maximum timeout
+  const MAX_TIMEOUT = 15000;
+  const timeout = Math.min(ms, MAX_TIMEOUT);
+  return originalSetTimeout(fn, timeout, ...args);
 };
 
-// Setup global test environment
-beforeAll(() => {
-  console.log('Setting up global test environment');
-  // Set longer timeout for all tests to accommodate API call mocks
-  vi.setConfig({ testTimeout: 20000 });
-  logMemoryUsage();
+// Add utility to ensure ports are available
+global.getFreePorts = async (count = 1) => {
+  const getPort = require('get-port');
+  if (count === 1) {
+    return await getPort();
+  }
+  
+  // Get multiple ports if needed
+  const ports = [];
+  for (let i = 0; i < count; i++) {
+    ports.push(await getPort());
+  }
+  return ports;
+};
+
+// Helper for controlled delays in tests
+global.delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Global error handling for unhandled promises
+const originalUnhandledRejection = process.listeners('unhandledRejection').pop();
+process.removeAllListeners('unhandledRejection');
+process.on('unhandledRejection', (err, promise) => {
+  console.error('Unhandled rejection during test execution:');
+  console.error(err);
+  if (originalUnhandledRejection) {
+    originalUnhandledRejection(err, promise);
+  }
 });
 
-// Apply cleanup after each test
-afterEach(() => {
-  // Reset all mocks to prevent state leakage between tests
-  vi.clearAllMocks();
-});
-
-// Apply global cleanup
+// Clean up resources on test exit
 afterAll(() => {
-  console.log('Cleaning up global test environment');
-  // Ensure any remaining timers are cleared
-  vi.useRealTimers();
-  // Explicitly run garbage collection if enabled (node --expose-gc)
+  // Ensure all timeouts are cleared
+  jest.useRealTimers();
+  
+  // Force garbage collection if supported
   if (global.gc) {
-    console.log('Running garbage collection');
     global.gc();
   }
-  logMemoryUsage();
+  
+  // Add a small delay to allow resources to be properly released
+  return delay(100);
 });
 
-// Enable fake time management for all tests by default
-// This makes tests more deterministic and prevents timeout issues
-vi.useFakeTimers();
+// Initialize logger mocks to prevent console noise during tests
+global.mockLogger = {
+  info: vi.fn(),
+  error: vi.fn(),
+  warn: vi.fn(),
+  debug: vi.fn(),
+};
 
-// Add custom matchers or global helpers here
-expect.extend({
-  toBeWithinRange(received, floor, ceiling) {
-    const pass = received >= floor && received <= ceiling;
-    if (pass) {
-      return {
-        message: () =>
-          `expected ${received} not to be within range ${floor} - ${ceiling}`,
-        pass: true,
-      };
-    } else {
-      return {
-        message: () =>
-          `expected ${received} to be within range ${floor} - ${ceiling}`,
-        pass: false,
-      };
-    }
-  },
+// Log test start/end for better visibility in debug mode
+beforeAll(() => {
+  if (process.env.DEBUG) {
+    console.log(`🚀 Starting test: ${expect.getState().currentTestName}`);
+  }
 });
 
-// Setup global console log/error capture if needed
-const originalConsoleLog = console.log;
-const originalConsoleError = console.error;
-
-if (process.env.SILENT_LOGS === 'true') {
-  console.log = () => {}; // Silence logs during tests
-  console.error = () => {}; // Silence errors during tests
-}
-
-// Restore console functions after tests
 afterAll(() => {
-  console.log = originalConsoleLog;
-  console.error = originalConsoleError;
+  if (process.env.DEBUG) {
+    console.log(`✅ Completed test: ${expect.getState().currentTestName}`);
+  }
 });
+
+// Setup socket testing utilities
+global.setupSocketTestEnvironment = async () => {
+  const SocketTestEnvironment = require('./unit/websocket/socketio-test-environment');
+  return new SocketTestEnvironment();
+};
+
+console.log('✅ Vitest setup complete');

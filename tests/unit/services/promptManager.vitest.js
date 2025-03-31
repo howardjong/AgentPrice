@@ -1,215 +1,379 @@
+/**
+ * Prompt Manager Service Tests
+ * 
+ * Comprehensive tests for the promptManager service, focusing on:
+ * - Template loading and parsing
+ * - Variable replacement
+ * - Caching behavior
+ * - Error handling
+ * - Configuration options
+ * - Variant selection and promotion
+ */
+
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import path from 'path';
 
-// Auto-mock the necessary modules
-vi.mock('../../../utils/logger.js');
-vi.mock('../../../services/promptManager.js');
+// Mock the filesystem module
+vi.mock('fs/promises', () => ({
+  readFile: vi.fn(),
+  readdir: vi.fn(),
+  stat: vi.fn(() => Promise.resolve({ isDirectory: () => false })),
+  mkdir: vi.fn(() => Promise.resolve())
+}));
 
-// Import the mocked modules
-import logger from '../../../utils/logger.js';
-import promptManager from '../../../services/promptManager.js';
+// Get the mocked fs module
+const fs = require('fs/promises');
 
-// Setup mocks after imports
-beforeEach(() => {
-  // Mock logger
-  vi.mocked(logger).info = vi.fn();
-  vi.mocked(logger).warn = vi.fn();
-  vi.mocked(logger).error = vi.fn();
-  vi.mocked(logger).debug = vi.fn();
+// Import the module under test
+const promptManager = require('../../../services/promptManager');
 
-  // Setup promptManager mock
-  promptManager.promptCache = new Map();
-  promptManager.activeVersions = {
-    'claude': {
-      'clarifying_questions': 'v1',
-      'response_generation': 'default',
-      'chart_data': {
-        'van_westendorp': 'test_version',
-        'conjoint': 'default'
-      }
-    },
-    'perplexity': {
-      'deep_research': 'v2'
-    }
-  };
-  
-  // Mock functions
-  vi.mocked(promptManager).initialize = vi.fn().mockResolvedValue(true);
-  vi.mocked(promptManager).getPrompt = vi.fn().mockImplementation(async (engine, promptType, variant = null, options = {}) => {
-    const cacheKey = `${engine}:${promptType}:${variant || 'default'}`;
-    
-    if (promptManager.promptCache.has(cacheKey)) {
-      return promptManager.promptCache.get(cacheKey);
-    }
-    
-    let promptContent = `Mock ${engine} ${promptType} prompt`;
-    if (variant) {
-      promptContent = `Mock ${engine} ${promptType} variant ${variant} prompt`;
-    } else if (promptType.includes('clarifying') && engine === 'claude') {
-      promptContent = 'Mock clarifying questions prompt v1';
-    } else if (promptType.includes('deep_research') && engine === 'perplexity') {
-      promptContent = 'Mock deep research prompt v2';
-    } else if (promptType.includes('chart_data')) {
-      promptContent = `Mock chart data prompt for ${promptType.split('/')[1]}`;
-    }
-    
-    promptManager.promptCache.set(cacheKey, promptContent);
-    return promptContent;
-  });
-  
-  vi.mocked(promptManager).getActiveVersion = vi.fn().mockImplementation((engine, promptType) => {
-    if (promptType.includes('/')) {
-      const [category, subtype] = promptType.split('/');
-      return promptManager.activeVersions[engine]?.[category]?.[subtype] || 'default';
-    }
-    return promptManager.activeVersions[engine]?.[promptType] || 'default';
-  });
-  
-  vi.mocked(promptManager).createPromptVariant = vi.fn().mockResolvedValue(true);
-  vi.mocked(promptManager).promoteVariantToVersion = vi.fn().mockResolvedValue(true);
-  vi.mocked(promptManager).listPromptVersions = vi.fn().mockResolvedValue(['default', 'v1', 'v2']);
-  
-  vi.mocked(promptManager).setActiveVersion = vi.fn().mockImplementation(async (engine, promptType, versionName) => {
-    if (promptType.includes('/')) {
-      const [category, subtype] = promptType.split('/');
-      if (!promptManager.activeVersions[engine]) {
-        promptManager.activeVersions[engine] = {};
-      }
-      if (!promptManager.activeVersions[engine][category]) {
-        promptManager.activeVersions[engine][category] = {};
-      }
-      promptManager.activeVersions[engine][category][subtype] = versionName;
-    } else {
-      if (!promptManager.activeVersions[engine]) {
-        promptManager.activeVersions[engine] = {};
-      }
-      promptManager.activeVersions[engine][promptType] = versionName;
-    }
-    return true;
-  });
-});
-
-describe('PromptManager', () => {
+describe('promptManager', () => {
+  // Reset mocks and module state before each test
   beforeEach(() => {
-    // Reset mock function calls and implementation
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     
-    // Reset the prompt manager's cache
-    promptManager.promptCache.clear();
-  });
-  
-  describe('initialize', () => {
-    it('should initialize successfully', async () => {
-      const result = await promptManager.initialize();
-      expect(result).toBe(true);
-      expect(promptManager.initialize).toHaveBeenCalled();
+    // Reset the prompt manager's internal cache
+    promptManager.resetCache();
+    
+    // Default configuration
+    promptManager.configure({
+      promptDir: 'prompts',
+      defaultVariables: { },
+      loggingEnabled: false
     });
+    
+    // Default mock implementations
+    fs.readFile.mockImplementation((path) => {
+      // Simple template with variables
+      if (path.includes('test-prompt.txt')) {
+        return Promise.resolve('This is a {{variable}} template');
+      }
+      
+      // Simple template without variables
+      if (path.includes('simple.txt')) {
+        return Promise.resolve('This is a simple template');
+      }
+      
+      // Template with nested variables
+      if (path.includes('nested.txt')) {
+        return Promise.resolve('Hello {{user.name}}, your score is {{user.score}}');
+      }
+      
+      // Default case - file not found
+      return Promise.reject(new Error('ENOENT: file not found'));
+    });
+    
+    // Default directory structure
+    fs.readdir.mockResolvedValue([
+      'test-prompt.txt',
+      'simple.txt',
+      'nested.txt'
+    ]);
   });
   
-  describe('getPrompt', () => {
-    it('should return a cached prompt if available', async () => {
-      // Add a mock prompt to the cache
-      promptManager.promptCache.set('claude:clarifying_questions:v1', 'Cached prompt');
-      
-      // Override the mocked getPrompt function for this specific test
-      const originalGetPrompt = promptManager.getPrompt;
-      promptManager.getPrompt = vi.fn().mockImplementation(async (engine, promptType, variant = null, options = {}) => {
-        const cacheKey = `${engine}:${promptType}:${promptManager.getActiveVersion(engine, promptType)}`;
-        return promptManager.promptCache.get(cacheKey) || 'Default content';
+  // Basic template loading and formatting
+  describe('formatPrompt', () => {
+    it('should load and format a prompt template', async () => {
+      const result = await promptManager.formatPrompt('test-prompt', { 
+        variable: 'example' 
       });
       
-      // Make sure getActiveVersion returns 'v1' for this test
-      promptManager.getActiveVersion.mockReturnValueOnce('v1');
-      
-      const result = await promptManager.getPrompt('claude', 'clarifying_questions');
-      expect(result).toBe('Cached prompt');
-      
-      // Restore the original function for other tests
-      promptManager.getPrompt = originalGetPrompt;
-    });
-    
-    it('should return a prompt for Claude clarifying questions', async () => {
-      const result = await promptManager.getPrompt('claude', 'clarifying_questions');
-      expect(result).toBe('Mock clarifying questions prompt v1');
-      expect(promptManager.getPrompt).toHaveBeenCalledWith('claude', 'clarifying_questions');
-    });
-    
-    it('should return a prompt for Perplexity deep research', async () => {
-      const result = await promptManager.getPrompt('perplexity', 'deep_research');
-      expect(result).toBe('Mock deep research prompt v2');
-      expect(promptManager.getPrompt).toHaveBeenCalledWith('perplexity', 'deep_research');
-    });
-    
-    it('should handle chart data prompts correctly', async () => {
-      const result = await promptManager.getPrompt('claude', 'chart_data/van_westendorp');
-      expect(result).toBe('Mock chart data prompt for van_westendorp');
-      expect(promptManager.getPrompt).toHaveBeenCalledWith('claude', 'chart_data/van_westendorp');
-    });
-    
-    it('should handle variant prompts', async () => {
-      const result = await promptManager.getPrompt('claude', 'clarifying_questions', 'test_variant');
-      expect(result).toBe('Mock claude clarifying_questions variant test_variant prompt');
-      expect(promptManager.getPrompt).toHaveBeenCalledWith('claude', 'clarifying_questions', 'test_variant');
-    });
-  });
-  
-  describe('getActiveVersion', () => {
-    it('should return the correct active version for a prompt type', () => {
-      const result = promptManager.getActiveVersion('claude', 'clarifying_questions');
-      expect(result).toBe('v1');
-    });
-    
-    it('should return the correct active version for a nested prompt type', () => {
-      const result = promptManager.getActiveVersion('claude', 'chart_data/van_westendorp');
-      expect(result).toBe('test_version');
-    });
-    
-    it('should return default if no active version is defined', () => {
-      const result = promptManager.getActiveVersion('claude', 'nonexistent');
-      expect(result).toBe('default');
-    });
-  });
-  
-  describe('createPromptVariant', () => {
-    it('should create a new prompt variant', async () => {
-      const result = await promptManager.createPromptVariant(
-        'claude',
-        'clarifying_questions',
-        'test_variant',
-        'Test variant content'
-      );
-      
-      expect(result).toBe(true);
-      expect(promptManager.createPromptVariant).toHaveBeenCalledWith(
-        'claude',
-        'clarifying_questions',
-        'test_variant',
-        'Test variant content'
+      expect(result).toBe('This is a example template');
+      expect(fs.readFile).toHaveBeenCalledWith(
+        expect.stringContaining('test-prompt.txt'),
+        expect.any(Object)
       );
     });
-  });
-  
-  describe('listPromptVersions', () => {
-    it('should return a list of available prompt versions', async () => {
-      const versions = await promptManager.listPromptVersions('claude', 'clarifying_questions');
-      expect(versions).toEqual(['default', 'v1', 'v2']);
-      expect(promptManager.listPromptVersions).toHaveBeenCalledWith('claude', 'clarifying_questions');
-    });
-  });
-  
-  describe('setActiveVersion', () => {
-    it('should update the active version for a prompt type', async () => {
-      const result = await promptManager.setActiveVersion('claude', 'clarifying_questions', 'v2');
-      expect(result).toBe(true);
-      expect(promptManager.activeVersions.claude.clarifying_questions).toBe('v2');
-      expect(promptManager.setActiveVersion).toHaveBeenCalledWith('claude', 'clarifying_questions', 'v2');
+    
+    it('should handle simple templates without variables', async () => {
+      const result = await promptManager.formatPrompt('simple', {});
+      
+      expect(result).toBe('This is a simple template');
     });
     
-    it('should handle nested prompt types', async () => {
-      const result = await promptManager.setActiveVersion('claude', 'chart_data/van_westendorp', 'v3');
-      expect(result).toBe(true);
-      expect(promptManager.activeVersions.claude.chart_data.van_westendorp).toBe('v3');
-      expect(promptManager.setActiveVersion).toHaveBeenCalledWith('claude', 'chart_data/van_westendorp', 'v3');
+    it('should handle nested object variables', async () => {
+      const result = await promptManager.formatPrompt('nested', {
+        user: {
+          name: 'John',
+          score: 85
+        }
+      });
+      
+      expect(result).toBe('Hello John, your score is 85');
+    });
+    
+    it('should leave unmatched variables unchanged', async () => {
+      const result = await promptManager.formatPrompt('test-prompt', {});
+      
+      expect(result).toBe('This is a {{variable}} template');
+    });
+  });
+  
+  // Cache behavior
+  describe('caching', () => {
+    it('should cache templates after first load', async () => {
+      // First call should read from file
+      await promptManager.formatPrompt('test-prompt', { variable: 'first' });
+      
+      // Clear the mock to check it's not called again
+      fs.readFile.mockClear();
+      
+      // Second call should use cache
+      const result = await promptManager.formatPrompt('test-prompt', { variable: 'second' });
+      
+      expect(result).toBe('This is a second template');
+      expect(fs.readFile).not.toHaveBeenCalled();
+    });
+    
+    it('should reload templates when forced', async () => {
+      // First call loads the template
+      await promptManager.formatPrompt('test-prompt', {});
+      
+      // Change the mock to return a different template
+      fs.readFile.mockImplementation((path) => {
+        if (path.includes('test-prompt.txt')) {
+          return Promise.resolve('This is an {{variable}} updated template');
+        }
+        return Promise.reject(new Error('File not found'));
+      });
+      
+      // Second call with forceReload should read from file again
+      const result = await promptManager.formatPrompt('test-prompt', 
+        { variable: 'newly' }, 
+        { forceReload: true }
+      );
+      
+      expect(result).toBe('This is an newly updated template');
+      expect(fs.readFile).toHaveBeenCalledTimes(1);
+    });
+    
+    it('should clear the cache when calling resetCache', async () => {
+      // Load template into cache
+      await promptManager.formatPrompt('test-prompt', {});
+      
+      // Reset the cache
+      promptManager.resetCache();
+      
+      // Should load from file again
+      await promptManager.formatPrompt('test-prompt', {});
+      
+      expect(fs.readFile).toHaveBeenCalledTimes(2);
+    });
+  });
+  
+  // Error handling
+  describe('error handling', () => {
+    it('should throw an error when template is not found', async () => {
+      fs.readFile.mockRejectedValueOnce(new Error('ENOENT: file not found'));
+      
+      await expect(promptManager.formatPrompt('nonexistent', {}))
+        .rejects.toThrow(/Failed to load prompt template/);
+    });
+    
+    it('should throw an error when there is a filesystem error', async () => {
+      fs.readFile.mockRejectedValueOnce(new Error('Permission denied'));
+      
+      await expect(promptManager.formatPrompt('test-prompt', {}))
+        .rejects.toThrow(/Failed to load prompt template/);
+    });
+    
+    it('should handle empty templates', async () => {
+      fs.readFile.mockResolvedValueOnce('');
+      
+      const result = await promptManager.formatPrompt('empty', {});
+      expect(result).toBe('');
+    });
+  });
+  
+  // Configuration
+  describe('configuration', () => {
+    it('should use custom prompt directory', async () => {
+      // Set custom directory
+      promptManager.configure({ promptDir: 'custom/prompts' });
+      
+      // Trigger a template load
+      await promptManager.formatPrompt('test-prompt', {});
+      
+      // Verify the correct path was used
+      expect(fs.readFile).toHaveBeenCalledWith(
+        expect.stringContaining(path.join('custom/prompts', 'test-prompt.txt')),
+        expect.any(Object)
+      );
+    });
+    
+    it('should apply default variables', async () => {
+      // Set default variables
+      promptManager.configure({
+        defaultVariables: {
+          variable: 'default'
+        }
+      });
+      
+      // Load template without providing variables
+      const result = await promptManager.formatPrompt('test-prompt', {});
+      
+      // Default variable should be applied
+      expect(result).toBe('This is a default template');
+    });
+    
+    it('should allow overriding default variables', async () => {
+      // Set default variables
+      promptManager.configure({
+        defaultVariables: {
+          variable: 'default'
+        }
+      });
+      
+      // Override with explicit variables
+      const result = await promptManager.formatPrompt('test-prompt', {
+        variable: 'override'
+      });
+      
+      // Explicit variable should take precedence
+      expect(result).toBe('This is a override template');
+    });
+  });
+  
+  // Variant selection
+  describe('variant selection', () => {
+    beforeEach(() => {
+      // Setup file structure with variants
+      fs.readdir.mockResolvedValue([
+        'greeting.base.txt',
+        'greeting.formal.txt',
+        'greeting.casual.txt',
+        'greeting.gpt4.txt'
+      ]);
+      
+      // Setup variant content
+      fs.readFile.mockImplementation((path) => {
+        if (path.includes('greeting.base.txt')) {
+          return Promise.resolve('Hello {{name}}');
+        }
+        if (path.includes('greeting.formal.txt')) {
+          return Promise.resolve('Greetings, {{name}}');
+        }
+        if (path.includes('greeting.casual.txt')) {
+          return Promise.resolve('Hey {{name}}!');
+        }
+        if (path.includes('greeting.gpt4.txt')) {
+          return Promise.resolve('Hi {{name}}, GPT-4 here');
+        }
+        return Promise.reject(new Error('File not found'));
+      });
+    });
+    
+    it('should select the base variant by default', async () => {
+      const result = await promptManager.formatPrompt('greeting', {
+        name: 'User'
+      });
+      
+      expect(result).toBe('Hello User');
+    });
+    
+    it('should select a specific variant when requested', async () => {
+      const result = await promptManager.formatPrompt('greeting', 
+        { name: 'User' },
+        { variant: 'formal' }
+      );
+      
+      expect(result).toBe('Greetings, User');
+    });
+    
+    it('should select a model-specific variant', async () => {
+      const result = await promptManager.formatPrompt('greeting',
+        { name: 'User' },
+        { model: 'gpt4' }
+      );
+      
+      expect(result).toBe('Hi User, GPT-4 here');
+    });
+    
+    it('should fall back to base variant when requested variant is not found', async () => {
+      const result = await promptManager.formatPrompt('greeting',
+        { name: 'User' },
+        { variant: 'nonexistent' }
+      );
+      
+      expect(result).toBe('Hello User');
+    });
+  });
+  
+  // Advanced features
+  describe('advanced features', () => {
+    it('should support prompt composition with includes', async () => {
+      // Mock to simulate template includes
+      fs.readFile.mockImplementation((path) => {
+        if (path.includes('main.txt')) {
+          return Promise.resolve('Start\n{{#include header}}\nMiddle\n{{#include footer}}\nEnd');
+        }
+        if (path.includes('header.txt')) {
+          return Promise.resolve('This is the header for {{name}}');
+        }
+        if (path.includes('footer.txt')) {
+          return Promise.resolve('This is the footer');
+        }
+        return Promise.reject(new Error('File not found'));
+      });
+      
+      // Enable include processing in our mock
+      promptManager.configure({ processIncludes: true });
+      
+      const result = await promptManager.formatPrompt('main', { name: 'User' });
+      
+      expect(result).toContain('Start');
+      expect(result).toContain('This is the header for User');
+      expect(result).toContain('Middle');
+      expect(result).toContain('This is the footer');
+      expect(result).toContain('End');
+    });
+    
+    it('should handle circular includes', async () => {
+      // Mock to simulate circular includes
+      fs.readFile.mockImplementation((path) => {
+        if (path.includes('circular1.txt')) {
+          return Promise.resolve('Circular 1\n{{#include circular2}}');
+        }
+        if (path.includes('circular2.txt')) {
+          return Promise.resolve('Circular 2\n{{#include circular1}}');
+        }
+        return Promise.reject(new Error('File not found'));
+      });
+      
+      // Enable include processing
+      promptManager.configure({ processIncludes: true });
+      
+      // Should throw an error or have some circular reference detection
+      await expect(promptManager.formatPrompt('circular1', {}))
+        .rejects.toThrow(/circular reference|maximum depth|recursion/i);
+    });
+    
+    it('should handle conditional sections in templates', async () => {
+      // Template with conditional section
+      fs.readFile.mockImplementation((path) => {
+        if (path.includes('conditional.txt')) {
+          return Promise.resolve('Start\n{{#if showExtra}}Extra content{{/if}}\nEnd');
+        }
+        return Promise.reject(new Error('File not found'));
+      });
+      
+      // With condition true
+      const resultTrue = await promptManager.formatPrompt('conditional', {
+        showExtra: true
+      });
+      
+      expect(resultTrue).toContain('Start');
+      expect(resultTrue).toContain('Extra content');
+      expect(resultTrue).toContain('End');
+      
+      // With condition false
+      const resultFalse = await promptManager.formatPrompt('conditional', {
+        showExtra: false
+      });
+      
+      expect(resultFalse).toContain('Start');
+      expect(resultFalse).not.toContain('Extra content');
+      expect(resultFalse).toContain('End');
     });
   });
 });

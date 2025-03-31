@@ -1,27 +1,73 @@
 /**
- * Event-Driven Socket.IO Reconnection Testing
+ * Event-Driven Socket.IO Reconnection Testing (Improved)
  * 
  * This test demonstrates how to test reconnection behavior using event simulation
  * rather than actual server restarts. This approach is more reliable for automated tests
  * while still verifying application behavior during reconnection scenarios.
+ * 
+ * Key improvements:
+ * - Uses standard Socket.IO events for reconnection detection
+ * - Implements explicit waiting for each step of the reconnection process
+ * - Uses proper cleanup to prevent resource leaks and timeout issues
+ * - Provides detailed logging for better test diagnostics
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { createSocketTestEnv, waitForEvent, waitForConnect } from './socketio-test-utilities';
+import { createClientReconnectionHandler } from './reconnection-event-simulator';
 
 describe('Socket.IO Event-Driven Reconnection Testing', () => {
   let testEnv;
+  let activeClients = [];
+  
+  // Debug logging
+  const log = (...args) => {
+    console.log('[Test]', ...args);
+  };
   
   beforeEach(() => {
     // Create clean test environment for each test
     testEnv = createSocketTestEnv();
-    console.log(`Test server created on port ${testEnv.port}`);
+    log(`Test server created on port ${testEnv.port}`);
+    activeClients = [];
   });
   
   afterEach(async () => {
-    // Clean up all resources
+    log('Running test cleanup');
+    
+    // Clean up all clients 
+    for (const client of activeClients) {
+      try {
+        if (client.cleanup) {
+          // Use our enhanced cleanup if available
+          client.cleanup();
+        } else if (client.socket) {
+          // For wrapped clients
+          if (client.socket.io && client.socket.io.opts) {
+            client.socket.io.opts.reconnection = false;
+          }
+          client.socket.removeAllListeners();
+          if (client.socket.connected) {
+            client.socket.disconnect();
+          }
+        } else {
+          // Regular Socket.IO client
+          if (client.io && client.io.opts) {
+            client.io.opts.reconnection = false;
+          }
+          client.removeAllListeners();
+          if (client.connected) {
+            client.disconnect();
+          }
+        }
+      } catch (err) {
+        log(`Error cleaning up client: ${err.message}`);
+      }
+    }
+    
+    // Clean up test environment
     await testEnv.shutdown();
-    console.log('Test environment shut down');
+    log('Test environment shut down');
   });
   
   it('should handle programmatic disconnect and reconnect events', async () => {
@@ -33,24 +79,24 @@ describe('Socket.IO Event-Driven Reconnection Testing', () => {
     
     // Configure server with handlers for reconnection events
     testEnv.io.on('connection', (socket) => {
-      console.log(`Client connected: ${socket.id}`);
+      log(`Client connected: ${socket.id}`);
       
       // Handler for simulated network disconnection
       socket.on('simulate_network_drop', () => {
-        console.log(`Simulating network drop for client: ${socket.id}`);
-        
-        // Force disconnect but allow reconnection
-        socket.disconnect();
+        log(`Simulating network drop for client: ${socket.id}`);
         
         // In a real application, this would trigger cleanup/recovery logic
         if (reconnectionHandlers.onClientDisconnect) {
           reconnectionHandlers.onClientDisconnect(socket.id);
         }
+        
+        // Force disconnect but allow reconnection
+        socket.disconnect();
       });
       
-      // Handler for reconnection event
-      socket.on('reconnected', () => {
-        console.log(`Client signaled reconnection: ${socket.id}`);
+      // Handle explicit application reconnection
+      socket.on('app_reconnected', () => {
+        log(`Client signaled application reconnection: ${socket.id}`);
         
         // In a real application, this would restore session state
         if (reconnectionHandlers.onClientReconnect) {
@@ -58,7 +104,7 @@ describe('Socket.IO Event-Driven Reconnection Testing', () => {
         }
         
         // Acknowledge the reconnection
-        socket.emit('reconnection_acknowledged');
+        socket.emit('app_reconnection_acknowledged');
       });
     });
     
@@ -67,16 +113,16 @@ describe('Socket.IO Event-Driven Reconnection Testing', () => {
     let reconnectCount = 0;
     
     reconnectionHandlers.onClientDisconnect = (clientId) => {
-      console.log(`Application cleanup triggered for client: ${clientId}`);
+      log(`Application cleanup triggered for client: ${clientId}`);
       disconnectCount++;
     };
     
     reconnectionHandlers.onClientReconnect = (clientId) => {
-      console.log(`Application state restored for client: ${clientId}`);
+      log(`Application state restored for client: ${clientId}`);
       reconnectCount++;
     };
     
-    // Create client with reconnection enabled
+    // Create client with reconnection enabled but limited attempts
     const client = testEnv.createClient({
       reconnection: true,
       reconnectionAttempts: 3,
@@ -84,162 +130,192 @@ describe('Socket.IO Event-Driven Reconnection Testing', () => {
       autoConnect: false
     });
     
-    // Manual reconnection handling
-    let manualReconnectComplete = false;
-    client.on('disconnect', (reason) => {
-      console.log(`Client disconnected: ${reason}`);
+    // Track the client for cleanup
+    activeClients.push(client);
+    
+    // Create a reconnection handler for cleaner event tracking
+    const clientHandler = {
+      socket: client,
+      appReconnected: false,
       
-      // Simulate manual reconnection logic in application
-      setTimeout(() => {
-        console.log('Attempting manual reconnection');
-        client.connect();
-        
-        // Signal our application-level reconnection event once transport reconnects
-        client.once('connect', () => {
-          console.log('Client transport reconnected, signaling application reconnection');
-          client.emit('reconnected');
-          manualReconnectComplete = true;
-        });
-      }, 200);
+      // Application-specific handlers
+      handleDisconnect: function(reason) {
+        log(`Application handling disconnect: ${reason}`);
+      },
+      
+      handleReconnect: function() {
+        log('Application handling reconnection');
+        this.appReconnected = true;
+        // Signal application-level reconnection to server
+        this.socket.emit('app_reconnected');
+      }
+    };
+    
+    // Add to tracked clients for cleanup
+    activeClients.push(clientHandler);
+    
+    // Set up client disconnect handler
+    client.on('disconnect', (reason) => {
+      log(`Client disconnected: ${reason}`);
+      clientHandler.handleDisconnect(reason);
+      
+      // Socket.IO will handle the transport reconnection automatically
+    });
+    
+    // Set up client reconnect handler (uses standard Socket.IO event)
+    client.on('connect', () => {
+      // Skip initial connection
+      if (clientHandler.appReconnected === false && client.connected) {
+        log('Initial connection established');
+      } else if (clientHandler.appReconnected === false) {
+        log('Transport reconnection detected');
+        // This means the socket transport reconnected, signal application-level reconnection
+        clientHandler.handleReconnect();
+      }
+    });
+    
+    // Set up reconnection acknowledgment handler
+    client.on('app_reconnection_acknowledged', () => {
+      log('Server acknowledged application reconnection');
     });
     
     // Connect client
     client.connect();
     await waitForConnect(client, 1000);
-    console.log('Initial connection established');
     
     // Verify initial connection
     expect(client.connected).toBe(true);
     
     // Simulate network drop by requesting server-side disconnect
-    console.log('Triggering simulated network drop');
+    log('Triggering simulated network drop');
     client.emit('simulate_network_drop');
     
     // Wait for disconnect event
     await waitForEvent(client, 'disconnect', 1000);
-    console.log('Client detected disconnection');
     
     // Verify disconnect
     expect(client.connected).toBe(false);
     
-    // Wait for reconnection acknowledgment from server
-    await waitForEvent(client, 'reconnection_acknowledged', 2000);
-    console.log('Reconnection completed and acknowledged by server');
+    // Socket.IO should automatically attempt to reconnect
+    // Wait for reconnection (standard Socket.IO event)
+    await waitForEvent(client, 'connect', 2000);
     
-    // Verify reconnection
+    // At this point, the transport is reconnected, but application needs to complete its reconnection
+    
+    // Wait for application-level reconnection acknowledgment
+    await waitForEvent(client, 'app_reconnection_acknowledged', 2000);
+    log('Reconnection complete and acknowledged');
+    
+    // Verify reconnection state
     expect(client.connected).toBe(true);
-    expect(manualReconnectComplete).toBe(true);
+    expect(clientHandler.appReconnected).toBe(true);
     
     // Verify application handlers were called
     expect(disconnectCount).toBe(1);
     expect(reconnectCount).toBe(1);
-    
-    // Clean up client
-    client.removeAllListeners();
-    client.disconnect();
   });
   
-  it('should handle custom reconnection message sequence', async () => {
+  it('should handle custom recovery sequence using the reconnection handler', async () => {
     // Track application state recovery
-    let serverRecoveryState = {
-      clientId: null,
+    let serverState = {
       pendingMessages: ['message1', 'message2'],
       lastProcessedId: 123,
+      recoveryRequested: false,
       recoveryCompleted: false
     };
     
-    // Configure server with handlers for reconnection sequence
+    // Configure server with handlers for data recovery
     testEnv.io.on('connection', (socket) => {
-      console.log(`Client connected: ${socket.id}`);
-      
-      // Save client ID
-      serverRecoveryState.clientId = socket.id;
+      log(`Client connected: ${socket.id}`);
       
       // Handle recovery request
       socket.on('request_recovery', (lastProcessedId) => {
-        console.log(`Recovery requested with last ID: ${lastProcessedId}`);
+        log(`Recovery requested with last ID: ${lastProcessedId}`);
+        serverState.recoveryRequested = true;
         
         // Send any pending messages that weren't processed
-        if (lastProcessedId < serverRecoveryState.lastProcessedId) {
+        if (lastProcessedId < serverState.lastProcessedId) {
           socket.emit('recovery_data', {
-            pendingMessages: serverRecoveryState.pendingMessages,
-            lastProcessedId: serverRecoveryState.lastProcessedId
+            pendingMessages: serverState.pendingMessages,
+            lastProcessedId: serverState.lastProcessedId
           });
         }
         
-        serverRecoveryState.recoveryCompleted = true;
+        serverState.recoveryCompleted = true;
       });
       
       // Simulate server-initiated disconnect for testing
       socket.on('simulate_server_restart', () => {
-        // In real app, server would shut down, but here we just disconnect client
+        log('Simulating server-initiated disconnect');
+        // Disconnect the client from server-side
         socket.disconnect();
       });
     });
     
-    // Create client with application-level reconnection logic
+    // Create client with automatic reconnection enabled
     const client = testEnv.createClient({
       reconnection: true,
       reconnectionAttempts: 3,
-      reconnectionDelay: 100
+      reconnectionDelay: 100,
+      forceNew: true
     });
     
-    // Track client recovery state
-    let clientRecoveryState = {
-      lastProcessedId: 100, // Intentionally behind server to test recovery
+    // Create a reconnection handler for this client
+    const reconnectionHandler = createClientReconnectionHandler(client, {
+      debug: true,
+      recoveryData: { lastSequence: 100 } // Intentionally behind server to test recovery
+    });
+    
+    // Track these for cleanup
+    activeClients.push(client);
+    activeClients.push(reconnectionHandler); // This will use the cleanup method
+    
+    // Track client application state
+    let appState = {
       recoveredMessages: [],
-      connected: false,
-      reconnected: false
+      lastProcessedId: 0,
+      initialConnectionComplete: false,
+      reconnectionComplete: false
     };
     
-    // Set up reconnection logic
-    client.on('connect', () => {
-      clientRecoveryState.connected = true;
-      
-      // If this is a reconnection, implement recovery protocol
-      if (clientRecoveryState.reconnected) {
-        console.log('Reconnected, requesting recovery data');
-        client.emit('request_recovery', clientRecoveryState.lastProcessedId);
-      }
-    });
-    
-    client.on('disconnect', () => {
-      clientRecoveryState.connected = false;
-      clientRecoveryState.reconnected = true;
-    });
-    
-    // Handle recovery data
+    // Add custom recovery handling
     client.on('recovery_data', (data) => {
-      console.log('Received recovery data:', data);
-      clientRecoveryState.recoveredMessages = data.pendingMessages;
-      clientRecoveryState.lastProcessedId = data.lastProcessedId;
+      log('Application received recovery data:', data);
+      appState.recoveredMessages = data.pendingMessages;
+      appState.lastProcessedId = data.lastProcessedId;
     });
     
     // Wait for initial connection
     await waitForConnect(client, 1000);
-    expect(clientRecoveryState.connected).toBe(true);
+    appState.initialConnectionComplete = true;
+    expect(client.connected).toBe(true);
     
-    // Trigger server disconnect/restart simulation
-    console.log('Triggering simulated server restart');
+    // Trigger server disconnect simulation
+    log('Triggering simulated server restart');
     client.emit('simulate_server_restart');
     
     // Wait for disconnect
     await waitForEvent(client, 'disconnect', 1000);
-    expect(clientRecoveryState.connected).toBe(false);
+    expect(client.connected).toBe(false);
     
-    // Socket.IO will automatically try to reconnect
-    // Wait for reconnection and then recovery data
-    await waitForEvent(client, 'connect', 2000);
-    await waitForEvent(client, 'recovery_data', 2000);
+    // Wait for reconnection to complete using our handler
+    // This will wait for transport reconnection AND recovery data
+    log('Waiting for reconnection sequence to complete');
+    const reconnectionResult = await reconnectionHandler.waitForReconnection(3000);
+    log('Reconnection sequence completed:', reconnectionResult);
+    
+    appState.reconnectionComplete = true;
     
     // Verify recovery completed successfully
-    expect(clientRecoveryState.connected).toBe(true);
-    expect(clientRecoveryState.recoveredMessages.length).toBe(2);
-    expect(clientRecoveryState.lastProcessedId).toBe(123);
-    expect(serverRecoveryState.recoveryCompleted).toBe(true);
+    expect(client.connected).toBe(true);
+    expect(appState.recoveredMessages.length).toBe(2);
+    expect(appState.lastProcessedId).toBe(123);
+    expect(serverState.recoveryRequested).toBe(true);
+    expect(serverState.recoveryCompleted).toBe(true);
     
-    // Clean up
-    client.removeAllListeners();
-    client.disconnect();
+    // Verify reconnection handler state
+    const finalState = reconnectionHandler.getState();
+    expect(finalState.wasDisconnected).toBe(true);
+    expect(finalState.recoveryReceived).toBe(true);
   });
 });

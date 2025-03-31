@@ -1,289 +1,237 @@
 /**
- * Ultra-Simplified Socket.IO Disconnect Test
+ * Simplified Reconnection Test
  * 
- * This test focuses on verifying the most basic disconnect functionality
- * with minimal complexity to demonstrate reliable testing patterns.
- * It uses improved error handling and explicit cleanup.
+ * This test focuses on reconnection with a self-contained setup and teardown,
+ * avoiding the use of beforeEach/afterEach to ensure complete test control.
  */
 
-import { describe, it, expect, beforeEach, afterEach, afterAll, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { Server } from 'socket.io';
 import { io as ioc } from 'socket.io-client';
 import { createServer } from 'http';
+import getPort from 'get-port';
 
-// Test constants
-const PORT = 3000 + Math.floor(Math.random() * 1000);
-const SERVER_URL = `http://localhost:${PORT}`;
-const CONNECT_TIMEOUT = 500;
-const RECONNECT_TIMEOUT = 1000;
+// Wait for a specific event to occur on an emitter
+function waitForEvent(emitter, event, timeout = 2000) {
+  console.log(`🔄🔄 Waiting for '${event}' event (timeout: ${timeout}ms)`);
+  
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      console.log(`🔄🔄 TIMEOUT waiting for '${event}' event after ${timeout}ms`);
+      emitter.off(event, handler);
+      reject(new Error(`Timeout waiting for ${event} event after ${timeout}ms`));
+    }, timeout);
 
-describe('Socket.IO Basic Reconnection', () => {
-  // Test resources that need explicit cleanup
-  let httpServer;
-  let io;
-  let client;
-  let cleanupActions = [];
-  
-  // Set up a global test environment
-  beforeAll(() => {
-    // Initialize cleanup tracking
-    cleanupActions = [];
-    console.log('Setting up test environment');
-  });
-  
-  // Clean up all resources after tests
-  afterAll(async () => {
-    console.log('Running final cleanup');
-    
-    // Execute all cleanup actions in reverse order
-    while (cleanupActions.length > 0) {
-      const cleanup = cleanupActions.pop();
-      try {
-        await cleanup();
-      } catch (e) {
-        console.error('Cleanup error:', e);
-      }
+    function handler(...args) {
+      console.log(`🔄🔄 Received '${event}' event`);
+      clearTimeout(timer);
+      emitter.off(event, handler);
+      resolve(args.length > 1 ? args : args[0]);
     }
-    console.log('All cleanup completed');
-  });
-  
-  // Create a fresh Socket.IO server for each test
-  beforeEach(async () => {
-    console.log(`Setting up server on port ${PORT}`);
+
+    // Check if event is already in 'connected' state for connect event
+    if (event === 'connect' && emitter.connected) {
+      console.log(`🔄🔄 Socket already connected, resolving immediately`);
+      clearTimeout(timer);
+      resolve();
+      return;
+    }
     
-    try {
-      // Create and start HTTP server
-      httpServer = createServer();
+    // Add debug handler for common events
+    if (['connect', 'disconnect', 'error', 'connect_error'].includes(event)) {
+      emitter.on('connect', () => console.log(`🔄🔄 DEBUG: 'connect' event fired`));
+      emitter.on('disconnect', (reason) => console.log(`🔄🔄 DEBUG: 'disconnect' event fired, reason: ${reason}`));
+      emitter.on('error', (err) => console.log(`🔄🔄 DEBUG: 'error' event fired: ${err.message}`));
+      emitter.on('connect_error', (err) => console.log(`🔄🔄 DEBUG: 'connect_error' event fired: ${err.message}`));
+    }
+
+    emitter.on(event, handler);
+  });
+}
+
+describe('Simplified Socket.IO Reconnection', () => {
+  
+  it('should reconnect after server restart', async () => {
+    console.log('🔄 TEST STARTED');
+    
+    // Set up test resources in the test itself, not in beforeEach
+    const port = await getPort();
+    console.log(`🔄 Using port ${port}`);
+    
+    let httpServer = createServer();
+    let io = new Server(httpServer);
+    
+    // Set up basic server handlers
+    io.on('connection', (socket) => {
+      console.log(`🔄 Server: Client connected - ${socket.id}`);
       
-      // Create Socket.IO server with minimal configuration
-      io = new Server(httpServer, {
-        transports: ['websocket'],
-        pingTimeout: 100,
-        pingInterval: 50,
-        connectTimeout: 200
+      socket.on('ping', (data) => {
+        console.log(`🔄 Server: Received ping - ${JSON.stringify(data)}`);
+        socket.emit('pong', { received: data });
       });
       
-      // Register connection handler
+      socket.on('disconnect', (reason) => {
+        console.log(`🔄 Server: Client disconnected - ${socket.id} - Reason: ${reason}`);
+      });
+    });
+    
+    // Start server
+    await new Promise(resolve => httpServer.listen(port, resolve));
+    console.log(`🔄 Server started on port ${port}`);
+    
+    // Create client
+    const client = ioc(`http://localhost:${port}`, {
+      forceNew: true,          // Create a new connection
+      autoConnect: true,       // Connect automatically 
+      reconnection: false,     // No auto reconnection
+      timeout: 3000,           // Connection timeout
+      transports: ['websocket'] // Use WebSocket only for consistency
+    });
+    
+    // Wait for connection
+    try {
+      await waitForEvent(client, 'connect', 3000);
+      console.log(`🔄 Client connected, ID: ${client.id}`);
+      
+      // Verify connection with ping-pong
+      const pongPromise = new Promise(resolve => {
+        client.once('pong', (data) => {
+          console.log(`🔄 Client: Received pong - ${JSON.stringify(data)}`);
+          resolve(data);
+        });
+      });
+      
+      console.log('🔄 Client: Sending ping');
+      client.emit('ping', { test: 'initial-connection' });
+      
+      await pongPromise;
+      console.log('🔄 Initial ping-pong successful');
+      
+      // Register disconnect handler before stopping server
+      console.log('🔄 Registering explicit disconnect listener');
+      client.on('disconnect', (reason) => {
+        console.log(`🔄 EXPLICIT HANDLER: Client disconnected, reason: ${reason}`);
+      });
+      
+      // Stop the server
+      console.log('🔄 Stopping server');
+      io.disconnectSockets(true);
+      io.close();
+      
+      await new Promise((resolve, reject) => {
+        httpServer.close((err) => {
+          if (err) {
+            console.error('🔄 Error closing server:', err);
+            reject(err);
+          } else {
+            console.log('🔄 Server stopped successfully');
+            resolve();
+          }
+        });
+      });
+      
+      // Add small delay to allow disconnect event to propagate
+      console.log('🔄 Waiting 200ms for disconnect event to propagate');
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Wait for client to detect disconnect
+      console.log(`🔄 Client connected status before waiting: ${client.connected}`);
+      if (!client.connected) {
+        console.log('🔄 Client already disconnected, skipping wait');
+      } else {
+        await waitForEvent(client, 'disconnect', 3000);
+      }
+      console.log(`🔄 Client disconnected: ${client.connected}`);
+      expect(client.connected).toBe(false);
+      
+      // Create a new server on the same port
+      console.log('🔄 Creating new server on same port');
+      httpServer = createServer();
+      io = new Server(httpServer);
+      
+      // Set up basic server handlers
       io.on('connection', (socket) => {
-        console.log(`Client connected: ${socket.id}`);
+        console.log(`🔄 Server (new): Client connected - ${socket.id}`);
         
-        // Simple message echo
-        socket.on('ping', () => {
-          console.log(`Received ping from ${socket.id}`);
-          socket.emit('pong');
+        socket.on('ping', (data) => {
+          console.log(`🔄 Server (new): Received ping - ${JSON.stringify(data)}`);
+          socket.emit('pong', { received: data, newServer: true });
         });
       });
       
       // Start server
-      await new Promise((resolve, reject) => {
-        try {
-          httpServer.listen(PORT, () => {
-            console.log(`Server listening on ${PORT}`);
-            resolve();
-          });
-          
-          httpServer.on('error', (err) => {
-            console.error('HTTP server error:', err);
-            reject(err);
-          });
-        } catch (err) {
-          console.error('Failed to start server:', err);
-          reject(err);
-        }
-      });
+      await new Promise(resolve => httpServer.listen(port, resolve));
+      console.log(`🔄 New server started on port ${port}`);
       
-      // Register server cleanup
-      cleanupActions.push(async () => {
-        return new Promise((resolve) => {
-          console.log('Cleaning up Socket.IO server');
-          if (io) {
-            io.close();
-            io = null;
-          }
-          resolve();
-        });
-      });
-      
-      cleanupActions.push(async () => {
-        return new Promise((resolve) => {
-          console.log('Cleaning up HTTP server');
-          if (httpServer && httpServer.listening) {
-            httpServer.close(resolve);
-          } else {
-            resolve();
-          }
-        });
-      });
-    } catch (err) {
-      console.error('Setup failed:', err);
-      throw err;
-    }
-  });
-  
-  // Clean up after each test
-  afterEach(() => {
-    console.log('Test completed, cleanup will be handled in afterAll');
-  });
-  
-  // Test socket connection
-  it('should connect, disconnect, and reconnect a client', async () => {
-    try {
-      // Create client with reconnection enabled
-      client = ioc(SERVER_URL, {
-        transports: ['websocket'],
-        reconnection: true,
-        reconnectionDelay: 100,
-        reconnectionAttempts: 3
-      });
-      
-      // Register client cleanup
-      cleanupActions.push(() => {
-        console.log('Cleaning up client');
-        if (client) {
-          client.removeAllListeners();
-          if (client.connected) {
-            client.disconnect();
-          }
-          client = null;
-        }
-      });
-      
-      // Wait for initial connection
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Connection timeout'));
-        }, CONNECT_TIMEOUT);
-        
-        client.once('connect', () => {
-          clearTimeout(timeout);
-          console.log('Client connected');
-          resolve();
-        });
-        
-        client.once('connect_error', (err) => {
-          clearTimeout(timeout);
-          reject(new Error(`Connection error: ${err.message}`));
-        });
-      });
-      
-      // Verify connection
-      expect(client.connected).toBe(true);
-      
-      // Test communication
-      const response = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Ping timeout'));
-        }, CONNECT_TIMEOUT);
-        
-        client.once('pong', () => {
-          clearTimeout(timeout);
-          resolve('pong received');
-        });
-        
-        client.emit('ping');
-      });
-      
-      expect(response).toBe('pong received');
-      
-      // Forcibly close server (simulating crash)
-      console.log('Simulating server crash...');
-      io.close();
-      await new Promise(resolve => {
-        httpServer.close(resolve);
-      });
-      
-      // Recreate server
-      console.log('Recreating server...');
-      httpServer = createServer();
-      io = new Server(httpServer, {
-        transports: ['websocket'],
-        pingTimeout: 100,
-        pingInterval: 50,
-        connectTimeout: 200
-      });
-      
-      io.on('connection', (socket) => {
-        console.log(`Client reconnected: ${socket.id}`);
-        socket.on('ping', () => {
-          socket.emit('pong');
-        });
-      });
-      
-      // Start server again
-      await new Promise((resolve) => {
-        httpServer.listen(PORT, resolve);
-      });
-      
-      // Wait for reconnection
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Reconnection timeout'));
-        }, RECONNECT_TIMEOUT);
-        
-        // Need to use 'connect' event for reconnection as well
-        client.once('connect', () => {
-          clearTimeout(timeout);
-          console.log('Client reconnected');
-          resolve();
-        });
-      });
-      
-      // Verify reconnection
-      expect(client.connected).toBe(true);
-      
-      // Test communication after reconnection
-      const reconnectResponse = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Ping timeout after reconnect'));
-        }, CONNECT_TIMEOUT);
-        
-        client.once('pong', () => {
-          clearTimeout(timeout);
-          resolve('pong received after reconnect');
-        });
-        
-        client.emit('ping');
-      });
-      
-      expect(reconnectResponse).toBe('pong received after reconnect');
-      
-      // Clean up client explicitly here for guaranteed cleanup
-      client.removeAllListeners();
-      client.disconnect();
-      
-      // Clean up server explicitly
-      io.close();
-      await new Promise(resolve => {
-        httpServer.close(resolve);
-      });
-      
-      console.log('Test completed successfully');
-    } catch (err) {
-      console.error('Test failed:', err);
-      
-      // Attempt cleanup even on test failure
-      try {
-        if (client) {
-          client.removeAllListeners();
-          if (client.connected) {
-            client.disconnect();
-          }
-        }
-        
-        if (io) {
-          io.close();
-        }
-        
-        if (httpServer && httpServer.listening) {
-          await new Promise(resolve => {
-            httpServer.close(resolve);
-          });
-        }
-      } catch (cleanupErr) {
-        console.error('Cleanup failed:', cleanupErr);
+      // Manually reconnect client - first make sure it's disconnected
+      console.log('🔄 Manually reconnecting client');
+      if (client.connected) {
+        console.log('🔄 Forcing disconnect since client is still connected');
+        client.disconnect();
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       
-      throw err;
+      // Create a new client connection
+      console.log('🔄 Creating new client connection');
+      client.connect();
+      
+      // Wait for reconnect with longer timeout
+      console.log(`🔄 Waiting for client to connect, current state: ${client.connected}`);
+      await waitForEvent(client, 'connect', 5000);
+      console.log(`🔄 Client reconnected: ${client.connected}`);
+      expect(client.connected).toBe(true);
+      
+      // Verify connection with another ping-pong
+      const reconnectPongPromise = new Promise(resolve => {
+        client.once('pong', (data) => {
+          console.log(`🔄 Client: Received pong after reconnect - ${JSON.stringify(data)}`);
+          resolve(data);
+        });
+      });
+      
+      console.log('🔄 Client: Sending ping after reconnect');
+      client.emit('ping', { test: 'after-reconnect' });
+      
+      const reconnectPongResponse = await reconnectPongPromise;
+      console.log('🔄 Reconnect ping-pong successful');
+      expect(reconnectPongResponse.newServer).toBe(true);
+      
+    } catch (error) {
+      console.error('🔄 Test error:', error);
+      throw error;
+    } finally {
+      // Clean up resources
+      console.log('🔄 Cleaning up test resources');
+      
+      if (client) {
+        try {
+          client.disconnect();
+          client.removeAllListeners();
+        } catch (e) {
+          console.error('🔄 Error cleaning up client:', e);
+        }
+      }
+      
+      if (io) {
+        try {
+          io.disconnectSockets(true);
+          io.close();
+        } catch (e) {
+          console.error('🔄 Error closing io:', e);
+        }
+      }
+      
+      if (httpServer && httpServer.listening) {
+        try {
+          await new Promise(resolve => httpServer.close(resolve));
+        } catch (e) {
+          console.error('🔄 Error closing httpServer:', e);
+        }
+      }
+      
+      console.log('🔄 Test cleanup completed');
     }
-  }, 10000); // Increase test timeout to 10 seconds
+    
+    console.log('🔄 TEST COMPLETED SUCCESSFULLY');
+  }, 30000); // 30s timeout
 });

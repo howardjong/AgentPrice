@@ -8,98 +8,70 @@
  */
 
 import { defineConfig } from 'vitest/config';
-import { fileURLToPath } from 'url';
 import path from 'path';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 export default defineConfig({
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname),
-      '@utils': path.resolve(__dirname, 'utils'),
-      '@services': path.resolve(__dirname, 'services'),
-      '@tests': path.resolve(__dirname, 'tests'),
-      '@test-utils': path.resolve(__dirname, 'tests/utils')
-    }
-  },
   test: {
-    // Global setup/teardown
-    setupFiles: ['./tests/vitest.setup.js'],
-    
-    // Environment configuration
-    environment: 'node',
-    
-    // Timeout settings
-    testTimeout: 30000, // Default timeout for each test
-    hookTimeout: 10000, // Default timeout for hooks
-    
-    // Multithreading settings (to reduce memory pressure)
-    threads: false, // Run in single thread to avoid memory issues
-    
-    // Output formatting
-    reporters: ['default', 'html'],
-    outputFile: {
-      html: './reports/vitest-results.html',
+    // Run tests sequentially to avoid port conflicts and race conditions
+    sequence: {
+      // For WebSocket tests especially, run one at a time
+      hooks: 'list',
+      setupFiles: 'list',
     },
     
-    // Test filtering
-    include: ['**/*.{test,spec,vitest}.{js,mjs,cjs,ts,jsx,tsx}', '**/*.vitest.js'],
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/coverage/**',
-      '**/.{idea,git,cache,output}/**',
-      '**/jest.config.*',
-      '**/jest.setup.*',
-      '**/test-backups/**', // Exclude backed up Jest test files
+    // Increase global timeout for complex tests
+    testTimeout: 15000,
+    
+    // Use a single thread for better debugging and to avoid port conflicts
+    threads: false,
+    
+    // Configure environment
+    environment: 'node',
+    
+    // Setup file to run before tests
+    setupFiles: [
+      path.resolve(__dirname, 'tests/vitest.setup.js')
     ],
     
-    // Fail fast to prevent exhausting resources
-    failFast: process.env.CI === 'true',
+    // Output configuration
+    reporters: [
+      'default',
+      'verbose',
+    ],
+    
+    // Include specific test files
+    include: [
+      '**/*.vitest.js',
+      '**/unit/**/*.vitest.js',
+    ],
+    
+    // Clean environment between tests
+    restoreMocks: true,
+    clearMocks: true,
+    
+    // Only run the tests specified - avoid running all tests
+    watchExclude: ['node_modules', 'dist'],
+    
+    // Don't reopen browser on watch mode
+    open: false,
     
     // Coverage configuration
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'html', 'lcov'],
-      reportsDirectory: './reports/coverage',
+      reporter: ['text', 'json-summary', 'html'],
+      reportsDirectory: './coverage',
       exclude: [
-        '**/node_modules/**',
-        '**/tests/**',
-        '**/test-backups/**',
-        '**/*.{test,spec,vitest}.*',
-        '**/{vitest,jest}.{config,setup}.*',
+        'node_modules/**',
+        'test-backups/**',
+        'tests/**',
+        'coverage/**',
+        'scripts/**',
+        'dist/**',
+        '**/*.d.ts',
+        '**/*.test.js',
+        '**/*.vitest.js',
+        '**/*.config.js',
       ],
     },
-    
-    // Snapshot settings
-    resolveSnapshotPath: (testPath, ext) => {
-      const snapshotDir = path.join(path.dirname(testPath), '__snapshots__');
-      const testFileName = path.basename(testPath);
-      const snapshotFileName = `${testFileName}${ext}`;
-      return path.join(snapshotDir, snapshotFileName);
-    },
-    
-    // Handle ESM modules properly
-    deps: {
-      interopDefault: true, // Support both ESM and CommonJS modules
-    },
-    
-    // Memory management
-    pool: 'forks', // Use process forking for better isolation
-    poolOptions: {
-      forks: {
-        singleFork: true, // Run tests in a single forked process
-      },
-    },
-    
-    // File watching options (for dev mode)
-    watchExclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/reports/**',
-      '**/coverage/**',
-      '**/test-backups/**',
-    ],
-  },
+  }
 });
