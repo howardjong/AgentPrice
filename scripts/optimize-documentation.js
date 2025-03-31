@@ -15,6 +15,16 @@ const crypto = require('crypto');
 const util = require('util');
 const glob = util.promisify(require('glob'));
 
+// Ensure directories exist
+async function ensureDirectoryExists(dirPath) {
+  try {
+    await fs.access(dirPath);
+  } catch (error) {
+    console.log(`Creating directory: ${dirPath}`);
+    await fs.mkdir(dirPath, { recursive: true });
+  }
+}
+
 // Helpful terms that indicate document quality
 const HELPFUL_TERMS = [
   'example', 'guide', 'tutorial', 'steps', 'instruction',
@@ -54,25 +64,45 @@ const CONFIG = {
 async function optimizeDocumentation() {
   console.log('=== Documentation Optimization Analysis ===');
   
-  // Find all markdown files
-  const files = await findMarkdownFiles();
-  console.log(`Found ${files.length} markdown files to analyze`);
-  
-  // Read file contents and metadata
-  const documents = await loadDocuments(files);
-  console.log(`Loaded ${documents.length} documents for analysis`);
-  
-  // Find potential duplicates
-  const duplicateSets = findDuplicates(documents);
-  console.log(`Found ${duplicateSets.length} sets of potential duplicate documents`);
-  
-  // Analyze and recommend which documents to keep
-  const recommendations = analyzeDuplicates(duplicateSets);
-  
-  // Print recommendations
-  printRecommendations(recommendations);
-  
-  return recommendations;
+  try {
+    // Ensure target directories exist
+    for (const dir of CONFIG.dirsToScan) {
+      await ensureDirectoryExists(dir);
+    }
+    
+    // Find all markdown files
+    const files = await findMarkdownFiles();
+    console.log(`Found ${files.length} markdown files to analyze`);
+    
+    if (files.length === 0) {
+      console.log("No markdown files found to analyze. Exiting.");
+      return [];
+    }
+    
+    // Read file contents and metadata
+    const documents = await loadDocuments(files);
+    console.log(`Loaded ${documents.length} documents for analysis`);
+    
+    if (documents.length === 0) {
+      console.log("No documents could be loaded. Exiting.");
+      return [];
+    }
+    
+    // Find potential duplicates
+    const duplicateSets = findDuplicates(documents);
+    console.log(`Found ${duplicateSets.length} sets of potential duplicate documents`);
+    
+    // Analyze and recommend which documents to keep
+    const recommendations = analyzeDuplicates(duplicateSets);
+    
+    // Print recommendations
+    printRecommendations(recommendations);
+    
+    return recommendations;
+  } catch (error) {
+    console.error("Error during documentation optimization:", error);
+    return [];
+  }
 }
 
 /**
@@ -82,17 +112,33 @@ async function findMarkdownFiles() {
   let allFiles = [];
   
   for (const dir of CONFIG.dirsToScan) {
-    // Use glob to find markdown files
-    const pattern = path.join(dir, '**', `*{${CONFIG.extensions.join(',')}}`);
-    const files = await glob(pattern, { nodir: true });
-    allFiles = allFiles.concat(files);
+    try {
+      // Check if directory exists
+      try {
+        await fs.access(dir);
+      } catch (err) {
+        console.log(`Directory ${dir} does not exist, skipping...`);
+        continue;
+      }
+      
+      // Use glob to find markdown files
+      const pattern = path.join(dir, '**', `*{${CONFIG.extensions.join(',')}}`);
+      const files = await glob(pattern, { nodir: true });
+      console.log(`Found ${files.length} markdown files in ${dir}`);
+      allFiles = allFiles.concat(files);
+    } catch (error) {
+      console.error(`Error finding files in directory ${dir}:`, error.message);
+    }
   }
   
   // Filter out excluded files
-  return allFiles.filter(file => {
+  const filteredFiles = allFiles.filter(file => {
     const basename = path.basename(file);
     return !CONFIG.excludeFiles.some(excluded => basename === excluded);
   });
+  
+  console.log(`Found ${filteredFiles.length} total files after excluding filtered files`);
+  return filteredFiles;
 }
 
 /**
@@ -100,6 +146,7 @@ async function findMarkdownFiles() {
  */
 async function loadDocuments(files) {
   const documents = [];
+  let loadErrors = 0;
   
   for (const file of files) {
     try {
@@ -118,10 +165,12 @@ async function loadDocuments(files) {
         directory: path.dirname(file)
       });
     } catch (error) {
+      loadErrors++;
       console.error(`Error loading document ${file}:`, error.message);
     }
   }
   
+  console.log(`Successfully loaded ${documents.length} documents (${loadErrors} errors)`);
   return documents;
 }
 
@@ -165,29 +214,54 @@ function findDuplicates(documents) {
  * Calculate content similarity between two documents
  */
 function calculateSimilarity(contentA, contentB) {
-  // Normalize content
-  const normalizedA = normalizeContent(contentA);
-  const normalizedB = normalizeContent(contentB);
-  
-  // Split into words
-  const wordsA = normalizedA.split(/\s+/).filter(word => word.length > 2);
-  const wordsB = normalizedB.split(/\s+/).filter(word => word.length > 2);
-  
-  // Create sets for comparison
-  const setA = new Set(wordsA);
-  const setB = new Set(wordsB);
-  
-  // Calculate Jaccard similarity
-  let intersection = 0;
-  for (const word of setA) {
-    if (setB.has(word)) {
-      intersection++;
-    }
+  // Handle empty content
+  if (!contentA || !contentB) {
+    return 0;
   }
   
-  const union = setA.size + setB.size - intersection;
+  // If contents are identical, return 1
+  if (contentA === contentB) {
+    return 1;
+  }
   
-  return union === 0 ? 0 : intersection / union;
+  try {
+    // Normalize content
+    const normalizedA = normalizeContent(contentA);
+    const normalizedB = normalizeContent(contentB);
+    
+    // If either normalized content is empty after processing, return 0
+    if (!normalizedA || !normalizedB) {
+      return 0;
+    }
+    
+    // Split into words - minimum length of 3 characters to avoid matching on common short words
+    const wordsA = normalizedA.split(/\s+/).filter(word => word.length > 2);
+    const wordsB = normalizedB.split(/\s+/).filter(word => word.length > 2);
+    
+    // If either word list is empty, return 0
+    if (wordsA.length === 0 || wordsB.length === 0) {
+      return 0;
+    }
+    
+    // Create sets for comparison
+    const setA = new Set(wordsA);
+    const setB = new Set(wordsB);
+    
+    // Calculate Jaccard similarity
+    let intersection = 0;
+    for (const word of setA) {
+      if (setB.has(word)) {
+        intersection++;
+      }
+    }
+    
+    const union = setA.size + setB.size - intersection;
+    
+    return union === 0 ? 0 : intersection / union;
+  } catch (error) {
+    console.error("Error calculating similarity:", error.message);
+    return 0;
+  }
 }
 
 /**
@@ -364,9 +438,23 @@ async function mergeDocuments(primaryPath, secondaryPath, outputPath = null) {
     // If no output path specified, use the primary path
     outputPath = outputPath || primaryPath;
     
+    // Check if files exist
+    try {
+      await fs.access(primaryPath);
+      await fs.access(secondaryPath);
+    } catch (error) {
+      console.error(`One or both files do not exist: ${primaryPath}, ${secondaryPath}`);
+      return false;
+    }
+    
     // Read both documents
     const primaryContent = await fs.readFile(primaryPath, 'utf8');
     const secondaryContent = await fs.readFile(secondaryPath, 'utf8');
+    
+    // Create backup of primary file
+    const backupPath = `${primaryPath}.backup-${Date.now()}`;
+    await fs.writeFile(backupPath, primaryContent);
+    console.log(`Created backup at ${backupPath}`);
     
     // Extract title from secondary document
     const secondaryTitle = secondaryContent.match(/^#\s+(.+)$/m)?.[1] || 
@@ -393,15 +481,64 @@ async function mergeDocuments(primaryPath, secondaryPath, outputPath = null) {
   }
 }
 
+/**
+ * Generate a report file with the findings
+ */
+async function generateReport(recommendations) {
+  try {
+    const reportPath = path.join('reports', 'documentation-optimization-report.md');
+    await ensureDirectoryExists(path.dirname(reportPath));
+    
+    let reportContent = '# Documentation Optimization Report\n\n';
+    reportContent += `Generated on: ${new Date().toISOString()}\n\n`;
+    
+    if (recommendations.length === 0) {
+      reportContent += 'No duplicate documents were found in the analysis.\n';
+    } else {
+      reportContent += `## Found ${recommendations.length} sets of potential duplicates\n\n`;
+      
+      recommendations.forEach((rec, i) => {
+        reportContent += `### Duplicate Set ${i + 1}\n\n`;
+        reportContent += `**Keep:** ${rec.keep.document.path}\n`;
+        reportContent += `- Last modified: ${rec.keep.document.lastModified.toISOString().split('T')[0]}\n`;
+        reportContent += `- Size: ${(rec.keep.document.size / 1024).toFixed(1)}KB\n\n`;
+        
+        reportContent += `**Potential duplicates:**\n`;
+        rec.duplicates.forEach(dup => {
+          reportContent += `- ${dup.document.path}\n`;
+          reportContent += `  - Last modified: ${dup.document.lastModified.toISOString().split('T')[0]}\n`;
+          reportContent += `  - Size: ${(dup.document.size / 1024).toFixed(1)}KB\n`;
+          reportContent += `  - Similarity: ${(rec.similarity * 100).toFixed(0)}%\n\n`;
+        });
+      });
+    }
+    
+    await fs.writeFile(reportPath, reportContent);
+    console.log(`Report generated at ${reportPath}`);
+    
+    return reportPath;
+  } catch (error) {
+    console.error('Error generating report:', error);
+    return null;
+  }
+}
+
 // Execute the optimization if run directly
 if (require.main === module) {
-  optimizeDocumentation().catch(error => {
-    console.error('Error optimizing documentation:', error);
-    process.exit(1);
-  });
+  optimizeDocumentation()
+    .then(recommendations => {
+      if (recommendations && recommendations.length > 0) {
+        return generateReport(recommendations);
+      }
+    })
+    .catch(error => {
+      console.error('Error optimizing documentation:', error);
+      process.exit(1);
+    });
 }
 
 module.exports = {
   optimizeDocumentation,
-  mergeDocuments
+  mergeDocuments,
+  generateReport
 };
