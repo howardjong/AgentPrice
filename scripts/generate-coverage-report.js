@@ -9,9 +9,14 @@
  * - Recommendations for test improvements
  */
 
-const { execSync } = require('child_process');
-const fs = require('fs').promises;
-const path = require('path');
+import { execSync } from 'child_process';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get the directory name
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Configuration
 const COVERAGE_DIR = './coverage';
@@ -68,10 +73,10 @@ async function generateMarkdownReport() {
     for (const [category, data] of Object.entries(total)) {
       const percentage = data.pct;
       const covered = data.covered;
-      const total = data.total;
-      const missing = total - covered;
+      const totalVal = data.total;
+      const missing = totalVal - covered;
       
-      markdown += `| ${category} | ${percentage.toFixed(2)}% | ${covered}/${total} | ${missing} |\n`;
+      markdown += `| ${category} | ${percentage.toFixed(2)}% | ${covered}/${totalVal} | ${missing} |\n`;
     }
     
     // Add status based on threshold

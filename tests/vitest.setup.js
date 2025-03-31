@@ -9,6 +9,8 @@
  * - Utility functions for socket.io and websocket tests
  */
 
+import { afterAll, beforeAll, vi, expect } from 'vitest';
+
 // Ensure environment is set to test
 process.env.NODE_ENV = 'test';
 
@@ -53,7 +55,7 @@ process.on('unhandledRejection', (err, promise) => {
 // Clean up resources on test exit
 afterAll(() => {
   // Ensure all timeouts are cleared
-  jest.useRealTimers();
+  vi.useRealTimers();
   
   // Force garbage collection if supported
   if (global.gc) {
@@ -61,7 +63,7 @@ afterAll(() => {
   }
   
   // Add a small delay to allow resources to be properly released
-  return delay(100);
+  return global.delay(100);
 });
 
 // Initialize logger mocks to prevent console noise during tests
