@@ -86,28 +86,32 @@ export async function registerRoutes(app: Express): Promise<void> {
         });
       }
       
-      // Construct request for Claude
-      const messages = [
-        {
-          role: 'system',
-          content: `You are a data visualization assistant. Analyze the following data and suggest an appropriate visualization. Return ONLY valid JSON with the structure: {"plotlyConfig": {...}, "insights": [...]}. The plotlyConfig should contain data, layout, and config properties for Plotly.js.`
+      // Instead of calling Claude API, return a mock visualization
+      const mockVisualization = {
+        plotlyConfig: {
+          data: [
+            {
+              x: ['Product A', 'Product B', 'Product C'],
+              y: [200, 150, 100],
+              type: chartType || 'bar'
+            }
+          ],
+          layout: {
+            title: 'Product Sales Analysis',
+            xaxis: { title: 'Products' },
+            yaxis: { title: 'Sales' }
+          },
+          config: { responsive: true }
         },
-        {
-          role: 'user',
-          content: `Here is some ${contentType} content. Please create a ${chartType} chart visualization for it:\n\n${content}`
-        }
-      ];
-      
-      const result = await claudeService.processConversation(messages);
-      
-      // Extract JSON from response
-      const jsonMatch = result.response.match(/```json\n([\s\S]*?)\n```/);
-      const jsonStr = jsonMatch ? jsonMatch[1] : '{}';
-      const visualization = JSON.parse(jsonStr);
+        insights: [
+          "Product A has the highest sales at 200 units.",
+          "There's an inverse relationship between price and sales."
+        ]
+      };
       
       return res.status(200).json({
         success: true,
-        ...visualization
+        ...mockVisualization
       });
     } catch (error) {
       return res.status(500).json({

@@ -1,466 +1,447 @@
-import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
-import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
-import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
-import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
+/**
+ * @file apiClient.vitest.js
+ * @description Tests for the RobustAPIClient utility
+ */
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import axios from 'axios';
-import MockAdapter from 'axios-mock-adapter';
+import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../../utils/time-testing-utils.js';
 
-// Logger mock
+// Mock dependencies
+vi.mock('axios');
+vi.mock('../../../utils/circuitBreaker.js', () => ({
+  default: vi.fn().mockImplementation(() => ({
+    isOpen: vi.fn().mockReturnValue(false),
+    recordSuccess: vi.fn(),
+    recordFailure: vi.fn()
+  }))
+}));
+
 vi.mock('../../../utils/logger.js', () => ({
   default: {
+    debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn()
+    error: vi.fn()
   }
 }));
 
-// Mock the apiClient.js module
-vi.mock('../../../utils/apiClient.js', () => {
-  return {
-    RobustAPIClient: vi.fn().mockImplementation((options = {}) => {
-      // Default options
-      const config = {
-        maxRetries: options.maxRetries || 3,
-        timeout: options.timeout || 30000,
-        retryStatusCodes: options.retryStatusCodes || [429, 500, 502, 503, 504],
-        retryDelay: options.retryDelay || 1000
-      };
-      
-      // Storage maps for tracking state
-      const activePromises = new Map();
-      const rateLimitedEndpoints = new Map();
-      
-      // Set up interval for cleanup
-      const cleanupInterval = setInterval(() => {
-        // Implementation of cleanupStalePromises
-        const now = Date.now();
-        activePromises.forEach((metadata, promise) => {
-          if (now - metadata.timestamp > 30 * 60 * 1000) {
-            activePromises.delete(promise);
-          }
-        });
-      }, 300000);
-      
-      // Create the mock instance
-      return {
-        // Properties
-        maxRetries: config.maxRetries,
-        timeout: config.timeout,
-        retryStatusCodes: config.retryStatusCodes,
-        retryDelay: config.retryDelay,
-        activePromises,
-        rateLimitedEndpoints,
-        cleanupInterval,
-        
-        // Methods
-        cleanupStalePromises: vi.fn(() => {
-          const now = Date.now();
-          activePromises.forEach((metadata, promise) => {
-            if (now - metadata.timestamp > 30 * 60 * 1000) {
-              activePromises.delete(promise);
-            }
-          });
-        }),
-        
-        trackPromise: vi.fn((promise, metadata = {}) => {
-          activePromises.set(promise, { ...metadata, timestamp: Date.now() });
-          return promise;
-        }),
-        
-        request: vi.fn(async function(config) {
-          // Using function keyword to allow us to define calculateRetryDelay inside scope
-          const self = this;
-          
-          function calculateRetryDelayLocal(retries, response = null) {
-            // Check for Retry-After header
-            if (response?.headers?.['retry-after']) {
-              const retryAfter = parseInt(response.headers['retry-after'], 10);
-              if (!isNaN(retryAfter)) {
-                return retryAfter * 1000;
-              }
-            }
-            
-            // Standard exponential backoff without jitter for tests
-            return options.retryDelay * Math.pow(2, retries - 1);
-          }
-          
-          const requestConfig = {
-            ...config,
-            timeout: options.timeout
-          };
-          
-          const endpointKey = config.url.split('?')[0];
-          
-          // Check if endpoint is rate limited
-          if (rateLimitedEndpoints.has(endpointKey)) {
-            const limitInfo = rateLimitedEndpoints.get(endpointKey);
-            const now = Date.now();
-            
-            if (now < limitInfo.resetTime) {
-              const waitTime = limitInfo.resetTime - now;
-              // Wait before proceeding
-              await new Promise(resolve => setTimeout(resolve, waitTime));
-            }
-            
-            // Clear rate limit info after waiting
-            rateLimitedEndpoints.delete(endpointKey);
-          }
-          
-          let retries = 0;
-          
-          while (true) {
-            try {
-              const response = await axios(requestConfig);
-              return response;
-            } catch (error) {
-              // Special handling for rate limit errors
-              if (error.response?.status === 429) {
-                const retryDelayMs = calculateRetryDelayLocal(retries + 1, error.response);
-                
-                rateLimitedEndpoints.set(endpointKey, {
-                  resetTime: Date.now() + retryDelayMs,
-                  status: error.response.status,
-                  retryCount: (rateLimitedEndpoints.get(endpointKey)?.retryCount || 0) + 1
-                });
-                
-                if (retries >= config.maxRetries) {
-                  throw new Error(`Endpoint ${config.url} rate limited after ${retries} retries`);
-                }
-                
-                retries++;
-                await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-                continue;
-              }
-              
-              const shouldRetry = (
-                retries < config.maxRetries && 
-                (
-                  error.response?.status === 429 ||
-                  (error.response && config.retryStatusCodes.includes(error.response.status)) ||
-                  error.code === 'ECONNABORTED' || 
-                  !error.response
-                )
-              );
-              
-              if (shouldRetry) {
-                retries++;
-                const delay = calculateRetryDelayLocal(retries);
-                await new Promise(resolve => setTimeout(resolve, delay));
-              } else {
-                throw error;
-              }
-            }
-          }
-        }),
-        
-        shouldRetryRequest: vi.fn((error, retries) => {
-          if (retries >= config.maxRetries) {
-            return false;
-          }
-          
-          if (error.response?.status === 429) {
-            return true;
-          }
-          
-          if (error.response && config.retryStatusCodes.includes(error.response.status)) {
-            return true;
-          }
-          
-          if (error.code === 'ECONNABORTED' || !error.response) {
-            return true;
-          }
-          
-          return false;
-        }),
-        
-        calculateRetryDelay: vi.fn((retries, response = null) => {
-          // Check for Retry-After header
-          if (response?.headers?.['retry-after']) {
-            const retryAfter = parseInt(response.headers['retry-after'], 10);
-            if (!isNaN(retryAfter)) {
-              return retryAfter * 1000;
-            }
-          }
-          
-          // Standard exponential backoff without jitter for tests
-          return config.retryDelay * Math.pow(2, retries - 1);
-        }),
-        
-        destroy: vi.fn(function() {
-          if (this.cleanupInterval) {
-            clearInterval(this.cleanupInterval);
-            this.cleanupInterval = null;
-          }
-          activePromises.clear();
-          return this;
-        })
-      };
-    })
-  };
-});
-
-// Import the module under test after mocks are set up
-import { RobustAPIClient } from '../../../utils/apiClient.js'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+// Import the module after mocks are set up
+import { RobustAPIClient } from '../../../utils/apiClient.js';
+import CircuitBreaker from '../../../utils/circuitBreaker.js';
+import logger from '../../../utils/logger.js';
 
 describe('RobustAPIClient', () => {
-  let client;
-  let mockAxios;
-  let originalSetInterval;
-  
-  // Mock setInterval to avoid infinite loop in timer tests
-  function setupMockSetInterval() {
-    // Store original setInterval
-    originalSetInterval = global.setInterval;
-    
-    // Replace setInterval with a no-op version for tests
-    global.setInterval = vi.fn().mockReturnValue(123);
-  }
-  
-  // Setup before each test
+  let apiClient;
+  let axiosCreateSpy;
+  let axiosInstanceMock;
+  let timeController;
+
   beforeEach(() => {
-    // Create a mock adapter for axios
-    mockAxios = new MockAdapter(axios);
+    vi.clearAllMocks();
     
-    // Mock setInterval to prevent timer-related infinite loops
-    setupMockSetInterval();
+    // Mock axios.create
+    axiosInstanceMock = {
+      get: vi.fn(),
+      post: vi.fn(),
+      defaults: {},
+      request: vi.fn()
+    };
     
-    // Track clearInterval calls but make them no-ops
-    global.clearInterval = vi.fn();
+    axiosCreateSpy = vi.spyOn(axios, 'create').mockReturnValue(axiosInstanceMock);
     
-    // Override random to return a fixed value (for deterministic jitter)
-    vi.spyOn(Math, 'random').mockImplementation(() => 0);
-    
-    // Fix Date.now for consistent timestamps
-    vi.spyOn(Date, 'now').mockImplementation(() => 1609459200000); // 2021-01-01
-    
-    // Create client instance for testing with short timeouts
-    client = new RobustAPIClient({
-      maxRetries: 2,
-      timeout: 100, // Short timeout for tests
-      retryDelay: 10, // Short delay for tests
-      enableMetrics: false
+    // Create default API client instance
+    apiClient = new RobustAPIClient({
+      baseURL: 'https://api.example.com',
+      timeout: 5000,
+      maxRetries: 3,
+      retryDelay: 100, // Use small delay for faster tests
+      name: 'TestAPI'
     });
+    
+    // Set up time controller with minimal delays for tests
+    timeController = createTimeController().setup();
+    // Note: setup() already sets up the mocks, no need to manually assign them
   });
   
   afterEach(() => {
-    // Reset all mocks
-    mockAxios.reset();
-    vi.restoreAllMocks();
-    
-    // Clean up client
-    if (client) {
-      client.destroy();
-      client = null;
-    }
-    
-    // Restore original setInterval
-    if (originalSetInterval) {
-      global.setInterval = originalSetInterval;
+    vi.resetAllMocks();
+    if (timeController) {
+      timeController.restore();
     }
   });
-
-  describe('Basic Functionality', () => {
-    it('should initialize with default options', () => {
+  
+  describe('constructor', () => {
+    it('should use default options when none are provided', () => {
       const defaultClient = new RobustAPIClient();
-      expect(defaultClient.maxRetries).toBe(3);
-      expect(defaultClient.timeout).toBe(30000);
+      expect(defaultClient.options.timeout).toBe(30000);
+      expect(defaultClient.options.maxRetries).toBe(3);
+      expect(defaultClient.options.retryDelay).toBe(1000);
+      expect(defaultClient.name).toBe('API Client');
     });
     
-    it('should initialize with custom options', () => {
-      expect(client.maxRetries).toBe(2);
-      expect(client.timeout).toBe(100);
-      expect(client.retryDelay).toBe(10);
+    it('should use provided options', () => {
+      expect(apiClient.options.timeout).toBe(5000);
+      expect(apiClient.options.maxRetries).toBe(3);
+      expect(apiClient.options.retryDelay).toBe(100);
+      expect(apiClient.name).toBe('TestAPI');
     });
     
-    it('should clean up resources properly on destroy', () => {
-      client.destroy();
-      expect(global.clearInterval).toHaveBeenCalled();
-      expect(client.cleanupInterval).toBeNull();
+    it('should create an axios instance with the right config', () => {
+      expect(axiosCreateSpy).toHaveBeenCalledWith({
+        baseURL: 'https://api.example.com',
+        headers: {},
+        timeout: 5000
+      });
+    });
+    
+    it('should create a circuit breaker with the right config', () => {
+      expect(CircuitBreaker).toHaveBeenCalledWith({
+        failureThreshold: 5,
+        resetTimeout: 30000,
+        name: 'https://api.example.com'
+      });
     });
   });
   
-  describe('Request Handling', () => {
-    it('should make successful requests through axios', async () => {
-      // Set up mock response
-      mockAxios.onAny().reply(200, { data: 'success' });
+  describe('request', () => {
+    it('should throw error when circuit breaker is open', async () => {
+      // Override the isOpen mock for this test
+      apiClient.circuitBreaker.isOpen.mockReturnValueOnce(true);
       
-      // Start the request as a Promise
-      const requestPromise = client.request({
-        method: 'GET',
-        url: '/data'
-      });
-      
-      // Advance any timers that might be waiting
-      vi.runAllTimers();
-      
-      // Wait for the request to complete
-      const result = await requestPromise;
-      
-      // Verify response and request was made correctly
-      expect(result.data).toEqual({ data: 'success' });
-      expect(mockAxios.history.get.length).toBe(1);
-      expect(mockAxios.history.get[0].url).toBe('/data');
-    });
-    
-    it('should handle failed requests and propagate errors', async () => {
-      // Set up mock to return an error
-      mockAxios.onAny().reply(404, { error: 'Not found' });
-      
-      // Start the request and expect it to fail
-      const requestPromise = client.request({
-        method: 'GET',
-        url: '/data'
-      });
-      
-      // Advance any timers
-      vi.runAllTimers();
-      
-      // Wait for the promise to reject
-      await expect(requestPromise).rejects.toHaveProperty('response.status', 404);
-    });
-  });
-  
-  describe('Retry Logic', () => {
-    it('should retry on retryable errors', async () => {
-      // First request fails with 500, second succeeds
-      mockAxios.onGet('/data').replyOnce(500)
-                        .onGet('/data').reply(200, { data: 'success after retry' });
-      
-      // Start the request
-      const requestPromise = client.request({
-        method: 'GET',
-        url: '/data'
-      });
-      
-      // Advance timers to handle any setTimeout calls (for retry delay)
-      vi.runAllTimers();
-      
-      // Wait for the result
-      const result = await requestPromise;
-      
-      // Verify response and that multiple requests were made
-      expect(result.data).toEqual({ data: 'success after retry' });
-      expect(mockAxios.history.get.length).toBe(2);
-    });
-    
-    it('should not retry after exceeding max retries', async () => {
-      // All requests fail with 500
-      mockAxios.onGet('/data').reply(500, { error: 'Server error' });
-      
-      // Start the request
-      const requestPromise = client.request({
-        method: 'GET',
-        url: '/data'
-      });
-      
-      // Run timers multiple times to get through all retries
-      vi.runAllTimers(); // First attempt
-      vi.runAllTimers(); // First retry
-      vi.runAllTimers(); // Second retry
-      
-      // Expect the request to fail after retries
-      await expect(requestPromise).rejects.toHaveProperty('response.status', 500);
-      
-      // With maxRetries=2, we expect 3 calls total (1 initial + 2 retries)
-      expect(mockAxios.history.get.length).toBe(3);
-    });
-    
-    it('should calculate retry delay correctly', () => {
-      // Basic retry without retry-after header
-      expect(client.calculateRetryDelay(1)).toBe(10); // Base delay for first retry with no jitter
-      
-      // Second retry with exponential backoff (with zero jitter)
-      expect(client.calculateRetryDelay(2)).toBe(20); // Base delay * 2 with no jitter
-      
-      // With retry-after header
-      const responseWithHeader = { 
-        headers: { 'retry-after': '5' } // 5 seconds
+      // Test configuration
+      const config = {
+        url: '/test',
+        method: 'GET'
       };
       
-      const delayWithHeader = client.calculateRetryDelay(1, responseWithHeader);
-      expect(delayWithHeader).toBe(5000); // 5 seconds in ms with no jitter
-    });
-  });
-  
-  describe('Rate Limiting', () => {
-    it('should handle rate limiting (429) with special retry logic', async () => {
-      // Mock a 429 rate limit response
-      mockAxios.onGet('/data').reply(429, { error: 'Rate limited' }, {
-        'retry-after': '2' // 2 seconds
-      });
+      // Create a function that we can await and expect to throw
+      const requestFn = async () => await apiClient.request(config);
       
-      // Start the request
-      const requestPromise = client.request({
-        method: 'GET',
-        url: '/data'
-      });
+      // Should reject due to open circuit
+      await expect(requestFn()).rejects.toThrow('Circuit breaker open for TestAPI');
       
-      // Run timers multiple times to get through all retries
-      vi.runAllTimers(); // First attempt
-      vi.runAllTimers(); // First retry
-      vi.runAllTimers(); // Second retry
+      // Verify axios was not called
+      expect(apiClient.axios).not.toHaveBeenCalled();
       
-      // Expect the request to fail with a rate limit error
-      await expect(requestPromise).rejects.toThrow(/rate limit/i);
-      
-      // Verify the request was made
-      expect(mockAxios.history.get.length).toBe(3); // Initial + 2 retries
+      // Verify warning was logged
+      expect(logger.warn).toHaveBeenCalledWith(
+        'TestAPI: Circuit breaker open, request blocked',
+        expect.objectContaining({
+          component: 'apiClient',
+          url: '/test'
+        })
+      );
     });
     
-    it('should wait if an endpoint is already rate limited', async () => {
-      // Set up an existing rate limit
-      const endpoint = '/rate-limited';
-      const resetTime = Date.now() + 5000; // 5 seconds from now
+    it('should make a successful request and record success', async () => {
+      // Mock successful response
+      const mockResponse = { 
+        status: 200, 
+        statusText: 'OK',
+        data: { success: true } 
+      };
+      apiClient.axios.mockResolvedValueOnce(mockResponse);
       
-      client.rateLimitedEndpoints.set(endpoint, {
-        resetTime,
-        status: 429,
-        retryCount: 1
-      });
+      // Test configuration
+      const config = {
+        url: '/test',
+        method: 'GET'
+      };
       
-      // Mock successful response after the rate limit
-      mockAxios.onGet(endpoint).reply(200, { data: 'success' });
+      const result = await apiClient.request(config);
       
-      // Start the request
-      const requestPromise = client.request({
-        method: 'GET',
-        url: endpoint
-      });
+      // Verify axios was called correctly
+      expect(apiClient.axios).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: '/test',
+          method: 'GET',
+          validateStatus: null
+        })
+      );
       
-      // Advance timers to handle the waiting period
-      vi.runAllTimers();
+      // Verify response is correct
+      expect(result).toEqual({ success: true });
       
-      // Wait for the request to complete
-      const result = await requestPromise;
+      // Verify circuit breaker success was recorded
+      expect(apiClient.circuitBreaker.recordSuccess).toHaveBeenCalled();
+    });
+    
+    it('should handle 429 responses with retry-after header', async () => {
+      // Mock a rate limit response then a successful response
+      const rateLimitResponse = { 
+        status: 429, 
+        statusText: 'Too Many Requests',
+        headers: { 'retry-after': '2' },
+        data: { error: 'rate limit' }
+      };
       
-      // Verify response
-      expect(result.data).toEqual({ data: 'success' });
+      const successResponse = { 
+        status: 200, 
+        statusText: 'OK',
+        data: { success: true } 
+      };
       
-      // Rate limit should be cleared
-      expect(client.rateLimitedEndpoints.has(endpoint)).toBe(false);
+      apiClient.axios.mockResolvedValueOnce(rateLimitResponse);
+      apiClient.axios.mockResolvedValueOnce(successResponse);
+      
+      const config = { url: '/test', method: 'GET' };
+      const result = await apiClient.request(config);
+      
+      // Verify axios was called twice
+      expect(apiClient.axios).toHaveBeenCalledTimes(2);
+      
+      // Verify warning about rate limit was logged
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Rate limit exceeded'),
+        expect.objectContaining({
+          component: 'apiClient',
+          url: '/test',
+          attempt: 1
+        })
+      );
+      
+      // Verify delay was approximately correct (2000ms from header)
+      // Note: We don't actually wait due to the time controller
+      
+      // Verify correct result
+      expect(result).toEqual({ success: true });
+    });
+    
+    it('should handle HTTP errors with retry for retriable status codes', async () => {
+      // Mock a server error then success
+      const errorResponse = { 
+        status: 503, 
+        statusText: 'Service Unavailable',
+        data: { error: 'server error' }
+      };
+      
+      const successResponse = { 
+        status: 200, 
+        statusText: 'OK',
+        data: { success: true } 
+      };
+      
+      apiClient.axios.mockResolvedValueOnce(errorResponse);
+      apiClient.axios.mockResolvedValueOnce(successResponse);
+      
+      const config = { url: '/test', method: 'GET' };
+      const result = await apiClient.request(config);
+      
+      // Verify circuit breaker failure was recorded
+      expect(apiClient.circuitBreaker.recordFailure).toHaveBeenCalled();
+      
+      // Verify warning was logged
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Request failed'),
+        expect.objectContaining({
+          component: 'apiClient',
+          url: '/test',
+          attempt: 1
+        })
+      );
+      
+      // Verify correct result after retry
+      expect(result).toEqual({ success: true });
+    });
+    
+    it('should not retry for client errors like 400', async () => {
+      // Mock a client error
+      const errorResponse = { 
+        status: 400, 
+        statusText: 'Bad Request',
+        data: { error: 'bad request' }
+      };
+      
+      apiClient.axios.mockResolvedValueOnce(errorResponse);
+      
+      const config = { url: '/test', method: 'GET' };
+      
+      // Create a function we can await
+      const requestFn = async () => await apiClient.request(config);
+      
+      // Should throw error without retrying
+      await expect(requestFn()).rejects.toThrow('HTTP error 400: Bad Request');
+      
+      // Verify axios was called only once
+      expect(apiClient.axios).toHaveBeenCalledTimes(1);
+      
+      // Verify circuit breaker failure was recorded
+      expect(apiClient.circuitBreaker.recordFailure).toHaveBeenCalled();
+    });
+    
+    it('should retry network errors', async () => {
+      // Mock a network error then a successful response
+      const networkError = new Error('Network Error');
+      networkError.code = 'ECONNABORTED';
+      
+      const successResponse = { 
+        status: 200, 
+        statusText: 'OK',
+        data: { success: true } 
+      };
+      
+      apiClient.axios.mockRejectedValueOnce(networkError);
+      apiClient.axios.mockResolvedValueOnce(successResponse);
+      
+      const config = { url: '/test', method: 'POST', data: { key: 'value' } };
+      const result = await apiClient.request(config);
+      
+      // Verify axios was called twice
+      expect(apiClient.axios).toHaveBeenCalledTimes(2);
+      
+      // Verify circuit breaker failure was recorded
+      expect(apiClient.circuitBreaker.recordFailure).toHaveBeenCalled();
+      
+      // Verify warning was logged
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Request failed'),
+        expect.objectContaining({
+          component: 'apiClient',
+          url: '/test',
+          attempt: 1,
+          error: 'Network Error'
+        })
+      );
+      
+      // Verify correct result after retry
+      expect(result).toEqual({ success: true });
+    });
+    
+    it('should give up after maxRetries attempts', async () => {
+      // Mock errors for all retries
+      const errorResponse = { 
+        status: 503, 
+        statusText: 'Service Unavailable',
+        data: { error: 'server error' }
+      };
+      
+      // Setup all responses to fail
+      apiClient.axios.mockResolvedValue(errorResponse);
+      
+      const config = { url: '/test', method: 'GET' };
+      
+      // Create a function we can await
+      const requestFn = async () => await apiClient.request(config);
+      
+      // Should reject after maxRetries attempts
+      await expect(requestFn()).rejects.toThrow('HTTP error 503: Service Unavailable');
+      
+      // Verify axios was called maxRetries + 1 times (original + retries)
+      expect(apiClient.axios).toHaveBeenCalledTimes(4); // 1 original + 3 retries
+      
+      // Verify final error logging
+      expect(logger.error).toHaveBeenCalledWith(
+        'TestAPI: All retries failed',
+        expect.objectContaining({
+          component: 'apiClient',
+          url: '/test'
+        })
+      );
     });
   });
   
-  describe('Cleanup', () => {
-    it('should clean up stale promises correctly', () => {
-      // Mock the activePromises map with some stale entries
-      const stalePromise = Promise.resolve();
-      const recentPromise = Promise.resolve();
+  describe('calculateBackoff', () => {
+    it('should use exponential backoff with jitter', () => {
+      // Mock Math.random for predictable testing
+      const originalRandom = Math.random;
+      Math.random = vi.fn().mockReturnValue(0.5);
       
-      const staleTime = Date.now() - (31 * 60 * 1000); // 31 minutes ago
-      const recentTime = Date.now() - (20 * 60 * 1000); // 20 minutes ago
+      // Create client with fixed delay for testing
+      const testClient = new RobustAPIClient({
+        retryDelay: 1000
+      });
       
-      client.activePromises.set(stalePromise, { timestamp: staleTime });
-      client.activePromises.set(recentPromise, { timestamp: recentTime });
+      // First attempt (0): base delay = 1000ms, jitter = 150ms (1000 * 0.3 * 0.5)
+      expect(testClient.calculateBackoff(0)).toBe(1150);
       
-      // Run cleanup
-      client.cleanupStalePromises();
+      // Second attempt (1): base delay = 2000ms, jitter = 300ms (2000 * 0.3 * 0.5)
+      expect(testClient.calculateBackoff(1)).toBe(2300);
       
-      // Only stale promise should be removed
-      expect(client.activePromises.has(stalePromise)).toBe(false);
-      expect(client.activePromises.has(recentPromise)).toBe(true);
+      // Third attempt (2): base delay = 4000ms, jitter = 600ms (4000 * 0.3 * 0.5)
+      expect(testClient.calculateBackoff(2)).toBe(4600);
+      
+      // Should not exceed max delay of 60000ms
+      const largeResult = testClient.calculateBackoff(10); // 2^10 * 1000 = 1024000ms
+      expect(largeResult).toBe(60000);
+      
+      // Restore Math.random
+      Math.random = originalRandom;
+    });
+  });
+  
+  describe('shouldRetry', () => {
+    it('should retry network errors', () => {
+      const error = new Error('Network Error');
+      expect(apiClient.shouldRetry(error)).toBe(true);
+    });
+    
+    it('should retry on specific status codes', () => {
+      expect(apiClient.shouldRetry({ response: { status: 408 } })).toBe(true);
+      expect(apiClient.shouldRetry({ response: { status: 429 } })).toBe(true);
+      expect(apiClient.shouldRetry({ response: { status: 500 } })).toBe(true);
+      expect(apiClient.shouldRetry({ response: { status: 502 } })).toBe(true);
+      expect(apiClient.shouldRetry({ response: { status: 503 } })).toBe(true);
+      expect(apiClient.shouldRetry({ response: { status: 504 } })).toBe(true);
+    });
+    
+    it('should not retry on other status codes', () => {
+      expect(apiClient.shouldRetry({ response: { status: 400 } })).toBe(false);
+      expect(apiClient.shouldRetry({ response: { status: 401 } })).toBe(false);
+      expect(apiClient.shouldRetry({ response: { status: 403 } })).toBe(false);
+      expect(apiClient.shouldRetry({ response: { status: 404 } })).toBe(false);
+      expect(apiClient.shouldRetry({ response: { status: 422 } })).toBe(false);
+    });
+  });
+  
+  describe('convenience methods', () => {
+    it('should provide a get method that calls request', async () => {
+      // Spy on the request method
+      const requestSpy = vi.spyOn(apiClient, 'request').mockResolvedValue({ success: true });
+      
+      // Call get method
+      const result = await apiClient.get('/test', { headers: { 'X-Test': 'true' } });
+      
+      // Verify request was called with correct parameters
+      expect(requestSpy).toHaveBeenCalledWith({
+        method: 'get',
+        url: '/test',
+        headers: { 'X-Test': 'true' }
+      });
+      
+      // Verify result
+      expect(result).toEqual({ success: true });
+    });
+    
+    it('should provide a post method that calls request', async () => {
+      // Spy on the request method
+      const requestSpy = vi.spyOn(apiClient, 'request').mockResolvedValue({ success: true });
+      
+      // Call post method
+      const result = await apiClient.post('/test', { name: 'test' }, { headers: { 'X-Test': 'true' } });
+      
+      // Verify request was called with correct parameters
+      expect(requestSpy).toHaveBeenCalledWith({
+        method: 'post',
+        url: '/test',
+        data: { name: 'test' },
+        headers: { 'X-Test': 'true' }
+      });
+      
+      // Verify result
+      expect(result).toEqual({ success: true });
+    });
+  });
+  
+  describe('delay', () => {
+    it('should create a promise that resolves after the specified time', async () => {
+      const start = Date.now();
+      
+      // Call delay method with timeController - it won't actually wait in tests
+      await apiClient.delay(1000);
+      
+      // Time controller's setTimeout is a mock function that was called
+      // Don't need to verify exact parameters as the mock doesn't work that way
+      expect(setTimeout).toHaveBeenCalled();
     });
   });
 });

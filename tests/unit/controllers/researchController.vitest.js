@@ -1,15 +1,12 @@
 /**
- * @file researchController.temp.js
- * @description Temporary simplified tests for the research-related APIs
- * This file replaces complex test patterns with simpler approaches to avoid eval() usage
+ * @file researchController.vitest.js
+ * @description Tests for the research-related APIs in server/routes.ts
  */
 import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
-import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
-import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
-import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
+import { assertRejects, createErrorTrackingSpy } from '../../utils/error-handling-utils.js';
 import express from 'express';
-import request from 'supertest'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import request from 'supertest';
+import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../../utils/time-testing-utils.js';
 
 describe('Research Controller API Tests', () => {
   let mockResearchService;
