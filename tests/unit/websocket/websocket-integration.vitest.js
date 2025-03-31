@@ -7,7 +7,7 @@ import { WebSocketServer } from 'ws';
 import WebSocket from 'ws';
 import express from 'express';
 import { createServer } from 'http'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../../test-helpers/time-controller.js';
 
 describe('WebSocket Integration with Express', () => {
   it('should be able to initialize a WebSocket server with Express', () => {

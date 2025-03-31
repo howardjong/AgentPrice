@@ -1,108 +1,134 @@
 /**
- * Time Controller Helper
+ * Time Controller for Testing
  * 
- * A utility class for managing time in tests:
- * - Provides a consistent way to mock time-related functions (Date, setTimeout, etc.)
- * - Manages setup/teardown of time mocks to prevent test interference
- * - Offers high-level methods for time manipulation in tests
- * 
- * This approach improves test reliability by ensuring consistent time handling.
+ * This utility helps control timer functions (setTimeout, setInterval) in tests.
+ * It allows tests to advance timers without actually waiting, making timer-based tests faster and more reliable.
  */
 
 import { vi } from 'vitest';
 
 export class TimeController {
   constructor() {
-    this.originalPerformanceNow = global.performance ? global.performance.now : null;
+    this.originalSetTimeout = global.setTimeout;
+    this.originalSetInterval = global.setInterval;
+    this.originalClearTimeout = global.clearTimeout;
+    this.originalClearInterval = global.clearInterval;
     this.originalDateNow = Date.now;
-    this.originalSetTimeout = setTimeout;
-    this.originalSetInterval = setInterval;
-    this.originalClearTimeout = clearTimeout;
-    this.originalClearInterval = clearInterval;
-    this.currentTime = 0;
+    this.originalPerformanceNow = performance.now;
   }
-
+  
   /**
-   * Set up time mocking
+   * Set up mock time functions
    */
   setup() {
     // Use vitest's fake timers
     vi.useFakeTimers();
-    
-    // Set initial fake time if needed
-    if (this.currentTime > 0) {
-      vi.setSystemTime(this.currentTime);
-    }
-    
-    // Mock performance.now if it exists
-    if (global.performance) {
-      global.performance.now = vi.fn(() => {
-        return this.currentTime;
-      });
-    }
   }
-
+  
   /**
-   * Clean up time mocking
+   * Restore original time functions
    */
   teardown() {
-    // Restore vitest's timers
     vi.useRealTimers();
-    
-    // Restore performance.now if it was mocked
-    if (global.performance && this.originalPerformanceNow) {
-      global.performance.now = this.originalPerformanceNow;
-    }
   }
-
+  
   /**
-   * Advance time by a specific amount of milliseconds
+   * Advance timers by a specific amount of time
    * @param {number} ms - Milliseconds to advance
    */
   advanceTimersByTime(ms) {
     vi.advanceTimersByTime(ms);
-    this.currentTime += ms;
   }
-
-  /**
-   * Advance time to trigger the next timer
-   */
-  advanceTimersToNextTimer() {
-    const delay = vi.getNextTimerDelay();
-    if (delay !== undefined) {
-      this.advanceTimersByTime(delay);
-    }
-  }
-
+  
   /**
    * Run all pending timers
    */
   runAllTimers() {
     vi.runAllTimers();
-    
-    // Update our current time to match vitest's time
-    this.currentTime = new Date().getTime();
   }
-
+  
   /**
-   * Set the current time to a specific value
-   * @param {number|Date} time - The time to set
+   * Run only pending timers that are scheduled to run within the specified time
+   * @param {number} ms - Milliseconds limit
    */
-  setCurrentTime(time) {
-    if (time instanceof Date) {
-      this.currentTime = time.getTime();
-    } else {
-      this.currentTime = time;
-    }
-    
-    vi.setSystemTime(this.currentTime);
+  runOnlyPendingTimers() {
+    vi.runOnlyPendingTimers();
   }
-
+  
   /**
-   * Get the current mocked time
-   * @returns {number} The current time in milliseconds
+   * Set the current virtual time
+   * @param {number} timestamp - UNIX timestamp to set as current time
+   */
+  setSystemTime(timestamp) {
+    vi.setSystemTime(timestamp);
+  }
+  
+  /**
+   * Get the current virtual time
+   * @returns {number} Current virtual time
    */
   getCurrentTime() {
-    return this.currentTime;
+    return Date.now();
   }
+}
+
+/**
+ * Helper to wait for a specified time
+ * @param {number} ms - Milliseconds to wait
+ * @returns {Promise} Promise that resolves after the specified time
+ */
+export async function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Helper to execute a function with a timeout
+ * @param {Promise} promise - Promise to execute
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @param {string} message - Error message if timeout occurs
+ * @returns {Promise} Promise that resolves with the result or rejects with timeout error
+ */
+export async function withTimeout(promise, timeoutMs, message = 'Operation timed out') {
+  let timeoutId;
+  
+  // Create a promise that rejects after the timeout
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+  });
+  
+  // Race the original promise against the timeout
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Mock performance.now() to return a predetermined sequence of values
+ * @param {number[]} values - Array of values to return in sequence
+ * @returns {Function} Restore function to revert the mock
+ */
+export function mockPerformanceNowSequence(values) {
+  let callCount = 0;
+  const originalNow = performance.now;
+  
+  performance.now = () => {
+    return values[Math.min(callCount++, values.length - 1)];
+  };
+  
+  return () => {
+    performance.now = originalNow;
+  };
+}
+
+/**
+ * Create a completely separate test execution time controller
+ * This is useful when you need to isolate timer management from other tests
+ * @returns {Object} Time controller with methods to manage time
+ */
+export function createTimeController() {
+  return new TimeController();
 }

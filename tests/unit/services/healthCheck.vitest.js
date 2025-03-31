@@ -7,21 +7,31 @@ import fs from 'fs';
 import path from 'path';
 
 // Import function directly to avoid testing the mocked version
-import * as healthCheckModule from '../../../server/services/healthCheck';
-
-// Store original implementation
-const originalCheckSystemHealth = healthCheckModule.checkSystemHealth;
+import * as healthCheckModule from '../../../server/services/healthCheck.ts';
 
 // Mock dependencies
-vi.mock('os', () => {
+vi.mock('os', async () => {
+  const actual = await vi.importActual('os');
   return {
+    ...actual,
+    default: {
+      ...actual,
+      totalmem: vi.fn(),
+      freemem: vi.fn()
+    },
     totalmem: vi.fn(),
     freemem: vi.fn()
   };
 });
 
-vi.mock('fs', () => {
+vi.mock('fs', async () => {
+  const actual = await vi.importActual('fs');
   return {
+    ...actual,
+    default: {
+      ...actual,
+      existsSync: vi.fn()
+    },
     existsSync: vi.fn()
   };
 });
@@ -86,7 +96,7 @@ describe('Health Check Service', () => {
     delete process.env.ANTHROPIC_API_KEY;
     delete process.env.PERPLEXITY_API_KEY;
     
-    const result = checkSystemHealth();
+    const result = healthCheckModule.checkSystemHealth();
     
     expect(result.status).toBe('degraded');
     expect(result.isHealthy).toBe(false);
@@ -99,7 +109,7 @@ describe('Health Check Service', () => {
     // Simulate missing directories
     fs.existsSync.mockImplementation(() => false);
     
-    const result = checkSystemHealth();
+    const result = healthCheckModule.checkSystemHealth();
     
     expect(result.status).toBe('degraded');
     expect(result.isHealthy).toBe(false);
@@ -114,7 +124,7 @@ describe('Health Check Service', () => {
     os.totalmem.mockReturnValue(16 * 1024 * 1024 * 1024); // 16GB
     os.freemem.mockReturnValue(0.8 * 1024 * 1024 * 1024); // 0.8GB (95% used)
     
-    const result = checkSystemHealth();
+    const result = healthCheckModule.checkSystemHealth();
     
     expect(result.status).toBe('degraded');
     expect(result.isHealthy).toBe(false);
@@ -131,7 +141,7 @@ describe('Health Check Service', () => {
     os.totalmem.mockReturnValue(16 * 1024 * 1024 * 1024); // 16GB
     os.freemem.mockReturnValue(0.8 * 1024 * 1024 * 1024); // 0.8GB (95% used)
     
-    const result = checkSystemHealth();
+    const result = healthCheckModule.checkSystemHealth();
     
     expect(result.status).toBe('unhealthy');
     expect(result.isHealthy).toBe(false);
@@ -149,7 +159,7 @@ describe('Health Check Service', () => {
     os.totalmem.mockReturnValue(totalMem);
     os.freemem.mockReturnValue(freeMem);
     
-    const result = checkSystemHealth();
+    const result = healthCheckModule.checkSystemHealth();
     
     expect(result.memory.total).toBe(totalMem);
     expect(result.memory.free).toBe(freeMem);
@@ -169,7 +179,7 @@ describe('Health Check Service', () => {
       return false;
     });
     
-    const result = checkSystemHealth();
+    const result = healthCheckModule.checkSystemHealth();
     
     // The status should still be healthy since testsOutputDir isn't required
     expect(result.status).toBe('healthy');
@@ -182,7 +192,7 @@ describe('Health Check Service', () => {
     // Remove only one API key
     delete process.env.ANTHROPIC_API_KEY;
     
-    const result = checkSystemHealth();
+    const result = healthCheckModule.checkSystemHealth();
     
     expect(result.status).toBe('degraded');
     expect(result.isHealthy).toBe(false);
@@ -192,15 +202,13 @@ describe('Health Check Service', () => {
   });
   
   it('should reflect directory status accurately in the response', () => {
-    // Setup specific directory existence
+    // Setup specific directory existence - be more precise with path matching
     fs.existsSync.mockImplementation((dirPath) => {
-      if (dirPath.includes('uploads') || dirPath.includes('prompts')) {
-        return true;
-      }
-      return false;
+      // Match only exact paths, not partial matches
+      return dirPath.endsWith('/uploads') || dirPath.endsWith('/prompts');
     });
     
-    const result = checkSystemHealth();
+    const result = healthCheckModule.checkSystemHealth();
     
     expect(result.fileSystem.uploadsDir).toBe(true);
     expect(result.fileSystem.promptsDir).toBe(true);
