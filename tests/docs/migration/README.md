@@ -8,6 +8,7 @@ This directory contains documentation related to our Jest to Vitest test migrati
 - Status reports and summaries
 - Mocking guidelines and best practices
 - Migration patterns and techniques
+- **TEST_NOTES.md**: Notes on known test issues and improvement approaches
 
 ## Navigation
 

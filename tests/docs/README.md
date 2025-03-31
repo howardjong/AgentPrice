@@ -17,6 +17,7 @@ This directory contains comprehensive documentation related to testing in our pr
 - [Socket.IO Testing Best Practices](./guidelines/SOCKETIO_TESTING_BEST_PRACTICES.md) - Guidance for Socket.IO testing
 - [Error Handling Best Practices](./guidelines/ERROR_HANDLING_BEST_PRACTICES.md) - Testing error scenarios
 - [Time Testing Best Practices](./guidelines/TIME_TESTING_BEST_PRACTICES.md) - Testing time-dependent code
+- [Non-Deterministic Error Testing](./guidelines/NON_DETERMINISTIC_ERROR_TESTING.md) - Testing for flaky network conditions and race conditions
 
 ### Test Migration
 
