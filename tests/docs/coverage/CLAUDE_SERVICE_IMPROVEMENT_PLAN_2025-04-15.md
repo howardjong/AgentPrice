@@ -5,7 +5,9 @@
 
 ## Current Coverage Status
 
-The Claude service currently has approximately 65% coverage. This service provides integration with Anthropic's Claude API and handles conversation processing and visualization generation. Note that references to anthropicService.js in coverage reports are outdated, as this redundant service has been removed in favor of the new claude.ts implementation.
+The Claude service currently has approximately 65% coverage. This service provides integration with Anthropic's Claude API and handles conversation processing and visualization generation. 
+
+**Important Note**: Our primary workflow depends on the functions implemented in the earlier `claudeService.js` version. While we've begun the transition to the newer `claude.ts` TypeScript implementation, we need to ensure our tests reflect the actual workflow model used in `tests-single-query-workflow`, which still references the older implementation.
 
 ## Coverage Improvement Goals
 
@@ -167,21 +169,38 @@ it('should detect and reject malformed SVG content', async () => {
 
 ## Implementation Plan
 
-1. **Create New Test File**:
-   Create a new `claude-service-enhanced-coverage.vitest.js` file focused specifically on increasing coverage.
+1. **Complement Existing Tests**:
+   We already have several test files for Claude service, including:
+   - `claudeService.vitest.js` - Basic unit tests
+   - `improved-claude-chart-generation.vitest.js` - Chart generation workflow tests
+   - `claude-chart-workflow-nock.vitest.js` - Network mocking tests
+   
+   Our new `claudeService-workflow-coverage.vitest.js` file complements these by targeting specific coverage gaps.
 
-2. **Target Edge Cases**:
-   Prioritize tests that exercise uncovered code paths, particularly:
-   - Model extraction and warning generation
-   - Specialized visualization prompts
-   - Error handling for various scenarios
-   - SVG validation and processing edge cases
+2. **Focus on Workflow Core Functions**:
+   Our testing focuses on the functions actually used in `tests-single-query-workflow`:
+   - `processText`
+   - `processMultimodal`
+   - `processConversation`
+   - `generatePlotlyVisualization`
 
-3. **Track Coverage Progress**:
-   Use coverage reports to iteratively focus on remaining gaps.
+3. **Target Code Path Gaps**:
+   Prioritize tests for uncovered code paths, particularly:
+   - Plotly visualization generation for specialized chart types (Van Westendorp, Conjoint Analysis)
+   - Error handling for rate limits and API failures
+   - Circuit breaker integration
+   - Content block handling
+   - JSON parsing edge cases
 
-4. **Documentation**:
-   Document testing patterns used for Claude service to serve as reference for other services.
+4. **Track Coverage Progress**:
+   Use coverage reports to iteratively focus on remaining gaps and verify improvement.
+
+5. **Maintain Workflow Compatibility**:
+   Ensure that tests maintain compatibility with the actual functional flows in the single query workflow, focusing on:
+   - Query routing
+   - Service integration
+   - Visualization handling
+   - Error recovery
 
 ## Expected Results
 

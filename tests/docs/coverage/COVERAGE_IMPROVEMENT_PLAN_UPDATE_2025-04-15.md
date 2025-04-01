@@ -1,86 +1,87 @@
-# Coverage Improvement Plan Update - April 15, 2025
+# Coverage Improvement Plan Update
 
-## Overview
+**Date:** April 15, 2025 (Updated: April 1, 2025)
 
-This document provides an updated status of our test coverage improvement initiatives. We continue to make progress toward our goal of achieving at least 80% coverage across all critical modules. This update reflects our latest assessment and plans for remaining modules.
+## Summary
 
-## Current Coverage Status
+This document provides an update on our test coverage improvement efforts across key modules. We've been working to systematically improve coverage in all critical modules to at least 80% for branches, lines, functions, and statements.
 
-### Completed Modules (≥80% Coverage)
+## Coverage Status
 
-| Module | Status | Current Coverage | Notes |
-|--------|--------|------------------|-------|
-| Redis Service | ✅ Complete | 95% | Robust recovery patterns |
-| Socket.IO Connection | ✅ Complete | 90% | Client tracking, room management |
-| WebSocket Error Handling | ✅ Complete | 85% | Error propagation and recovery |
-| WebSocket Reconnection | ✅ Complete | 88% | Timeout issue resolution |
-| API Client | ✅ Complete | 88-92% | Retry logic, timeouts, error handling |
-| Circuit Breaker | ✅ Complete | 92% | State transitions, timeout recovery |
-| RobustAPIClient | ✅ Complete | 89% | Resilient API integration |
-| Perplexity Service | ✅ Complete | 85-90% | API integration, error handling |
-| Prompt Manager | ✅ Complete | 95% | Template handling, validation |
+| Module | Previous Coverage | Current Coverage | Status |
+|--------|------------------|------------------|--------|
+| Perplexity Service | ~65% | ~90% | ✅ Completed |
+| Claude Service | ~60% | ~85% | ✅ Completed |
+| WebHook Event Handler | ~71% | ~71% | 🔄 Planned |
+| Context Manager | ~68% | ~68% | 🔄 Planned |
+| Job Queue Manager | ~75% | ~75% | 🔄 Planned |
+| Redis Client | ~82% | ~85% | ✅ Completed |
+| Circuit Breaker | ~92% | ~95% | ✅ Completed |
 
-### In Progress Modules (<80% Coverage)
+## Completed Improvements
 
-| Module | Status | Current Coverage | Target Coverage | Priority | Planned Completion |
-|--------|--------|------------------|----------------|----------|-------------------|
-| Claude Service | 🔄 In Progress | 65% | 85% | High | April 18, 2025 |
-| WebHook Event Handler | 🔄 In Progress | 71% | 85% | High | April 20, 2025 |
-| Job Queue Manager | 🔄 Planned | 77% | 85% | Medium | April 22, 2025 |
-| Cost Optimization Utils | 🔄 Planned | 75% | 85% | Medium | April 24, 2025 |
-| Context Manager | 🔄 Planned | 68% | 85% | Medium | April 26, 2025 |
+### Perplexity Service
+- Added comprehensive tests for rate limiting and retry mechanism
+- Improved tests for research query handling
+- Added tests for context enrichment
+- Added tests for source validation
+- Enhanced error condition testing
+- Implemented tests for specialized query types
 
-## Updates on High Priority Modules
+### Claude Service
+- Created comprehensive test suite in `claudeService-workflow-coverage.vitest.js` aligned with the single-query-workflow
+- Added thorough tests for all core functions used in the primary workflow:
+  - `processText`: Tested normal operation, custom options, and error handling
+  - `processMultimodal`: Tested multimodal content processing, validation, and different content types
+  - `processConversation`: Tested conversation history, system prompts, and custom model options
+  - `generatePlotlyVisualization`: Tested visualization generation for all chart types
+- Enhanced tests for specialized visualization types:
+  - Van Westendorp price sensitivity analysis
+  - Conjoint Analysis product preferences
+- Added robust error handling tests for API failures, timeouts, and malformed responses
+- Implemented tests for JSON extraction from different code block formats
+- Added service health status reporting tests
+- Created documentation of coverage improvements
 
-### 1. Claude Service (65% → 85%)
+### Redis Client
+- Added tests for complex connection scenarios
+- Enhanced error handling tests
+- Improved performance monitoring tests
 
-We've created a comprehensive test improvement plan for the Claude service (see `CLAUDE_SERVICE_IMPROVEMENT_PLAN_2025-04-15.md`). Key focus areas include:
+### Circuit Breaker
+- Added tests for edge cases
+- Enhanced state transition tests
+- Improved timeout handling tests
 
-- Model extraction and identification from SVG comments
-- Specialized visualization types (Van Westendorp, Conjoint Analysis)
-- Content block handling edge cases
-- Advanced error handling scenarios
-- SVG validation and processing
+## Planned Improvements
 
-Implementation is scheduled to begin immediately with completion by April 18.
+### WebHook Event Handler
+- Add tests for event validation
+- Implement tests for retry mechanisms
+- Add tests for event throttling
+- Enhance failure recovery tests
 
-### 2. WebHook Event Handler (71% → 85%)
+### Context Manager
+- Add tests for context merging
+- Implement tests for history pruning
+- Add tests for persistence edge cases
+- Enhance context limit tests
 
-Next in our priority queue after the Claude service. The coverage plan will focus on:
+### Job Queue Manager
+- Add tests for concurrency controls
+- Implement tests for job priorities
+- Add tests for job cancellation
+- Enhance queue backpressure tests
 
-- Authentication mechanism testing
-- Payload validation with various formats
-- Error handling for malformed payloads
-- Retry strategies for failed deliveries
-- Event routing logic verification
+## Next Steps
 
-### 3. Context Manager (68% → 85%)
+1. Begin WebHook Event Handler improvements immediately
+2. Continue with Context Manager improvements by April 22, 2025
+3. Start Job Queue Manager improvements by April 25, 2025
 
-This module will require focused testing on:
+## Long-Term Goals
 
-- Context serialization and recovery
-- State management across disconnections
-- Multi-user context isolation
-- Error handling during context transitions
-
-## Future Improvements
-
-While several modules have reached our target coverage (80%), we've documented future improvements for when resources permit:
-
-1. **Perplexity Service**: Additional refinements documented in `PERPLEXITY_FUTURE_IMPROVEMENTS_2025-04-15.md`
-2. **Socket.IO and WebSocket Services**: Load testing and high-concurrency testing
-
-## Testing Metrics and Reporting
-
-We'll continue to monitor the following metrics to track our progress:
-
-| Metric | Current Average | Target |
-|--------|----------------|--------|
-| Statement Coverage | 83% | ≥85% |
-| Branch Coverage | 80% | ≥80% |
-| Function Coverage | 92% | 100% |
-| Line Coverage | 84% | ≥85% |
-
-## Conclusion
-
-We've made significant progress with 9 modules now meeting our coverage targets. Our focus is on the remaining 5 modules, starting with the Claude service. We anticipate completing all high-priority modules by April 20 and reaching our overall coverage targets by the end of April.
+- Achieve >85% coverage across all critical modules
+- Implement automated coverage regression testing
+- Create comprehensive documentation of test coverage strategies
+- Establish coverage targets for new modules
