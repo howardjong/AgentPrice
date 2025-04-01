@@ -1,250 +1,243 @@
 /**
  * Time Testing Utilities
  * 
- * This module provides utilities for working with time in tests, including:
- * - Consistent performance.now mocking
- * - Time passage simulation
- * - Timeout and interval mocking
- * - Date manipulation
+ * Utilities for testing time-dependent code in a deterministic way.
+ * Particularly useful for testing components with timeouts, intervals,
+ * or date-based behaviors.
  */
-
-import { vi } from 'vitest';
 
 /**
- * A class for managing time-related test functionality
+ * Creates a time controller for testing time-dependent code
+ * @returns {Object} Time controller with methods to manipulate and control time in tests
  */
-class TimeController {
-  constructor() {
-    this.currentTime = 0;
-    this.timeCallbacks = [];
-    this.originalPerformanceNow = performance.now;
-    this.originalDateNow = Date.now;
-    this.originalSetTimeout = global.setTimeout;
-    this.originalSetInterval = global.setInterval;
-    this.originalClearTimeout = global.clearTimeout;
-    this.originalClearInterval = global.clearInterval;
-    this.timeouts = new Map();
-    this.intervals = new Map();
-    this.nextTimerId = 1;
-  }
-
-  /**
-   * Sets up mocks for time-related functions
-   */
-  setup() {
-    // Mock performance.now
-    vi.stubGlobal('performance', {
-      ...performance,
-      now: vi.fn(() => this.currentTime)
-    });
-
-    // Mock Date.now
-    Date.now = vi.fn(() => this.currentTime);
-
-    // Mock setTimeout
-    global.setTimeout = vi.fn((callback, delay, ...args) => {
-      const id = this.nextTimerId++;
-      this.timeouts.set(id, {
-        callback,
-        triggerTime: this.currentTime + (delay || 0),
-        args
-      });
-      return id;
-    });
-
-    // Mock setInterval
-    global.setInterval = vi.fn((callback, delay, ...args) => {
-      const id = this.nextTimerId++;
-      this.intervals.set(id, {
-        callback,
-        delay: delay || 0,
-        args,
-        lastExecuted: this.currentTime
-      });
-      return id;
-    });
-
-    // Mock clearTimeout
-    global.clearTimeout = vi.fn((id) => {
-      this.timeouts.delete(id);
-    });
-
-    // Mock clearInterval
-    global.clearInterval = vi.fn((id) => {
-      this.intervals.delete(id);
-    });
-
-    return this;
-  }
-
-  /**
-   * Restores original time-related functions
-   */
-  restore() {
-    vi.restoreAllMocks();
-    performance.now = this.originalPerformanceNow;
-    Date.now = this.originalDateNow;
-    global.setTimeout = this.originalSetTimeout;
-    global.setInterval = this.originalSetInterval;
-    global.clearTimeout = this.originalClearTimeout;
-    global.clearInterval = this.originalClearInterval;
-    this.timeouts.clear();
-    this.intervals.clear();
-    this.nextTimerId = 1;
-    return this;
-  }
-
-  /**
-   * Sets the current mock time
-   * @param {number} time - Time in milliseconds
-   */
-  setTime(time) {
-    this.currentTime = time;
-    return this;
-  }
-
-  /**
-   * Advances time by the specified amount and processes any due callbacks
-   * @param {number} duration - Time to advance in milliseconds
-   * @returns {Promise<void>} - Promise that resolves when all callbacks are processed
-   */
-  async advanceTime(duration) {
-    const startTime = this.currentTime;
-    const endTime = startTime + duration;
-    this.currentTime = endTime;
-
-    // Process any timeouts that should have triggered
-    const triggeredTimeouts = [];
-    this.timeouts.forEach((timeout, id) => {
-      if (timeout.triggerTime <= endTime) {
-        triggeredTimeouts.push({ id, ...timeout });
-      }
-    });
-
-    // Execute and remove triggered timeouts
-    for (const { id, callback, args } of triggeredTimeouts) {
-      this.timeouts.delete(id);
-      try {
-        await callback(...args);
-      } catch (error) {
-        console.error('Error in timeout callback:', error);
-      }
-    }
-
-    // Process intervals
-    const intervalsToExecute = [];
-    this.intervals.forEach((interval, id) => {
-      const { lastExecuted, delay, callback, args } = interval;
-      let executionTime = lastExecuted + delay;
-      
-      while (executionTime <= endTime) {
-        intervalsToExecute.push({ 
-          id, 
-          callback, 
-          args, 
-          executionTime 
-        });
-        executionTime += delay;
-      }
-      
-      if (intervalsToExecute.length > 0) {
-        interval.lastExecuted = executionTime - delay;
-      }
-    });
-
-    // Execute intervals in order of execution time
-    intervalsToExecute.sort((a, b) => a.executionTime - b.executionTime);
-    for (const { callback, args } of intervalsToExecute) {
-      try {
-        await callback(...args);
-      } catch (error) {
-        console.error('Error in interval callback:', error);
-      }
-    }
-
-    return this;
-  }
+function createTimeController() {
+  // Store original time functions
+  const originalSetTimeout = global.setTimeout;
+  const originalClearTimeout = global.clearTimeout;
+  const originalSetInterval = global.setInterval;
+  const originalClearInterval = global.clearInterval;
+  const originalDateNow = Date.now;
+  
+  // Track active timers
+  const timeouts = new Map();
+  const intervals = new Map();
+  
+  // Current virtual time
+  let currentTime = 0;
+  
+  // Custom fake implementations
+  const fakeSetTimeout = (callback, delay, ...args) => {
+    const id = Symbol('timeout');
+    const executeTime = currentTime + delay;
+    timeouts.set(id, { callback, executeTime, args });
+    return id;
+  };
+  
+  const fakeClearTimeout = (id) => {
+    timeouts.delete(id);
+  };
+  
+  const fakeSetInterval = (callback, delay, ...args) => {
+    const id = Symbol('interval');
+    intervals.set(id, { callback, delay, nextExecuteTime: currentTime + delay, args });
+    return id;
+  };
+  
+  const fakeClearInterval = (id) => {
+    intervals.delete(id);
+  };
+  
+  const fakeDateNow = () => {
+    return currentTime;
+  };
   
   /**
-   * Creates a sequence of performance.now mock return values
-   * @param {number[]} times - Array of times to return in sequence
-   * @returns {function} - Mock function that returns values in sequence
+   * Installs fake timers
    */
-  createTimeSequence(times) {
-    let callCount = 0;
-    return vi.fn(() => {
-      const time = times[callCount % times.length];
-      callCount++;
-      return time;
-    });
-  }
-
+  const install = () => {
+    global.setTimeout = fakeSetTimeout;
+    global.clearTimeout = fakeClearTimeout;
+    global.setInterval = fakeSetInterval;
+    global.clearInterval = fakeClearInterval;
+    Date.now = fakeDateNow;
+  };
+  
   /**
-   * Creates a function that returns increasing times
-   * @param {number} startTime - Starting time
-   * @param {number} increment - Increment for each call
-   * @returns {function} - Mock function that returns increasing values
+   * Restores original timer functions
    */
-  createIncreasingTimeMock(startTime = 0, increment = 1000) {
-    let current = startTime;
-    return vi.fn(() => {
-      const time = current;
-      current += increment;
-      return time;
-    });
-  }
-}
-
-/**
- * Helper function to mock performance.now with a sequence of values
- * @param {...number} times - Times to return in sequence
- * @returns {function} - Mock implementation
- */
-export function mockPerformanceNowSequence(...times) {
-  let callCount = 0;
-  return vi.fn(() => {
-    if (callCount >= times.length) {
-      callCount = 0; // Reset to beginning to allow repeated patterns
+  const uninstall = () => {
+    global.setTimeout = originalSetTimeout;
+    global.clearTimeout = originalClearTimeout;
+    global.setInterval = originalSetInterval;
+    global.clearInterval = originalClearInterval;
+    Date.now = originalDateNow;
+  };
+  
+  /**
+   * Advances the virtual time by the specified amount
+   * and executes any timers that have been triggered
+   * @param {number} ms Milliseconds to advance time by
+   */
+  const advanceTime = (ms) => {
+    const targetTime = currentTime + ms;
+    
+    // Process timeouts and intervals until we reach target time
+    while (currentTime < targetTime) {
+      // Find the next timer to execute
+      let nextExecuteTime = targetTime;
+      
+      // Check timeouts
+      for (const { executeTime } of timeouts.values()) {
+        if (executeTime > currentTime && executeTime <= targetTime) {
+          nextExecuteTime = Math.min(nextExecuteTime, executeTime);
+        }
+      }
+      
+      // Check intervals
+      for (const { nextExecuteTime: executeTime } of intervals.values()) {
+        if (executeTime > currentTime && executeTime <= targetTime) {
+          nextExecuteTime = Math.min(nextExecuteTime, executeTime);
+        }
+      }
+      
+      // Advance to the next execution time
+      currentTime = nextExecuteTime;
+      
+      // Execute timeouts
+      for (const [id, { callback, executeTime, args }] of timeouts.entries()) {
+        if (executeTime <= currentTime) {
+          timeouts.delete(id);
+          try {
+            callback(...args);
+          } catch (error) {
+            console.error('Error in setTimeout callback:', error);
+          }
+        }
+      }
+      
+      // Execute intervals
+      for (const [id, interval] of intervals.entries()) {
+        if (interval.nextExecuteTime <= currentTime) {
+          // Schedule next execution
+          interval.nextExecuteTime = currentTime + interval.delay;
+          try {
+            interval.callback(...interval.args);
+          } catch (error) {
+            console.error('Error in setInterval callback:', error);
+          }
+        }
+      }
     }
-    return times[callCount++];
-  });
+  };
+  
+  /**
+   * Advances time by running the next pending timer (if any)
+   * @returns {boolean} true if a timer was executed, false otherwise
+   */
+  const runNextTimer = () => {
+    let nextTimer = null;
+    let nextTime = Infinity;
+    
+    // Find the next timeout
+    for (const [id, { executeTime }] of timeouts.entries()) {
+      if (executeTime < nextTime) {
+        nextTime = executeTime;
+        nextTimer = { type: 'timeout', id };
+      }
+    }
+    
+    // Find the next interval
+    for (const [id, { nextExecuteTime }] of intervals.entries()) {
+      if (nextExecuteTime < nextTime) {
+        nextTime = nextExecuteTime;
+        nextTimer = { type: 'interval', id };
+      }
+    }
+    
+    if (nextTimer) {
+      advanceTime(nextTime - currentTime);
+      return true;
+    }
+    
+    return false;
+  };
+  
+  /**
+   * Runs all pending timers
+   */
+  const runAllTimers = () => {
+    while (runNextTimer()) {
+      // Keep running timers until none remain
+    }
+  };
+  
+  /**
+   * Sets the current time to a specific value
+   * @param {number} time The new current time
+   */
+  const setCurrentTime = (time) => {
+    if (time < currentTime) {
+      throw new Error('Cannot set time to a value in the past');
+    }
+    advanceTime(time - currentTime);
+  };
+  
+  /**
+   * Gets the current virtual time
+   * @returns {number} The current virtual time
+   */
+  const getCurrentTime = () => {
+    return currentTime;
+  };
+  
+  /**
+   * Resets the time controller to its initial state
+   */
+  const reset = () => {
+    timeouts.clear();
+    intervals.clear();
+    currentTime = 0;
+  };
+  
+  /**
+   * Gets the number of pending timeouts
+   * @returns {number} The number of pending timeouts
+   */
+  const getPendingTimeoutsCount = () => {
+    return timeouts.size;
+  };
+  
+  /**
+   * Gets the number of active intervals
+   * @returns {number} The number of active intervals
+   */
+  const getIntervalsCount = () => {
+    return intervals.size;
+  };
+  
+  return {
+    install,
+    uninstall,
+    advanceTime,
+    runNextTimer,
+    runAllTimers,
+    setCurrentTime,
+    getCurrentTime,
+    reset,
+    getPendingTimeoutsCount,
+    getIntervalsCount
+  };
 }
 
 /**
- * Creates a time controller for comprehensive time management in tests
- * @returns {TimeController} - A time controller instance
+ * Creates a sleeper utility that uses fake or real setTimeout based on context
+ * @returns {Function} sleep function that returns a promise resolving after the specified delay
  */
-export function createTimeController() {
-  return new TimeController();
+function createSleeper() {
+  return (ms) => new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/**
- * Wait for actual time to pass (useful in integration tests where we can't mock time)
- * @param {number} ms - Milliseconds to wait
- * @returns {Promise} - Promise that resolves after the specified time
- */
-export function wait(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/**
- * Helper for testing functions that involve timeouts
- * @param {Function} asyncFn - The async function to be tested
- * @param {number} timeout - Max waiting time in ms
- * @returns {Promise} - Promise resolved with the result or rejected on timeout
- */
-export function withTimeout(asyncFn, timeout = 5000) {
-  return Promise.race([
-    asyncFn(),
-    new Promise((_, reject) => 
-      setTimeout(() => reject(new Error(`Test timed out after ${timeout}ms`)), timeout)
-    )
-  ]);
-}
-
-export default {
+module.exports = {
   createTimeController,
-  mockPerformanceNowSequence,
-  wait,
-  withTimeout
+  createSleeper
 };

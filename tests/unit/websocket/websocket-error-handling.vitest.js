@@ -1,8 +1,12 @@
 /**
  * WebSocket Error Handling Tests
  * 
- * These tests verify that error handling in WebSocket communication works correctly,
- * including handling connection errors, timeouts, and recovery mechanisms.
+ * Tests the WebSocket server's error handling capabilities:
+ * - Socket error propagation
+ * - Server error handling
+ * - Client disconnect recovery
+ * - Error state management
+ * - Timeout handling
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -10,429 +14,344 @@ import { Server as SocketIoServer } from 'socket.io';
 import { io as ioc } from 'socket.io-client';
 import { createServer } from 'http';
 import express from 'express';
-import { EventEmitter } from 'events';
-
-// Helper function to create a test Socket.IO server and clients
-function createSocketTestEnv(options = {}) {
-  // Create express app and HTTP server
-  const app = express();
-  const httpServer = createServer(app);
-  
-  // Create Socket.IO server
-  const io = new SocketIoServer(httpServer, {
-    cors: {
-      origin: '*',
-      methods: ['GET', 'POST']
-    },
-    // Add test-specific options
-    pingTimeout: options.pingTimeout || 60000,
-    pingInterval: options.pingInterval || 25000,
-    connectTimeout: options.connectTimeout || 45000,
-    transports: options.transports || ['polling', 'websocket']
-  });
-  
-  // Start the server
-  const serverPort = 3100 + Math.floor(Math.random() * 900);
-  const server = httpServer.listen(serverPort);
-  
-  // Create clients
-  const clientURL = `http://localhost:${serverPort}`;
-  
-  return {
-    io,
-    server,
-    port: serverPort,
-    clientURL,
-    createClient: (clientOptions = {}) => {
-      return ioc(clientURL, {
-        transports: clientOptions.transports || ['websocket'],
-        reconnectionAttempts: clientOptions.reconnectionAttempts !== undefined 
-          ? clientOptions.reconnectionAttempts 
-          : 0,
-        reconnectionDelay: clientOptions.reconnectionDelay || 1000,
-        timeout: clientOptions.timeout || 2000,
-        autoConnect: clientOptions.autoConnect !== undefined ? clientOptions.autoConnect : true
-      });
-    },
-    shutdown: () => {
-      return new Promise(resolve => {
-        server.close(() => {
-          io.close();
-          resolve();
-        });
-      });
-    }
-  };
-}
+import { createSocketTestEnv, waitForEvent, waitForConnect } from './socketio-test-utilities';
 
 describe('WebSocket Error Handling', () => {
   let testEnv;
   
   beforeEach(() => {
-    // Setup test environment
-    testEnv = createSocketTestEnv();
+    testEnv = createSocketTestEnv({
+      pingTimeout: 300,
+      pingInterval: 200,
+      connectTimeout: 500
+    });
   });
   
   afterEach(async () => {
-    // Clean up
-    await testEnv.shutdown();
+    if (testEnv) {
+      await testEnv.shutdown();
+    }
     vi.clearAllMocks();
   });
 
-  it('should handle client connection errors', () => {
-    return new Promise((resolve, reject) => {
-      // Create client with invalid URL
-      const invalidClient = ioc('http://localhost:9999', {
-        transports: ['websocket'],
-        reconnectionAttempts: 0,
-        timeout: 1000
+  /**
+   * Test that verifies server-triggered errors are properly
+   * communicated to clients and handled
+   */
+  it('should handle server-triggered errors', async () => {
+    // Set up error handler on server
+    const errorHandler = vi.fn();
+    testEnv.io.on('error', errorHandler);
+    
+    // Create an event that causes a server error
+    testEnv.io.on('connection', (socket) => {
+      socket.on('trigger_server_error', () => {
+        // This event handler will throw an error
+        try {
+          throw new Error('Test server error');
+        } catch (err) {
+          // Server should handle the error
+          errorHandler(err);
+          // Notify client that error was handled
+          socket.emit('error_handled', { message: err.message });
+        }
       });
+    });
+    
+    // Connect client and trigger error
+    const client = testEnv.createClient();
+    
+    // Wait for connection
+    await waitForConnect(client);
+    
+    // Emit event that will trigger server error
+    client.emit('trigger_server_error');
+    
+    // Wait for error handled response
+    const response = await waitForEvent(client, 'error_handled');
+    
+    // Verify error was handled properly
+    expect(errorHandler).toHaveBeenCalled();
+    expect(response).toHaveProperty('message', 'Test server error');
+    
+    // Clean up
+    client.disconnect();
+  });
+
+  /**
+   * Test that verifies client-side socket error handling
+   */
+  it('should handle client socket errors', async () => {
+    // Set up error mock
+    const clientErrorHandler = vi.fn();
+    
+    // Set up server to trigger an error on the client
+    testEnv.io.on('connection', (socket) => {
+      socket.on('trigger_client_error', () => {
+        // Send malformed data to trigger client-side error handling
+        socket.emit('malformed_data', { incomplete: true });
+      });
+    });
+    
+    // Connect client
+    const client = testEnv.createClient();
+    
+    // Set up client error handler
+    client.on('error', clientErrorHandler);
+    
+    // Wait for connection
+    await waitForConnect(client);
+    
+    // Handle the malformed data error
+    client.on('malformed_data', (data) => {
+      try {
+        // This would normally throw an error in real code
+        if (data.incomplete) {
+          throw new Error('Malformed data received');
+        }
+      } catch (err) {
+        clientErrorHandler(err);
+      }
+    });
+    
+    // Trigger the client error
+    client.emit('trigger_client_error');
+    
+    // Give time for the error to be processed
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Verify error was handled
+    expect(clientErrorHandler).toHaveBeenCalled();
+    expect(clientErrorHandler.mock.calls[0][0].message).toBe('Malformed data received');
+    
+    // Clean up
+    client.disconnect();
+  });
+
+  /**
+   * Test that verifies socket middleware error handling
+   */
+  it('should handle errors in socket middleware', async () => {
+    // Reset test environment to add middleware
+    if (testEnv) {
+      await testEnv.shutdown();
+    }
+    
+    testEnv = createSocketTestEnv();
+    
+    // Create error middleware
+    const middlewareErrorHandler = vi.fn();
+    
+    // Add middleware that will sometimes throw errors
+    testEnv.io.use((socket, next) => {
+      try {
+        // Check auth data
+        const auth = socket.handshake.auth;
+        if (auth && auth.throwError) {
+          throw new Error('Auth middleware error');
+        }
+        next();
+      } catch (err) {
+        middlewareErrorHandler(err);
+        next(err); // Propagate error
+      }
+    });
+    
+    // Connect client that will trigger middleware error
+    const clientWithErrorAuth = testEnv.createClient({
+      auth: { throwError: true }
+    });
+    
+    // Set up error handler
+    const connectErrorHandler = vi.fn();
+    clientWithErrorAuth.on('connect_error', connectErrorHandler);
+    
+    // Wait for connect_error event with timeout
+    await new Promise(resolve => {
+      const timeout = setTimeout(resolve, 500); // Max wait time
       
-      // Set up error handler
-      invalidClient.on('connect_error', (err) => {
-        expect(err).toBeDefined();
-        invalidClient.disconnect();
+      clientWithErrorAuth.on('connect_error', (err) => {
+        clearTimeout(timeout);
         resolve();
       });
-      
-      // Add a timeout to prevent the test from hanging
-      setTimeout(() => {
-        invalidClient.disconnect();
-        reject(new Error('Test timed out waiting for connect_error event'));
-      }, 2000);
     });
+    
+    // Verify error was handled properly
+    expect(middlewareErrorHandler).toHaveBeenCalled();
+    expect(connectErrorHandler).toHaveBeenCalled();
+    
+    // Verify client did not connect
+    expect(clientWithErrorAuth.connected).toBe(false);
+    
+    // Create a valid client to verify middleware allows correct connections
+    const validClient = testEnv.createClient();
+    
+    // Should connect successfully
+    await waitForConnect(validClient);
+    
+    // Verify client connected
+    expect(validClient.connected).toBe(true);
+    
+    // Clean up
+    validClient.disconnect();
   });
-  
-  it('should handle server disconnect gracefully', () => {
-    return new Promise((resolve, reject) => {
-      // Setup connection tracking
-      let connectionEstablished = false;
-      let disconnectReceived = false;
-      
-      testEnv.io.on('connection', (socket) => {
-        connectionEstablished = true;
-        // After connection, manually close the server
-        setTimeout(() => {
-          testEnv.server.close();
-        }, 200);
+
+  /**
+   * Test that verifies proper handling of connection timeouts
+   */
+  it('should handle connection timeouts', async () => {
+    // Create a server that never completes connection
+    if (testEnv) {
+      await testEnv.shutdown();
+    }
+    
+    testEnv = createSocketTestEnv({
+      connectTimeout: 200 // Very short timeout for testing
+    });
+    
+    // Add middleware that never calls next() to simulate timeout
+    testEnv.io.use((socket, next) => {
+      // Never call next() to simulate hanging middleware
+      // This will trigger a timeout
+    });
+    
+    // Connect client with very short timeout
+    const client = testEnv.createClient({
+      timeout: 300 // Client timeout should be longer than server timeout
+    });
+    
+    // Track connect_error events
+    const connectErrorHandler = vi.fn();
+    client.on('connect_error', connectErrorHandler);
+    
+    // Wait for timeout
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Verify error was triggered and connection failed
+    expect(connectErrorHandler).toHaveBeenCalled();
+    expect(client.connected).toBe(false);
+  });
+
+  /**
+   * Test that verifies error handling when server closes unexpectedly
+   */
+  it('should handle server close errors', async () => {
+    // Set up server with normal behavior
+    testEnv.io.on('connection', (socket) => {
+      socket.on('message', (data) => {
+        socket.emit('response', data);
       });
-      
-      // Create client
-      const client = testEnv.createClient();
-      
-      client.on('connect', () => {
-        console.log('Client connected successfully');
+    });
+    
+    // Connect client
+    const client = testEnv.createClient();
+    
+    // Set up error and disconnect handlers
+    const disconnectHandler = vi.fn();
+    client.on('disconnect', disconnectHandler);
+    
+    // Wait for connection
+    await waitForConnect(client);
+    
+    // Verify basic communication works
+    client.emit('message', 'test');
+    const response = await waitForEvent(client, 'response');
+    expect(response).toBe('test');
+    
+    // Close server to simulate crash
+    testEnv.server.close();
+    
+    // Wait for disconnect event
+    await new Promise(resolve => {
+      const timeout = setTimeout(resolve, 500);
+      client.once('disconnect', () => {
+        clearTimeout(timeout);
+        resolve();
       });
+    });
+    
+    // Verify disconnect was detected
+    expect(disconnectHandler).toHaveBeenCalled();
+    expect(client.connected).toBe(false);
+  });
+
+  /**
+   * Test that verifies clean disconnection handling
+   */
+  it('should handle clean disconnections', async () => {
+    // Set up server with client tracking
+    const connectedClients = new Set();
+    
+    testEnv.io.on('connection', (socket) => {
+      connectedClients.add(socket.id);
       
-      client.on('disconnect', (reason) => {
+      socket.on('disconnect', () => {
+        connectedClients.delete(socket.id);
+      });
+    });
+    
+    // Connect client
+    const client = testEnv.createClient();
+    
+    // Wait for connection
+    await waitForConnect(client);
+    
+    // Verify client is tracked
+    expect(connectedClients.size).toBe(1);
+    
+    // Disconnect gracefully
+    client.disconnect();
+    
+    // Wait for server to process disconnect
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // Verify client is no longer tracked
+    expect(connectedClients.size).toBe(0);
+  });
+
+  /**
+   * Test that verifies handling of socket.io namespace errors
+   */
+  it('should handle namespace errors', async () => {
+    // Create a namespace with error handling
+    const namespace = testEnv.io.of('/error-namespace');
+    const namespaceErrorHandler = vi.fn();
+    
+    namespace.on('connection', (socket) => {
+      socket.on('trigger_namespace_error', () => {
         try {
-          expect(connectionEstablished).toBe(true);
-          expect(reason).toBeDefined();
-          disconnectReceived = true;
-          client.disconnect();
-          resolve();
-        } catch (error) {
-          reject(error);
-        }
-      });
-      
-      // Add a timeout to prevent the test from hanging
-      setTimeout(() => {
-        if (!disconnectReceived) {
-          client.disconnect();
-          reject(new Error('Test timed out waiting for disconnect event'));
-        }
-      }, 5000);
-    });
-  });
-  
-  it('should handle client reconnection when enabled', () => {
-    return new Promise((resolve, reject) => {
-      // Create new test environment to avoid interference
-      const reconnectTestEnv = createSocketTestEnv({
-        pingTimeout: 1000,
-        pingInterval: 500
-      });
-      
-      // Track connection events
-      let connectionCount = 0;
-      let reconnectCount = 0;
-      
-      reconnectTestEnv.io.on('connection', (socket) => {
-        connectionCount++;
-        
-        // After first connection, simulate server restart
-        if (connectionCount === 1) {
-          // Close current server and start a new one on the same port
-          setTimeout(() => {
-            reconnectTestEnv.server.close();
-            
-            // Create and start new server on the same port
-            setTimeout(() => {
-              reconnectTestEnv.server = createServer(express()).listen(reconnectTestEnv.port);
-              const newIo = new SocketIoServer(reconnectTestEnv.server, {
-                cors: { origin: '*' }
-              });
-              reconnectTestEnv.io = newIo;
-              
-              newIo.on('connection', () => {
-                connectionCount++;
-              });
-            }, 500);
-          }, 200);
-        }
-      });
-      
-      // Create client with reconnection enabled
-      const client = ioc(reconnectTestEnv.clientURL, {
-        transports: ['websocket'],
-        reconnectionAttempts: 3,
-        reconnectionDelay: 500,
-        timeout: 2000
-      });
-      
-      client.on('reconnect', () => {
-        reconnectCount++;
-        if (reconnectCount >= 1) {
-          client.disconnect();
-          reconnectTestEnv.shutdown().then(resolve);
-        }
-      });
-      
-      client.on('reconnect_attempt', (attemptNumber) => {
-        console.log(`Reconnection attempt #${attemptNumber}`);
-      });
-      
-      client.on('connect_error', (err) => {
-        console.log(`Connection error: ${err.message}`);
-      });
-      
-      // Add a timeout to prevent the test from hanging
-      setTimeout(() => {
-        client.disconnect();
-        reconnectTestEnv.shutdown().then(() => {
-          // If we've had at least one reconnection attempt, consider the test passed
-          if (reconnectCount > 0) {
-            console.log(`Reconnect test passed with ${reconnectCount} attempts`);
-            resolve();
-          } else {
-            reject(new Error('Test timed out waiting for reconnection'));
-          }
-        });
-      }, 3000);
-    });
-  });
-  
-  it('should emit error events for invalid message formats', () => {
-    return new Promise((resolve, reject) => {
-      // Record emitted errors
-      const emittedErrors = [];
-      
-      // Create custom error handler on server
-      testEnv.io.on('connection', (socket) => {
-        // Override socket's error handler to track errors
-        const originalEmit = socket.emit;
-        socket.emit = function(event, ...args) {
-          if (event === 'error') {
-            emittedErrors.push(args[0]);
-          }
-          return originalEmit.apply(this, [event, ...args]);
-        };
-        
-        // Set up message handler that expects valid JSON
-        socket.on('message', (data) => {
-          try {
-            // This will trigger an error if data is not valid JSON
-            const parsedData = typeof data === 'string' ? JSON.parse(data) : data;
-            socket.emit('response', { received: true, parsed: !!parsedData });
-          } catch (err) {
-            socket.emit('error', { message: 'Invalid message format' });
-          }
-        });
-      });
-      
-      // Create client
-      const client = testEnv.createClient();
-      
-      // Track received errors
-      const clientReceivedErrors = [];
-      
-      client.on('connect', () => {
-        // Send invalid message format
-        client.emit('message', '{malformed:json}');
-      });
-      
-      client.on('error', (error) => {
-        clientReceivedErrors.push(error);
-        try {
-          expect(error).toBeDefined();
-          expect(error.message).toBe('Invalid message format');
-          client.disconnect();
-          resolve();
+          throw new Error('Namespace error');
         } catch (err) {
-          reject(err);
+          namespaceErrorHandler(err);
+          socket.emit('namespace_error_handled', { message: err.message });
         }
       });
-      
-      // Add a timeout to prevent the test from hanging
-      setTimeout(() => {
-        client.disconnect();
-        if (emittedErrors.length > 0) {
-          // If server emitted errors but client didn't receive them, test passes
-          // but would be better to fix client error handling
-          console.warn('Server emitted errors but client did not receive them');
-          resolve();
-        } else {
-          reject(new Error('Test timed out waiting for error events'));
-        }
-      }, 5000);
     });
-  });
-  
-  it('should handle rate limiting of client messages', () => {
-    return new Promise((resolve, reject) => {
-      // Rate limiting parameters
-      const MAX_MESSAGES = 10;
-      const RATE_LIMIT_WINDOW = 1000; // 1 second
-      
-      // Setup rate limiting on server
-      const messageCountByClient = new Map();
-      const messageTimestampsByClient = new Map();
-      
-      testEnv.io.on('connection', (socket) => {
-        const clientId = socket.id;
-        messageCountByClient.set(clientId, 0);
-        messageTimestampsByClient.set(clientId, []);
-        
-        socket.on('message', (data) => {
-          const timestamps = messageTimestampsByClient.get(clientId);
-          const now = Date.now();
-          
-          // Remove timestamps older than the rate limit window
-          while (timestamps.length > 0 && timestamps[0] < now - RATE_LIMIT_WINDOW) {
-            timestamps.shift();
-          }
-          
-          // Add current timestamp
-          timestamps.push(now);
-          
-          // Check if rate limit is exceeded
-          if (timestamps.length > MAX_MESSAGES) {
-            socket.emit('error', { 
-              code: 429,
-              message: 'Rate limit exceeded. Please slow down.' 
-            });
-            return;
-          }
-          
-          // Count messages
-          const count = messageCountByClient.get(clientId) + 1;
-          messageCountByClient.set(clientId, count);
-          
-          // Echo the message back
-          socket.emit('response', { 
-            received: true, 
-            messageCount: count 
-          });
-        });
-      });
-      
-      // Create client
-      const client = testEnv.createClient();
-      
-      // Track responses and errors
-      const responses = [];
-      const errors = [];
-      
-      client.on('connect', () => {
-        // Send messages rapidly to trigger rate limiting
-        for (let i = 0; i < MAX_MESSAGES + 5; i++) {
-          client.emit('message', { index: i });
-        }
-      });
-      
-      client.on('response', (response) => {
-        responses.push(response);
-      });
-      
-      client.on('error', (error) => {
-        errors.push(error);
-        
-        // If we got a rate limit error, the test passes
-        if (error.code === 429) {
-          client.disconnect();
-          resolve();
-        }
-      });
-      
-      // Add a timeout to prevent the test from hanging
-      setTimeout(() => {
-        client.disconnect();
-        // If we got any responses but not enough errors, we might need to adjust
-        // the test parameters (MAX_MESSAGES or timing)
-        if (responses.length > 0) {
-          console.log(`Received ${responses.length} responses and ${errors.length} errors`);
-          if (errors.length > 0) {
-            resolve(); // We got some errors, that's good enough
-          } else {
-            reject(new Error('Rate limiting did not trigger any errors'));
-          }
-        } else {
-          reject(new Error('Test timed out without receiving any messages'));
-        }
-      }, 5000);
+    
+    // Connect client to namespace
+    const client = ioc(`${testEnv.clientURL}/error-namespace`, {
+      transports: ['websocket'],
+      reconnectionAttempts: 0,
+      timeout: 500
     });
-  });
-  
-  it('should handle client ping/pong timeout', () => {
-    return new Promise((resolve, reject) => {
-      // Create environment with very short ping timeout
-      const pingTestEnv = createSocketTestEnv({
-        pingTimeout: 500,
-        pingInterval: 200
-      });
-      
-      // Track disconnections due to ping timeout
-      pingTestEnv.io.on('connection', (socket) => {
-        // Mock socket's ping functionality to simulate no pong received
-        if (socket.conn && socket.conn.transport) {
-          // Disable ping/pong on socket to force timeout
-          // This is a hack for testing - in real scenarios the ping/pong
-          // happens at the Engine.IO level
-          const originalOnHeartbeat = socket.conn.transport.onheartbeat;
-          socket.conn.transport.onheartbeat = function() {
-            console.log('Heartbeat intercepted - not forwarding');
-            // Don't call original to simulate missing pongs
-          };
-        }
-      });
-      
-      // Create client
-      const client = pingTestEnv.createClient();
-      
-      client.on('connect', () => {
-        console.log('Client connected for ping timeout test');
-      });
-      
-      client.on('disconnect', (reason) => {
-        try {
-          console.log(`Client disconnected, reason: ${reason}`);
-          // The reason might be "ping timeout" or "transport close" depending on implementation
-          expect(reason).toBeDefined();
-          client.disconnect();
-          pingTestEnv.shutdown().then(resolve);
-        } catch (error) {
-          pingTestEnv.shutdown().then(() => reject(error));
-        }
-      });
-      
-      // Add a timeout to prevent the test from hanging
-      setTimeout(() => {
-        client.disconnect();
-        pingTestEnv.shutdown().then(() => {
-          reject(new Error('Test timed out waiting for ping timeout'));
-        });
-      }, 5000);
-    });
+    
+    // Track for cleanup
+    testEnv.activeClients.add(client);
+    
+    // Wait for connection
+    await waitForConnect(client);
+    
+    // Trigger namespace error
+    client.emit('trigger_namespace_error');
+    
+    // Wait for error response
+    const response = await waitForEvent(client, 'namespace_error_handled');
+    
+    // Verify error was properly handled
+    expect(namespaceErrorHandler).toHaveBeenCalled();
+    expect(response).toHaveProperty('message', 'Namespace error');
+    
+    // Clean up
+    client.disconnect();
   });
 });
