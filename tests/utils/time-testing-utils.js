@@ -225,7 +225,25 @@ function createTimeController() {
     getCurrentTime,
     reset,
     getPendingTimeoutsCount,
-    getIntervalsCount
+    getIntervalsCount,
+    
+    /**
+     * Setup method for easier initialization in tests
+     * @returns {Object} The time controller
+     */
+    setup() {
+      install();
+      reset();
+      return this;
+    },
+    
+    /**
+     * Restores original timer functions and resets state
+     */
+    restore() {
+      uninstall();
+      reset();
+    }
   };
 }
 

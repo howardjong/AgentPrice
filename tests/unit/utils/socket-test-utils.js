@@ -76,34 +76,94 @@ export async function createSocketTestEnvironment(options = {}) {
       // Add basic handlers similar to server/routes.ts
       socket.join('all');
       
+      // Enhanced subscription handler with better room management and debug logging
       socket.on('subscribe', (message) => {
         try {
-          console.log(`[SocketTest] Subscription from ${socket.id}:`, message);
-          const topics = message.topics || message.channels || [];
+          const msgString = typeof message === 'string' 
+            ? message 
+            : JSON.stringify(message);
+          
+          console.log(`[SocketTest] Subscription from ${socket.id}:`, msgString);
+          
+          // Extract topics/channels from different message formats
+          const topics = [];
+          
+          if (message) {
+            if (Array.isArray(message)) {
+              // Handle array format
+              topics.push(...message);
+            } else if (typeof message === 'object') {
+              // Handle object format with topics or channels property
+              if (Array.isArray(message.topics)) {
+                topics.push(...message.topics);
+              } else if (Array.isArray(message.channels)) {
+                topics.push(...message.channels);
+              } else if (typeof message.topics === 'string') {
+                topics.push(message.topics);
+              } else if (typeof message.channels === 'string') {
+                topics.push(message.channels);
+              }
+            } else if (typeof message === 'string') {
+              // Handle single string format
+              topics.push(message);
+            }
+          }
+          
+          console.log(`[SocketTest] Parsed topics for ${socket.id}:`, topics);
+          
+          // Get current rooms before leaving
+          const previousRooms = Array.from(socket.rooms)
+            .filter(room => room !== socket.id);
           
           // Leave all rooms first (except the default socket.id room)
-          socket.rooms.forEach(room => {
-            if (room !== socket.id) {
-              socket.leave(room);
-            }
+          previousRooms.forEach(room => {
+            socket.leave(room);
+            console.log(`[SocketTest] ${socket.id} left room: ${room}`);
           });
           
           // Join requested rooms
-          topics.forEach(topic => {
+          for (const topic of topics) {
             socket.join(topic);
-          });
+            console.log(`[SocketTest] ${socket.id} joined room: ${topic}`);
+          }
           
           // Always add to 'all' room
           socket.join('all');
+          console.log(`[SocketTest] ${socket.id} joined room: all`);
+          
+          // Get updated room list for confirmation
+          const currentRooms = Array.from(socket.rooms)
+            .filter(room => room !== socket.id);
+          
+          console.log(`[SocketTest] ${socket.id} is now in rooms:`, currentRooms);
+          
+          // Include all in the confirmation for clients that expect it
+          const confirmTopics = [...topics];
+          if (!confirmTopics.includes('all')) {
+            confirmTopics.push('all');
+          }
           
           // Confirm subscription
           socket.emit('message', {
             type: 'subscription_update',
             status: 'success',
-            topics: topics
+            topics: confirmTopics
           });
+          
+          console.log(`[SocketTest] Sent subscription confirmation to ${socket.id}`);
         } catch (error) {
-          console.error(`[SocketTest] Error in subscribe handler:`, error);
+          console.error(`[SocketTest] Error in subscribe handler for ${socket.id}:`, error);
+          
+          // Try to send error response
+          try {
+            socket.emit('message', {
+              type: 'subscription_update',
+              status: 'error',
+              error: error.message
+            });
+          } catch (e) {
+            console.error(`[SocketTest] Failed to send error response:`, e);
+          }
         }
       });
       
@@ -196,13 +256,42 @@ export async function createSocketTestEnvironment(options = {}) {
      * Broadcast a message to all clients on a room
      * @param {string} roomName - Room name
      * @param {Object} message - Message to broadcast 
+     * @returns {Array} Array of socket IDs that received the message
      */
     broadcastToRoom(roomName, message) {
       if (!message.timestamp) {
         message.timestamp = Date.now();
       }
+      
+      // Get sockets in the room
+      const room = io.sockets.adapter.rooms.get(roomName);
+      
+      if (!room) {
+        console.warn(`[SocketTest] Warning: Room '${roomName}' does not exist or is empty. Message will not be delivered.`);
+        return [];
+      }
+      
+      const socketsInRoom = Array.from(room);
+      console.log(`[SocketTest] Room '${roomName}' has ${socketsInRoom.length} socket(s):`);
+      socketsInRoom.forEach(socketId => {
+        console.log(`[SocketTest]   - Socket ${socketId}`);
+      });
+      
+      // Log all rooms for debugging
+      console.log(`[SocketTest] All active rooms:`);
+      for (const [roomName, sockets] of io.sockets.adapter.rooms.entries()) {
+        // Skip socket ID rooms (Socket.IO creates a room for each socket ID)
+        if (io.sockets.adapter.socketRooms?.has(roomName)) {
+          continue;
+        }
+        console.log(`[SocketTest]   - Room '${roomName}': ${Array.from(sockets).length} socket(s)`);
+      }
+      
+      // Send the message
       io.to(roomName).emit('message', message);
-      console.log(`[SocketTest] Broadcast to room ${roomName}:`, JSON.stringify(message));
+      console.log(`[SocketTest] Broadcast to room '${roomName}':`, JSON.stringify(message));
+      
+      return socketsInRoom;
     },
     
     /**
@@ -451,25 +540,57 @@ export function waitForEvent(socket, eventName, timeoutMs = 1000) {
  * @returns {Promise<any>} Resolves with message data
  */
 export function waitForMessageType(socket, messageType, timeoutMs = 1000) {
+  console.log(`[SocketTest] Waiting for message type '${messageType}' from client ${socket.id || 'unknown'}...`);
+  
   return new Promise((resolve, reject) => {
+    // Ensure socket is connected
+    if (!socket.connected) {
+      console.warn(`[SocketTest] Warning: Socket not connected while waiting for '${messageType}'`);
+    }
+    
+    // Track messages for better debugging
+    const receivedMessages = [];
+    
     // Timeout to avoid hanging
     const timeout = setTimeout(() => {
       cleanup();
+      console.error(`[SocketTest] Timeout waiting for message type '${messageType}' after ${timeoutMs}ms`);
+      console.error(`[SocketTest] Received ${receivedMessages.length} other messages while waiting:`);
+      receivedMessages.forEach((msg, i) => {
+        console.error(`[SocketTest] - Message ${i + 1}: type=${msg.type || 'unknown'}`);
+      });
+      
       reject(new Error(`Timeout waiting for message type '${messageType}' after ${timeoutMs}ms`));
     }, timeoutMs);
     
     // Message handler
     const messageHandler = (data) => {
-      const message = typeof data === 'string' ? JSON.parse(data) : data;
-      if (message.type === messageType) {
-        cleanup();
-        clearTimeout(timeout);
-        resolve(message);
+      try {
+        // Parse message if needed
+        const message = typeof data === 'string' ? JSON.parse(data) : data;
+        
+        // Track all messages for debugging
+        if (receivedMessages.length < 10) { // Limit to prevent memory issues
+          receivedMessages.push(message);
+        }
+        
+        console.log(`[SocketTest] Received message type '${message.type || 'unknown'}', waiting for '${messageType}'`);
+        
+        // Check if it's the message we're looking for
+        if (message.type === messageType) {
+          console.log(`[SocketTest] Found target message type '${messageType}'`);
+          cleanup();
+          clearTimeout(timeout);
+          resolve(message);
+        }
+      } catch (e) {
+        console.error(`[SocketTest] Error in message handler: ${e.message}`);
       }
     };
     
     // Error handler
     const errorHandler = (err) => {
+      console.error(`[SocketTest] Socket error while waiting for '${messageType}': ${err.message}`);
       cleanup();
       clearTimeout(timeout);
       reject(new Error(`Error while waiting for message type ${messageType}: ${err.message}`));
@@ -477,6 +598,7 @@ export function waitForMessageType(socket, messageType, timeoutMs = 1000) {
     
     // Disconnect handler
     const disconnectHandler = (reason) => {
+      console.error(`[SocketTest] Socket disconnected while waiting for '${messageType}': ${reason}`);
       cleanup();
       clearTimeout(timeout);
       reject(new Error(`Client disconnected while waiting for message type ${messageType}. Reason: ${reason}`));
@@ -488,6 +610,7 @@ export function waitForMessageType(socket, messageType, timeoutMs = 1000) {
         socket.off('message', messageHandler);
         socket.off('error', errorHandler);
         socket.off('disconnect', disconnectHandler);
+        console.log(`[SocketTest] Cleaned up listeners for '${messageType}'`);
       } catch (e) {
         console.error(`[SocketTest] Error removing listeners: ${e.message}`);
       }
@@ -497,6 +620,8 @@ export function waitForMessageType(socket, messageType, timeoutMs = 1000) {
     socket.on('message', messageHandler);
     socket.once('error', errorHandler);
     socket.once('disconnect', disconnectHandler);
+    
+    console.log(`[SocketTest] Listeners attached for message type '${messageType}'`);
   });
 }
 

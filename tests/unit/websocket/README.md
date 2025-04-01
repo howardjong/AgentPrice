@@ -11,6 +11,8 @@ Testing WebSockets and Socket.IO can be problematic due to:
 3. **Port Conflicts**: Tests trying to use the same ports
 4. **Reconnection Complexity**: Complex reconnection logic is hard to test
 5. **Event-Driven Nature**: Events may be missed if not properly waited for
+6. **Room Broadcasting Subtleties**: Room membership and event propagation need careful handling
+7. **Socket Lifecycle Management**: Socket connect/disconnect events can interfere with test expectations
 
 ## Improved Testing Approach
 
@@ -235,5 +237,42 @@ it('should reconnect after server restart', async () => {
 
 ## Example Test Files
 
-1. `stable-socketio-tests.vitest.js`: Basic Socket.IO test patterns
-2. `system-monitoring-improved.vitest.js`: Tests for system monitoring features
+1. `bare-minimum-broadcast.vitest.js`: Absolute minimum test for Socket.IO room broadcasting
+2. `direct-multi-client.vitest.js`: Simplified test focusing on multi-client broadcasting
+3. `minimal-socket-broadcast.vitest.js`: Minimal test for socket.io event propagation
+4. `system-monitoring-improved.vitest.js`: Tests for system monitoring features
+
+## Lessons Learned
+
+After extensive testing and debugging with Socket.IO, we've learned several key lessons:
+
+1. **Simplify Room Broadcasting Tests**: For reliable room broadcasting tests, use the absolute minimum setup required to demonstrate the functionality.
+
+2. **Fixed Ports vs. Dynamic Ports**: While dynamic ports (via `get-port`) help prevent conflicts, they can also introduce race conditions. For critical tests, use fixed ports.
+
+3. **Timeout Management**: Short timeouts (100-300ms) work better for detecting disconnects, while longer timeouts (1000-2000ms) are appropriate for reconnection tests.
+
+4. **Console Logging**: Extensive console logging helps identify issues like:
+   - Room membership problems
+   - Socket ID changes after reconnection
+   - Message delivery failures
+
+5. **Listener Cleanup**: Always remove event listeners after use to prevent multiple handlers firing for the same event.
+
+6. **Disconnect Safety**: The Socket.IO `.disconnect()` method sometimes hangs. Use a safety timeout:
+   ```javascript
+   await Promise.race([
+     new Promise(resolve => client.once('disconnect', resolve)),
+     new Promise(resolve => setTimeout(resolve, 300))
+   ]);
+   ```
+
+7. **Room Membership Verification**: Always verify room membership before broadcasting:
+   ```javascript
+   const room = io.sockets.adapter.rooms.get(roomName);
+   if (!room || room.size === 0) {
+     console.warn(`Room ${roomName} is empty or does not exist`);
+   }
+   ```
+
+8. **Atomic Test Cases**: Test one aspect of WebSocket functionality per test case to isolate failures.
