@@ -1,40 +1,51 @@
-# Testing Documentation
+# Test Documentation
 
-This directory contains comprehensive documentation related to testing in our project.
+## Overview
+
+This directory contains comprehensive documentation for the test suite, including test coverage reports, testing patterns, and tutorials for implementing robust tests for different components.
 
 ## Directory Structure
 
-- [`/guidelines`](./guidelines/README.md) - Best practices, frameworks, and guidelines for testing
-- [`/migration`](./migration/README.md) - Documentation about our Jest to Vitest test migration effort
-- [`/coverage`](./coverage/README.md) - Test coverage planning, tracking, and reporting
+- [`/coverage`](#coverage-reports): Coverage improvement documents
+- [`/patterns`](#testing-patterns): Reusable testing patterns
+- [`/tutorials`](#tutorials): Step-by-step guides
 
-## Key Documentation Files
+## Coverage Reports
 
-### Testing Guidelines
+The `/coverage` directory contains reports on test coverage improvements for specific components:
 
-- [Mock Guidelines](./guidelines/MOCK_GUIDELINES.md) - Best practices for mocking in tests
-- [Socket.IO Testing Best Practices](./guidelines/SOCKETIO_TESTING_BEST_PRACTICES.md) - Guidance for Socket.IO testing
-- [Error Handling Best Practices](./guidelines/ERROR_HANDLING_BEST_PRACTICES.md) - Testing error scenarios
-- [Time Testing Best Practices](./guidelines/TIME_TESTING_BEST_PRACTICES.md) - Testing time-dependent code
-- [Non-Deterministic Error Testing](./guidelines/NON_DETERMINISTIC_ERROR_TESTING.md) - Testing for flaky network conditions and race conditions
-- [Test Development Guide](./guidelines/TEST_DEVELOPMENT_GUIDE.md) - Comprehensive guide for developing tests
-- [Vitest Mocking Guide](./guidelines/VITEST_MOCKING_GUIDE.md) - Quick reference guide for Vitest mocking
-- [Vitest Mocking Guidelines](./guidelines/VITEST_MOCKING_GUIDELINES.md) - Detailed guidelines for mocking with Vitest
-- [Vitest Module Mocking Guidelines](./guidelines/VITEST_MODULE_MOCKING_GUIDELINES.md) - Guidelines for ES module mocking in Vitest
+- [**TESTING_SUITE_IMPROVEMENTS_2025-04-01.md**](./coverage/TESTING_SUITE_IMPROVEMENTS_2025-04-01.md): High-level summary of test coverage improvements for CircuitBreaker and RobustAPIClient
+- [**CIRCUIT_BREAKER_COVERAGE_IMPROVEMENTS_2025-04-01.md**](./coverage/CIRCUIT_BREAKER_COVERAGE_IMPROVEMENTS_2025-04-01.md): Detailed coverage improvements for the CircuitBreaker component
+- [**API_CLIENT_COVERAGE_IMPROVEMENTS_2025-04-01.md**](./coverage/API_CLIENT_COVERAGE_IMPROVEMENTS_2025-04-01.md): Detailed coverage improvements for the RobustAPIClient component
 
-### Test Migration
+## Testing Patterns
 
-This directory contains documentation related to our Jest to Vitest test migration:
+The `/patterns` directory contains documentation on reusable testing patterns:
 
-- [Migration Master Document](./migration/README.md) - Complete reference for Jest to Vitest migration
-  - Fully consolidated from all documents including those in the archive folder
-  - Includes strategy, progress tracking, implementation guidelines, mocking patterns, and troubleshooting
+- [**RESILIENT_API_TESTING_PATTERNS.md**](./patterns/RESILIENT_API_TESTING_PATTERNS.md): Comprehensive collection of testing patterns for resilient API components, including time-based testing, state machine testing, and error handling testing
 
-### Test Coverage
+## Tutorials
 
-- [Coverage Plan](./coverage/TEST_COVERAGE_PLAN.md) - Detailed coverage goals and implementation strategy
-- [Coverage Status](./coverage/TEST_COVERAGE_STATUS_2025-03-31.md) - Current coverage metrics and analysis
+The `/tutorials` directory contains step-by-step guides for implementing tests:
 
-## Maintenance
+- [**CREATING_RESILIENT_API_TESTS.md**](./tutorials/CREATING_RESILIENT_API_TESTS.md): Detailed tutorial for creating comprehensive tests for API-related components
 
-When updating any test documentation, please ensure you place it in the appropriate subdirectory and update the corresponding README files.
+## Getting Started
+
+If you're new to testing in this project, we recommend the following approach:
+
+1. Read the high-level [Testing Suite Improvements](./coverage/TESTING_SUITE_IMPROVEMENTS_2025-04-01.md) document to understand our testing philosophy and recent improvements
+2. Review the [Resilient API Testing Patterns](./patterns/RESILIENT_API_TESTING_PATTERNS.md) document to learn about proven testing patterns
+3. Follow the [Creating Resilient API Tests](./tutorials/CREATING_RESILIENT_API_TESTS.md) tutorial when implementing tests for a new component
+
+## Key Testing Principles
+
+1. **Comprehensive Coverage**: Aim for high branch and statement coverage
+2. **Deterministic Time Testing**: Use time mocking for deterministic testing of time-dependent behavior
+3. **State Transition Testing**: Test complete lifecycle of components with different states
+4. **Error Path Testing**: Thoroughly test error handling and recovery paths
+5. **Configuration Testing**: Test with various configuration options, including defaults and edge cases
+
+## Contact
+
+For questions about test implementation or coverage improvement, contact the Test Engineering Team.

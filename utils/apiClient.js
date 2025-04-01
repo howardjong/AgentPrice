@@ -42,7 +42,7 @@ class RobustAPIClient {
     this.circuitBreaker = new CircuitBreaker({
       failureThreshold: this.options.circuitBreakerThreshold,
       resetTimeout: this.options.circuitBreakerResetTimeout,
-      name: options.baseURL || 'apiClient'
+      name: options.baseURL || options.name || 'apiClient'
     });
     
     // Internal state
@@ -75,6 +75,15 @@ class RobustAPIClient {
           validateStatus: null  // Don't throw on non-2xx responses
         });
         
+        // Validate response format
+        if (!response) {
+          throw new Error('Unexpected response format');
+        }
+        
+        if (typeof response.status === 'undefined') {
+          throw new Error('Invalid response format: missing status code');
+        }
+        
         // Check if the response is successful
         if (response.status >= 200 && response.status < 300) {
           // Success - record the success and return the data
@@ -85,8 +94,7 @@ class RobustAPIClient {
         // Handle specific error statuses
         if (response.status === 429) {
           // Rate limit error - calculate backoff
-          const retryAfter = response.headers['retry-after'] ? 
-            parseInt(response.headers['retry-after'], 10) * 1000 : 
+          const retryAfter = this.parseRetryAfterHeader(response.headers['retry-after']) ||
             this.calculateBackoff(attempt);
             
           logger.warn(`${this.name}: Rate limit exceeded, retrying in ${retryAfter}ms`, {
@@ -102,11 +110,16 @@ class RobustAPIClient {
         }
         
         // For other error statuses, handle as failures
-        const error = new Error(`HTTP error ${response.status}: ${response.statusText}`);
+        const error = new Error(`HTTP error ${response.status}: ${response.statusText || 'Unknown error'}`);
         error.response = response;
         throw error;
       } catch (error) {
-        lastError = error;
+        // Convert non-Error objects to Error
+        if (!(error instanceof Error)) {
+          lastError = new Error(String(error));
+        } else {
+          lastError = error;
+        }
         
         // Record the failure in the circuit breaker
         this.circuitBreaker.recordFailure();
@@ -119,7 +132,7 @@ class RobustAPIClient {
             component: 'apiClient',
             url: config.url,
             attempt: attempt + 1,
-            error: error.message
+            error: error.message || 'Unknown error'
           });
           
           // Wait before retrying
@@ -140,6 +153,39 @@ class RobustAPIClient {
     });
     
     throw lastError;
+  }
+  
+  /**
+   * Parse the Retry-After header value
+   * @param {string} retryAfter - The value of the Retry-After header
+   * @returns {number|null} - The delay in milliseconds, or null if invalid
+   */
+  parseRetryAfterHeader(retryAfter) {
+    if (!retryAfter) {
+      return null;
+    }
+    
+    // Try parsing as a number of seconds
+    const seconds = parseFloat(retryAfter);
+    if (!isNaN(seconds)) {
+      return Math.ceil(seconds * 1000); // Convert to milliseconds and round up
+    }
+    
+    // Try parsing as an HTTP date
+    try {
+      const retryDate = new Date(retryAfter);
+      const now = Date.now();
+      const delay = retryDate.getTime() - now;
+      
+      // Ensure minimum delay of 100ms to avoid immediate retry
+      return Math.max(delay, 100);
+    } catch (e) {
+      logger.warn(`${this.name}: Failed to parse Retry-After header: ${retryAfter}`, {
+        component: 'apiClient',
+        error: e.message
+      });
+      return null;
+    }
   }
   
   /**
@@ -221,6 +267,52 @@ class RobustAPIClient {
     return this.request({
       ...config,
       method: 'post',
+      url,
+      data
+    });
+  }
+  
+  /**
+   * Convenience method for PUT requests
+   * @param {string} url - The URL to request
+   * @param {Object} data - The data to send
+   * @param {Object} [config] - Additional Axios request config
+   * @returns {Promise<Object>} - The response data
+   */
+  async put(url, data, config = {}) {
+    return this.request({
+      ...config,
+      method: 'put',
+      url,
+      data
+    });
+  }
+  
+  /**
+   * Convenience method for DELETE requests
+   * @param {string} url - The URL to request
+   * @param {Object} [config] - Additional Axios request config
+   * @returns {Promise<Object>} - The response data
+   */
+  async delete(url, config = {}) {
+    return this.request({
+      ...config,
+      method: 'delete',
+      url
+    });
+  }
+  
+  /**
+   * Convenience method for PATCH requests
+   * @param {string} url - The URL to request
+   * @param {Object} data - The data to send
+   * @param {Object} [config] - Additional Axios request config
+   * @returns {Promise<Object>} - The response data
+   */
+  async patch(url, data, config = {}) {
+    return this.request({
+      ...config,
+      method: 'patch',
       url,
       data
     });
