@@ -1,5 +1,13 @@
 {
+  "claude": {
+    "system": "default",
+    "response_generation": "v2",
+    "chart_data": {
+      "pricing": "v1"
+    },
+    "test_prompt": "v2"
+  },
   "perplexity": {
-    "deep_research": "pricing_v1"
+    "deep_research": "default"
   }
 }
