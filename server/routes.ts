@@ -1591,7 +1591,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
   
-  // Setup Socket.io server for real-time updates with enhanced configuration
+  // Setup Socket.io server for real-time updates with enhanced configuration for Replit environment
   const io = new SocketIoServer(httpServer, {
     path: '/socket.io',
     cors: {
@@ -1601,21 +1601,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       credentials: true,
       preflightContinue: false
     },
-    // Add more robust transport configuration
-    transports: ['polling', 'websocket'], // Prefer polling first for better reliability
-    allowUpgrades: true, 
-    pingTimeout: 60000, // Increased ping timeout
-    pingInterval: 25000, // Increased ping interval
-    maxHttpBufferSize: 1e6, // 1MB
+    // Transport configuration optimized for Replit
+    // Start with WebSocket but fall back to polling if WebSockets are unstable
+    transports: ['websocket', 'polling'],
+    allowUpgrades: true,
+    upgradeTimeout: 10000, // More generous upgrade timeout
+    
+    // Connection health monitoring for Replit environment
+    pingTimeout: 30000,  // Reduced from 60000 to detect failures faster but still not too aggressive
+    pingInterval: 15000, // More frequent pings to maintain connection
+    
+    // Resource constraints
+    maxHttpBufferSize: 1e6, // 1MB to prevent large payloads
+    
     // Connection and retry options
-    connectTimeout: 45000 // Longer timeout for initial connection
+    connectTimeout: 30000, // 30 seconds timeout for initial connection
+    
+    // Enable detailed logging
+    // Comment out in production if logs become too voluminous
+    /* 
+    logger: {
+      debug: (...args) => console.debug('[socket.io]', ...args),
+      info: (...args) => console.info('[socket.io]', ...args),
+      error: (...args) => console.error('[socket.io]', ...args),
+    },
+    */
+    
+    // Prevent memory leak from excessive socket reconnects
+    cleanupEmptyChildNamespaces: true
   });
   
-  // Client metadata interface
+  // Enhanced client metadata interface with connection tracking
   interface ClientMetadata {
     id: string;
     lastActivity: number;
+    connectionTime: number;  // Non-optional since we always set it
     subscriptions: string[];
+    transportType: string;   // Non-optional since we always set it
+    ipAddress: string;       // Non-optional since we always set it
+    userAgent: string;       // Non-optional since we always set it
+    reconnections?: number;  // Optional since we may not track reconnections
+    previousDisconnect?: {   // Optional since not all clients will disconnect and reconnect
+      time: number;
+      reason: string;
+    };
   }
   
   // Store client data
@@ -1763,15 +1792,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
   
-  // Socket.io event handlers
+  // Helper function to verify active connections
+  function verifyActiveConnections() {
+    const now = Date.now();
+    let activeCount = 0;
+    let staleCount = 0;
+    
+    // Count active vs. stale connections based on lastActivity
+    clientsData.forEach((metadata, clientId) => {
+      if (now - metadata.lastActivity < 5 * 60 * 1000) { // 5 minutes
+        activeCount++;
+      } else {
+        staleCount++;
+      }
+    });
+    
+    console.log(`Connection status: ${activeCount} active, ${staleCount} stale, ${io.engine.clientsCount} total`);
+    
+    // If there's a significant discrepancy between our count and engine count,
+    // something might be wrong with connection tracking
+    if (Math.abs((activeCount + staleCount) - io.engine.clientsCount) > 5) {
+      console.warn(`Connection tracking discrepancy detected: Our count=${activeCount + staleCount}, Socket.IO count=${io.engine.clientsCount}`);
+    }
+    
+    return { activeCount, staleCount, totalCount: io.engine.clientsCount };
+  }
+  
+  // Socket.io event handlers with enhanced connection management
   io.on('connection', (socket) => {
     // Get the client ID from socket.id
     const clientId = socket.id;
+    const connectionTime = Date.now();
+    
+    // Prepare detailed client information
     const metadata: ClientMetadata = { 
       id: clientId, 
-      lastActivity: Date.now(),
-      subscriptions: ['all'] // Default subscription to all channels
+      lastActivity: connectionTime,
+      connectionTime: connectionTime,
+      subscriptions: ['all'], // Default subscription to all channels
+      transportType: socket.conn.transport.name, // 'websocket' or 'polling'
+      ipAddress: socket.handshake.address, // Client IP (may be proxied)
+      userAgent: socket.handshake.headers['user-agent'] || 'unknown', // Client browser/app
     };
+    
+    // Check if this is a reconnection
+    const existingClient = clientsData.get(clientId);
+    if (existingClient) {
+      // This is a reconnection - we already have metadata for this ID
+      console.log(`Client ${clientId} is reconnecting...`);
+      
+      // Update reconnection count
+      metadata.reconnections = (existingClient.reconnections || 0) + 1;
+      
+      // Preserve subscriptions from previous connection if available
+      if (existingClient.subscriptions && existingClient.subscriptions.length > 0) {
+        metadata.subscriptions = existingClient.subscriptions;
+        
+        // Rejoin all previous rooms
+        metadata.subscriptions.forEach((topic: string) => {
+          socket.join(topic);
+        });
+      }
+      
+      // Set previous disconnect info if available
+      if (existingClient.previousDisconnect) {
+        const reconnectTime = Date.now();
+        const disconnectTime = existingClient.previousDisconnect.time;
+        const reconnectDelay = reconnectTime - disconnectTime;
+        
+        console.log(`Client ${clientId} reconnected after ${reconnectDelay}ms (Reason: ${existingClient.previousDisconnect.reason})`);
+      }
+    }
     
     // Store client metadata
     clientsData.set(clientId, metadata);
@@ -1779,8 +1870,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Add socket to the 'all' room by default
     socket.join('all');
     
-    console.log(`Socket.io client connected: ${clientId}`);
+    console.log(`Socket.io client connected: ${clientId} using ${metadata.transportType}`);
     console.log(`Total connected Socket.io clients: ${io.engine.clientsCount}`);
+    
+    // Log connection counts
+    verifyActiveConnections();
+    
+    // Log transport changes (e.g., from websocket to polling or vice versa)
+    socket.conn.on('upgrade', (transport) => {
+      const oldTransport = metadata.transportType;
+      metadata.transportType = transport.name;
+      console.log(`Client ${clientId} transport upgraded from ${oldTransport} to ${transport.name}`);
+    });
     
     // Send initial system status and API status
     try {
@@ -1828,14 +1929,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
     
-    // Handle ping requests
+    // Enhanced heartbeat mechanism implementation
+    // Handle ping requests (explicit heartbeat for connection verification)
     socket.on('ping', (message) => {
       metadata.lastActivity = Date.now();
+      // Send pong directly back to this client only
       socket.emit('message', { 
         type: 'pong', 
         time: Date.now(),
-        status: 'ok' 
+        status: 'ok',
+        connectionState: {
+          id: socket.id,
+          transport: socket.conn.transport.name, // websocket or polling
+          connected: socket.connected,
+          rooms: Array.from(socket.rooms)
+        }
       });
+      
+      // Also update lastActivity timestamp in our metadata store
+      // This provides a centralized way to track client activity
+      if (clientsData.has(clientId)) {
+        const clientData = clientsData.get(clientId);
+        if (clientData) {
+          clientData.lastActivity = Date.now();
+        }
+      }
+      
+      // Note: We removed the transport-level pong due to TS type issues with socket.io
+      // The higher-level pong message is sufficient for our connection verification
     });
     
     // Handle status requests
@@ -1885,11 +2006,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             topics: topics 
           });
         } else if (message.type === 'ping') {
+          // Apply same enhanced heartbeat response for messages with ping type
           socket.emit('message', { 
             type: 'pong', 
             time: Date.now(),
-            status: 'ok'
+            status: 'ok',
+            connectionState: {
+              id: socket.id,
+              transport: socket.conn.transport.name, // websocket or polling
+              connected: socket.connected,
+              rooms: Array.from(socket.rooms)
+            }
           });
+          
+          // Also update lastActivity timestamp in our metadata store
+          // This provides a centralized way to track client activity across all message types
+          if (clientsData.has(clientId)) {
+            const clientData = clientsData.get(clientId);
+            if (clientData) {
+              clientData.lastActivity = Date.now();
+            }
+          }
         } else if (message.type === 'request_status') {
           sendSystemStatus(clientId);
         } else if (message.type === 'request_api_status') {
@@ -1901,10 +2038,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
     
-    // Handle disconnection
+    // Enhanced disconnect handler with reconnection support
     socket.on('disconnect', (reason) => {
       console.log(`Socket.io client disconnected: ${clientId}, reason: ${reason}`);
-      clientsData.delete(clientId);
+      
+      // Store client metadata for potential reconnection instead of deleting immediately
+      // This helps with tracking reconnection patterns and retaining subscription info
+      const clientData = clientsData.get(clientId);
+      if (clientData) {
+        // Update disconnect info
+        clientData.previousDisconnect = {
+          time: Date.now(),
+          reason: reason
+        };
+        
+        // Start a timer to cleanup this client data if it doesn't reconnect
+        // This prevents memory leaks from accumulating stale client data
+        setTimeout(() => {
+          // Check if the client is still in our data store (hasn't been updated by reconnection)
+          const currentData = clientsData.get(clientId);
+          
+          // We need a more thorough safety check for TypeScript
+          // First, ensure we're dealing with defined objects and properties
+          const hasCurrentDisconnectInfo = !!(currentData && currentData.previousDisconnect);
+          const hasOriginalDisconnectInfo = !!(clientData.previousDisconnect);
+          
+          if (hasCurrentDisconnectInfo && hasOriginalDisconnectInfo) {
+            // Since we've verified both exist, TypeScript should now be happy
+            // This assertion tells TypeScript we're sure these properties exist
+            const currentDisconnectTime = (currentData as ClientMetadata).previousDisconnect!.time;
+            const originalDisconnectTime = (clientData as ClientMetadata).previousDisconnect!.time;
+            
+            // Now we can safely compare times
+            if (currentDisconnectTime === originalDisconnectTime) {
+              // Client hasn't reconnected within our timeout window, so remove it
+              console.log(`Removing client data for ${clientId} after disconnect timeout`);
+              clientsData.delete(clientId);
+            }
+          } else if (currentData) {
+            // If we can't compare disconnect times for some reason, just clean up anyway
+            console.log(`Removing client data for ${clientId} (safety cleanup - disconnect info missing)`);
+            clientsData.delete(clientId);
+          }
+        }, 60000); // 60-second reconnection window
+      } else {
+        // If we don't have metadata for this client, just remove it
+        clientsData.delete(clientId);
+      }
+      
+      // Verify connections after disconnects to help detect discrepancies
+      setTimeout(verifyActiveConnections, 5000);
     });
     
     // Handle errors
