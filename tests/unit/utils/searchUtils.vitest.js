@@ -4,7 +4,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import * as searchUtils from '../../../utils/searchUtils.js';
+import searchUtils from '../../../utils/searchUtils.js';
+import { _performTextSearch } from '../../../utils/searchUtils.js';
 import logger from '../../../utils/logger.js';
 
 // Mock dependencies
@@ -547,6 +548,33 @@ describe('Search Utilities Module', () => {
     });
   });
 
+  describe('performTextSearch', () => {
+    it('should handle null or undefined collection gracefully', () => {
+      expect(_performTextSearch(null, 'test')).toEqual([]);
+      expect(_performTextSearch(undefined, 'test')).toEqual([]);
+    });
+    
+    it('should return the collection when search text is empty', () => {
+      const collection = [{ id: '1', title: 'Test' }];
+      expect(_performTextSearch(collection, '')).toEqual(collection);
+      expect(_performTextSearch(collection, null)).toEqual(collection);
+      expect(_performTextSearch(collection, undefined)).toEqual(collection);
+    });
+    
+    it('should filter items based on search text in title, content, or description', () => {
+      const collection = [
+        { id: '1', title: 'Machine Learning', content: 'AI basics' },
+        { id: '2', title: 'Web Development', content: 'Frontend' },
+        { id: '3', title: 'Data Science', description: 'Machine learning applications' }
+      ];
+      
+      const result = _performTextSearch(collection, 'machine');
+      expect(result).toHaveLength(2);
+      expect(result.map(item => item.id)).toContain('1');
+      expect(result.map(item => item.id)).toContain('3');
+    });
+  });
+
   describe('search', () => {
     // Create a test collection
     const testCollection = [
@@ -598,26 +626,32 @@ describe('Search Utilities Module', () => {
     ];
 
     it('should perform basic search with all defaults', () => {
-      // Mock the searchText matching process
-      // This is to avoid implementing the actual text search algorithm in the test
-      const originalApplyFilters = searchUtils.applyFilters;
-      vi.spyOn(searchUtils, 'applyFilters').mockImplementation((items, filters) => {
-        // Return items with IDs 1 and 4 for the query 'machine learning'
-        return items.filter(item => item.id === '1' || item.id === '4');
+      // Create a mock text search function
+      const mockTextSearchFn = vi.fn((collection, searchText) => {
+        // Return items with IDs 1 and 4 when searching for 'machine learning'
+        if (searchText === 'machine learning') {
+          return collection.filter(item => item.id === '1' || item.id === '4');
+        }
+        return collection;
       });
       
-      const result = searchUtils.search(testCollection, { 
-        query: 'machine learning',
-        strictValidation: false // Allow the test to pass without a real search implementation
-      });
+      const result = searchUtils.search(
+        testCollection, 
+        { 
+          query: 'machine learning',
+          strictValidation: false // Allow the test to pass without a real search implementation
+        },
+        mockTextSearchFn
+      );
       
+      // Verify results
       expect(result.results).toHaveLength(2); // Should match items 1 and 4
       expect(result.results.map(item => item.id)).toContain('1');
       expect(result.results.map(item => item.id)).toContain('4');
       expect(result.pagination.total).toBe(2);
       
-      // Restore the original implementation
-      searchUtils.applyFilters.mockRestore();
+      // Verify that our mock was called with the correct parameters
+      expect(mockTextSearchFn).toHaveBeenCalledWith(testCollection, 'machine learning');
     });
 
     it('should apply filters, sorting and pagination correctly', () => {
@@ -684,11 +718,20 @@ describe('Search Utilities Module', () => {
     });
 
     it('should apply transformations correctly', () => {
+      // Create a mock text search function
+      const mockTextSearchFn = vi.fn((collection, searchText) => {
+        // Return items with IDs 1 and 4 when searching for 'machine learning'
+        if (searchText === 'machine learning') {
+          return collection.filter(item => item.id === '1' || item.id === '4');
+        }
+        return collection;
+      });
+      
       const result = searchUtils.search(testCollection, {
         query: 'machine learning',
         summarize: true,
         fields: ['id', 'title', 'summary']
-      });
+      }, mockTextSearchFn);
       
       expect(result.results).toHaveLength(2);
       expect(result.results[0]).toHaveProperty('id');
@@ -696,6 +739,9 @@ describe('Search Utilities Module', () => {
       expect(result.results[0]).toHaveProperty('summary');
       expect(result.results[0]).not.toHaveProperty('content');
       expect(result.results[0]).not.toHaveProperty('category');
+      
+      // Verify that our mock was called with the correct parameters
+      expect(mockTextSearchFn).toHaveBeenCalledWith(testCollection, 'machine learning');
     });
 
     it('should handle errors gracefully', () => {

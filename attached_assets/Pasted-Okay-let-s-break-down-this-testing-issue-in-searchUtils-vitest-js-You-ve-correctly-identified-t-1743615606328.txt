@@ -1,0 +1,259 @@
+Okay, let's break down this testing issue in `searchUtils.vitest.js`.
+
+You've correctly identified the core problem: the `search` function applies its internal text filtering *before* calling `applyFilters`. Your test mocks `applyFilters`, expecting it to receive the original `testCollection`, but it actually receives a collection potentially already filtered by the text search `query: 'machine learning'`. This mismatch causes the assertion failures.
+
+Here are a few clever, effective, and relatively easy-to-implement solutions, ranging from quick fixes to more robust refactoring:
+
+---
+
+**Solution 1: Adjust Test Data (Quick Fix)**
+
+* **Concept:** Modify the `testCollection` so that the items you expect to be returned by the mock (`id: '1'` and `id: '4'`) *also* match the hardcoded text search `'machine learning'`. This way, the internal text filter won't remove them before `applyFilters` (the mocked version) is called.
+
+* **Implementation:**
+    Ensure your `testCollection` has entries like this:
+
+    ```javascript
+    // Example testCollection structure (adapt as needed)
+    const testCollection = [
+        { id: '1', title: 'Intro to Machine Learning', content: '...' }, // Matches 'machine learning'
+        { id: '2', title: 'Data Structures', content: '...' },
+        { id: '3', title: 'Web Development', content: '...' },
+        { id: '4', title: 'Advanced Topics', content: 'Includes machine learning models' }, // Matches 'machine learning'
+        { id: '5', title: 'Algorithms', content: '...' },
+    ];
+    ```
+
+    Your test case can then remain largely the same:
+
+    ```javascript
+    it('should perform basic search with all defaults', () => {
+        // Mock applyFilters to ensure it *could* filter further if needed,
+        // but mainly to check if it receives the text-filtered items.
+        const applyFiltersSpy = vi.spyOn(searchUtils, 'applyFilters').mockImplementation((items, filters) => {
+           // In this scenario, items '1' and '4' should have passed the text filter.
+           // The mock can simply return them or perform its own logic.
+           // For simplicity, let's assume it just returns what it got after text search.
+           // Or, to stick to the original intent: filter specifically for 1 and 4
+           return items.filter(item => item.id === '1' || item.id === '4');
+        });
+
+        const result = searchUtils.search(testCollection, {
+           query: 'machine learning',
+           strictValidation: false
+        });
+
+        // Assertions remain the same
+        expect(result.results).toHaveLength(2);
+        expect(result.results.map(item => item.id)).toContain('1');
+        expect(result.results.map(item => item.id)).toContain('4');
+        expect(result.pagination.total).toBe(2); // Total should reflect items *after* all filtering
+
+        applyFiltersSpy.mockRestore(); // Use the spy variable for restoration
+    });
+    ```
+
+* **Pros:** Minimal code change (only test data). Easy to implement quickly.
+* **Cons:** Ties the test outcome to specific data content. Doesn't truly isolate the `applyFilters` step if the text search itself fails. Less robust if the text search logic changes.
+
+---
+
+**Solution 2: Extract Text Search Logic (Refactoring for Testability - Recommended)**
+
+* **Concept:** Refactor the inline text search logic within `search` into its own separate, exported (or at least locally defined and testable) function. This allows you to test the text search independently and mock it or `applyFilters` (or both) more cleanly in the main `search` function test.
+
+* **Implementation:**
+
+    1.  **Refactor `searchUtils.js`:**
+
+        ```javascript
+        // Potentially export if you want to test it directly
+        export function applyTextSearch(collection, searchText) {
+            if (!searchText) {
+                return collection; // No search text, return original collection
+            }
+            const lowerCaseSearchText = searchText.toLowerCase();
+            return collection.filter(item => {
+                const titleMatch = item.title && item.title.toLowerCase().includes(lowerCaseSearchText);
+                const contentMatch = item.content && item.content.toLowerCase().includes(lowerCaseSearchText);
+                const descriptionMatch = item.description && item.description.toLowerCase().includes(lowerCaseSearchText);
+                return titleMatch || contentMatch || descriptionMatch;
+            });
+        }
+
+        export function search(collection, params = {}) {
+            try {
+                const searchQuery = buildQuery(params);
+
+                // Apply text search using the extracted function
+                let filteredItems = applyTextSearch(collection, searchQuery.searchText);
+
+                // Then apply filters
+                filteredItems = applyFilters(filteredItems, searchQuery.filters); // This receives the result of applyTextSearch
+
+                // Apply sorting
+                const sortedItems = sortResults(
+                    filteredItems,
+                    searchQuery.sort.field,
+                    searchQuery.sort.order
+                );
+
+                // Apply pagination
+                const paginatedResults = paginateResults(
+                    sortedItems,
+                    searchQuery.pagination.page,
+                    searchQuery.pagination.limit
+                );
+
+                // Transform the results
+                const transformedItems = transformResults(paginatedResults.items, {
+                    includeScores: params.includeScores,
+                    summarize: params.summarize,
+                    fields: params.fields
+                });
+
+                return {
+                    query: searchQuery,
+                    results: transformedItems,
+                    pagination: paginatedResults.pagination
+                };
+            } catch (error) {
+                logger.error('Search operation failed', { error: error.message });
+                throw new Error(`Search operation failed: ${error.message}`);
+            }
+        }
+
+        // Make sure applyFilters, sortResults, etc. are also potentially exportable or testable
+        // ... other functions like buildQuery, applyFilters, sortResults ...
+        ```
+
+    2.  **Update the Test (`searchUtils.vitest.js`):**
+        Now you have more options for mocking. You can test the orchestration role of `search` by mocking its steps.
+
+        ```javascript
+        import * as searchUtils from '../utils/searchUtils'; // Use namespace import if needed
+        import { vi } from 'vitest';
+
+        // Mock data
+        const testCollection = [
+            { id: '1', title: 'ML Intro' }, // Doesn't necessarily need 'machine learning' anymore
+            { id: '2', title: 'Data' },
+            { id: '3', title: 'Web' },
+            { id: '4', title: 'ML Advanced' },
+            { id: '5', title: 'Algo' },
+        ];
+
+        // Define the expected output of the text search step for this test
+        const textSearchResult = [
+            { id: '1', title: 'ML Intro' },
+            { id: '4', title: 'ML Advanced' },
+        ];
+        // Define the expected final output after applyFilters (mocked)
+        const finalFilteredResult = [
+             { id: '1', title: 'ML Intro' },
+             { id: '4', title: 'ML Advanced' },
+             // Or maybe applyFilters removes one? e.g.: [{ id: '1', title: 'ML Intro' }]
+             // Adjust based on what applyFilters mock should do.
+             // Let's stick to the original test intent: keep 1 and 4.
+        ];
+
+
+        it('should perform basic search by orchestrating text search and filters', () => {
+            // Mock the extracted text search function
+            const applyTextSearchSpy = vi.spyOn(searchUtils, 'applyTextSearch')
+                                          .mockReturnValue(textSearchResult);
+
+            // Mock the applyFilters function
+            const applyFiltersSpy = vi.spyOn(searchUtils, 'applyFilters')
+                                      .mockReturnValue(finalFilteredResult); // Assume it returns these specific items
+
+            // Mock downstream functions just to return input, focusing the test on filtering steps
+            const sortResultsSpy = vi.spyOn(searchUtils, 'sortResults').mockImplementation(items => items);
+            const paginateResultsSpy = vi.spyOn(searchUtils, 'paginateResults').mockImplementation((items, page, limit) => ({
+                 items: items.slice(0, limit), // Basic pagination mock
+                 pagination: { total: items.length, page, limit, totalPages: Math.ceil(items.length / limit) }
+            }));
+             const transformResultsSpy = vi.spyOn(searchUtils, 'transformResults').mockImplementation(items => items);
+
+
+            const result = searchUtils.search(testCollection, {
+                query: 'machine learning', // This query will be passed to the mocked applyTextSearch
+                strictValidation: false
+            });
+
+            // Verify that the mocks were called correctly
+            expect(applyTextSearchSpy).toHaveBeenCalledWith(testCollection, 'machine learning');
+            expect(applyFiltersSpy).toHaveBeenCalledWith(textSearchResult, expect.any(Object)); // Check it received the output of text search
+
+            // Assertions on the final result (based on mocked outputs)
+            expect(result.results).toHaveLength(finalFilteredResult.length); // e.g., 2
+            expect(result.results.map(item => item.id)).toEqual(finalFilteredResult.map(item => item.id)); // e.g., ['1', '4']
+             // The pagination total should reflect the count *before* pagination, but *after* filtering
+            expect(result.pagination.total).toBe(finalFilteredResult.length); // e.g., 2
+
+            // Restore all mocks
+            applyTextSearchSpy.mockRestore();
+            applyFiltersSpy.mockRestore();
+            sortResultsSpy.mockRestore();
+            paginateResultsSpy.mockRestore();
+            transformResultsSpy.mockRestore();
+        });
+        ```
+
+* **Pros:** Best practice for unit testing. Improves code organization (separation of concerns). Makes the `search` function easier to understand and test. Allows granular testing of each step (text search, filtering, sorting, etc.). Fixes the root cause of the mocking conflict.
+* **Cons:** Requires code refactoring (though relatively minor). Test setup becomes slightly more complex due to mocking multiple steps, but it's more precise.
+
+---
+
+**Solution 3: Mock Specific Steps within the Test (Advanced Mocking)**
+
+* **Concept:** Instead of mocking `applyFilters` to return a *final* result, mock it to simply return whatever items it receives. Then, mock the *internal text filtering logic directly* if possible (harder with inline anonymous functions) or combine with Solution 1 (adjust data) so the text filter passes the desired items to the (now simpler) `applyFilters` mock. This is less clean than Solution 2.
+
+* **Alternative Test Logic (Closer to Original Intent):**
+    If you keep the code as is, you could adjust the mock to reflect its *actual* input.
+
+    ```javascript
+    it('should perform basic search with all defaults (revised mock)', () => {
+        // Use test data where '1' and '4' match 'machine learning'
+        const testCollection = [
+             { id: '1', title: 'Intro to Machine Learning', content: '...' },
+             { id: '2', title: 'Data Structures', content: '...' },
+             { id: '3', title: 'Web Development', content: '...' },
+             { id: '4', title: 'Advanced Topics', content: 'Includes machine learning models' },
+             { id: '5', title: 'Algorithms', content: '...' },
+        ];
+
+        // Mock applyFilters. It will receive items '1' and '4' after the internal text search.
+        const applyFiltersSpy = vi.spyOn(searchUtils, 'applyFilters').mockImplementation((items, filters) => {
+            // `items` here will be [{id: '1', ...}, {id: '4', ...}] because the internal filter ran first.
+            // The mock can now perform its intended logic on this pre-filtered set.
+            // If the goal was *just* to return IDs 1 and 4, it can just return `items`.
+            return items; // Or apply further filtering if the test required it.
+                         // e.g., return items.filter(item => item.id === '1'); if you only wanted item 1 after filtering.
+        });
+
+        const result = searchUtils.search(testCollection, {
+            query: 'machine learning',
+            strictValidation: false
+        });
+
+        // Assuming the mock just returns the items passed to it (which were already text-filtered)
+        expect(result.results).toHaveLength(2);
+        expect(result.results.map(item => item.id)).toContain('1');
+        expect(result.results.map(item => item.id)).toContain('4');
+        expect(result.pagination.total).toBe(2);
+
+        applyFiltersSpy.mockRestore();
+    });
+    ```
+
+* **Pros:** Might avoid refactoring if you combine it with Solution 1's data adjustment.
+* **Cons:** The mock's role becomes less intuitive. You're still dependent on the internal text search working correctly *before* the mock. Doesn't improve overall testability as much as Solution 2.
+
+---
+
+**Recommendation:**
+
+Go with **Solution 2 (Extract Text Search Logic)**. It's the most robust approach that improves your code structure and makes testing significantly easier and more reliable in the long run. It allows you to test the `search` function as an orchestrator, verifying that it calls its dependencies (`applyTextSearch`, `applyFilters`, etc.) correctly, without relying on the complex internal implementations of those dependencies during the orchestration test. You can then write separate, focused unit tests for `applyTextSearch`, `applyFilters`, etc.
+
+This approach will likely help resolve the other failing tests as well, as they probably suffer from similar issues where mocking one step is affected by preceding unmocked steps. Remember to mock all major steps (`applyTextSearch`, `applyFilters`, `sortResults`, `paginateResults`, `transformResults`) when testing the `search` function's overall structure.

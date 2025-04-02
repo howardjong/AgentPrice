@@ -308,28 +308,37 @@ export function transformResults(items, options = {}) {
 }
 
 /**
+ * Perform text search on a collection
+ * @param {Array} collection - Collection to search
+ * @param {string} searchText - Text to search for
+ * @returns {Array} - Filtered collection
+ */
+export function performTextSearch(collection, searchText) {
+  if (!collection) return [];
+  if (!searchText) return collection;
+  
+  const lowerSearchText = searchText.toLowerCase();
+  return collection.filter(item => {
+    const titleMatch = item.title && item.title.toLowerCase().includes(lowerSearchText);
+    const contentMatch = item.content && item.content.toLowerCase().includes(lowerSearchText);
+    const descriptionMatch = item.description && item.description.toLowerCase().includes(lowerSearchText);
+    return titleMatch || contentMatch || descriptionMatch;
+  });
+}
+
+/**
  * Perform a full search operation on a collection
  * @param {Array} collection - Data collection to search
  * @param {Object} params - Search parameters
  * @returns {Object} - Search results with pagination
  */
-export function search(collection, params = {}) {
+export function search(collection, params = {}, textSearchFn = performTextSearch) {
   try {
     // Build the query
     const searchQuery = buildQuery(params);
     
     // First apply text search if there's a query
-    let filteredItems = collection;
-    if (searchQuery.searchText) {
-      filteredItems = collection.filter(item => {
-        // Check if the item has a title or content that matches the search text
-        const searchText = searchQuery.searchText.toLowerCase();
-        const titleMatch = item.title && item.title.toLowerCase().includes(searchText);
-        const contentMatch = item.content && item.content.toLowerCase().includes(searchText);
-        const descriptionMatch = item.description && item.description.toLowerCase().includes(searchText);
-        return titleMatch || contentMatch || descriptionMatch;
-      });
-    }
+    let filteredItems = textSearchFn(collection, searchQuery.searchText);
     
     // Then apply filters
     filteredItems = applyFilters(filteredItems, searchQuery.filters);
@@ -367,6 +376,9 @@ export function search(collection, params = {}) {
   }
 }
 
+// Create a reference to performTextSearch that we can use for mocking in tests
+export const _performTextSearch = performTextSearch;
+
 export default {
   buildQuery,
   normalizeFilters,
@@ -374,5 +386,6 @@ export default {
   sortResults,
   paginateResults,
   transformResults,
+  performTextSearch,
   search
 };

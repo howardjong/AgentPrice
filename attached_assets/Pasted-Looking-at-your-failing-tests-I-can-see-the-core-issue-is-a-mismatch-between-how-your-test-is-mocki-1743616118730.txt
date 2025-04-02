@@ -1,0 +1,242 @@
+Looking at your failing tests, I can see the core issue is a mismatch between how your test is mocking functionality and how the actual implementation works. Let me suggest several practical solutions, ranging from quick fixes to more robust architectural improvements.
+
+## Understanding the Problem
+
+The key issue is that your test is mocking `applyFilters()`, but the actual search implementation performs text filtering *before* calling `applyFilters()`. This means your mock function isn't affecting the results as expected.
+
+## Solution Options
+
+**1. Extract the Text Search into a Separate Function**
+
+This makes the code more testable with minimal changes:
+
+```javascript
+// New function in searchUtils.js
+export function performTextSearch(collection, searchText) {
+  if (!searchText) return collection;
+  
+  return collection.filter(item => {
+    const lowerSearchText = searchText.toLowerCase();
+    const titleMatch = item.title && item.title.toLowerCase().includes(lowerSearchText);
+    const contentMatch = item.content && item.content.toLowerCase().includes(lowerSearchText);
+    const descriptionMatch = item.description && item.description.toLowerCase().includes(lowerSearchText);
+    return titleMatch || contentMatch || descriptionMatch;
+  });
+}
+
+// Modify search function to use the new function
+export function search(collection, params = {}) {
+  try {
+    const searchQuery = buildQuery(params);
+    
+    // Use the extracted function
+    let filteredItems = performTextSearch(collection, searchQuery.searchText);
+    
+    // Then apply filters
+    filteredItems = applyFilters(filteredItems, searchQuery.filters);
+    
+    // Rest of the function remains unchanged...
+```
+
+Then update your test to mock this new function:
+
+```javascript
+it('should perform basic search with all defaults', () => {
+  // Mock the text search function instead of applyFilters
+  vi.spyOn(searchUtils, 'performTextSearch').mockImplementation(() => {
+    // Return only items with IDs 1 and 4
+    return testCollection.filter(item => item.id === '1' || item.id === '4');
+  });
+  
+  const result = searchUtils.search(testCollection, { 
+    query: 'machine learning',
+    strictValidation: false
+  });
+  
+  expect(result.results).toHaveLength(2);
+  expect(result.results.map(item => item.id)).toContain('1');
+  expect(result.results.map(item => item.id)).toContain('4');
+  expect(result.pagination.total).toBe(2);
+  
+  // Restore the original implementation
+  searchUtils.performTextSearch.mockRestore();
+});
+```
+
+**2. Add a Testing Backdoor Parameter**
+
+This is a quick solution that requires minimal code changes:
+
+```javascript
+export function search(collection, params = {}) {
+  try {
+    const searchQuery = buildQuery(params);
+    
+    let filteredItems = collection;
+    // Skip text search if special testing flag is present
+    if (!params._testingSkipTextSearch && searchQuery.searchText) {
+      filteredItems = collection.filter(item => {
+        // Text search logic remains the same
+        const searchText = searchQuery.searchText.toLowerCase();
+        const titleMatch = item.title && item.title.toLowerCase().includes(searchText);
+        const contentMatch = item.content && item.content.toLowerCase().includes(searchText);
+        const descriptionMatch = item.description && item.description.toLowerCase().includes(searchText);
+        return titleMatch || contentMatch || descriptionMatch;
+      });
+    }
+    
+    // Then apply filters
+    filteredItems = applyFilters(filteredItems, searchQuery.filters);
+    
+    // Rest of function remains unchanged...
+```
+
+Then in your test:
+
+```javascript
+it('should perform basic search with all defaults', () => {
+  // Mock the applyFilters function as before
+  vi.spyOn(searchUtils, 'applyFilters').mockImplementation((items) => {
+    // Return only items with IDs 1 and 4
+    return items.filter(item => item.id === '1' || item.id === '4');
+  });
+  
+  const result = searchUtils.search(testCollection, { 
+    query: 'machine learning',
+    strictValidation: false,
+    _testingSkipTextSearch: true // Skip text search for testing
+  });
+  
+  expect(result.results).toHaveLength(2);
+  // Rest of assertions remain the same...
+  
+  searchUtils.applyFilters.mockRestore();
+});
+```
+
+**3. Implement Dependency Injection**
+
+This is the most robust approach for larger applications:
+
+```javascript
+export function search(
+  collection, 
+  params = {}, 
+  deps = {
+    textSearchFn: null,
+    filterFn: null,
+    sortFn: null,
+    paginateFn: null,
+    transformFn: null
+  }
+) {
+  try {
+    // Build the query
+    const searchQuery = buildQuery(params);
+    
+    // Apply text search using injected function or default
+    let filteredItems = collection;
+    if (searchQuery.searchText) {
+      if (deps.textSearchFn) {
+        filteredItems = deps.textSearchFn(collection, searchQuery.searchText);
+      } else {
+        filteredItems = collection.filter(item => {
+          // Default text search logic
+          const searchText = searchQuery.searchText.toLowerCase();
+          const titleMatch = item.title && item.title.toLowerCase().includes(searchText);
+          const contentMatch = item.content && item.content.toLowerCase().includes(searchText);
+          const descriptionMatch = item.description && item.description.toLowerCase().includes(searchText);
+          return titleMatch || contentMatch || descriptionMatch;
+        });
+      }
+    }
+    
+    // Apply filters using injected function or default
+    filteredItems = deps.filterFn ? 
+      deps.filterFn(filteredItems, searchQuery.filters) : 
+      applyFilters(filteredItems, searchQuery.filters);
+    
+    // Rest of function using injected versions or defaults...
+```
+
+Then in your test:
+
+```javascript
+it('should perform basic search with all defaults', () => {
+  // Create mock functions for testing
+  const mockTextSearch = vi.fn(() => testCollection);
+  const mockFilter = vi.fn(() => 
+    testCollection.filter(item => item.id === '1' || item.id === '4')
+  );
+  
+  const result = searchUtils.search(
+    testCollection, 
+    { 
+      query: 'machine learning',
+      strictValidation: false
+    },
+    {
+      textSearchFn: mockTextSearch,
+      filterFn: mockFilter
+    }
+  );
+  
+  expect(result.results).toHaveLength(2);
+  expect(mockTextSearch).toHaveBeenCalled();
+  expect(mockFilter).toHaveBeenCalled();
+  // Rest of assertions...
+});
+```
+
+**4. Update the Test to Match Realistic Data**
+
+Instead of mocking functions, prepare test data that matches the expected search behavior:
+
+```javascript
+it('should perform basic search with all defaults', () => {
+  // Create test collection that would actually match the search
+  const testData = [
+    { 
+      id: '1', 
+      title: 'Introduction to Machine Learning',
+      content: 'Learn about ML algorithms' 
+    },
+    { 
+      id: '2', 
+      title: 'JavaScript Basics',
+      content: 'Programming fundamentals'
+    },
+    { 
+      id: '3', 
+      title: 'Web Development',
+      content: 'Frontend frameworks'
+    },
+    { 
+      id: '4', 
+      title: 'Advanced Machine Learning',
+      content: 'Deep neural networks'
+    }
+  ];
+  
+  const result = searchUtils.search(testData, { 
+    query: 'machine learning',
+    strictValidation: false
+  });
+  
+  expect(result.results).toHaveLength(2);
+  expect(result.results.map(item => item.id)).toContain('1');
+  expect(result.results.map(item => item.id)).toContain('4');
+  expect(result.pagination.total).toBe(2);
+});
+```
+
+## Recommendation
+
+For a quick fix, I recommend the **Extract Text Search Function** approach (option 1). It's clean, maintains good separation of concerns, and requires minimal changes while making your code more testable.
+
+For larger-scale applications or if you anticipate more complex testing scenarios, the **Dependency Injection** approach (option 3) provides the most flexibility while also improving the overall architecture.
+
+Both approaches work well with your Node.js ES modules setup and should integrate smoothly with Vitest, Nock, and Socket.io in your Replit environment.
+
+---
+Answer from Perplexity: pplx.ai/share
