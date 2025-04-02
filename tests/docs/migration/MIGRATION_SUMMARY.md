@@ -44,10 +44,11 @@ This document summarizes the migration of our test suite from Jest to Vitest, co
 
 ## Service-Specific Improvements
 
-### Anthropic Service Tests
+### Claude Service Tests
 - Created structured test for claude-3-7-sonnet model
 - Added specific tests for chart data generation
 - Improved error handling tests
+- Consolidated from multiple service files to a single claudeService.js implementation
 
 ### Perplexity Service Tests
 - Implemented tests for all supported research modes
