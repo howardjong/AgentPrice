@@ -41,10 +41,20 @@ The system uses two primary LLM services:
 
 ## Testing
 
-- Full test suite using Vitest
+- Full test suite using Vitest (migrated from Jest)
 - Unit tests for all services and utilities
 - Integration tests for workflow verification
 - Manual test scripts for specific workflows
+- WebSocket event handler testing with event-driven patterns
+
+### Testing Documentation
+
+Detailed documentation has been created to explain testing patterns and improvements:
+
+- [WebHook Event Handler Testing Improvements](docs/WEBHOOK_EVENT_HANDLER_TESTING_IMPROVEMENTS.md) - Best practices for Socket.IO testing
+- [Context Manager Coverage Report](docs/CONTEXT_MANAGER_COVERAGE_REPORT.md) - Coverage improvement strategies
+- [Prompt Manager Test Fixes](docs/PROMPT_MANAGER_TEST_FIXES.md) - Fixes for flaky prompt manager tests
+- [Circuit Breaker Testing Patterns](docs/CIRCUIT_BREAKER_TESTING_PATTERNS.md) - Deterministic testing patterns
 
 ## Usage Guidelines
 
