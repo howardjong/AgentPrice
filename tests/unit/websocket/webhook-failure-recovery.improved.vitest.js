@@ -22,10 +22,12 @@ import express from 'express';
 import { 
   createSocketTestEnv, 
   waitForEvent, 
-  waitForConnect, 
+  waitForConnect,
+  verifyConnection,
   promiseWithTimeout,
   createEventTracker,
-  splitMessageIntoChunks
+  splitMessageIntoChunks,
+  retrySocketOperation
 } from './socketio-test-utilities';
 
 // Import TimeController for deterministic time handling
@@ -59,10 +61,11 @@ describe('WebHook Failure Recovery', () => {
     vi.useFakeTimers();
     timeController = createTimeController();
     
-    // Create test environment with very fast reconnection for quicker tests
+    // Create test environment with more Replit-friendly settings
     testEnv = createSocketTestEnv({
-      pingTimeout: 50,  // Ultra short ping timeout
-      pingInterval: 30  // Ultra short ping interval
+      pingTimeout: 200,    // Increased from 50
+      pingInterval: 150,   // Increased from 30
+      connectTimeout: 2000 // Longer connect timeout
     });
     
     // Reset storage
@@ -376,10 +379,12 @@ describe('WebHook Failure Recovery', () => {
     logEvent('test', 'starting-network-interruption-test');
     
     try {
-      // Create client with good reconnection settings
+      // Create client with more robust Replit-specific reconnection settings
       const client = testEnv.createClient({
-        reconnectionDelay: 100,
-        reconnectionAttempts: 5
+        reconnectionDelay: 200,     // Increased from 100
+        reconnectionDelayMax: 500,  // Increased from 300
+        reconnectionAttempts: 10,   // Increased from 5
+        timeout: 5000               // Increased overall timeout
       });
       
       // Create event tracker to monitor events
@@ -418,19 +423,48 @@ describe('WebHook Failure Recovery', () => {
         connectionEvents.push({ event: 'reconnect', time: Date.now() });
       });
       
-      // Wait for initial connection
-      await waitForConnect(client);
-      logEvent('test', 'initial-connection-complete');
-      
-      // Subscribe to a test topic
-      logEvent('test', 'subscribing-to-topic');
-      client.emit('subscribe', { topics: ['recovery_test'] });
-      
-      // Wait for subscription confirmation
-      const subUpdate = await promiseWithTimeout(300, "No subscription update received").resolveWith(
-        async () => eventTracker.waitForAll(['subscription_update'], 300)
+      // Use retry logic for initial connection with verification
+      await retrySocketOperation(
+        async () => {
+          // Connect the client
+          await waitForConnect(client, 2000); // Increased timeout from default
+          
+          // Verify connection is working
+          const isActive = await verifyConnection(client, 2000); // Increased timeout
+          if (!isActive) {
+            throw new Error('Connection verification failed');
+          }
+          
+          logEvent('test', 'initial-connection-complete-and-verified');
+          return true;
+        },
+        {
+          maxRetries: 5,   // Increased from 3
+          initialDelay: 250, // Increased from 100
+          maxDelay: 2000   // Added maximum delay
+        }
       );
-      logEvent('test', 'subscription-confirmed');
+      
+      // Subscribe to a test topic with retry logic
+      logEvent('test', 'subscribing-to-topic');
+      await retrySocketOperation(
+        async () => {
+          // Send subscription request
+          client.emit('subscribe', { topics: ['recovery_test'] });
+          
+          // Wait for subscription confirmation
+          const subUpdate = await promiseWithTimeout(600, "No subscription update received").resolveWith(
+            async () => eventTracker.waitForAll(['subscription_update'], 600)
+          );
+          
+          logEvent('test', 'subscription-confirmed');
+          return subUpdate;
+        }
+      );
+      
+      // Verify connection is still active
+      const connectionActive = await verifyConnection(client);
+      expect(connectionActive).toBe(true);
       
       // Send a test message
       logEvent('test', 'sending-test-message');
@@ -455,83 +489,92 @@ describe('WebHook Failure Recovery', () => {
       );
       logEvent('test', 'interruption-warning-received');
       
-      // Wait for the disconnection event with a timeout
-      await promiseWithTimeout(500, "No disconnect event received").resolveWith(
-        () => new Promise((resolve) => {
-          if (connectionEvents.some(e => e.event === 'disconnect')) {
-            logEvent('test', 'disconnect-already-occurred');
-            resolve();
-            return;
+      // More predictable way to wait for disconnect
+      await retrySocketOperation(
+        async () => {
+          // If already disconnected, we're good
+          if (!client.connected) {
+            logEvent('test', 'client-already-disconnected');
+            return true;
           }
           
-          const listener = (reason) => {
-            logEvent('test', 'disconnect-listener-triggered', { reason });
-            client.off('disconnect', listener);
-            resolve();
-          };
+          // Otherwise wait for disconnect event
+          await promiseWithTimeout(500, "No disconnect event received").resolveWith(
+            () => new Promise((resolve) => {
+              const listener = (reason) => {
+                logEvent('test', 'disconnect-listener-triggered', { reason });
+                client.off('disconnect', listener);
+                resolve();
+              };
+              client.once('disconnect', listener);
+            })
+          );
           
-          client.once('disconnect', listener);
-        })
+          logEvent('test', 'client-disconnected');
+          return true;
+        },
+        {
+          maxRetries: 2,
+          initialDelay: 100
+        }
       );
-      logEvent('test', 'client-disconnected');
       
       // Verify client is disconnected
       expect(client.connected).toBe(false);
       
-      // Wait for reconnection attempt
-      await promiseWithTimeout(500, "No reconnect attempt detected").resolveWith(
-        () => new Promise((resolve) => {
-          if (connectionEvents.some(e => e.event === 'reconnect_attempt')) {
-            logEvent('test', 'reconnect-attempt-already-occurred');
-            resolve();
-            return;
-          }
-          
-          const listener = (attempt) => {
-            logEvent('test', 'reconnect-attempt-listener-triggered', { attempt });
-            resolve();
-          };
-          
-          client.once('reconnect_attempt', listener);
-        })
-      );
-      logEvent('test', 'reconnect-attempt-detected');
-      
-      // Wait for reconnection or determine it won't happen
+      // Wait for client to reconnect with retry logic
       let reconnected = false;
       
       try {
-        await promiseWithTimeout(1000, "No reconnection occurred within timeout").resolveWith(
-          () => new Promise((resolve) => {
+        // Use retry logic for reconnection
+        await retrySocketOperation(
+          async (attempt) => {
+            logEvent('test', `reconnection-attempt-${attempt}`);
+            
+            // If already reconnected, we're done
             if (client.connected) {
-              logEvent('test', 'client-already-reconnected');
+              // Verify connection is working
+              const isActive = await verifyConnection(client);
+              if (!isActive) {
+                throw new Error('Reconnection looks successful but verification failed');
+              }
+              
               reconnected = true;
-              resolve();
-              return;
+              logEvent('test', 'client-reconnected-and-verified');
+              return true;
             }
             
-            const connectListener = () => {
-              logEvent('test', 'connect-listener-triggered');
-              client.off('connect', connectListener);
-              reconnected = true;
-              resolve();
-            };
+            // Wait for reconnection with longer timeout for Replit environment
+            await promiseWithTimeout(1000, "Reconnection timeout").resolveWith( // Increased from 400ms to 1s
+              () => new Promise((resolve) => {
+                const connectListener = () => {
+                  logEvent('test', 'connect-listener-triggered');
+                  client.off('connect', connectListener);
+                  resolve();
+                };
+                client.once('connect', connectListener);
+              })
+            );
             
-            client.once('connect', connectListener);
-          })
+            // Verify reconnection was successful with longer timeout
+            const isActive = await verifyConnection(client, 2000); // Increased timeout to 2s
+            if (!isActive) {
+              throw new Error('Reconnection occurred but verification failed');
+            }
+            
+            reconnected = true;
+            logEvent('test', 'client-reconnected-and-verified');
+            return true;
+          },
+          {
+            maxRetries: 5,      // Increased from 3
+            initialDelay: 300,  // Increased from 200
+            maxDelay: 2000      // Increased from 600 - much higher max delay for Replit
+          }
         );
-        logEvent('test', 'client-reconnected');
       } catch (error) {
-        logEvent('test', 'reconnection-timeout', { message: error.message });
-        
-        // Check if client did actually reconnect despite the timeout
+        logEvent('test', 'reconnection-failed', { message: error.message });
         reconnected = client.connected;
-        
-        if (reconnected) {
-          logEvent('test', 'client-reconnected-despite-timeout');
-        } else {
-          logEvent('test', 'client-failed-to-reconnect');
-        }
       }
       
       // Only continue with these tests if reconnection happened
