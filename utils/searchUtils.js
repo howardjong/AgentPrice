@@ -315,13 +315,19 @@ export function transformResults(items, options = {}) {
  */
 export function performTextSearch(collection, searchText) {
   if (!collection) return [];
+  if (!Array.isArray(collection)) return [];
   if (!searchText) return collection;
   
   const lowerSearchText = searchText.toLowerCase();
   return collection.filter(item => {
-    const titleMatch = item.title && item.title.toLowerCase().includes(lowerSearchText);
-    const contentMatch = item.content && item.content.toLowerCase().includes(lowerSearchText);
-    const descriptionMatch = item.description && item.description.toLowerCase().includes(lowerSearchText);
+    if (!item) return false;
+    
+    const titleMatch = item.title && typeof item.title === 'string' && 
+                       item.title.toLowerCase().includes(lowerSearchText);
+    const contentMatch = item.content && typeof item.content === 'string' && 
+                         item.content.toLowerCase().includes(lowerSearchText);
+    const descriptionMatch = item.description && typeof item.description === 'string' && 
+                             item.description.toLowerCase().includes(lowerSearchText);
     return titleMatch || contentMatch || descriptionMatch;
   });
 }
