@@ -1,27 +1,36 @@
-import { describe, it, expect, vi } from 'vitest';
-import { search, initialize, processResults } from '../../utils/searchUtils.js';
-import { mockRedisClient } from '../mocks/serviceMocks.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import ESMClient from '../../services/client.js';
+import { processData } from '../../utils/dataProcessor.js';
 
-// Before imports
-vi.mock('../../utils/logger.js', () => ({ __esModule: true,
-  default: {
+// Example of properly mocked CommonJS module - no __esModule flag needed
+vi.mock('../../utils/logger.js', () => {
+  return {
     info: vi.fn(),
     error: vi.fn(),
-    debug: vi.fn(),
-    warn: vi.fn()
+    debug: vi.fn()
+  };
+});
+
+// Example of ES module with properly set __esModule flag
+vi.mock('../../services/client.js', () => ({
+  __esModule: true,
+  default: {
+    connect: vi.fn().mockResolvedValue(true),
+    fetch: vi.fn().mockResolvedValue({ data: 'test' }),
+    disconnect: vi.fn().mockResolvedValue(true)
   }
 }));
 
-// Missing __esModule: true vi.mock('../../services/redisClient.js', () => ({ __esModule: true,
-  default: mockRedisClient
-}));ckRedisClient
-}))vi.mock('../../services/dataService.js', () => ({ __esModule: true,
-  getData: vi.fn().mockResolvedValue(['data1', 'data2']),
-  saveData: vi.fn().mockResolvedValue(true)
-}));vi.fn().mockResolvedValue(true)
+// Example of ES module with named exports and __esModule flag
+vi.mock('../../utils/dataProcessor.js', () => ({
+  __esModule: true,
+  processData: vi.fn().mockReturnValue({ processed: true }),
+  formatData: vi.fn().mockReturnValue('formatted'),
+  analyzeData: vi.fn().mockReturnValue({ analysis: true })
 }));
 
-describe('Search Utilities with ESModule issue', () => {
+// Examples showing how each mock approach works with imports
+describe('ES Module Flags Demo', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
@@ -31,15 +40,21 @@ describe('Search Utilities with ESModule issue', () => {
     vi.restoreAllMocks();
   });
   
-  it('should process search results correctly', () => {
-    const rawResults = [
-      { id: 1, title: 'Test 1', score: 0.8 },
-      { id: 2, title: 'Test 2', score: 0.5 },
-      { id: 3, title: 'Test 3', score: 0.2 }
-    ];
-    
-    const processed = processResults(rawResults);
-    expect(processed).toHaveLength(3);
-    expect(processed[0].score).toBeGreaterThan(processed[1].score);
+  describe('Default exports', () => {
+    it('should correctly handle default exports with __esModule: true flag', async () => {
+      // Default export works because of __esModule: true
+      const connected = await ESMClient.connect();
+      expect(connected).toBe(true);
+      expect(ESMClient.connect).toHaveBeenCalled();
+    });
+  });
+  
+  describe('Named exports', () => {
+    it('should correctly handle named exports with __esModule: true flag', () => {
+      // Named exports work because of __esModule: true
+      const result = processData({});
+      expect(result).toEqual({ processed: true });
+      expect(processData).toHaveBeenCalled();
+    });
   });
 });

@@ -11,12 +11,7 @@
 
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { glob } from 'glob';
-
-// Current file directory
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 /**
  * Fix ES module flags in a test file
@@ -24,170 +19,123 @@ const __dirname = path.dirname(__filename);
 async function fixFile(filePath) {
   console.log(`Analyzing ${filePath}...`);
   
-  // Read the file content
-  let content = await fs.readFile(filePath, 'utf8');
+  // Read the file
+  const content = await fs.readFile(filePath, 'utf8');
   const originalContent = content;
-  let changes = [];
+  const changes = [];
   
-  // Check if file uses vi.mock
-  if (!content.includes('vi.mock(')) {
-    console.log(`No vi.mock() calls found in ${filePath}, skipping.`);
-    return false;
-  }
+  // Find all vi.mock statements
+  const mockStatements = [];
+  let currentIndex = 0;
   
-  // We need more precise detection rather than simple string includes
-  
-  // Look for ES module style mocks (using default: or named exports)
-  const mockBlocks = [];
-  let mockStartIndex = 0;
-  let inMockBlock = false;
-  let openBraces = 0;
-  let currentBlock = '';
-  let mockPath = '';
-  
-  // Try several regex patterns to find all vi.mock blocks
-  // Pattern 1: Regular vi.mock with function body - vi.mock('path', () => { ... });
-  const mockRegexBody = /vi\.mock\((['"])(.+?)\1(?:,\s*(?:{.*?})?)?,\s*\(\)\s*=>\s*\{([\s\S]*?)\}\);/g;
-  let match;
-  
-  while ((match = mockRegexBody.exec(content)) !== null) {
-    const mockPath = match[2];
-    const mockContent = match[0];
-    const mockStartIndex = match.index;
-    const mockEndIndex = mockStartIndex + mockContent.length;
+  // Search the file for vi.mock() calls
+  while (true) {
+    const startIndex = content.indexOf('vi.mock(', currentIndex);
+    if (startIndex === -1) break;
     
-    mockBlocks.push({
-      path: mockPath,
-      content: mockContent,
-      startIndex: mockStartIndex,
-      endIndex: mockEndIndex,
-      innerContent: match[3] || ''
-    });
+    // Find the matching closing parenthesis by tracking parentheses balance
+    let parenCount = 1;
+    let endIndex = startIndex + 8; // Skip 'vi.mock('
+    let inString = false;
+    let stringChar = '';
     
-    console.log(`[Pattern 1] Found mock for ${mockPath}`);
-  }
-  
-  // Pattern 2: Shorthand vi.mock with object - vi.mock('path', () => ({ ... }));
-  const mockRegexObject = /vi\.mock\((['"])(.+?)\1(?:,\s*(?:{.*?})?)?,\s*\(\)\s*=>\s*\(\{([\s\S]*?)}\)\);/g;
-  
-  while ((match = mockRegexObject.exec(content)) !== null) {
-    // Skip if this section was already matched by the first pattern
-    let alreadyMatched = false;
-    
-    for (const block of mockBlocks) {
-      if (match.index >= block.startIndex && match.index < block.endIndex) {
-        alreadyMatched = true;
-        break;
+    while (parenCount > 0 && endIndex < content.length) {
+      const char = content[endIndex];
+      
+      // Handle strings to avoid counting parens inside strings
+      if ((char === "'" || char === '"') && 
+          (endIndex === 0 || content[endIndex - 1] !== '\\')) {
+        if (!inString) {
+          inString = true;
+          stringChar = char;
+        } else if (stringChar === char) {
+          inString = false;
+        }
       }
+      
+      // Only count parens when not in a string
+      if (!inString) {
+        if (char === '(') parenCount++;
+        else if (char === ')') parenCount--;
+      }
+      
+      endIndex++;
     }
     
-    if (!alreadyMatched) {
-      const mockPath = match[2];
-      const mockContent = match[0];
-      const mockStartIndex = match.index;
-      const mockEndIndex = mockStartIndex + mockContent.length;
+    if (parenCount === 0) {
+      // Complete vi.mock statement found
+      const fullStatement = content.substring(startIndex, endIndex);
       
-      mockBlocks.push({
-        path: mockPath,
-        content: mockContent,
-        startIndex: mockStartIndex,
-        endIndex: mockEndIndex,
-        innerContent: match[3] || ''
+      // Extract module path
+      const modulePathMatch = fullStatement.match(/vi\.mock\(['"]([^'"]+)['"]/);
+      const modulePath = modulePathMatch ? modulePathMatch[1] : 'unknown';
+      
+      // Check for ES module style mocks (object literals)
+      const hasObjectLiteral = fullStatement.includes(' => ({') || 
+                               fullStatement.includes('return {');
+      
+      // Check if __esModule flag is already present
+      const hasEsModuleFlag = fullStatement.includes('__esModule: true');
+      
+      mockStatements.push({
+        path: modulePath,
+        content: fullStatement,
+        startIndex,
+        endIndex,
+        hasObjectLiteral,
+        hasEsModuleFlag
       });
       
-      console.log(`[Pattern 2] Found mock for ${mockPath}`);
-    }
-  }
-  
-  // Pattern 3: Simple mock with no options - vi.mock('path');
-  const mockRegexSimple = /vi\.mock\((['"])(.+?)\1\);/g;
-  
-  while ((match = mockRegexSimple.exec(content)) !== null) {
-    // Skip if this section was already matched by previous patterns
-    let alreadyMatched = false;
-    
-    for (const block of mockBlocks) {
-      if (match.index >= block.startIndex && match.index < block.endIndex) {
-        alreadyMatched = true;
-        break;
-      }
+      console.log(`Found vi.mock for ${modulePath}`);
     }
     
-    if (!alreadyMatched) {
-      const mockPath = match[2];
-      const mockContent = match[0];
-      const mockStartIndex = match.index;
-      const mockEndIndex = mockStartIndex + mockContent.length;
-      
-      mockBlocks.push({
-        path: mockPath,
-        content: mockContent,
-        startIndex: mockStartIndex,
-        endIndex: mockEndIndex,
-        innerContent: ''
-      });
-      
-      console.log(`[Pattern 3] Found simple mock for ${mockPath}`);
-    }
+    currentIndex = startIndex + 8; // Move past 'vi.mock('
   }
   
-  // Second pass: Check each block and add __esModule flag if needed
+  // Filter to get only ES module style mocks missing the __esModule flag
+  const blocksThatNeedFixes = mockStatements.filter(mock => 
+    mock.hasObjectLiteral && !mock.hasEsModuleFlag
+  );
+  
+  // Fix each block that needs the __esModule flag
   let newContent = content;
-  let offset = 0; // Track offset from insertions
+  let offset = 0; // Track position offset from earlier replacements
   
-  for (const block of mockBlocks) {
-    // For vi.mock blocks using arrow functions with direct object returns
-    // vi.mock('module', () => ({ ... }))
-    const arrowObjectPattern = /\(\)\s*=>\s*\(\{/;
+  for (const block of blocksThatNeedFixes) {
+    console.log(`Adding __esModule flag to mock for ${block.path}`);
     
-    // For vi.mock blocks using return statements
-    // vi.mock('module', () => { return { ... } })
-    const returnObjectPattern = /\(\)\s*=>\s*\{[\s\S]*?return\s*\{/;
+    let modifiedContent;
     
-    const isESModule = arrowObjectPattern.test(block.content) || returnObjectPattern.test(block.content);
-    const hasEsModuleFlag = block.content.includes('__esModule: true');
+    // Targeted approach based on the mock pattern
+    if (block.content.includes(' => ({')) {
+      // Arrow function with object literal: vi.mock('path', () => ({ ... }))
+      modifiedContent = block.content.replace(
+        /(\(\)\s*=>\s*\(\{)/,
+        '$1\n  __esModule: true,'
+      );
+    } else if (block.content.includes('return {')) {
+      // Function with return statement: vi.mock('path', () => { return { ... } })
+      modifiedContent = block.content.replace(
+        /(return\s*\{)/,
+        '$1\n  __esModule: true,'
+      );
+    }
     
-    console.log(`Mock block for ${block.path}:`);
-    console.log(`- isESModule: ${isESModule}`);
-    console.log(`- hasEsModuleFlag: ${hasEsModuleFlag}`);
-    console.log(`- pattern matches: arrow=${arrowObjectPattern.test(block.content)}, return=${returnObjectPattern.test(block.content)}`);
-    console.log(`- mock content snippet: ${block.content.substring(0, 100)}...`);
-    
-    // Only add flag if it's an ES module style mock and doesn't already have the flag
-    if (isESModule && !hasEsModuleFlag) {
-      console.log(`Adding __esModule flag to mock for ${block.path}`);
+    if (modifiedContent && modifiedContent !== block.content) {
+      // Update the content with the modified mock
+      const adjustedStartIndex = block.startIndex + offset;
+      newContent = newContent.slice(0, adjustedStartIndex) + 
+                  modifiedContent + 
+                  newContent.slice(adjustedStartIndex + block.content.length);
       
-      let modifiedContent;
+      // Adjust offset for subsequent replacements
+      offset += modifiedContent.length - block.content.length;
       
-      if (arrowObjectPattern.test(block.content)) {
-        // Arrow function with direct object return: vi.mock('module', () => ({ ... }))
-        modifiedContent = block.content.replace(
-          /\(\)\s*=>\s*\(\{/,
-          '() => ({ __esModule: true,'
-        );
-      } else if (returnObjectPattern.test(block.content)) {
-        // Function with return statement: vi.mock('module', () => { return { ... } })
-        modifiedContent = block.content.replace(
-          /(return\s*\{)/,
-          '$1 __esModule: true,'
-        );
-      }
-      
-      if (modifiedContent && modifiedContent !== block.content) {
-        // Replace the entire mock block
-        newContent = newContent.slice(0, block.startIndex) + 
-                    modifiedContent + 
-                    newContent.slice(block.endIndex);
-        
-        // Adjust offset for subsequent replacements
-        offset += modifiedContent.length - block.content.length;
-        
-        changes.push(`Added __esModule flag to mock for ${block.path}`);
-      }
+      changes.push(`Added __esModule flag to mock for ${block.path}`);
     }
   }
   
-  // Only write the file if changes were made
+  // Save changes if any were made
   if (newContent !== originalContent) {
     console.log(`✅ Applied fixes to ${filePath}:`);
     changes.forEach(change => console.log(`  - ${change}`));
@@ -217,7 +165,7 @@ async function main() {
     } else {
       // Process all Vitest test files
       console.log('No specific file provided. Scanning all test files...');
-      files = await glob('tests/**/*.vitest.js', { windowsPathsNoEscape: true });
+      files = await glob('tests/**/*.vitest.js');
     }
     
     // Stats
