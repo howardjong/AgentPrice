@@ -2,7 +2,7 @@
 /**
  * Performance monitoring utility to track resource usage and API calls
  */
-import logger from './logger.js';
+const logger = require('./logger.js').default;
 
 class PerformanceMonitor {
   constructor() {
@@ -229,4 +229,4 @@ class PerformanceMonitor {
 }
 
 const performanceMonitor = new PerformanceMonitor();
-export default performanceMonitor;
+module.exports = { default: performanceMonitor };

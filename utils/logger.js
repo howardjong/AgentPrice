@@ -5,7 +5,7 @@
  * and structured logging capabilities.
  */
 
-import winston from 'winston';
+const winston = require('winston');
 
 // Define log levels and colors
 const logLevels = {
@@ -82,4 +82,4 @@ logger.configure = (options = {}) => {
   }
 };
 
-export default logger;
+module.exports = { default: logger };

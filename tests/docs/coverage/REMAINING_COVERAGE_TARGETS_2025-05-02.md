@@ -1,0 +1,148 @@
+# Remaining Coverage Targets - May 2, 2025
+
+## Overview
+
+This document outlines the modules that still have test coverage below our 80% target and provides a prioritized action plan for addressing these gaps. With our core API routes, WebSocket, and LLM service components now meeting or exceeding the 80% coverage target, we can focus on these remaining modules to achieve comprehensive test coverage across the entire application.
+
+## Current Coverage Status
+
+| Module | Current Coverage | Target | Gap | Priority |
+|--------|------------------|--------|-----|----------|
+| Analytics Service | 65% | 80% | 15% | 🔴 High |
+| Search Utilities | 60% | 80% | 20% | 🔴 High |
+| Database Migration | 70% | 80% | 10% | 🟡 Medium |
+| Authentication Service | 75% | 80% | 5% | 🟡 Medium |
+| Notification System | 70% | 80% | 10% | 🟡 Medium |
+
+## Prioritized Action Plan
+
+### 1. Analytics Service (High Priority)
+
+**Coverage Gap:** 15%
+
+**Key Missing Tests:**
+- Report generation functions
+- Data aggregation utilities
+- Export functionality
+- Dashboard data processing
+- Time-series analysis functions
+
+**Approach:**
+1. Create dedicated test files focusing on each major feature
+2. Implement comprehensive mocks for database interactions
+3. Use sample datasets for predictable test results
+4. Test various time ranges and data configurations
+5. Apply the same test isolation patterns used successfully in API endpoints
+
+**Timeline:** Target completion by May 10, 2025
+
+**Dependencies:** None, can be started immediately
+
+### 2. Search Utilities (High Priority)
+
+**Coverage Gap:** 20%
+
+**Key Missing Tests:**
+- Advanced query builders
+- Filter combinations
+- Sorting functionality
+- Pagination logic
+- Search result transformers
+
+**Approach:**
+1. Create a comprehensive test suite covering all search patterns
+2. Use mock data repositories for consistent search results
+3. Test edge cases (empty results, malformed queries)
+4. Verify correct application of filters and sorting
+5. Test performance with larger datasets
+
+**Timeline:** Target completion by May 12, 2025
+
+**Dependencies:** None, can be started immediately
+
+### 3. Database Migration (Medium Priority)
+
+**Coverage Gap:** 10%
+
+**Key Missing Tests:**
+- Schema evolution tests
+- Data transformation functions
+- Migration rollback scenarios
+- Error recovery during migrations
+- Version tracking logic
+
+**Approach:**
+1. Create an isolated test database for migration testing
+2. Test each migration step individually
+3. Verify data integrity before and after migrations
+4. Test rollback scenarios
+5. Verify error handling during failed migrations
+
+**Timeline:** Target completion by May 15, 2025
+
+**Dependencies:** Requires database test fixtures
+
+### 4. Authentication Service (Medium Priority)
+
+**Coverage Gap:** 5%
+
+**Key Missing Tests:**
+- Token refresh flows
+- Session expiration handling
+- Authentication failure scenarios
+- Permission validation
+- Multi-factor authentication paths
+
+**Approach:**
+1. Create comprehensive tests for token lifecycle
+2. Test various authentication failure scenarios
+3. Verify correct handling of expired sessions
+4. Test permission checks and authorization rules
+5. Implement mocks for external authentication providers
+
+**Timeline:** Target completion by May 18, 2025
+
+**Dependencies:** None, can be started immediately
+
+### 5. Notification System (Medium Priority)
+
+**Coverage Gap:** 10%
+
+**Key Missing Tests:**
+- Multiple notification channels (email, SMS, in-app)
+- Notification template rendering
+- Delivery status tracking
+- Rate limiting and batching
+- User preference handling
+
+**Approach:**
+1. Create mock providers for each notification channel
+2. Test template rendering with various data contexts
+3. Verify correct application of user preferences
+4. Test rate limiting and priority handling
+5. Verify delivery status tracking
+
+**Timeline:** Target completion by May 20, 2025
+
+**Dependencies:** None, can be started immediately
+
+## Testing Approaches
+
+Based on our success with previous modules, we will apply these proven testing patterns:
+
+1. **Dedicated Test Environments:** Create isolated test environments for each test scenario
+2. **Mock Implementations:** Use comprehensive mocks for external dependencies
+3. **Event-Driven Testing:** Replace time-based waits with event-driven coordination
+4. **Test Data Fixtures:** Create reusable test data sets for consistent results
+5. **Edge Case Coverage:** Explicitly test error paths and boundary conditions
+6. **Explicit Resource Cleanup:** Ensure all resources are properly released after tests
+
+## Progress Tracking
+
+We will track progress on these remaining modules using weekly coverage reports and will update this document as milestones are reached. Each module will have a dedicated coverage improvement document that details the specific approaches and patterns used to address the coverage gaps.
+
+## Conclusion
+
+With the majority of our critical components now meeting or exceeding the 80% coverage target, we are in an excellent position to complete the remaining coverage improvements ahead of schedule. The prioritized approach outlined in this document will help us systematically address the remaining gaps while maintaining our focus on test quality and reliability.
+
+By following this plan, we expect to have all modules at or above the 80% coverage target by the end of May 2025, which would be approximately three weeks ahead of our original timeline.
