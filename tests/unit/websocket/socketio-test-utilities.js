@@ -22,11 +22,14 @@ export function createSocketTestEnv(options = {}) {
   // Track active clients for cleanup
   const activeClients = new Set();
   
-  // Create Socket.IO server with provided options
+  // Create Socket.IO server with provided options and Replit-specific optimizations
   const io = new Server(server, {
     pingTimeout: options.pingTimeout || 500,
     pingInterval: options.pingInterval || 500,
     connectTimeout: options.connectTimeout || 1000,
+    // Enable fallback to polling for Replit environment
+    transports: ['websocket', 'polling'],
+    // Additional CORS for Replit environment
     cors: {
       origin: '*',
       methods: ['GET', 'POST']
@@ -38,13 +41,19 @@ export function createSocketTestEnv(options = {}) {
   let serverPort = 8000 + Math.floor(Math.random() * 1000);
   server.listen(serverPort);
   
-  // Create a method to create test clients
+  // Create a method to create test clients with Replit optimizations
   const createClient = (clientOptions = {}) => {
     const client = ioc(`http://localhost:${serverPort}`, {
       autoConnect: true,
+      // Use more aggressive reconnection settings for Replit (recommendation #4)
       reconnection: clientOptions.reconnection !== false,
-      reconnectionDelay: clientOptions.reconnectionDelay || 500,
-      reconnectionAttempts: clientOptions.reconnectionAttempts || 3,
+      reconnectionDelay: clientOptions.reconnectionDelay || 300,
+      reconnectionDelayMax: clientOptions.reconnectionDelayMax || 1000,
+      reconnectionAttempts: clientOptions.reconnectionAttempts || 5,
+      // Use both WebSocket and polling for Replit (recommendation #1)
+      transports: ['websocket', 'polling'],
+      // Optimize resource usage (recommendation #3)
+      timeout: 2500,
       forceNew: true,
       ...clientOptions
     });
@@ -52,8 +61,26 @@ export function createSocketTestEnv(options = {}) {
     // Track for cleanup
     activeClients.add(client);
     
+    // Implement a simple ping mechanism to verify connection is active
+    client.pingServer = () => {
+      if (client.connected) {
+        client.emit('ping');
+      }
+    };
+    
+    // Add cleanup method to client (simplified)
+    client.stopHeartbeat = () => {};
+    
+    // Ensure the original client object is returned
     return client;
   };
+  
+  // Set up server-side heartbeat handler (recommendation #2)
+  io.on('connection', (socket) => {
+    socket.on('ping', () => {
+      socket.emit('pong', { time: Date.now() });
+    });
+  });
   
   // Create a shutdown method for cleanup
   const shutdown = async () => {
@@ -77,7 +104,19 @@ export function createSocketTestEnv(options = {}) {
     // 1. Disconnect all clients
     steps.push('Disconnecting clients');
     
-    // Remove all event listeners from clients first to prevent feedback loops
+    // Stop all heartbeats first
+    for (const client of activeClients) {
+      if (client && typeof client.stopHeartbeat === 'function') {
+        try {
+          client.stopHeartbeat();
+          steps.push(`Stopped heartbeat for client ${client.id || 'unknown'}`);
+        } catch (err) {
+          steps.push(`Failed to stop heartbeat for client ${client.id || 'unknown'}: ${err.message}`);
+        }
+      }
+    }
+    
+    // Remove all event listeners from clients to prevent feedback loops
     for (const client of activeClients) {
       // Safety check since we might be in a partial state
       if (client && typeof client.offAny === 'function') {
@@ -263,6 +302,43 @@ export function waitForConnect(client, timeoutMs = 1000) {
 }
 
 /**
+ * Verify socket connection is still active using ping/pong
+ * @param {SocketIOClient.Socket} client - Socket.IO client
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @returns {Promise<boolean>} True if connection is active
+ */
+export function verifyConnection(client, timeoutMs = 500) {
+  return new Promise((resolve) => {
+    // If not connected, return false immediately
+    if (!client || !client.connected) {
+      resolve(false);
+      return;
+    }
+
+    // Try to get a pong response
+    let responded = false;
+    
+    // Setup one-time pong handler
+    const onPong = () => {
+      responded = true;
+      clearTimeout(timeout);
+      resolve(true);
+    };
+    
+    client.once('pong', onPong);
+    
+    // Send ping
+    client.pingServer();
+    
+    // Set timeout
+    const timeout = setTimeout(() => {
+      client.off('pong', onPong);
+      resolve(responded);
+    }, timeoutMs);
+  });
+}
+
+/**
  * Helper to add timeout to any promise
  * @param {number} ms - Timeout in milliseconds
  * @param {string} message - Timeout error message
@@ -432,4 +508,47 @@ export async function emitControlledSequence(eventEmitter, count, interval, even
       await new Promise(resolve => setTimeout(resolve, interval));
     }
   }
+}
+
+/**
+ * Retry a socket operation with exponential backoff
+ * @param {Function} operation - Async function to retry
+ * @param {Object} options - Retry options
+ * @param {number} options.maxRetries - Maximum number of retry attempts (default: 3)
+ * @param {number} options.initialDelay - Initial delay in ms (default: 100)
+ * @param {number} options.maxDelay - Maximum delay in ms (default: 1000)
+ * @param {Function} options.shouldRetry - Function to determine if retry should occur (default: retry on any error)
+ * @returns {Promise<any>} - Result of the operation
+ */
+export async function retrySocketOperation(operation, {
+  maxRetries = 3,
+  initialDelay = 100,
+  maxDelay = 1000,
+  shouldRetry = () => true
+} = {}) {
+  let lastError;
+  
+  for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+    try {
+      return await operation(attempt);
+    } catch (error) {
+      console.log(`Socket operation attempt ${attempt} failed: ${error.message}`);
+      lastError = error;
+      
+      if (attempt > maxRetries || !shouldRetry(error, attempt)) {
+        break;
+      }
+      
+      // Calculate backoff delay with jitter
+      const delay = Math.min(
+        initialDelay * Math.pow(1.5, attempt - 1) * (0.9 + Math.random() * 0.2),
+        maxDelay
+      );
+      
+      console.log(`Retrying in ${Math.round(delay)}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw lastError || new Error('Operation failed after retries');
 }
