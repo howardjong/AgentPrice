@@ -76,6 +76,9 @@ describe('System Monitoring WebSocket', () => {
   
   // Clean up all resources after each test
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     console.log('Cleaning up Socket.IO test environment...');
     if (testEnv) {
       await testEnv.shutdown();

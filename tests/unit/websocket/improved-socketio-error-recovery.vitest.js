@@ -17,6 +17,9 @@ describe('Socket.IO Error Recovery Mechanisms - Improved', () => {
   });
   
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     // Ensure all clients are disconnected first
     testEnv.disconnectAllClients();
     // Clean up server

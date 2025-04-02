@@ -113,4 +113,11 @@ describe('Bare Minimum Socket.IO Broadcasting', () => {
       throw e;
     }
   });
+  // Cleanup event listeners after each test
+  afterEach(() => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
+    mockClient?.removeAllListeners();
+  });
 });

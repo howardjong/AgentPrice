@@ -28,6 +28,9 @@ describe('WebSocket Reconnection', () => {
   });
   
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     if (testEnv) {
       await testEnv.shutdown();
     }

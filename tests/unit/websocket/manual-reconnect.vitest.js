@@ -19,6 +19,9 @@ describe('Socket.IO Manual Reconnection Test', () => {
   
   // Clean up after each test
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     try {
       await env.teardown();
     } catch (err) {

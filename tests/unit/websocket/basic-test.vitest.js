@@ -17,6 +17,9 @@ describe('Basic Socket.IO Connection Test', () => {
   
   // Clean up after each test
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     console.log("Tearing down test environment...");
     if (env) {
       await env.teardown();

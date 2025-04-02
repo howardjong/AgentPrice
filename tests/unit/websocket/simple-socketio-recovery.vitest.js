@@ -66,6 +66,9 @@ describe('Socket.IO Basic Error Recovery', () => {
   });
   
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     // Clean up
     await testEnv.shutdown();
     vi.clearAllMocks();

@@ -247,6 +247,9 @@ describe('WebHook Event Throttling', () => {
   });
   
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     // Clean up resources
     if (testEnv) {
       await testEnv.shutdown();

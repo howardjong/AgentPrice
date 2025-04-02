@@ -41,6 +41,9 @@ describe('WebSocket Basic Functionality', () => {
   });
   
   afterEach(() => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     return new Promise((resolve) => {
       wss.close(() => {
         server.close(() => {
@@ -193,6 +196,9 @@ describe('Minimal WebSocket Connectivity', () => {
   });
   
   afterEach(() => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     return new Promise((resolve) => {
       if (clientSocket) {
         clientSocket.close();

@@ -162,4 +162,11 @@ describe('WebSocket System Monitoring', () => {
     expect(shouldReceiveResearch).toBe(false);
     expect(shouldReceiveOptimization).toBe(true);
   });
+  // Cleanup event listeners after each test
+  afterEach(() => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
+    mockClient?.removeAllListeners();
+  });
 });

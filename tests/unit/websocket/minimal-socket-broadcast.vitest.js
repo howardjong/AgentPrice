@@ -56,6 +56,9 @@ describe('Minimal Socket.IO Broadcasting', () => {
   });
   
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     // Clean up clients
     for (const client of clientsToCleanup) {
       if (client && client.connected) {

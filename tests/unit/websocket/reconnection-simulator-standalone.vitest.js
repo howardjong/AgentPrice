@@ -317,4 +317,11 @@ describe('Socket.IO Reconnection Event Simulator', () => {
       throw err;
     }
   }, 60000); // 60 second timeout
+  // Cleanup event listeners after each test
+  afterEach(() => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
+    mockClient?.removeAllListeners();
+  });
 });

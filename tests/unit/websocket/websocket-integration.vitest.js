@@ -164,4 +164,11 @@ describe('WebSocket Integration with Express', () => {
     // Client 3 should not receive (connection closing)
     expect(client3.send).not.toHaveBeenCalled();
   });
+  // Cleanup event listeners after each test
+  afterEach(() => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
+    mockClient?.removeAllListeners();
+  });
 });

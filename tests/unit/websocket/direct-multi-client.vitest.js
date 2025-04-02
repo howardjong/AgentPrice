@@ -65,6 +65,9 @@ describe('Direct Multi-Client WebSocket Test', () => {
   });
   
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     // Clean up resources
     console.log('Cleaning up test resources...');
     

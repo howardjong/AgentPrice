@@ -73,6 +73,9 @@ describe('Minimal WebSocket Test', () => {
   });
   
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     // Ensure cleanup runs even if test fails
     if (env && env.cleanup) {
       await env.cleanup();

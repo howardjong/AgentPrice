@@ -67,6 +67,9 @@ describe('Socket.IO Basics', () => {
   });
   
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     await env.cleanup();
   });
   

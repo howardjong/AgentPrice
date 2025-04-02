@@ -74,6 +74,9 @@ describe('Minimal WebSocket Error Tests', () => {
   });
   
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     await env.cleanup();
   });
   

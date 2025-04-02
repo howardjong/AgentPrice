@@ -147,4 +147,11 @@ describe('WebSocket API Service Status', () => {
     expect(mockClearInterval).toHaveBeenCalledWith(statusIntervalId);
     expect(mockClearInterval).toHaveBeenCalledWith(changesIntervalId);
   });
+  // Cleanup event listeners after each test
+  afterEach(() => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
+    mockClient?.removeAllListeners();
+  });
 });

@@ -1,0 +1,26 @@
+🔍 Running pre-merge validation checks...
+
+📋 Checking for Jest imports...
+✅ No Jest imports found
+
+📋 Checking for Jest requires...
+✅ No Jest requires found
+
+📋 Checking for anthropicService references...
+✅ No anthropicService references found
+
+📋 Verifying Claude service...
+✅ Claude service has all standard model references
+
+📋 Checking Socket.IO tests for proper cleanup patterns...
+✅ All Socket.IO tests appear to have proper cleanup
+
+📋 Verifying Jest removal from dependencies...
+✅ No Jest dependencies found in package.json
+
+📋 Checking for consistent test patterns...
+
+📊 Validation Summary:
+✅ All critical validation checks passed!
+
+🎉 Pre-merge validation completed successfully!

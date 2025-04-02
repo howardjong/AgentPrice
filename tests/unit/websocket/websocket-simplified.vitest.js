@@ -42,6 +42,9 @@ describe('WebSocket Basic Tests', () => {
   });
   
   afterEach(() => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     // Clean up resources
     if (clientSocket) {
       clientSocket.close();

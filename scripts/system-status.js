@@ -117,7 +117,7 @@ async function getApiServiceStatus() {
     costTracker: moduleExists('utils/costTracker.js'),
     apiClient: moduleExists('utils/apiClient.js'),
     perplexityService: moduleExists('services/perplexityService.js'),
-    anthropicService: moduleExists('services/anthropicService.js'),
+    claudeService: moduleExists('services/claudeService.js'),
   };
   
   // Try to get more detailed status from optimization modules if they exist

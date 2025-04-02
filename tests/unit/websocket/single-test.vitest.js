@@ -17,6 +17,9 @@ describe('Socket.IO Single Test', () => {
   
   // Basic setup and teardown for each test
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     // Always disconnect client first
     if (client && client.connected) {
       client.disconnect();

@@ -243,6 +243,9 @@ describe('WebSocket Client Integration', () => {
   });
   
   afterEach(() => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     // Close server
     return new Promise((resolve) => {
       server.close(() => {

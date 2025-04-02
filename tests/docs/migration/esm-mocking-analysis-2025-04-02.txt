@@ -1,0 +1,87 @@
+🔍 Scanning test files for ES module mocking patterns...
+
+📊 ES Module Mocking Analysis Results
+====================================
+Total test files scanned: 207
+
+Best Practices Implementation:
+- Files with proper vi.mock() before import: 9 (4%)
+- Files with vi.resetModules(): 14 (7%)
+- Files with proper mock cleanup: 36 (17%)
+- Files with __esModule flag: 1 (0%)
+- Files handling default exports: 102 (49%)
+- Files handling named exports: 1 (0%)
+- Files using dynamic imports: 20 (10%)
+- Files using vi.importActual(): 4 (2%)
+
+📝 Noteworthy examples (following best practices): 0
+
+⚠️ Areas for Improvement:
+
+Files missing vi.resetModules() (120):
+tests/unit/improved-circuitBreaker.vitest.js
+tests/unit/circuitBreaker.vitest.js
+tests/unit/apiClient.vitest.js
+tests/examples/improved-error-handling-example.vitest.js
+tests/api/statusEndpoint.vitest.js
+tests/api/researchJobsEndpoint.vitest.js
+tests/api/healthEndpoint.vitest.js
+tests/api/healthEndpoint.fixed.vitest.js
+tests/api/diagnosticEndpoints.vitest.js
+tests/api/conversationEndpoints.vitest.js
+... and 110 more
+
+Files missing proper mock cleanup (98):
+tests/unit/improved-circuitBreaker.vitest.js
+tests/unit/circuitBreaker.vitest.js
+tests/api/statusEndpoint.vitest.js
+tests/api/researchJobsEndpoint.vitest.js
+tests/api/healthEndpoint.vitest.js
+tests/api/healthEndpoint.fixed.vitest.js
+tests/api/diagnosticEndpoints.vitest.js
+tests/api/conversationEndpoints.vitest.js
+tests/unit/workflows/single-query-workflow.vitest.js
+tests/unit/workflows/perplexity-workflow-nock.vitest.js
+... and 88 more
+
+Files with potential incorrect mocking order (115):
+tests/unit/improved-circuitBreaker.vitest.js
+tests/unit/circuitBreaker.vitest.js
+tests/unit/apiClient.vitest.js
+tests/examples/improved-error-handling-example.vitest.js
+tests/api/statusEndpoint.vitest.js
+tests/api/researchJobsEndpoint.vitest.js
+tests/api/healthEndpoint.vitest.js
+tests/api/healthEndpoint.fixed.vitest.js
+tests/api/diagnosticEndpoints.vitest.js
+tests/api/conversationEndpoints.vitest.js
+... and 105 more
+
+Files missing __esModule flag (123):
+tests/unit/improved-circuitBreaker.vitest.js
+tests/unit/circuitBreaker.vitest.js
+tests/unit/apiClient.vitest.js
+tests/examples/improved-error-handling-example.vitest.js
+tests/api/statusEndpoint.vitest.js
+tests/api/researchJobsEndpoint.vitest.js
+tests/api/healthEndpoint.vitest.js
+tests/api/healthEndpoint.fixed.vitest.js
+tests/api/diagnosticEndpoints.vitest.js
+tests/api/conversationEndpoints.vitest.js
+... and 113 more
+
+Files potentially not handling exports properly (22):
+tests/api/healthEndpoint.fixed.vitest.js
+tests/api/diagnosticEndpoints.vitest.js
+tests/unit/websocket/socketio-health-monitoring.vitest.js
+tests/unit/services/router.vitest.js
+tests/unit/services/researchService.vitest.js
+tests/unit/services/promptManager.vitest.js
+tests/unit/services/jobManager.auto.vitest.js
+tests/unit/services/improved-researchService.vitest.js
+tests/unit/services/healthCheck.fixed.vitest.js
+tests/unit/services/final-jobManager.vitest.js
+... and 12 more
+
+✅ Recommendation:
+Update test files to follow the best practices in tests/docs/guidelines/vitest-module-mocking-guidelines.md

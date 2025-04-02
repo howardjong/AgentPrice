@@ -35,6 +35,9 @@ describe('Basic Socket.IO Test', () => {
   });
   
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     // Clean up in reverse order of creation
     
     // 1. Disconnect client if it exists

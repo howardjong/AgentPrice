@@ -63,6 +63,9 @@ describe('WebSocket Basic Error Handling', () => {
   });
   
   afterEach(async () => {
+    // Ensure proper cleanup of event listeners
+    io?.removeAllListeners();
+    socket?.removeAllListeners();
     // Clean up
     await testEnv.shutdown();
     vi.clearAllMocks();

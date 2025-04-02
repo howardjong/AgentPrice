@@ -37,7 +37,7 @@ Examples:
 const knownJestEsmIssues = [
   'researchService',
   'promptManager',
-  'anthropicService',
+  'claudeService',
   'perplexityService',
 ];
 
