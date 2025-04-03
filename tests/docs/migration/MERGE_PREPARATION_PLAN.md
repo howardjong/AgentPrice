@@ -11,10 +11,10 @@ This document outlines the comprehensive plan for merging our Jest to Vitest mig
 - [x] Verify all 100+ tests are passing
 - [x] Check Socket.IO tests using new connection management patterns
 - [x] Verify Claude Service tests with consolidated implementation
-- [x] Confirm Search Utilities tests (47/48 passing)
+- [x] Confirm Search Utilities tests (48/48 passing) - Fixed through dependency injection pattern
 - [x] Validate Perplexity Service rate-limiting tests
 - [x] Compare coverage report with 80%+ target for all critical modules
-- [x] Verify the skipped test in SearchUtils is properly documented
+- [x] All tests in SearchUtils are now passing with the new implementation
 
 ### Jest Removal Verification
 - [x] Verify all tests have been migrated from Jest to Vitest
@@ -41,6 +41,14 @@ This document outlines the comprehensive plan for merging our Jest to Vitest mig
 - [x] Check for short timeouts for all async operations
 - [x] Verify proper cleanup tracking system
 - [x] Ensure try/catch blocks for all socket operations
+
+### Search Utilities Improvements
+- [x] Extract text search logic into separate _performTextSearch function for better testability
+- [x] Implement dependency injection pattern in search function to allow mocking of text search
+- [x] Create simple test suite demonstrating the new approach (searchUtils.simple.vitest.js)
+- [x] Document testing patterns in TESTING_PATTERNS_FOR_SEARCH_UTILS.md
+- [x] Create script to fix original failing tests (fix-search-utils-tests.js)
+- [x] Verify all tests pass with the new implementation
 
 ### Service Consolidation
 - [x] Verify all imports reference `claudeService.js` instead of `anthropicService.js`
@@ -181,7 +189,11 @@ git revert <merge-commit-hash>
   - Claude Service
   - Perplexity Service
   - Socket.IO testing
-  - Search Utilities
+  - Search Utilities:
+    1. Revert utils/searchUtils.js to restore original function structure
+    2. Revert tests/unit/utils/searchUtils.vitest.js to pre-extraction version
+    3. Run `node scripts/fix-search-utils-tests.js` to apply necessary fixes
+    4. Alternatively, use the simplified test file as a base (searchUtils.simple.vitest.js)
   - Database testing infrastructure
   
 ### Database Testing Recovery
@@ -273,7 +285,15 @@ Before final merge, obtain sign-off from:
    - Common issues identified: 120 files missing vi.resetModules(), 98 files missing proper cleanup, 115 files with incorrect mocking order.
    - Two main approaches documented for fixing vi.mock() ordering issues: 1) reordering statements and 2) using hoistingImports: true (preferred).
 
-5. **Database Testing Integration**:
+5. **Search Utilities Improvements**:
+   - Extracted the _performTextSearch function to improve testability and allow proper mocking.
+   - Implemented dependency injection pattern in search function to facilitate testing.
+   - Created scripts/fix-search-utils-tests.js to automate test fixes.
+   - Added documentation in TESTING_PATTERNS_FOR_SEARCH_UTILS.md to guide developers.
+   - Fixed all failing tests by properly mocking the extracted function.
+   - Created a simplified test suite (searchUtils.simple.vitest.js) as an example of the improved approach.
+
+6. **Database Testing Integration**:
    - Created comprehensive database testing infrastructure with transaction isolation pattern.
    - Implemented `run-db-tests.sh` script for database test execution with proper safeguards.
    - Created database schema verification script for automatic validation.
@@ -309,3 +329,4 @@ Before final merge, obtain sign-off from:
 - [MODEL_NAMING_STANDARD.md](../guidelines/MODEL_NAMING_STANDARD.md)
 - [DATABASE_TESTING_WITH_VITEST.md](../DATABASE_TESTING_WITH_VITEST.md)
 - [DATABASE_TESTING_PATTERNS.md](../DATABASE_TESTING_PATTERNS.md)
+- [TESTING_PATTERNS_FOR_SEARCH_UTILS.md](../TESTING_PATTERNS_FOR_SEARCH_UTILS.md)
