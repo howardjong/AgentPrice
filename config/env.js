@@ -1,41 +1,51 @@
 /**
- * Environment configuration
+ * Environment Configuration
+ * 
  * Loads environment variables from .env file for development
- * or from Replit secrets for production
+ * or from Replit secrets for production.
  */
-import * as dotenv from 'dotenv';
 
-// Load environment variables from .env file
-dotenv.config();
+import 'dotenv/config';
 
-// Check and log API keys availability (without exposing the actual keys)
-const checkApiKeys = () => {
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const perplexityKey = process.env.PERPLEXITY_API_KEY;
+// Environment constants
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const IS_PROD = NODE_ENV === 'production';
+const IS_DEV = NODE_ENV === 'development';
+const IS_TEST = NODE_ENV === 'test';
+
+// Database defaults
+const DEFAULT_DB_URL = 'postgresql://postgres:postgres@localhost:5432/mlrs_dev';
+const TEST_DB_URL = 'postgresql://postgres:postgres@localhost:5432/mlrs_test';
+
+// Export all environment variables with defaults
+export const env = {
+  // Node environment
+  NODE_ENV,
+  IS_PROD,
+  IS_DEV,
+  IS_TEST,
   
-  console.log(`ANTHROPIC API KEY is ${anthropicKey ? 'set' : 'NOT SET'}`);
-  console.log(`PERPLEXITY API KEY is ${perplexityKey ? 'set' : 'NOT SET'}`);
+  // Server settings
+  PORT: process.env.PORT || 3000,
+  HOST: process.env.HOST || '0.0.0.0',
   
-  // Check if API keys look valid (basic validation)
-  if (perplexityKey) {
-    const keyLength = perplexityKey.length;
-    const keyStartWith = perplexityKey.substring(0, 4);
-    console.log(`PERPLEXITY KEY appears to be ${keyLength} characters long and starts with: ${keyStartWith}...`);
+  // Database settings
+  DATABASE_URL: IS_TEST
+    ? process.env.TEST_DATABASE_URL || process.env.DATABASE_URL || TEST_DB_URL
+    : process.env.DATABASE_URL || DEFAULT_DB_URL,
     
-    if (keyLength < 20) {
-      console.warn('Warning: PERPLEXITY_API_KEY seems too short to be valid');
-    }
-    
-    if (perplexityKey.includes('$')) {
-      console.warn('Warning: PERPLEXITY_API_KEY may contain unexpanded variable reference');
-    }
-  }
+  // Storage type
+  STORAGE_TYPE: process.env.STORAGE_TYPE || (IS_PROD ? 'postgres' : 'memory'),
   
-  return {
-    anthropicAvailable: !!anthropicKey,
-    perplexityAvailable: !!perplexityKey
-  };
+  // Log settings
+  LOG_LEVEL: process.env.LOG_LEVEL || (IS_PROD ? 'info' : 'debug'),
+  
+  // Test settings
+  TEST_TIMEOUT: process.env.TEST_TIMEOUT ? parseInt(process.env.TEST_TIMEOUT) : 5000,
+  
+  // Authentication (for future implementation)
+  JWT_SECRET: process.env.JWT_SECRET || 'dev_secret_not_for_production',
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
 };
 
-export { checkApiKeys };
-export default { checkApiKeys };
+export default env;

@@ -1,160 +1,160 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
-import { z } from "zod";
+/**
+ * Database Schema Definition
+ * 
+ * This file defines the database schema using Drizzle ORM.
+ * It includes tables for users, conversations, messages, research jobs, and research reports.
+ */
 
-// User schema (keeping the original schema)
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+import {
+  pgTable,
+  serial,
+  text,
+  timestamp,
+  varchar,
+  boolean,
+  json,
+  pgEnum
+} from 'drizzle-orm/pg-core';
+import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
+import { z } from 'zod';
+import { relations } from 'drizzle-orm';
+
+// ================== Enums ==================
+
+// Role enum for message roles
+export const messageRoleEnum = pgEnum('message_role', ['user', 'assistant', 'system']);
+
+// Status enum for research jobs
+export const jobStatusEnum = pgEnum('job_status', ['pending', 'processing', 'completed', 'failed']);
+
+// ================== Tables ==================
+
+// Users Table
+export const users = pgTable('users', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+// Conversations Table
+export const conversations = pgTable('conversations', {
+  id: text('id').primaryKey(),
+  title: text('title').notNull(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
 
+// Messages Table
+export const messages = pgTable('messages', {
+  id: text('id').primaryKey(),
+  conversationId: text('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  role: messageRoleEnum('role').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  metadata: json('metadata')
+});
+
+// Research Jobs Table
+export const researchJobs = pgTable('research_jobs', {
+  id: text('id').primaryKey(),
+  query: text('query').notNull(),
+  status: jobStatusEnum('status').notNull().default('pending'),
+  userId: text('user_id').references(() => users.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  completedAt: timestamp('completed_at'),
+  error: text('error'),
+  metadata: json('metadata')
+});
+
+// Research Reports Table
+export const researchReports = pgTable('research_reports', {
+  id: text('id').primaryKey(),
+  jobId: text('job_id').notNull().references(() => researchJobs.id, { onDelete: 'cascade' }),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  metadata: json('metadata')
+});
+
+// ================== Relations ==================
+
+export const usersRelations = relations(users, ({ many }) => ({
+  conversations: many(conversations),
+  researchJobs: many(researchJobs)
+}));
+
+export const conversationsRelations = relations(conversations, ({ one, many }) => ({
+  user: one(users, {
+    fields: [conversations.userId],
+    references: [users.id]
+  }),
+  messages: many(messages)
+}));
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id]
+  })
+}));
+
+export const researchJobsRelations = relations(researchJobs, ({ one, many }) => ({
+  user: one(users, {
+    fields: [researchJobs.userId],
+    references: [users.id]
+  }),
+  reports: many(researchReports)
+}));
+
+export const researchReportsRelations = relations(researchReports, ({ one }) => ({
+  job: one(researchJobs, {
+    fields: [researchReports.jobId],
+    references: [researchJobs.id]
+  })
+}));
+
+// ================== Schemas ==================
+
+// User schema for validation
+export const insertUserSchema = createInsertSchema(users).omit({
+  createdAt: true
+});
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
-// Conversation schema
-export const conversations = pgTable("conversations", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id"),
-  title: text("title").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+// Conversation schema for validation
+export const insertConversationSchema = createInsertSchema(conversations).omit({
+  createdAt: true,
+  updatedAt: true
 });
-
-export const insertConversationSchema = createInsertSchema(conversations).pick({
-  userId: true,
-  title: true,
-});
-
 export type InsertConversation = z.infer<typeof insertConversationSchema>;
 export type Conversation = typeof conversations.$inferSelect;
 
-// Message schema
-export const messages = pgTable("messages", {
-  id: serial("id").primaryKey(),
-  conversationId: integer("conversation_id").notNull(),
-  role: text("role").notNull(), // 'user', 'assistant', 'system'
-  content: text("content").notNull(),
-  service: text("service").notNull(), // 'claude', 'perplexity', 'system'
-  visualizationData: jsonb("visualization_data"), // Optional for when Claude generates visualization
-  citations: jsonb("citations"), // Optional for when Perplexity provides citations
-  timestamp: timestamp("timestamp").defaultNow().notNull(),
+// Message schema for validation
+export const insertMessageSchema = createInsertSchema(messages).omit({
+  createdAt: true,
+  metadata: true
 });
-
-export const insertMessageSchema = createInsertSchema(messages).pick({
-  conversationId: true,
-  role: true,
-  content: true,
-  service: true,
-  visualizationData: true,
-  citations: true,
-});
-
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
 
-// API Status Schema for TypeScript
-export interface ServiceStatus {
-  service: string;
-  status: 'connected' | 'disconnected' | 'error';
-  lastUsed: string | null;
-  version: string;
-  error?: string;
-}
-
-export interface ApiStatus {
-  claude: ServiceStatus;
-  perplexity: ServiceStatus;
-  server: {
-    status: 'running' | 'error';
-    load: number;
-    uptime: string;
-    error?: string;
-  };
-}
-
-// API Endpoint types
-export const chatMessageSchema = z.object({
-  message: z.string(),
-  conversationId: z.number().nullable().optional(),
-  service: z.enum(['claude', 'perplexity', 'auto']).default('auto'),
+// Research job schema for validation
+export const insertResearchJobSchema = createInsertSchema(researchJobs).omit({
+  createdAt: true,
+  updatedAt: true,
+  completedAt: true,
+  error: true,
+  metadata: true
 });
-
-export type ChatMessage = z.infer<typeof chatMessageSchema>;
-
-export const visualizeSchema = z.object({
-  data: z.any(),
-  type: z.enum(['bar', 'line', 'pie', 'scatter', 'custom', 'van_westendorp', 'conjoint']).default('bar'),
-  title: z.string().optional(),
-  description: z.string().optional(),
-});
-
-export type VisualizeRequest = z.infer<typeof visualizeSchema>;
-
-export const deepResearchSchema = z.object({
-  query: z.string().min(5, "Query must be at least 5 characters long"),
-  conversationId: z.number().optional(),
-  options: z.object({
-    depth: z.enum(['shallow', 'medium', 'deep']).default('deep'),
-    maxSourceCount: z.number().optional(),
-    recencyFilter: z.string().optional()
-  }).optional()
-});
-
-export type DeepResearchRequest = z.infer<typeof deepResearchSchema>;
-
-// Research Jobs schema
-export const researchJobs = pgTable("research_jobs", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id"),
-  query: text("query").notNull(),
-  status: text("status").notNull().default("queued"), // 'queued', 'processing', 'completed', 'failed'
-  progress: integer("progress").default(0),
-  jobId: text("job_id").notNull(), // Bull job ID
-  options: jsonb("options"),
-  result: jsonb("result"),
-  error: text("error"),
-  startedAt: timestamp("started_at").defaultNow().notNull(),
-  completedAt: timestamp("completed_at"),
-});
-
-export const insertResearchJobSchema = createInsertSchema(researchJobs).pick({
-  userId: true,
-  query: true,
-  jobId: true,
-  options: true,
-});
-
 export type InsertResearchJob = z.infer<typeof insertResearchJobSchema>;
 export type ResearchJob = typeof researchJobs.$inferSelect;
 
-// Research Reports schema
-export const researchReports = pgTable("research_reports", {
-  id: serial("id").primaryKey(),
-  jobId: integer("job_id").notNull(),
-  title: text("title").notNull(),
-  content: text("content").notNull(),
-  summary: text("summary"),
-  citations: jsonb("citations"),
-  followUpQuestions: jsonb("follow_up_questions"),
-  filePath: text("file_path"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+// Research report schema for validation
+export const insertResearchReportSchema = createInsertSchema(researchReports).omit({
+  createdAt: true,
+  metadata: true
 });
-
-export const insertResearchReportSchema = createInsertSchema(researchReports).pick({
-  jobId: true,
-  title: true,
-  content: true,
-  summary: true,
-  citations: true,
-  followUpQuestions: true,
-  filePath: true,
-});
-
 export type InsertResearchReport = z.infer<typeof insertResearchReportSchema>;
 export type ResearchReport = typeof researchReports.$inferSelect;

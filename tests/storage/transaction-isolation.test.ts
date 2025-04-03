@@ -1,109 +1,201 @@
-import { describe, it, expect } from 'vitest';
-import { setupTransactionTest } from '../utils/db-test-utils';
-import { pgStorage } from '../../server/pg-storage';
-import {
-  users, conversations, messages
-} from '@shared/schema';
-
 /**
  * Transaction Isolation Tests
  * 
- * These tests demonstrate how to use transaction isolation to run database tests
- * without contaminating the database across test runs. Each test runs in a
- * transaction that is rolled back at the end.
+ * This test suite verifies that our transaction isolation pattern
+ * correctly prevents test data from persisting between tests.
  */
 
+import { describe, test, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { DbTestUtils } from '../utils/db-test-utils';
+
 describe('Transaction Isolation', () => {
-  // Setup transaction test environment
-  const { db } = setupTransactionTest();
-  const storage = pgStorage;
+  const dbUtils = new DbTestUtils();
+  const TEST_TABLE = 'users'; // Using an existing table for testing
   
-  it('should be able to create and retrieve a user in a transaction', async () => {
-    // Create a user directly with Drizzle
-    const userInsert = await db.insert(users).values({
-      username: 'transaction-test-user',
-      password: 'password123'
-    }).returning();
+  beforeAll(async () => {
+    await dbUtils.connect();
     
-    // Verify user was inserted
-    expect(userInsert.length).toBe(1);
-    const userId = userInsert[0].id;
-    
-    // Now use the storage interface to retrieve the user
-    const user = await storage.getUserByUsername('transaction-test-user');
-    
-    // Verify we can get the user
-    expect(user).toBeDefined();
-    expect(user?.username).toBe('transaction-test-user');
+    // Safety check - ensure we're using a test database
+    dbUtils.verifyTestDatabase();
+  });
+
+  afterAll(async () => {
+    await dbUtils.disconnect();
   });
   
-  it('should not see data from previous test', async () => {
-    // Try to get the user from the previous test
-    const user = await storage.getUserByUsername('transaction-test-user');
-    
-    // It should not exist because the previous transaction was rolled back
-    expect(user).toBeUndefined();
+  beforeEach(async () => {
+    await dbUtils.beginTransaction();
   });
   
-  it('should be able to create a complete conversation with messages', async () => {
-    // Create a user
-    const userInsert = await db.insert(users).values({
-      username: 'conversation-user',
-      password: 'password123'
-    }).returning();
-    const userId = userInsert[0].id;
-    
-    // Create a conversation
-    const conversationInsert = await db.insert(conversations).values({
-      userId,
-      title: 'Transaction Test Conversation',
-    }).returning();
-    const conversationId = conversationInsert[0].id;
-    
-    // Add some messages
-    await db.insert(messages).values([
-      {
-        conversationId,
-        role: 'user',
-        content: 'Hello',
-        service: 'system',
-      },
-      {
-        conversationId,
-        role: 'assistant',
-        content: 'Hi there!',
-        service: 'claude',
-      }
-    ]);
-    
-    // Now retrieve the conversation and messages using the storage interface
-    const conversation = await storage.getConversation(conversationId);
-    const messagesResult = await storage.getMessagesByConversation(conversationId);
-    
-    // Verify conversation
-    expect(conversation).toBeDefined();
-    expect(conversation?.title).toBe('Transaction Test Conversation');
-    expect(conversation?.userId).toBe(userId);
-    
-    // Verify messages
-    expect(messagesResult.length).toBe(2);
-    expect(messagesResult[0].role).toBe('user');
-    expect(messagesResult[0].content).toBe('Hello');
-    expect(messagesResult[1].role).toBe('assistant');
-    expect(messagesResult[1].content).toBe('Hi there!');
+  afterEach(async () => {
+    await dbUtils.rollbackTransaction();
   });
-  
-  it('should be able to test storage error cases', async () => {
-    // Try to get a conversation that doesn't exist
-    const conversation = await storage.getConversation(999999);
-    expect(conversation).toBeUndefined();
+
+  test('transaction properly isolates data - changes are visible within transaction', async () => {
+    // Generate unique test data
+    const uniqueUsername = `isolation-test-user-${dbUtils.generateTimestamp()}`;
+    const password = 'test-password';
     
-    // Try to get a user that doesn't exist
-    const user = await storage.getUser(999999);
-    expect(user).toBeUndefined();
+    // Insert test data
+    const insertResult = await dbUtils.executeQuery(
+      'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id',
+      [uniqueUsername, password]
+    );
     
-    // Try to update a research job that doesn't exist
-    await expect(storage.updateResearchJobStatus(999999, 'completed'))
-      .rejects.toThrow();
+    expect(insertResult.rows).toHaveLength(1);
+    expect(insertResult.rows[0].id).toBeDefined();
+    
+    const userId = insertResult.rows[0].id;
+    
+    // Verify data exists within the transaction
+    const selectResult = await dbUtils.executeQuery(
+      'SELECT * FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    expect(selectResult.rows).toHaveLength(1);
+    expect(selectResult.rows[0].username).toBe(uniqueUsername);
+    expect(selectResult.rows[0].password).toBe(password);
+  });
+
+  test('transaction properly rolls back - changes are not visible after rollback', async () => {
+    // Generate unique test data
+    const uniqueUsername = `rollback-test-user-${dbUtils.generateTimestamp()}`;
+    const password = 'test-password';
+    
+    // First transaction - insert data and get ID
+    let userId: number;
+    
+    {
+      // Insert test data
+      const insertResult = await dbUtils.executeQuery(
+        'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id',
+        [uniqueUsername, password]
+      );
+      
+      expect(insertResult.rows).toHaveLength(1);
+      userId = insertResult.rows[0].id;
+      
+      // Verify data exists within the transaction
+      const selectResult = await dbUtils.executeQuery(
+        'SELECT * FROM users WHERE id = $1',
+        [userId]
+      );
+      
+      expect(selectResult.rows).toHaveLength(1);
+    }
+    
+    // Roll back the transaction
+    await dbUtils.rollbackTransaction();
+    
+    // Start a new transaction
+    await dbUtils.beginTransaction();
+    
+    // Check that data doesn't exist in the new transaction
+    const afterRollbackResult = await dbUtils.executeQuery(
+      'SELECT * FROM users WHERE id = $1',
+      [userId]
+    );
+    
+    expect(afterRollbackResult.rows).toHaveLength(0);
+  });
+
+  test('transactions isolate tests from each other', async () => {
+    // This test simulates two separate test cases running sequentially
+    
+    // First transaction
+    const username1 = `isolation-test-1-${dbUtils.generateTimestamp()}`;
+    
+    // Create test data in first transaction
+    const insert1 = await dbUtils.executeQuery(
+      'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id',
+      [username1, 'password1']
+    );
+    
+    const userId1 = insert1.rows[0].id;
+    
+    // Verify it exists in the first transaction
+    const select1 = await dbUtils.executeQuery(
+      'SELECT * FROM users WHERE id = $1',
+      [userId1]
+    );
+    
+    expect(select1.rows).toHaveLength(1);
+    
+    // Roll back the first transaction
+    await dbUtils.rollbackTransaction();
+    
+    // Start a second transaction (simulating a second test)
+    await dbUtils.beginTransaction();
+    
+    // Create different test data in second transaction
+    const username2 = `isolation-test-2-${dbUtils.generateTimestamp()}`;
+    
+    const insert2 = await dbUtils.executeQuery(
+      'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id',
+      [username2, 'password2']
+    );
+    
+    const userId2 = insert2.rows[0].id;
+    
+    // Verify second transaction data exists
+    const select2 = await dbUtils.executeQuery(
+      'SELECT * FROM users WHERE id = $1',
+      [userId2]
+    );
+    
+    expect(select2.rows).toHaveLength(1);
+    
+    // Verify first transaction data doesn't exist in second transaction
+    const selectPrevious = await dbUtils.executeQuery(
+      'SELECT * FROM users WHERE id = $1',
+      [userId1]
+    );
+    
+    expect(selectPrevious.rows).toHaveLength(0);
+  });
+
+  test('executeQuery uses the transaction client when available', async () => {
+    // This test verifies that executeQuery uses the transaction client
+    // by checking that data created within a transaction is visible
+    // to subsequent queries within the same transaction
+    
+    const uniqueUsername = `query-test-${dbUtils.generateTimestamp()}`;
+    
+    // Execute a query to insert data
+    await dbUtils.executeQuery(
+      'INSERT INTO users (username, password) VALUES ($1, $2)',
+      [uniqueUsername, 'password']
+    );
+    
+    // Execute another query to select the data
+    // This should use the same transaction client as the insert
+    const result = await dbUtils.executeQuery(
+      'SELECT * FROM users WHERE username = $1',
+      [uniqueUsername]
+    );
+    
+    // If the query used the transaction client correctly, the data should be visible
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].username).toBe(uniqueUsername);
+  });
+
+  test('timeout mechanism works correctly', async () => {
+    // Set a very short timeout to test the timeout mechanism
+    const originalTimeout = 5000; // Assume default is 5000ms
+    dbUtils.setQueryTimeout(1); // 1ms timeout
+    
+    // Execute a query that will take longer than the timeout
+    try {
+      await dbUtils.executeQuery('SELECT pg_sleep(0.5)'); // Sleep for 0.5 seconds
+      // This should not be reached because the query should timeout
+      expect(true).toBe(false);
+    } catch (error) {
+      // The error should be a timeout error
+      expect(error.message).toContain('Query timeout after 1ms');
+    } finally {
+      // Reset the timeout to its original value
+      dbUtils.setQueryTimeout(originalTimeout);
+    }
   });
 });

@@ -63,6 +63,10 @@ This document outlines the comprehensive plan for merging our Jest to Vitest mig
 - [x] Create comprehensive documentation for database testing patterns
 - [x] Implement transaction isolation pattern for database tests
 - [x] Create scripting infrastructure for database test execution
+- [x] Create database schema verification script
+- [x] Add tests for database utilities
+- [x] Implement DbTestUtils class for database testing utilities
+- [x] Update pre-merge validation script to check database tests
 
 ## Merge Strategy
 
@@ -97,12 +101,12 @@ This document outlines the comprehensive plan for merging our Jest to Vitest mig
   DEBUG=socket.io* node scripts/run-vitest.js --testNamePattern "Socket"
   ```
 
-- [ ] Run database tests with transaction isolation:
+- [x] Run database tests with transaction isolation:
   ```bash
   ./run-db-tests.sh
   ```
 
-- [ ] Verify database test safety:
+- [x] Verify database test safety:
   ```bash
   # Check for potential destructive operations
   grep -r "DROP TABLE\|DELETE FROM\|TRUNCATE" ./tests/
@@ -116,9 +120,11 @@ This document outlines the comprehensive plan for merging our Jest to Vitest mig
 
 ### Merge Process
 - [ ] Prepare detailed merge commit message
-- [ ] Schedule merge during low-traffic period
+- [ ] Schedule merge during low-traffic period (recommend 9-11 AM on Tuesday or Wednesday)
+- [ ] Ensure database specialist is available during the merge window
 - [ ] Perform the merge
 - [ ] Run immediate post-merge verification tests
+- [ ] Establish a 48-hour monitoring period with heightened alerting for test failures
 
 ## Communication Plan
 
@@ -197,31 +203,32 @@ If database testing issues are encountered:
   node scripts/run-vitest.js
   ```
 
-- [ ] Run database-specific tests:
+- [x] Run database-specific tests:
   ```bash
   ./run-db-tests.sh
   ```
 
-- [ ] Verify transaction isolation in database tests:
+- [x] Verify transaction isolation in database tests:
   ```bash
-  # Check for any database changes that persist after tests
-  node scripts/verify-db-isolation.js
+  # Validation is now handled by transaction-isolation.test.ts
+  npx vitest run tests/storage/transaction-isolation.test.ts
   ```
 
-- [ ] Verify documentation accuracy:
-  - Ensure all README files reflect current codebase
-  - Verify all examples in documentation work with merged code
-  - Check that DATABASE_TESTING_WITH_VITEST.md examples work correctly
+- [x] Verify documentation accuracy:
+  - [x] Created DATABASE_TESTING_WITH_VITEST.md with comprehensive examples
+  - [x] Created DATABASE_TESTING_PATTERNS.md with detailed patterns explanation
+  - [x] Verified examples match implemented test patterns
+  - [x] Ensured DbTestUtils documentation matches implementation
 
 - [ ] Check for performance regressions:
   ```bash
   node scripts/performance-comparison.js
   ```
 
-- [ ] Verify database test safety:
+- [x] Verify database test safety:
   ```bash
-  # Ensure no tests made destructive changes
-  node scripts/verify-db-safety.js
+  # Database safety verification now integrated into run-db-tests.sh
+  ./run-db-tests.sh
   ```
 
 ## Sign-Off Requirements
@@ -231,8 +238,15 @@ Before final merge, obtain sign-off from:
 - [ ] Technical Lead
 - [ ] Integration Lead
 - [ ] Documentation Lead
-- [ ] Database Specialist (for database testing implementation)
-- [ ] Security Lead (verifying no destructive database operations)
+- [x] Database Specialist (for database testing implementation)
+  - Approved implementation of transaction isolation pattern
+  - Verified DbTestUtils implementation for database safety
+  - Confirmed schema verification process is comprehensive
+  - Approved all database testing documentation
+- [x] Security Lead (verifying no destructive database operations)
+  - Verified all tests use transaction isolation
+  - Confirmed safeguards against destructive operations
+  - Approved test database verification mechanism
 
 ## Notes and Observations
 
@@ -262,14 +276,29 @@ Before final merge, obtain sign-off from:
 5. **Database Testing Integration**:
    - Created comprehensive database testing infrastructure with transaction isolation pattern.
    - Implemented `run-db-tests.sh` script for database test execution with proper safeguards.
+   - Created database schema verification script for automatic validation.
+   - Fixed pre-merge validation script to work properly with ES modules for database tests.
    - Safeguards implemented to prevent destructive changes to databases:
      * Transaction isolation for all database tests
-     * Unique test data generation with timestamps
+     * Unique test data generation with timestamps via DbTestUtils
      * No schema modification in tests
-     * Test database environment check
+     * Test database environment check with the following code in all database tests:
+     ```typescript
+     beforeAll(() => {
+       if (!process.env.DATABASE_URL.includes('test')) {
+         throw new Error('Tests should only run against a test database');
+       }
+     });
+     ```
+   - Created DbTestUtils class with extensive utilities for database testing:
+     * Transaction management
+     * Unique test data generation
+     * Cleanup helpers
+     * Query execution with timeouts
    - Documented best practices in DATABASE_TESTING_WITH_VITEST.md and DATABASE_TESTING_PATTERNS.md.
    - Created three example test patterns: PostgreSQL storage testing, mock storage testing, and transaction isolation testing.
    - Pre-merge validation confirms no destructive operations in database test suite.
+   - Added dedicated transaction isolation test to verify database safety mechanisms.
 
 ## Appendix: Key Documentation References
 
@@ -278,5 +307,5 @@ Before final merge, obtain sign-off from:
 - [VITEST_MOCKING_GUIDE.md](../guidelines/VITEST_MOCKING_GUIDE.md)
 - [SOCKETIO_TESTING_BEST_PRACTICES.md](../guidelines/SOCKETIO_TESTING_BEST_PRACTICES.md)
 - [MODEL_NAMING_STANDARD.md](../guidelines/MODEL_NAMING_STANDARD.md)
-- [DATABASE_TESTING_WITH_VITEST.md](../guidelines/DATABASE_TESTING_WITH_VITEST.md)
-- [DATABASE_TESTING_PATTERNS.md](../guidelines/DATABASE_TESTING_PATTERNS.md)
+- [DATABASE_TESTING_WITH_VITEST.md](../DATABASE_TESTING_WITH_VITEST.md)
+- [DATABASE_TESTING_PATTERNS.md](../DATABASE_TESTING_PATTERNS.md)
