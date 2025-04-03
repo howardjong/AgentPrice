@@ -1,0 +1,29 @@
+{
+  "command": "npx vitest run tests/unit/utils/searchUtils.vitest.js",
+  "timestamp": "2025-04-03T16:22:51.207Z",
+  "summary": {
+    "duration": 2400,
+    "exitCode": 1,
+    "peakRSS": 45.375,
+    "peakHeapUsed": 4.41058349609375,
+    "finalRSS": 45.375,
+    "finalHeapUsed": 4.41058349609375,
+    "sampleCount": 2
+  },
+  "samples": [
+    {
+      "timestamp": 1002,
+      "rss": 45.375,
+      "heapTotal": 4.72265625,
+      "heapUsed": 4.397705078125,
+      "external": 1.6881675720214844
+    },
+    {
+      "timestamp": 2002,
+      "rss": 45.375,
+      "heapTotal": 4.72265625,
+      "heapUsed": 4.41058349609375,
+      "external": 1.6882781982421875
+    }
+  ]
+}

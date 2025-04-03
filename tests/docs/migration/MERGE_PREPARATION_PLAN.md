@@ -104,10 +104,14 @@ This document outlines the comprehensive plan for merging our Jest to Vitest mig
   node scripts/run-vitest.js --testNamePattern "performance" --run-isolated
   ```
 
-- [ ] Test Socket.IO components with extra logging:
+- [x] Test Socket.IO components with extra logging:
   ```bash
   DEBUG=socket.io* node scripts/run-vitest.js --testNamePattern "Socket"
   ```
+  - Basic Socket.IO tests passing with proper connection/disconnect lifecycle (basic-socketio.vitest.js)
+  - More complex reconnection tests showing timeout issues that require investigation
+  - Socket.IO debug logs confirmed proper event propagation and connection management
+  - Identified specific test case for further analysis: reconnect-edge-cases.vitest.js
 
 - [x] Run database tests with transaction isolation:
   ```bash
@@ -277,6 +281,10 @@ Before final merge, obtain sign-off from:
    - All Socket.IO tests have been updated with proper cleanup patterns using the `scripts/fix-socketio-cleanup.js` script.
    - Socket.IO tests now properly implement removeAllListeners() to ensure clean teardown of event listeners.
    - Backups of the original Socket.IO test files are stored in the tests/backups/websocket/ directory.
+   - DEBUG=socket.io* logging shows correct connection lifecycle in basic tests.
+   - Some complex reconnection tests (reconnect-edge-cases.vitest.js) show timing issues.
+   - The explicit event tracking system is functioning correctly based on debug logs.
+   - Future improvements needed: increase timeouts for complex reconnection scenarios.
 
 4. **ES Module Compatibility**:
    - Created and verified `fix-esm-flags.js` script to automatically add __esModule: true flags to ES module mocks.
