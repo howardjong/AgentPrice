@@ -295,7 +295,13 @@ function paginateResults(results, page = 1, limit = 10) {
 }
 
 // Export helper functions that are tested directly
-export { sortResults, paginateResults };
+export { 
+  sortResults, 
+  paginateResults,
+  calculateRelevanceScore,
+  highlightMatchingText,
+  formatDate
+};
 
 // Create missing functions that are tested but not implemented
 export function buildQuery(params = {}) {

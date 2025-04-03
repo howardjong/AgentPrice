@@ -7,8 +7,8 @@ import path from 'path';
 
 async function checkCoverage() {
   try {
-    // Run the coverage report and save it to a temporary file
-    execSync('npx vitest run tests/unit/utils/searchUtils.vitest.js --coverage', { stdio: 'inherit' });
+    // Run the coverage report for both the main and private function tests
+    execSync('npx vitest run "tests/unit/utils/searchUtils*.vitest.js" --coverage', { stdio: 'inherit' });
     
     console.log('\n\n=== Coverage Analysis for searchUtils.js ===\n');
     console.log('Based on manual inspection of test results:');
