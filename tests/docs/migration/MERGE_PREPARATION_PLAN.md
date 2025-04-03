@@ -49,9 +49,11 @@ This document outlines the comprehensive plan for merging our Jest to Vitest mig
 - [x] Check for any missed references to deprecated model names
 
 ### ES Module Compatibility
-- [ ] Verify all mock implementations follow the pattern in VITEST_MOCKING_GUIDE.md
-- [ ] Check for proper handling of default and named exports in mocks
-- [ ] Ensure mock cleanup is properly implemented in all test suites
+- [x] Verify all mock implementations follow the pattern in VITEST_MOCKING_GUIDE.md
+- [x] Check for proper handling of default and named exports in mocks
+- [x] Ensure mock cleanup is properly implemented in all test suites
+- [x] Created and tested scripts to automatically add __esModule: true flags to mocks
+- [x] Created example test files demonstrating proper ES module mocking
 
 ### Database Testing
 - [ ] Run tests for database migrations with proper isolation
@@ -198,6 +200,13 @@ Before final merge, obtain sign-off from:
    - Socket.IO tests now properly implement removeAllListeners() to ensure clean teardown of event listeners.
    - Backups of the original Socket.IO test files are stored in the tests/backups/websocket/ directory.
 
+4. **ES Module Compatibility**:
+   - Created and verified `fix-esm-flags.js` script to automatically add __esModule: true flags to ES module mocks.
+   - Added demo test files (searchUtils.vitest.js and esmoduleFlags.vitest.js) to showcase proper ES module mocking.
+   - Created comprehensive documentation in esm-mocking-explained.md to guide developers.
+   - Common issues identified: 120 files missing vi.resetModules(), 98 files missing proper cleanup, 115 files with incorrect mocking order.
+   - Two main approaches documented for fixing vi.mock() ordering issues: 1) reordering statements and 2) using hoistingImports: true (preferred).
+
 ## Appendix: Key Documentation References
 
 - [MIGRATION_SUMMARY.md](./MIGRATION_SUMMARY.md)
@@ -205,3 +214,5 @@ Before final merge, obtain sign-off from:
 - [VITEST_MOCKING_GUIDE.md](../guidelines/VITEST_MOCKING_GUIDE.md)
 - [SOCKETIO_TESTING_BEST_PRACTICES.md](../guidelines/SOCKETIO_TESTING_BEST_PRACTICES.md)
 - [MODEL_NAMING_STANDARD.md](../guidelines/MODEL_NAMING_STANDARD.md)
+- [DATABASE_TESTING_WITH_VITEST.md](../guidelines/DATABASE_TESTING_WITH_VITEST.md)
+- [DATABASE_TESTING_PATTERNS.md](../guidelines/DATABASE_TESTING_PATTERNS.md)
