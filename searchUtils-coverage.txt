@@ -4,6 +4,10 @@ Branches: 87.82%
 Functions: 64.28%
 Lines: 86.88%
 
+ENVIRONMENT NOTE: Due to Replit environment constraints, the full test suite cannot be
+run at once because of timeout limitations. Tests must be run on a file-by-file basis,
+with socket.io tests being particularly problematic due to their complex network simulation.
+
 NOTE: Function coverage for searchUtils.js is still at 64.28%, 
 which is below the 80% target coverage. This is because some private helper 
 functions are not exported and therefore cannot be directly tested.
