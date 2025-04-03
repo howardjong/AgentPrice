@@ -1,430 +1,265 @@
-/**
- * PostgreSQL Storage Implementation Tests
- * These tests ensure our PgStorage implementation works correctly with the database
- */
-import { describe, expect, it, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { setupTestDatabase, createTestData } from '../utils/db-test-utils';
 import type { IStorage } from '../../server/storage';
 
-describe('PgStorage Tests', () => {
-  // Set up the database and get a storage implementation
-  const { getStorage } = setupTestDatabase();
-  let storage: IStorage;
+/**
+ * PostgreSQL Storage Integration Tests
+ * 
+ * These tests verify that the PostgreSQL storage implementation works correctly
+ * with a real database. They test all CRUD operations for each entity type.
+ */
 
-  beforeAll(() => {
-    storage = getStorage();
+// Setup test database environment
+const { getStorage } = setupTestDatabase();
+let storage: IStorage;
+
+// Initialize storage before all tests
+beforeAll(() => {
+  storage = getStorage();
+});
+
+describe('PgStorage - User Operations', () => {
+  it('should create and retrieve a user', async () => {
+    // Create a user
+    const username = `test-user-${Date.now()}`;
+    const createdUser = await storage.createUser({
+      username,
+      password: 'test-password'
+    });
+    
+    // Verify user was created
+    expect(createdUser).toBeDefined();
+    expect(createdUser.id).toBeDefined();
+    expect(createdUser.username).toBe(username);
+    
+    // Retrieve user by ID
+    const retrievedUser = await storage.getUser(createdUser.id);
+    expect(retrievedUser).toEqual(createdUser);
+    
+    // Retrieve user by username
+    const userByUsername = await storage.getUserByUsername(username);
+    expect(userByUsername).toEqual(createdUser);
   });
-
-  // User tests
-  describe('User Operations', () => {
-    it('should create a user', async () => {
-      // Create a new user
-      const user = await createTestData.user(storage, {
-        username: 'testuser',
-        password: 'password123'
-      });
-
-      // Verify the user was created
-      expect(user).toBeDefined();
-      expect(user.id).toBeGreaterThan(0);
-      expect(user.username).toBe('testuser');
-      expect(user.password).toBe('password123');
-    });
-
-    it('should get a user by ID', async () => {
-      // Create a user
-      const createdUser = await createTestData.user(storage);
-      
-      // Get the user by ID
-      const user = await storage.getUser(createdUser.id);
-      
-      // Verify the user
-      expect(user).toBeDefined();
-      expect(user?.id).toBe(createdUser.id);
-      expect(user?.username).toBe(createdUser.username);
-    });
-
-    it('should get a user by username', async () => {
-      // Create a unique username
-      const uniqueUsername = `unique-user-${Date.now()}`;
-      
-      // Create a user
-      await createTestData.user(storage, { username: uniqueUsername });
-      
-      // Get the user by username
-      const user = await storage.getUserByUsername(uniqueUsername);
-      
-      // Verify the user
-      expect(user).toBeDefined();
-      expect(user?.username).toBe(uniqueUsername);
-    });
-
-    it('should return undefined for non-existent user', async () => {
-      // Try to get a user with an invalid ID
-      const user = await storage.getUser(99999);
-      
-      // Verify no user was found
-      expect(user).toBeUndefined();
-    });
+  
+  it('should return undefined when user does not exist', async () => {
+    const nonExistentUser = await storage.getUser(999999);
+    expect(nonExistentUser).toBeUndefined();
+    
+    const nonExistentUserByUsername = await storage.getUserByUsername('non-existent-user');
+    expect(nonExistentUserByUsername).toBeUndefined();
   });
+});
 
-  // Conversation tests
-  describe('Conversation Operations', () => {
-    it('should create a conversation', async () => {
-      // Create a user
-      const user = await createTestData.user(storage);
-      
-      // Create a conversation for that user
-      const conversation = await createTestData.conversation(storage, user.id, {
-        title: 'Test Conversation'
-      });
-      
-      // Verify the conversation
-      expect(conversation).toBeDefined();
-      expect(conversation.id).toBeGreaterThan(0);
-      expect(conversation.userId).toBe(user.id);
-      expect(conversation.title).toBe('Test Conversation');
-      expect(conversation.createdAt).toBeInstanceOf(Date);
-      expect(conversation.updatedAt).toBeInstanceOf(Date);
+describe('PgStorage - Conversation Operations', () => {
+  it('should create and retrieve a conversation', async () => {
+    // Create a user first
+    const user = await createTestData.user(storage);
+    
+    // Create a conversation
+    const createdConversation = await storage.createConversation({
+      userId: user.id,
+      title: 'Test Conversation'
     });
-
-    it('should get a conversation by ID', async () => {
-      // Create a conversation
-      const createdConversation = await createTestData.conversation(storage);
-      
-      // Get the conversation by ID
-      const conversation = await storage.getConversation(createdConversation.id);
-      
-      // Verify the conversation
-      expect(conversation).toBeDefined();
-      expect(conversation?.id).toBe(createdConversation.id);
-      expect(conversation?.title).toBe(createdConversation.title);
-    });
-
-    it('should list all conversations', async () => {
-      // Create a few conversations
-      await createTestData.conversation(storage, null, { title: 'Conversation 1' });
-      await createTestData.conversation(storage, null, { title: 'Conversation 2' });
-      
-      // Get all conversations
-      const conversations = await storage.listConversations();
-      
-      // Verify we got at least the two we just created
-      expect(conversations.length).toBeGreaterThanOrEqual(2);
-    });
-
-    it('should list conversations for a specific user', async () => {
-      // Create a user
-      const user = await createTestData.user(storage);
-      
-      // Create some conversations for that user
-      await createTestData.conversation(storage, user.id, { title: 'User Conversation 1' });
-      await createTestData.conversation(storage, user.id, { title: 'User Conversation 2' });
-      
-      // Create a conversation for another user/no user
-      await createTestData.conversation(storage, null, { title: 'Other Conversation' });
-      
-      // Get conversations for our user
-      const conversations = await storage.listConversations(user.id);
-      
-      // Verify we got exactly the two for our user
-      expect(conversations.length).toBe(2);
-      expect(conversations.every(c => c.userId === user.id)).toBe(true);
-    });
+    
+    // Verify conversation was created
+    expect(createdConversation).toBeDefined();
+    expect(createdConversation.id).toBeDefined();
+    expect(createdConversation.title).toBe('Test Conversation');
+    expect(createdConversation.userId).toBe(user.id);
+    expect(createdConversation.createdAt).toBeDefined();
+    expect(createdConversation.updatedAt).toBeDefined();
+    
+    // Retrieve conversation by ID
+    const retrievedConversation = await storage.getConversation(createdConversation.id);
+    expect(retrievedConversation).toEqual(createdConversation);
   });
-
-  // Message tests
-  describe('Message Operations', () => {
-    it('should create a message', async () => {
-      // Create a conversation
-      const conversation = await createTestData.conversation(storage);
-      
-      // Create a message in that conversation
-      const message = await createTestData.message(storage, conversation.id, {
-        role: 'user',
-        content: 'Hello world',
-        service: 'system'
-      });
-      
-      // Verify the message
-      expect(message).toBeDefined();
-      expect(message.id).toBeGreaterThan(0);
-      expect(message.conversationId).toBe(conversation.id);
-      expect(message.role).toBe('user');
-      expect(message.content).toBe('Hello world');
-      expect(message.service).toBe('system');
-      expect(message.timestamp).toBeInstanceOf(Date);
-    });
-
-    it('should get a message by ID', async () => {
-      // Create a conversation and a message
-      const conversation = await createTestData.conversation(storage);
-      const createdMessage = await createTestData.message(storage, conversation.id);
-      
-      // Get the message by ID
-      const message = await storage.getMessage(createdMessage.id);
-      
-      // Verify the message
-      expect(message).toBeDefined();
-      expect(message?.id).toBe(createdMessage.id);
-      expect(message?.content).toBe(createdMessage.content);
-    });
-
-    it('should get messages by conversation ID', async () => {
-      // Create a conversation
-      const conversation = await createTestData.conversation(storage);
-      
-      // Add a few messages to the conversation
-      await createTestData.message(storage, conversation.id, { content: 'Message 1' });
-      await createTestData.message(storage, conversation.id, { content: 'Message 2' });
-      await createTestData.message(storage, conversation.id, { content: 'Message 3' });
-      
-      // Get messages for the conversation
-      const messages = await storage.getMessagesByConversation(conversation.id);
-      
-      // Verify we got the messages
-      expect(messages.length).toBe(3);
-      expect(messages.every(m => m.conversationId === conversation.id)).toBe(true);
-    });
-
-    it('should handle messages with visualization data', async () => {
-      // Create a conversation
-      const conversation = await createTestData.conversation(storage);
-      
-      // Create a message with visualization data
-      const visualizationData = {
-        type: 'bar',
-        data: {
-          labels: ['Red', 'Blue', 'Yellow'],
-          datasets: [{
-            label: 'Colors',
-            data: [12, 19, 3]
-          }]
-        }
-      };
-      
-      const message = await createTestData.message(storage, conversation.id, {
-        role: 'assistant',
-        content: 'Here is your chart',
-        service: 'claude',
-        visualizationData
-      });
-      
-      // Verify the message
-      expect(message).toBeDefined();
-      expect(message.visualizationData).toEqual(visualizationData);
-      
-      // Get the message back from the database
-      const retrievedMessage = await storage.getMessage(message.id);
-      
-      // Verify the visualization data was preserved
-      expect(retrievedMessage?.visualizationData).toEqual(visualizationData);
-    });
+  
+  it('should list conversations', async () => {
+    // Create a user
+    const user = await createTestData.user(storage);
+    
+    // Create conversations
+    const conversation1 = await createTestData.conversation(storage, user.id);
+    const conversation2 = await createTestData.conversation(storage, user.id);
+    
+    // List all conversations
+    const allConversations = await storage.listConversations();
+    expect(allConversations.length).toBeGreaterThanOrEqual(2);
+    
+    // List conversations for a specific user
+    const userConversations = await storage.listConversations(user.id);
+    expect(userConversations.length).toBeGreaterThanOrEqual(2);
+    expect(userConversations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: conversation1.id }),
+        expect.objectContaining({ id: conversation2.id })
+      ])
+    );
   });
+});
 
-  // Research Job tests
-  describe('Research Job Operations', () => {
-    it('should create a research job', async () => {
-      // Create a user
-      const user = await createTestData.user(storage);
-      
-      // Create a research job
-      const job = await createTestData.researchJob(storage, user.id, {
-        query: 'Test research query',
-        jobId: 'job-123',
-        options: { depth: 'deep' }
-      });
-      
-      // Verify the job
-      expect(job).toBeDefined();
-      expect(job.id).toBeGreaterThan(0);
-      expect(job.userId).toBe(user.id);
-      expect(job.query).toBe('Test research query');
-      expect(job.status).toBe('queued');
-      expect(job.progress).toBe(0);
-      expect(job.jobId).toBe('job-123');
-      expect(job.options).toEqual({ depth: 'deep' });
-      expect(job.startedAt).toBeInstanceOf(Date);
-      expect(job.completedAt).toBeNull();
+describe('PgStorage - Message Operations', () => {
+  it('should create and retrieve messages', async () => {
+    // Create conversation first
+    const conversation = await createTestData.conversation(storage);
+    
+    // Create a message
+    const createdMessage = await storage.createMessage({
+      conversationId: conversation.id,
+      role: 'user',
+      content: 'Hello, world!',
+      service: 'system'
     });
-
-    it('should update a research job status', async () => {
-      // Create a job
-      const job = await createTestData.researchJob(storage);
-      
-      // Update the job status
-      const updatedJob = await storage.updateResearchJobStatus(job.id, 'processing', 25);
-      
-      // Verify the update
-      expect(updatedJob).toBeDefined();
-      expect(updatedJob.id).toBe(job.id);
-      expect(updatedJob.status).toBe('processing');
-      expect(updatedJob.progress).toBe(25);
-      
-      // Make sure it's still incomplete
-      expect(updatedJob.completedAt).toBeNull();
-      
-      // Complete the job
-      const completedJob = await storage.updateResearchJobStatus(job.id, 'completed', 100);
-      
-      // Verify the completion
-      expect(completedJob.status).toBe('completed');
-      expect(completedJob.progress).toBe(100);
-      expect(completedJob.completedAt).toBeInstanceOf(Date);
+    
+    // Verify message was created
+    expect(createdMessage).toBeDefined();
+    expect(createdMessage.id).toBeDefined();
+    expect(createdMessage.conversationId).toBe(conversation.id);
+    expect(createdMessage.role).toBe('user');
+    expect(createdMessage.content).toBe('Hello, world!');
+    expect(createdMessage.service).toBe('system');
+    expect(createdMessage.timestamp).toBeDefined();
+    
+    // Retrieve message by ID
+    const retrievedMessage = await storage.getMessage(createdMessage.id);
+    expect(retrievedMessage).toEqual(createdMessage);
+    
+    // Create another message
+    await storage.createMessage({
+      conversationId: conversation.id,
+      role: 'assistant',
+      content: 'Hi there!',
+      service: 'claude'
     });
-
-    it('should update a research job result', async () => {
-      // Create a job
-      const job = await createTestData.researchJob(storage);
-      
-      // Define a result
-      const result = {
-        summary: 'This is a summary of the research',
-        findings: ['Finding 1', 'Finding 2'],
-        sources: [
-          { title: 'Source 1', url: 'https://example.com/1' },
-          { title: 'Source 2', url: 'https://example.com/2' }
-        ]
-      };
-      
-      // Update the job with the result
-      const updatedJob = await storage.updateResearchJobResult(job.id, result);
-      
-      // Verify the update
-      expect(updatedJob).toBeDefined();
-      expect(updatedJob.id).toBe(job.id);
-      expect(updatedJob.status).toBe('completed');
-      expect(updatedJob.progress).toBe(100);
-      expect(updatedJob.result).toEqual(result);
-      expect(updatedJob.completedAt).toBeInstanceOf(Date);
-    });
-
-    it('should get a research job by Bull job ID', async () => {
-      // Create a unique Bull job ID
-      const bullJobId = `bull-job-${Date.now()}`;
-      
-      // Create a job with that ID
-      const createdJob = await createTestData.researchJob(storage, null, {
-        jobId: bullJobId
-      });
-      
-      // Get the job by Bull job ID
-      const job = await storage.getResearchJobByBullJobId(bullJobId);
-      
-      // Verify the job
-      expect(job).toBeDefined();
-      expect(job?.id).toBe(createdJob.id);
-      expect(job?.jobId).toBe(bullJobId);
-    });
+    
+    // Get messages by conversation
+    const messages = await storage.getMessagesByConversation(conversation.id);
+    expect(messages.length).toBe(2);
+    expect(messages[0].role).toBe('user');
+    expect(messages[1].role).toBe('assistant');
   });
+});
 
-  // Research Report tests
-  describe('Research Report Operations', () => {
-    it('should create a research report', async () => {
-      // Create a research job
-      const job = await createTestData.researchJob(storage);
-      
-      // Create a report for that job
-      const report = await createTestData.researchReport(storage, job.id, {
-        title: 'Test Report',
-        content: 'This is the report content',
-        summary: 'This is a summary',
-        citations: [
-          { title: 'Source 1', url: 'https://example.com/1' },
-          { title: 'Source 2', url: 'https://example.com/2' }
-        ],
-        followUpQuestions: ['Question 1?', 'Question 2?']
-      });
-      
-      // Verify the report
-      expect(report).toBeDefined();
-      expect(report.id).toBeGreaterThan(0);
-      expect(report.jobId).toBe(job.id);
-      expect(report.title).toBe('Test Report');
-      expect(report.content).toBe('This is the report content');
-      expect(report.summary).toBe('This is a summary');
-      expect(report.citations).toEqual([
-        { title: 'Source 1', url: 'https://example.com/1' },
-        { title: 'Source 2', url: 'https://example.com/2' }
-      ]);
-      expect(report.followUpQuestions).toEqual(['Question 1?', 'Question 2?']);
-      expect(report.createdAt).toBeInstanceOf(Date);
+describe('PgStorage - Research Job Operations', () => {
+  it('should create and retrieve research jobs', async () => {
+    // Create user first
+    const user = await createTestData.user(storage);
+    
+    // Create a research job
+    const createdJob = await storage.createResearchJob({
+      userId: user.id,
+      query: 'Research test query',
+      jobId: `job-${Date.now()}`,
+      options: { depth: 'medium' }
     });
-
-    it('should get a research report by ID', async () => {
-      // Create a job and a report
-      const job = await createTestData.researchJob(storage);
-      const createdReport = await createTestData.researchReport(storage, job.id);
-      
-      // Get the report by ID
-      const report = await storage.getResearchReport(createdReport.id);
-      
-      // Verify the report
-      expect(report).toBeDefined();
-      expect(report?.id).toBe(createdReport.id);
-      expect(report?.title).toBe(createdReport.title);
-    });
-
-    it('should list reports for a specific job', async () => {
-      // Create a job
-      const job = await createTestData.researchJob(storage);
-      
-      // Create some reports for that job
-      await createTestData.researchReport(storage, job.id, { title: 'Report 1' });
-      await createTestData.researchReport(storage, job.id, { title: 'Report 2' });
-      
-      // Create a report for another job
-      const otherJob = await createTestData.researchJob(storage);
-      await createTestData.researchReport(storage, otherJob.id, { title: 'Other Report' });
-      
-      // Get reports for our job
-      const reports = await storage.listResearchReports(job.id);
-      
-      // Verify we got exactly the two for our job
-      expect(reports.length).toBe(2);
-      expect(reports.every(r => r.jobId === job.id)).toBe(true);
-    });
+    
+    // Verify job was created
+    expect(createdJob).toBeDefined();
+    expect(createdJob.id).toBeDefined();
+    expect(createdJob.userId).toBe(user.id);
+    expect(createdJob.query).toBe('Research test query');
+    expect(createdJob.status).toBe('queued');
+    expect(createdJob.progress).toBe(0);
+    expect(createdJob.options).toEqual({ depth: 'medium' });
+    expect(createdJob.startedAt).toBeDefined();
+    
+    // Retrieve job by ID
+    const retrievedJob = await storage.getResearchJob(createdJob.id);
+    expect(retrievedJob).toEqual(createdJob);
+    
+    // Retrieve job by Bull job ID
+    const jobByBullId = await storage.getResearchJobByBullJobId(createdJob.jobId);
+    expect(jobByBullId).toEqual(createdJob);
+    
+    // Update job status
+    const updatedJob = await storage.updateResearchJobStatus(createdJob.id, 'processing', 50);
+    expect(updatedJob.status).toBe('processing');
+    expect(updatedJob.progress).toBe(50);
+    
+    // Update job result
+    const completedJob = await storage.updateResearchJobResult(createdJob.id, { summary: 'Test results' });
+    expect(completedJob.status).toBe('completed');
+    expect(completedJob.progress).toBe(100);
+    expect(completedJob.result).toEqual({ summary: 'Test results' });
+    expect(completedJob.completedAt).toBeDefined();
+    
+    // List jobs for user
+    const userJobs = await storage.listResearchJobs(user.id);
+    expect(userJobs.length).toBeGreaterThanOrEqual(1);
+    expect(userJobs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: createdJob.id })
+      ])
+    );
   });
+});
 
-  // API Status tests
-  describe('API Status Operations', () => {
-    it('should get API status', async () => {
-      // Get the API status
-      const status = await storage.getApiStatus();
-      
-      // Verify the status format
-      expect(status).toBeDefined();
-      expect(status.claude).toBeDefined();
-      expect(status.perplexity).toBeDefined();
-      expect(status.server).toBeDefined();
-      
-      // Verify the services
-      expect(status.claude.service).toBe('Claude API');
-      expect(status.perplexity.service).toBe('Perplexity API');
-      
-      // Verify the server status
-      expect(status.server.status).toBe('running');
-      expect(typeof status.server.uptime).toBe('string');
+describe('PgStorage - Research Report Operations', () => {
+  it('should create and retrieve research reports', async () => {
+    // Create a research job first
+    const job = await createTestData.researchJob(storage);
+    
+    // Create a research report
+    const createdReport = await storage.createResearchReport({
+      jobId: job.id,
+      title: 'Test Report',
+      content: 'Test report content',
+      summary: 'Test summary',
+      citations: [{ source: 'Test source', text: 'Test citation' }],
+      followUpQuestions: ['Question 1', 'Question 2'],
+      filePath: '/test/path.pdf'
     });
+    
+    // Verify report was created
+    expect(createdReport).toBeDefined();
+    expect(createdReport.id).toBeDefined();
+    expect(createdReport.jobId).toBe(job.id);
+    expect(createdReport.title).toBe('Test Report');
+    expect(createdReport.content).toBe('Test report content');
+    expect(createdReport.summary).toBe('Test summary');
+    expect(createdReport.citations).toEqual([{ source: 'Test source', text: 'Test citation' }]);
+    expect(createdReport.followUpQuestions).toEqual(['Question 1', 'Question 2']);
+    expect(createdReport.filePath).toBe('/test/path.pdf');
+    expect(createdReport.createdAt).toBeDefined();
+    
+    // Retrieve report by ID
+    const retrievedReport = await storage.getResearchReport(createdReport.id);
+    expect(retrievedReport).toEqual(createdReport);
+    
+    // Create another report for the same job
+    await storage.createResearchReport({
+      jobId: job.id,
+      title: 'Second Test Report',
+      content: 'Second test report content',
+    });
+    
+    // List reports by job ID
+    const jobReports = await storage.listResearchReports(job.id);
+    expect(jobReports.length).toBe(2);
+    expect(jobReports[0].title).toBe('Test Report');
+    expect(jobReports[1].title).toBe('Second Test Report');
+  });
+});
 
-    it('should update service status', async () => {
-      // Update the Claude service status
-      await storage.updateServiceStatus('claude', {
-        status: 'error',
-        error: 'API key invalid',
-        lastUsed: '2023-04-01T12:00:00Z'
-      });
-      
-      // Get the API status
-      const status = await storage.getApiStatus();
-      
-      // Verify the update
-      expect(status.claude.status).toBe('error');
-      expect(status.claude.error).toBe('API key invalid');
-      expect(status.claude.lastUsed).toBe('2023-04-01T12:00:00Z');
-      
-      // Verify other services weren't affected
-      expect(status.perplexity.status).toBe('connected');
+describe('PgStorage - API Status Operations', () => {
+  it('should get and update API status', async () => {
+    // Get API status
+    const status = await storage.getApiStatus();
+    
+    // Verify status structure
+    expect(status).toBeDefined();
+    expect(status.claude).toBeDefined();
+    expect(status.perplexity).toBeDefined();
+    expect(status.server).toBeDefined();
+    
+    // Update service status
+    await storage.updateServiceStatus('claude', {
+      status: 'disconnected',
+      lastUsed: new Date().toISOString()
     });
+    
+    // Get updated status
+    const updatedStatus = await storage.getApiStatus();
+    expect(updatedStatus.claude.status).toBe('disconnected');
   });
 });

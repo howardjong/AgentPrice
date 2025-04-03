@@ -1,29 +1,6 @@
 # Database Testing Patterns
 
-This document outlines the recommended patterns for database testing in the Multi-LLM Research System.
-
-## Table of Contents
-
-1. [Overview](#overview)
-2. [Testing Approaches](#testing-approaches)
-   - [Integration Tests with Real Database](#integration-tests-with-real-database)
-   - [Unit Tests with Mocked Storage](#unit-tests-with-mocked-storage)
-   - [Transaction Isolation](#transaction-isolation)
-3. [Testing Utilities](#testing-utilities)
-   - [Test Database Setup](#test-database-setup)
-   - [Test Data Creation](#test-data-creation)
-   - [Mock Database](#mock-database)
-4. [Best Practices](#best-practices)
-5. [Example Tests](#example-tests)
-
-## Overview
-
-The Multi-LLM Research System uses PostgreSQL with Drizzle ORM for data persistence. The storage layer is abstracted through the `IStorage` interface, which allows for different implementations:
-
-- `MemStorage`: In-memory implementation used for development and simple testing
-- `PgStorage`: PostgreSQL implementation used in production and for integration tests
-
-This architecture enables flexible testing strategies that can adapt to different testing needs.
+This document outlines the recommended patterns for testing database operations in the Multi-LLM Research System. The system uses a combination of testing approaches to ensure database operations work correctly.
 
 ## Testing Approaches
 
@@ -76,52 +53,47 @@ it('should call the right storage methods', async () => {
 });
 ```
 
-### Transaction Isolation
+### Transaction Isolation Tests
 
-For tests that need to perform complex database operations without affecting other tests, transaction isolation provides a clean way to roll back changes after each test. These tests:
+Transaction isolation tests use database transactions to isolate test runs. These tests should:
 
-- Start a transaction before each test
+- Begin a transaction before each test
 - Roll back the transaction after each test
-- Allow direct database access for complex scenarios
-- Keep tests isolated from each other without full database resets
+- Test operations against the actual database
+- Ensure changes from one test don't affect other tests
 
 Example setup:
 ```typescript
-let client: any;
+// Using the setupTransactionTest utility
+const { db } = setupTransactionTest();
+const storage = pgStorage;
 
-beforeEach(async () => {
-  client = await pool.connect();
-  await client.query('BEGIN');
-});
-
-afterEach(async () => {
-  await client.query('ROLLBACK');
-  client.release();
-});
-
-it('should work within a transaction', async () => {
-  // Test code that makes changes that will be rolled back
+it('should create and retrieve data in a transaction', async () => {
+  // Test code that manipulates and queries data
+  // All changes will be rolled back after the test
 });
 ```
 
 ## Testing Utilities
 
-### Test Database Setup
+The `tests/utils/db-test-utils.ts` file provides several utilities to help with database testing:
 
-The `setupTestDatabase` utility in `tests/utils/db-test-utils.ts` provides:
+### setupTestDatabase()
 
-- Automatic database reset before all tests
-- Access to the database client and storage implementation
-- Proper cleanup after tests
+Sets up a test database environment and provides access to the storage implementation.
 
-Usage:
 ```typescript
-const { db, getStorage } = setupTestDatabase();
+const { getStorage } = setupTestDatabase();
+let storage: IStorage;
+
+beforeAll(() => {
+  storage = getStorage();
+});
 ```
 
-### Test Data Creation
+### createTestData
 
-The `createTestData` utility provides factory functions to create test data:
+Factory functions to create test data for various entities.
 
 ```typescript
 // Create a test user
@@ -134,28 +106,33 @@ const conversation = await createTestData.conversation(storage, user.id);
 const message = await createTestData.message(storage, conversation.id);
 ```
 
-Each factory accepts overrides to customize the created data.
+### mockDatabase()
 
-### Mock Database
-
-The `mockDatabase` utility creates a mock storage implementation:
+Creates a mock storage implementation for unit testing.
 
 ```typescript
-const { mockStorage, mockStore } = mockDatabase();
+const { mockStorage } = mockDatabase();
+
+// Configure mock behavior
+vi.mocked(mockStorage.getUser).mockResolvedValue({
+  id: 1,
+  username: 'testuser',
+  password: 'password123'
+});
 ```
 
-The `mockStorage` instance implements `IStorage` with vitest mock functions, and the `mockStore` provides direct access to the in-memory data.
+### setupTransactionTest()
 
-## Best Practices
+Sets up transaction isolation for database tests.
 
-1. **Isolate tests**: Each test should be independent from others, with its own setup and data
-2. **Clean up after tests**: Always clean up resources (database connections, files, etc.)
-3. **Use the right testing approach**: Integration tests for data integrity, unit tests for business logic
-4. **Avoid shared state**: Don't rely on data created in other tests
-5. **Make tests deterministic**: Tests should pass consistently without flakiness
-6. **Test both success and failure cases**: Verify error handling works correctly
-7. **Use meaningful assertions**: Assertions should verify the important aspects of the test
-8. **Keep tests focused**: Each test should verify one specific behavior
+```typescript
+const { db } = setupTransactionTest();
+
+it('test with transaction isolation', async () => {
+  // Use db to directly manipulate the database
+  // All changes will be rolled back after the test
+});
+```
 
 ## Example Tests
 
@@ -166,3 +143,23 @@ See the following example tests for different testing approaches:
 - `tests/storage/transaction-isolation.test.ts`: Tests using transaction isolation
 
 These examples demonstrate how to use the testing utilities and follow the recommended testing patterns.
+
+## Best Practices
+
+1. **Clean up after tests**: Always clean up data created during tests, either by using transactions or explicit cleanup in `afterEach`/`afterAll` hooks.
+
+2. **Use unique identifiers**: Use timestamps or random values to create unique identifiers for test data to avoid conflicts.
+
+3. **Test both success and error paths**: Verify that your code correctly handles both successful operations and error conditions.
+
+4. **Don't rely on test order**: Each test should be independent and should not rely on the state from previous tests.
+
+5. **Use appropriate assertions**: Be specific about what you're testing and use the right assertions to verify the expected behavior.
+
+6. **Avoid testing external services**: When testing database operations, mock external services like APIs or email sending.
+
+7. **Use descriptive test names**: Write clear, descriptive test names that explain what functionality is being tested.
+
+8. **Keep tests focused**: Each test should focus on a specific behavior or functionality, not try to test everything at once.
+
+9. **Use transaction isolation when possible**: Transactions provide a clean way to isolate tests and can be faster than other cleanup methods.

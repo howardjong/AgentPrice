@@ -1,259 +1,242 @@
 # Database Testing with Vitest
 
-This guide covers how to effectively test database interactions using Vitest in the Multi-LLM Research System.
+This document outlines how to use Vitest for database testing in the Multi-LLM Research System. Vitest offers several advantages over Jest for testing database operations.
 
-## Table of Contents
+## Why Vitest for Database Testing?
 
-1. [Introduction](#introduction)
-2. [Testing Setup](#testing-setup)
-   - [Configuration](#configuration)
-   - [Hooks and Lifecycle](#hooks-and-lifecycle)
-3. [Mock vs. Real Database](#mock-vs-real-database)
-4. [Transaction Isolation](#transaction-isolation)
-5. [Testing Patterns](#testing-patterns)
-6. [Handling Asynchronous Database Operations](#handling-asynchronous-database-operations)
-7. [Best Practices](#best-practices)
-8. [Troubleshooting](#troubleshooting)
+Vitest has several advantages for database testing:
 
-## Introduction
+1. **Native ESM Support**: Vitest provides native support for ES Modules, which is essential for our modern TypeScript codebase.
 
-Vitest provides a modern, ESM-compatible testing framework that works well for testing database operations. This guide explains how to use Vitest's features to effectively test database interactions in our application.
+2. **Better Async Handling**: Vitest has improved handling of asynchronous code and promises, which is crucial for database operations.
 
-## Testing Setup
+3. **Faster Execution**: Vitest is generally faster than Jest, which is important for database tests that can be time-consuming.
 
-### Configuration
+4. **TypeScript Integration**: Vitest works better with TypeScript, providing better type checking and error reporting.
 
-The project is configured to use Vitest with TypeScript and ESM support. The main configuration file is `vitest.config.js`, which includes settings for:
+5. **Improved Mocking**: Vitest has better mocking capabilities, especially for ES Modules.
 
-- Environment setup (`process.env.NODE_ENV = 'test'`)
-- Global test timeout
-- Coverage reporting
-- Test isolation
+6. **Better Error Messages**: Vitest provides more detailed and helpful error messages when tests fail.
 
-Key Vitest configuration for database testing:
+## Setting Up Database Tests with Vitest
 
-```js
+### Test Configuration
+
+The project uses a custom Vitest configuration in `vitest.config.js`:
+
+```javascript
+import { defineConfig } from 'vitest/config';
+
 export default defineConfig({
   test: {
-    globals: true,
     environment: 'node',
-    testTimeout: 10000, // Extended timeout for database operations
-    isolate: true,      // Isolates test files from each other
-    setupFiles: ['./tests/setup.ts'], // Global setup file
+    testTimeout: 30000, // Increased timeout for database operations
+    hookTimeout: 15000,  // Increased timeout for setup/teardown hooks
+    poolOptions: {
+      threads: {
+        singleThread: true, // Database tests often need to run in a single thread
+      },
+    },
+    // ... other configuration
   },
-  // ...
 });
 ```
 
-### Hooks and Lifecycle
+### Database Test Utilities
 
-Vitest provides several lifecycle hooks that are useful for database testing:
-
-- `beforeAll`: Set up database connections, create tables
-- `afterAll`: Close connections, clean up resources
-- `beforeEach`: Reset database state, start transactions
-- `afterEach`: Roll back transactions, clean up test data
-
-Example usage in a test file:
+We've created several utilities to make database testing easier with Vitest:
 
 ```typescript
-import { beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { db, resetDatabase, closeDatabaseConnections } from '../../server/db';
+// Setting up a test database
+const { getStorage } = setupTestDatabase();
 
-beforeAll(async () => {
-  // Set up database for all tests in this file
-  await resetDatabase();
-});
+// Creating test data
+const user = await createTestData.user(storage);
 
-afterAll(async () => {
-  // Clean up after all tests
-  await closeDatabaseConnections();
-});
+// Mocking the database
+const { mockStorage } = mockDatabase();
 
-beforeEach(async () => {
-  // Prepare for each test
-  await db.query('DELETE FROM users');
+// Setting up transaction isolation
+const { db } = setupTransactionTest();
+```
+
+### Test File Structure
+
+Database test files should follow this general structure:
+
+```typescript
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { setupTestDatabase } from '../utils/db-test-utils';
+
+describe('Database Module Tests', () => {
+  const { getStorage } = setupTestDatabase();
+  let storage;
+
+  beforeAll(() => {
+    storage = getStorage();
+  });
+
+  it('should perform a database operation', async () => {
+    // Test database operations
+  });
 });
 ```
 
-## Mock vs. Real Database
+## Working with Transactions
 
-### When to Use a Real Database
-
-Use a real PostgreSQL database for:
-
-- Integration tests verifying actual database behavior
-- Tests that rely on PostgreSQL-specific features
-- Tests for complex queries or transactions
-- Tests for database constraints and triggers
-
-### When to Use a Mock
-
-Use a mocked database for:
-
-- Unit tests focusing on business logic
-- Tests that shouldn't depend on database availability
-- Fast-running tests for CI pipelines
-- Testing edge cases and error conditions
-
-## Transaction Isolation
-
-Transaction isolation is a powerful technique for database testing that:
-
-1. Wraps each test in a transaction
-2. Rolls back the transaction after the test
-3. Keeps tests isolated without slow database resets
-4. Allows complex data setup without affecting other tests
-
-Implementation:
+Vitest works well with database transactions for test isolation:
 
 ```typescript
-let client: any;
+import { describe, it, expect } from 'vitest';
+import { setupTransactionTest } from '../utils/db-test-utils';
 
-beforeEach(async () => {
-  // Start a transaction
-  client = await db.getClient();
-  await client.query('BEGIN');
+describe('Transaction Tests', () => {
+  const { db } = setupTransactionTest();
+
+  it('should create and read data within a transaction', async () => {
+    // Test code using db directly
+    // Changes will be rolled back after the test
+  });
 });
+```
 
+## Mocking Database Operations
+
+Vitest provides robust mocking capabilities:
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { mockDatabase } from '../utils/db-test-utils';
+
+describe('Service with Mocked Database', () => {
+  const { mockStorage } = mockDatabase();
+  
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+  
+  it('should use the database correctly', async () => {
+    // Setup mocks
+    vi.mocked(mockStorage.getUser).mockResolvedValue({
+      id: 1, username: 'testuser', password: 'password'
+    });
+    
+    // Test code that uses mockStorage
+    // ...
+    
+    // Verify mock was called correctly
+    expect(mockStorage.getUser).toHaveBeenCalledWith(1);
+  });
+});
+```
+
+## Best Practices for Database Testing with Vitest
+
+1. **Use Appropriate Timeouts**: Database operations can be slow, so set appropriate timeouts for tests and hooks.
+
+```typescript
+it('should perform a slow database operation', async () => {
+  // Test code
+}, { timeout: 10000 }); // 10 second timeout for this specific test
+```
+
+2. **Handle Async Operations Correctly**: Always use `async/await` with database operations and ensure all promises are properly resolved or rejected.
+
+```typescript
+it('should correctly handle async operations', async () => {
+  // Good: Wait for the promise to resolve
+  const result = await storage.getUser(1);
+  
+  // Bad: Not waiting for the promise
+  // storage.getUser(1);
+});
+```
+
+3. **Clean Up Database State**: Always clean up database state after tests, either using transactions or explicit cleanup.
+
+```typescript
+// Using afterEach for cleanup
 afterEach(async () => {
-  // Roll back the transaction
-  await client.query('ROLLBACK');
-  client.release();
+  await db.delete(users).where(eq(users.username, 'testuser'));
 });
 ```
 
-## Testing Patterns
+4. **Isolate Test Runs**: Each test should run in isolation and not depend on state from other tests.
 
-### Repository/Storage Layer Testing
-
-Test storage implementations to verify they interact correctly with the database:
+5. **Use Mock Reset**: Always reset mocks between tests to prevent test contamination.
 
 ```typescript
-describe('PgStorage', () => {
-  it('should create and retrieve a user', async () => {
-    const storage = new PgStorage();
-    
-    // Create a user
-    const created = await storage.createUser({
-      username: 'testuser',
-      password: 'password'
-    });
-    
-    // Retrieve the user
-    const retrieved = await storage.getUser(created.id);
-    
-    // Verify
-    expect(retrieved).toEqual(created);
-  });
+beforeEach(() => {
+  vi.resetAllMocks();
 });
 ```
 
-### Service Layer Testing
-
-Test services that use the storage interface:
+6. **Check for Test Database**: Before running tests, verify that you're using a test database, not a production database.
 
 ```typescript
-describe('UserService', () => {
-  it('should register a new user', async () => {
-    // Use mock storage for unit testing
-    const { mockStorage } = mockDatabase();
-    const service = new UserService(mockStorage);
-    
-    await service.register('testuser', 'password');
-    
-    // Verify storage was called correctly
-    expect(mockStorage.createUser).toHaveBeenCalledWith({
-      username: 'testuser',
-      password: expect.any(String) // Password should be hashed
-    });
-  });
+beforeAll(() => {
+  if (!process.env.DATABASE_URL.includes('test')) {
+    throw new Error('Tests should only run against a test database');
+  }
 });
 ```
 
-### API Testing
+## Migrating from Jest to Vitest
 
-Test API endpoints that interact with the database:
+If you're migrating existing database tests from Jest to Vitest:
 
-```typescript
-describe('User API', () => {
-  it('should create a user via API', async () => {
-    // Set up Express app with routes
-    const app = setupTestApp();
-    
-    // Make a request
-    const response = await request(app)
-      .post('/api/users')
-      .send({ username: 'testuser', password: 'password' });
-    
-    // Verify response
-    expect(response.status).toBe(201);
-    expect(response.body.username).toBe('testuser');
-    
-    // Verify database state
-    const user = await db.getUser(response.body.id);
-    expect(user).toBeDefined();
-  });
-});
+1. Replace Jest imports with Vitest:
+   ```typescript
+   // Change this
+   import { describe, it, expect } from 'jest';
+   // To this
+   import { describe, it, expect } from 'vitest';
+   ```
+
+2. Update mocking syntax:
+   ```typescript
+   // Change this
+   jest.mock('./module');
+   jest.spyOn(object, 'method').mockImplementation(() => {});
+   // To this
+   vi.mock('./module');
+   vi.spyOn(object, 'method').mockImplementation(() => {});
+   ```
+
+3. Update timer mocks:
+   ```typescript
+   // Change this
+   jest.useFakeTimers();
+   jest.advanceTimersByTime(1000);
+   // To this
+   vi.useFakeTimers();
+   vi.advanceTimersByTime(1000);
+   ```
+
+4. Update test runner configuration in `package.json` or run script.
+
+## Running Database Tests
+
+Use the provided script to run database tests:
+
+```bash
+npm run test:db
 ```
 
-## Handling Asynchronous Database Operations
+Or run specific database tests:
 
-Vitest handles async tests well, but there are some best practices to follow:
-
-1. Always use `async/await` for database operations
-2. Make sure to handle promise rejections
-3. Use proper assertions for async results
-4. Be careful with timeout settings
-
-Example:
-
-```typescript
-it('should handle large result sets', async () => {
-  // Insert 1000 records
-  await db.bulkInsert(/* ... */);
-  
-  // This might take time, so we use a longer timeout
-  const results = await db.findAll();
-  
-  // Verify results
-  expect(results.length).toBe(1000);
-}, 20000); // Extended timeout just for this test
+```bash
+npx vitest run tests/storage/pg-storage.test.ts
 ```
 
-## Best Practices
+## Troubleshooting Common Issues
 
-1. **Use a separate test database**: Never test against production or development databases
-2. **Reset database state**: Either reset between test runs or use transaction isolation
-3. **Test database constraints**: Verify unique constraints, foreign keys, etc.
-4. **Use realistic test data**: Test with data that resembles production
-5. **Don't share test state**: Tests should be independent from each other
-6. **Test error conditions**: Verify how your code handles database errors
-7. **Check coverage**: Aim for high coverage of database operations
-8. **Group related tests**: Use `describe` blocks to organize tests logically
+1. **Connection Issues**: If tests fail to connect to the database, check your `DATABASE_URL` environment variable.
 
-## Troubleshooting
+2. **Timeout Errors**: If tests time out, increase the timeout in `vitest.config.js` or for specific tests.
 
-### Common Issues and Solutions
+3. **ESM Compatibility**: If you encounter ESM compatibility issues, make sure all imports and exports use the correct syntax.
 
-1. **Timeout errors**
-   - Increase the test timeout in Vitest config or for specific tests
-   - Check for slow queries or missing indexes
+4. **Transaction Isolation Failures**: If transaction isolation isn't working, ensure your database supports transactions and that you're properly beginning and rolling back transactions.
 
-2. **Database connection issues**
-   - Verify your PostgreSQL instance is running
-   - Check connection string and credentials
-   - Ensure you're not hitting connection limits
-
-3. **Data persistence between tests**
-   - Make sure transactions are rolling back properly
-   - Check that all tests clean up their data
-   - Check for side effects in shared test setup
-
-4. **ESM compatibility issues**
-   - Use dynamic imports for ESM modules
-   - Make sure your database client supports ESM
-
-5. **Missing tables or schema issues**
-   - Verify that migrations run before tests
-   - Check schema synchronization in test setup
+5. **Mock Issues**: If mocks aren't working as expected, check that you're using `vi.mocked()` and resetting mocks between tests.

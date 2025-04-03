@@ -1,161 +1,166 @@
-/**
- * Mock Storage Tests
- * These tests show how to use the mock database utilities for unit testing
- */
-import { describe, expect, it, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mockDatabase } from '../utils/db-test-utils';
 import type { IStorage } from '../../server/storage';
 
-// Hypothetical service that uses the storage
-class ConversationService {
-  constructor(private storage: IStorage) {}
+/**
+ * Mock Storage Tests
+ * 
+ * These tests demonstrate how to use mocked storage for unit testing
+ * service components that depend on storage but don't need a real database.
+ */
 
-  async createConversation(userId: number | null, title: string) {
-    return this.storage.createConversation({
-      userId,
-      title,
-    });
+// Define a sample service class that uses storage
+class UserService {
+  private storage: IStorage;
+  
+  constructor(storage: IStorage) {
+    this.storage = storage;
   }
-
-  async addMessage(conversationId: number, message: string, role: string = 'user') {
-    return this.storage.createMessage({
-      conversationId,
-      role,
-      content: message,
-      service: 'system',
-    });
+  
+  async getUserById(id: number) {
+    return this.storage.getUser(id);
   }
-
-  async getConversationWithMessages(conversationId: number) {
-    const conversation = await this.storage.getConversation(conversationId);
-    if (!conversation) return null;
-
-    const messages = await this.storage.getMessagesByConversation(conversationId);
-    return { conversation, messages };
+  
+  async getUserByUsername(username: string) {
+    return this.storage.getUserByUsername(username);
+  }
+  
+  async createUser(username: string, password: string) {
+    // Check if user already exists
+    const existingUser = await this.storage.getUserByUsername(username);
+    if (existingUser) {
+      throw new Error('Username already exists');
+    }
+    
+    // Create new user
+    return this.storage.createUser({ username, password });
+  }
+  
+  async getMessagesForUser(userId: number) {
+    // Get all conversations for user
+    const conversations = await this.storage.listConversations(userId);
+    
+    // Get messages for each conversation
+    const messagePromises = conversations.map(conversation => 
+      this.storage.getMessagesByConversation(conversation.id)
+    );
+    
+    // Return flattened array of messages
+    return (await Promise.all(messagePromises)).flat();
   }
 }
 
-describe('ConversationService with Mock Storage', () => {
-  // Get the mock storage
-  const { mockStorage, mockStore } = mockDatabase();
-  let service: ConversationService;
+// Setup mock database
+const { mockStorage } = mockDatabase();
+let userService: UserService;
 
-  beforeEach(() => {
-    // Reset all mocks before each test
-    vi.resetAllMocks();
+// Reset mocks before each test
+beforeEach(() => {
+  vi.resetAllMocks();
+  userService = new UserService(mockStorage);
+});
+
+describe('UserService with Mocked Storage', () => {
+  it('should get a user by ID', async () => {
+    // Setup mock return value
+    const mockUser = { id: 1, username: 'testuser', password: 'hashed_password' };
+    vi.mocked(mockStorage.getUser).mockResolvedValue(mockUser);
     
-    // Create a new service with the mock storage
-    service = new ConversationService(mockStorage);
+    // Call the service method
+    const user = await userService.getUserById(1);
     
-    // Clear the mock store
-    mockStore.users.clear();
-    mockStore.conversations.clear();
-    mockStore.messages.clear();
-    mockStore.researchJobs.clear();
-    mockStore.researchReports.clear();
+    // Assert the result
+    expect(user).toEqual(mockUser);
     
-    // Reset counters
-    mockStore.counters = {
-      userId: 1,
-      conversationId: 1,
-      messageId: 1,
-      researchJobId: 1,
-      researchReportId: 1,
-    };
+    // Verify the storage method was called with the correct parameters
+    expect(mockStorage.getUser).toHaveBeenCalledWith(1);
+    expect(mockStorage.getUser).toHaveBeenCalledTimes(1);
   });
-
-  it('should create a conversation', async () => {
-    // Arrange - no additional setup needed since we're using the mock
-
-    // Act
-    const conversation = await service.createConversation(1, 'Test Conversation');
-
-    // Assert
-    expect(conversation).toBeDefined();
-    expect(conversation.id).toBe(1);
-    expect(conversation.userId).toBe(1);
-    expect(conversation.title).toBe('Test Conversation');
+  
+  it('should get a user by username', async () => {
+    // Setup mock return value
+    const mockUser = { id: 1, username: 'testuser', password: 'hashed_password' };
+    vi.mocked(mockStorage.getUserByUsername).mockResolvedValue(mockUser);
     
-    // Verify the mock was called
-    expect(mockStorage.createConversation).toHaveBeenCalledWith({
-      userId: 1,
-      title: 'Test Conversation',
+    // Call the service method
+    const user = await userService.getUserByUsername('testuser');
+    
+    // Assert the result
+    expect(user).toEqual(mockUser);
+    
+    // Verify the storage method was called correctly
+    expect(mockStorage.getUserByUsername).toHaveBeenCalledWith('testuser');
+    expect(mockStorage.getUserByUsername).toHaveBeenCalledTimes(1);
+  });
+  
+  it('should create a new user if username is available', async () => {
+    // Setup mock return values
+    vi.mocked(mockStorage.getUserByUsername).mockResolvedValue(undefined);
+    const mockCreatedUser = { id: 1, username: 'newuser', password: 'hashed_password' };
+    vi.mocked(mockStorage.createUser).mockResolvedValue(mockCreatedUser);
+    
+    // Call the service method
+    const user = await userService.createUser('newuser', 'password123');
+    
+    // Assert the result
+    expect(user).toEqual(mockCreatedUser);
+    
+    // Verify the storage methods were called correctly
+    expect(mockStorage.getUserByUsername).toHaveBeenCalledWith('newuser');
+    expect(mockStorage.createUser).toHaveBeenCalledWith({
+      username: 'newuser',
+      password: 'password123'
+    });
+  });
+  
+  it('should throw an error if username already exists', async () => {
+    // Setup mock return values
+    const existingUser = { id: 1, username: 'existinguser', password: 'hashed_password' };
+    vi.mocked(mockStorage.getUserByUsername).mockResolvedValue(existingUser);
+    
+    // Call the service method and expect it to throw
+    await expect(userService.createUser('existinguser', 'password123'))
+      .rejects.toThrow('Username already exists');
+    
+    // Verify the storage methods were called correctly
+    expect(mockStorage.getUserByUsername).toHaveBeenCalledWith('existinguser');
+    expect(mockStorage.createUser).not.toHaveBeenCalled();
+  });
+  
+  it('should get all messages for a user', async () => {
+    // Setup mock return values
+    const mockConversations = [
+      { id: 1, userId: 1, title: 'Conversation 1', createdAt: new Date(), updatedAt: new Date() },
+      { id: 2, userId: 1, title: 'Conversation 2', createdAt: new Date(), updatedAt: new Date() }
+    ];
+    
+    const mockMessages1 = [
+      { id: 1, conversationId: 1, role: 'user', content: 'Hello', service: 'system', timestamp: new Date() }
+    ];
+    
+    const mockMessages2 = [
+      { id: 2, conversationId: 2, role: 'user', content: 'Hi there', service: 'system', timestamp: new Date() },
+      { id: 3, conversationId: 2, role: 'assistant', content: 'How can I help?', service: 'claude', timestamp: new Date() }
+    ];
+    
+    vi.mocked(mockStorage.listConversations).mockResolvedValue(mockConversations);
+    vi.mocked(mockStorage.getMessagesByConversation).mockImplementation(async (conversationId) => {
+      if (conversationId === 1) return mockMessages1;
+      if (conversationId === 2) return mockMessages2;
+      return [];
     });
     
-    // Check the mock store directly
-    expect(mockStore.conversations.size).toBe(1);
-    expect(mockStore.conversations.get(1)).toBe(conversation);
-  });
-
-  it('should add a message to a conversation', async () => {
-    // Arrange - create a conversation first
-    const conversation = await service.createConversation(1, 'Test Conversation');
-
-    // Act
-    const message = await service.addMessage(conversation.id, 'Hello world');
-
-    // Assert
-    expect(message).toBeDefined();
-    expect(message.id).toBe(1);
-    expect(message.conversationId).toBe(conversation.id);
-    expect(message.content).toBe('Hello world');
-    expect(message.role).toBe('user');
+    // Call the service method
+    const messages = await userService.getMessagesForUser(1);
     
-    // Verify the mock was called
-    expect(mockStorage.createMessage).toHaveBeenCalledWith({
-      conversationId: conversation.id,
-      role: 'user',
-      content: 'Hello world',
-      service: 'system',
-    });
+    // Assert the result
+    expect(messages).toHaveLength(3);
+    expect(messages).toEqual([...mockMessages1, ...mockMessages2]);
     
-    // Check the mock store directly
-    expect(mockStore.messages.size).toBe(1);
-    expect(mockStore.messages.get(1)).toBe(message);
-  });
-
-  it('should get a conversation with messages', async () => {
-    // Arrange - create a conversation and add messages
-    const conversation = await service.createConversation(1, 'Test Conversation');
-    await service.addMessage(conversation.id, 'Hello');
-    await service.addMessage(conversation.id, 'How are you?');
-    await service.addMessage(conversation.id, 'I am fine', 'assistant');
-
-    // Reset the mocks to verify the specific calls in this test
-    vi.clearAllMocks();
-
-    // Act
-    const result = await service.getConversationWithMessages(conversation.id);
-
-    // Assert
-    expect(result).toBeDefined();
-    expect(result?.conversation).toEqual(conversation);
-    expect(result?.messages.length).toBe(3);
-    
-    // Verify content of messages
-    expect(result?.messages[0].content).toBe('Hello');
-    expect(result?.messages[1].content).toBe('How are you?');
-    expect(result?.messages[2].content).toBe('I am fine');
-    
-    // Verify role of messages
-    expect(result?.messages[0].role).toBe('user');
-    expect(result?.messages[1].role).toBe('user');
-    expect(result?.messages[2].role).toBe('assistant');
-    
-    // Verify the mocks were called
-    expect(mockStorage.getConversation).toHaveBeenCalledWith(conversation.id);
-    expect(mockStorage.getMessagesByConversation).toHaveBeenCalledWith(conversation.id);
-  });
-
-  it('should handle non-existent conversation', async () => {
-    // Act
-    const result = await service.getConversationWithMessages(999);
-
-    // Assert
-    expect(result).toBeNull();
-    
-    // Verify the mocks were called
-    expect(mockStorage.getConversation).toHaveBeenCalledWith(999);
-    expect(mockStorage.getMessagesByConversation).not.toHaveBeenCalled();
+    // Verify the storage methods were called correctly
+    expect(mockStorage.listConversations).toHaveBeenCalledWith(1);
+    expect(mockStorage.getMessagesByConversation).toHaveBeenCalledTimes(2);
+    expect(mockStorage.getMessagesByConversation).toHaveBeenCalledWith(1);
+    expect(mockStorage.getMessagesByConversation).toHaveBeenCalledWith(2);
   });
 });

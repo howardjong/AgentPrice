@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Run database tests script
-# This script runs the database-related tests using Vitest
+# Database Tests Runner Script
+# This script runs database tests with proper setup and teardown
 
 # Set colors for better output
 RED='\033[0;31m'
@@ -13,38 +13,66 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 echo -e "${MAGENTA}======================================"
-echo -e "       DATABASE TEST RUNNER"
+echo -e "         DATABASE TESTS RUNNER"
 echo -e "======================================${NC}"
 echo ""
 
-# Check if PostgreSQL database is available
-echo -e "${CYAN}Checking database availability...${NC}"
-
-if [ -z "$DATABASE_URL" ]; then
-  echo -e "${YELLOW}DATABASE_URL environment variable not found."
-  echo -e "Make sure you have a PostgreSQL database available.${NC}"
+# Check if DATABASE_URL is set
+if [ -z "${DATABASE_URL}" ]; then
+  echo -e "${RED}ERROR: DATABASE_URL environment variable is not set.${NC}"
+  echo -e "Make sure you have a PostgreSQL database configured."
   exit 1
 fi
 
-# Run the database tests with Vitest
-echo -e "\n${CYAN}Running database tests...${NC}"
-echo -e "${YELLOW}Executing: npx vitest run tests/storage --coverage${NC}"
+# Check database connection
+echo -e "${CYAN}Checking database connection...${NC}"
+npx tsx -e "
+const pg = require('postgres');
+const client = pg('${DATABASE_URL}', { ssl: false });
+async function check() {
+  try {
+    const result = await client\`SELECT 1 as check\`;
+    if (result[0].check === 1) {
+      console.log('Database connection successful!');
+      process.exit(0);
+    } else {
+      console.error('Database connection test failed.');
+      process.exit(1);
+    }
+  } catch (err) {
+    console.error('Database connection error:', err.message);
+    process.exit(1);
+  } finally {
+    await client.end();
+  }
+}
+check();
+"
 
-# Set environment for testing
-export NODE_ENV=test
+if [ $? -ne 0 ]; then
+  echo -e "${RED}Failed to connect to the database.${NC}"
+  echo -e "Please check your DATABASE_URL and make sure the database is running."
+  exit 1
+fi
 
-# Run the tests
-npx vitest run tests/storage --coverage
+echo -e "${GREEN}Database connection successful.${NC}\n"
+
+# Run the tests with coverage
+echo -e "${CYAN}Running database tests...${NC}"
+npx vitest run tests/storage/ --coverage
 
 # Check the result
 if [ $? -eq 0 ]; then
-  echo -e "\n${GREEN}======================================"
-  echo -e "      DATABASE TESTS SUCCESSFUL"
-  echo -e "======================================${NC}"
+  echo -e "\n${GREEN}Database tests completed successfully.${NC}"
+  
+  # Show coverage report if available
+  if [ -d "coverage" ]; then
+    echo -e "\n${YELLOW}Coverage Report:${NC}"
+    echo -e "${CYAN}Check the coverage/index.html file for detailed report.${NC}"
+  fi
+  
   exit 0
 else
-  echo -e "\n${RED}======================================"
-  echo -e "        DATABASE TESTS FAILED"
-  echo -e "======================================${NC}"
+  echo -e "\n${RED}Database tests failed.${NC}"
   exit 1
 fi
