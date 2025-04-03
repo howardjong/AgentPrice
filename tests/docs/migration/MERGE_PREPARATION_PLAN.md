@@ -79,18 +79,19 @@ This document outlines the comprehensive plan for merging our Jest to Vitest mig
 ## Merge Strategy
 
 ### Preparation
-- [ ] Update branch with latest main:
+- [x] Update branch with latest main:
   ```bash
-  git checkout your-branch
+  git checkout optimize-performance
   git fetch origin
   git rebase origin/main
   # Resolve any conflicts
   ```
 
-- [ ] Create and test integration branch:
+- [x] Create and test integration branch:
   ```bash
-  git checkout -b integration-branch
+  git checkout -b integration/vitest-migration-final
   # Run comprehensive tests on this branch
+  node scripts/run-vitest.js
   ```
 
 ### Pre-Flight Testing
@@ -152,7 +153,7 @@ This document outlines the comprehensive plan for merging our Jest to Vitest mig
   - Additional modules require individual profiling using same approach
 
 ### Merge Process
-- [ ] Prepare detailed merge commit message
+- [x] Prepare detailed merge commit message
 - [ ] Schedule merge during low-traffic period (recommend 9-11 AM on Tuesday or Wednesday)
 - [ ] Ensure database specialist is available during the merge window
 - [ ] Perform the merge
