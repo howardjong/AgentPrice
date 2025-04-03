@@ -1,0 +1,134 @@
+{
+  "timestamp": "2025-03-28T01:00:46.521Z",
+  "optimizationStatus": {
+    "optimizedCount": 9,
+    "totalCount": 10,
+    "percentOptimized": 90
+  },
+  "components": {
+    "resourceManager": {
+      "name": "Resource Manager",
+      "optimized": true,
+      "hasRequiredProps": true,
+      "passesValidation": true,
+      "requiredProperties": [
+        "isActive",
+        "maxConcurrentRequests",
+        "poolSize",
+        "getStatus"
+      ]
+    },
+    "smartCache": {
+      "name": "Smart Cache",
+      "optimized": true,
+      "hasRequiredProps": true,
+      "passesValidation": true,
+      "requiredProperties": [
+        "maxSize",
+        "lowMemoryMode",
+        "getStatus"
+      ]
+    },
+    "memoryLeakDetector": {
+      "name": "Memory Leak Detector",
+      "optimized": true,
+      "hasRequiredProps": true,
+      "passesValidation": true,
+      "requiredProperties": [
+        "isMonitoring",
+        "checkInterval",
+        "getStatus"
+      ]
+    },
+    "componentLoader": {
+      "name": "Component Loader",
+      "optimized": true,
+      "hasRequiredProps": true,
+      "passesValidation": true,
+      "requiredProperties": [
+        "lazyLoadingEnabled",
+        "cacheComponents",
+        "getStatus"
+      ]
+    },
+    "costTracker": {
+      "name": "Cost Tracker",
+      "optimized": true,
+      "hasRequiredProps": true,
+      "passesValidation": true,
+      "requiredProperties": [
+        "totalApiCalls",
+        "dailyBudget",
+        "getStatus"
+      ]
+    },
+    "tokenOptimizer": {
+      "name": "Token Optimizer",
+      "optimized": false,
+      "hasRequiredProps": true,
+      "passesValidation": false,
+      "requiredProperties": [
+        "tokensSaved",
+        "getStatus"
+      ]
+    },
+    "tieredResponseStrategy": {
+      "name": "Tiered Response Strategy",
+      "optimized": true,
+      "hasRequiredProps": true,
+      "passesValidation": true,
+      "requiredProperties": [
+        "defaultTier",
+        "autoDowngrade",
+        "getStatus"
+      ]
+    },
+    "batchProcessor": {
+      "name": "Batch Processor",
+      "optimized": true,
+      "hasRequiredProps": true,
+      "passesValidation": true,
+      "requiredProperties": [
+        "options",
+        "getStats"
+      ]
+    },
+    "documentFingerprinter": {
+      "name": "Document Fingerprinter",
+      "optimized": true,
+      "hasRequiredProps": true,
+      "passesValidation": true,
+      "requiredProperties": [
+        "options",
+        "getCacheSize"
+      ]
+    },
+    "contentChunker": {
+      "name": "Content Chunker",
+      "optimized": true,
+      "hasRequiredProps": true,
+      "passesValidation": true,
+      "requiredProperties": [
+        "maxChunkSize",
+        "getStatus"
+      ]
+    }
+  },
+  "memoryUsage": {
+    "initial": {
+      "heapUsed": 7618296,
+      "rss": 62603264
+    },
+    "current": {
+      "heapUsed": 8487472,
+      "rss": 63553536
+    }
+  },
+  "memory": {
+    "lowMemoryMode": true,
+    "aggressiveGcEnabled": true,
+    "gcInterval": 60000,
+    "maxCacheSize": 100,
+    "enableFuzzyMatch": false
+  }
+}
