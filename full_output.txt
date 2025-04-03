@@ -1,114 +1,302 @@
-Found 29 files to process
-Error handling utilities file already exists
-Processing file: tests/unit/services/serviceRouter.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/services/serviceRouter.vitest.js.bak
-- Applied 1 improvements to tests/unit/services/serviceRouter.vitest.js
-Processing file: tests/unit/utils/monitoring.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/utils/monitoring.vitest.js.bak
-- Applied 1 improvements to tests/unit/utils/monitoring.vitest.js
-Processing file: tests/unit/utils/costTracker.vitest.js
-- No improvements needed for this file
-Processing file: tests/unit/utils/apiClient.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/utils/apiClient.vitest.js.bak
-- Applied 1 improvements to tests/unit/utils/apiClient.vitest.js
-Processing file: tests/unit/utils/performanceNowMock.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/utils/performanceNowMock.vitest.js.bak
-- Applied 1 improvements to tests/unit/utils/performanceNowMock.vitest.js
-Processing file: tests/unit/utils/mockJobManager.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/utils/mockJobManager.vitest.js.bak
-- Applied 1 improvements to tests/unit/utils/mockJobManager.vitest.js
-Processing file: tests/unit/utils/improved-monitoring.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/utils/improved-monitoring.vitest.js.bak
-- Applied 1 improvements to tests/unit/utils/improved-monitoring.vitest.js
-Processing file: tests/unit/utils/improved-apiClient.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/utils/improved-apiClient.vitest.js.bak
-- Applied 1 improvements to tests/unit/utils/improved-apiClient.vitest.js
-Processing file: tests/unit/utils/improved-performanceNowMock.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/utils/improved-performanceNowMock.vitest.js.bak
-- Applied 1 improvements to tests/unit/utils/improved-performanceNowMock.vitest.js
-Processing file: tests/unit/utils/improved-mockJobManager.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/utils/improved-mockJobManager.vitest.js.bak
-- Applied 1 improvements to tests/unit/utils/improved-mockJobManager.vitest.js
-Processing file: tests/unit/utils/cost-optimization.vitest.js
-- No improvements needed for this file
-Processing file: tests/unit/circuitBreaker.vitest.js
-- No improvements needed for this file
-Processing file: tests/unit/apiClient.vitest.js
-- No improvements needed for this file
-Processing file: tests/unit/workflows/single-query-workflow.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/workflows/single-query-workflow.vitest.js.bak
-- Applied 1 improvements to tests/unit/workflows/single-query-workflow.vitest.js
-Processing file: tests/unit/workflows/perplexity-workflow-nock.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/workflows/perplexity-workflow-nock.vitest.js.bak
-- Applied 1 improvements to tests/unit/workflows/perplexity-workflow-nock.vitest.js
-Processing file: tests/unit/workflows/claude-chart-workflow-nock.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/workflows/claude-chart-workflow-nock.vitest.js.bak
-- Applied 1 improvements to tests/unit/workflows/claude-chart-workflow-nock.vitest.js
-Processing file: tests/unit/workflows/service-router-mock.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/workflows/service-router-mock.vitest.js.bak
-- Applied 1 improvements to tests/unit/workflows/service-router-mock.vitest.js
-Processing file: tests/unit/workflows/single-query-workflow-nock.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/workflows/single-query-workflow-nock.vitest.js.bak
-- Applied 1 improvements to tests/unit/workflows/single-query-workflow-nock.vitest.js
-Processing file: tests/unit/workflows/deep-research-workflow.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/workflows/deep-research-workflow.vitest.js.bak
-- Applied 1 improvements to tests/unit/workflows/deep-research-workflow.vitest.js
-Processing file: tests/unit/controllers/queryController.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/controllers/queryController.vitest.js.bak
-- Applied 1 improvements to tests/unit/controllers/queryController.vitest.js
-Processing file: tests/unit/controllers/researchController.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/controllers/researchController.vitest.js.bak
-- Applied 1 improvements to tests/unit/controllers/researchController.vitest.js
-Processing file: tests/unit/controllers/chart-test-debug.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/controllers/chart-test-debug.vitest.js.bak
-- Applied 1 improvements to tests/unit/controllers/chart-test-debug.vitest.js
-Processing file: tests/unit/controllers/chartsController.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/controllers/chartsController.vitest.js.bak
-- Applied 1 improvements to tests/unit/controllers/chartsController.vitest.js
-Processing file: tests/unit/controllers/chartsController.simplified.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/controllers/chartsController.simplified.vitest.js.bak
-- Applied 1 improvements to tests/unit/controllers/chartsController.simplified.vitest.js
-Processing file: tests/unit/controllers/improved-researchController.vitest.js
-- Added error handling utility imports
-- Created backup at tests/unit/controllers/improved-researchController.vitest.js.bak
-- Applied 1 improvements to tests/unit/controllers/improved-researchController.vitest.js
-Processing file: tests/unit/websocket/websocket-simplified.vitest.js
-- No improvements needed for this file
-Processing file: tests/unit/websocket/improved-websocket-simplified.vitest.js
-- No improvements needed for this file
-Processing file: tests/unit/improved-circuitBreaker.vitest.js
-- No improvements needed for this file
-Processing file: tests/examples/improved-error-handling-example.vitest.js
-- Added error handling utility imports
-- Created backup at tests/examples/improved-error-handling-example.vitest.js.bak
-- Applied 1 improvements to tests/examples/improved-error-handling-example.vitest.js
 
-Improvement Summary:
-- Improved: 22 files
-- Skipped: 7 files
-- Failed: 0 files
+ RUN  v3.0.9 /home/runner/workspace
+      Coverage enabled with v8
 
-Next Steps:
-1. Review the changes in each improved file
-2. Run tests to ensure they still pass
-3. Adjust any assertions that need more specific error checks
+
+ RUN  v3.0.9 /home/runner/workspace
+      Coverage enabled with v8
+
+stdout | tests/unit/utils/searchUtils.vitest.js
+✅ Vitest setup complete
+
+stdout | tests/unit/utils/searchUtils.vitest.js
+✅ Vitest setup complete
+
+stdout | tests/unit/utils/searchUtils.private-functions.vitest.js
+✅ Vitest setup complete
+
+stdout | tests/unit/utils/searchUtils.private-functions.vitest.js
+✅ Vitest setup complete
+
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > calculateRelevanceScore Function > should calculate a score based on title match
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > calculateRelevanceScore Function > should calculate a score based on description match
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > calculateRelevanceScore Function > should assign a higher score for exact title match
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > calculateRelevanceScore Function > should handle case insensitivity
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > calculateRelevanceScore Function > should handle items with null or undefined fields
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > highlightMatchingText Function > should wrap matching text in <strong> tags
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > highlightMatchingText Function > should highlight multiple occurrences of the query
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > highlightMatchingText Function > should be case insensitive when highlighting
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > highlightMatchingText Function > should return the original title if no match found
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > highlightMatchingText Function > should handle null or undefined inputs
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > highlightMatchingText Function > should handle special regex characters in the query
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > formatDate Function > should format a date string to a localized date string
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > formatDate Function > should format a Date object
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > formatDate Function > should handle invalid date inputs gracefully
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > formatDate Function > should handle various date formats
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > Integration of Private Helper Functions > should calculate score, highlight text, and format date in a workflow
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > initialize Function > should initialize the search utility with default options
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > initialize Function > should initialize with custom options
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > initialize Function > should handle invalid options gracefully
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > processResults Function > should process search results by applying highlighting and formatting
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > processResults Function > should sort results by score in descending order
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > processResults Function > should handle empty results array
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > processResults Function > should handle invalid input gracefully
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > _performTextSearch Function > should perform text search on an array of items
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > _performTextSearch Function > should search in both title and description
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > _performTextSearch Function > should be case-insensitive when searching
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > _performTextSearch Function > should handle special regex characters in search query
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > _performTextSearch Function > should return empty array when no matches are found
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js > _performTextSearch Function > should handle empty or invalid inputs
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > buildQuery > should build a basic search query with defaults
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > buildQuery > should throw an error if neither query nor filters are provided
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > buildQuery > should accept a query with custom sort and pagination
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > buildQuery > should handle invalid pagination parameters gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > buildQuery > should allow search with only filters and no query text
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > normalizeFilters > should handle empty filters object
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > normalizeFilters > should filter out null, undefined, and empty string values
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > normalizeFilters > should handle date range filters
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > normalizeFilters > should handle numeric range filters
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > normalizeFilters > should handle array filters
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should return all items when no filters are applied
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should handle null or undefined items gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should filter by exact match
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should filter by partial string match
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should filter by array values
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should filter by date range
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should filter by numeric range
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should combine multiple filters with AND logic
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should handle properties that don't exist on items
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > sortResults > should sort by default field (timestamp) in descending order when no field is specified
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > sortResults > should sort by date fields correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > sortResults > should sort by numeric fields correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > sortResults > should sort by string fields correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > sortResults > should handle empty arrays gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > sortResults > should handle missing fields gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should paginate results with default parameters
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should return specific pages of results
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should handle the last page with fewer items
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should handle empty arrays gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should handle null or undefined inputs gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should clamp page and limit to valid values
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should return an empty array for an out-of-bounds page
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > transformResults > should return the original items when no transformation options are specified
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > transformResults > should include scores when includeScores is true
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > transformResults > should generate summaries when summarize is true
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > transformResults > should filter fields when fields array is provided
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > transformResults > should handle empty, null, or undefined inputs gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > transformResults > should generate a UUID for items without an id
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should handle null or undefined collection gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should return the collection when search text is empty
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should filter items based on search text in title, content, or description
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should perform basic search with all defaults
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should apply filters, sorting and pagination correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should handle search with only filters
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should apply date range filters correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should apply numeric range filters correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should apply transformations correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should handle errors gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should filter items by query in title
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should filter items by query in content
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should filter items by query in description
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should handle case-insensitive search
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should handle empty query gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should handle null collection gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should handle undefined collection gracefully
+ ✓ tests/unit/utils/searchUtils.private-functions.vitest.js (29 tests) 134ms
+ ✓ tests/unit/utils/searchUtils.vitest.js (55 tests) 142ms
+
+ Test Files  2 passed (2)
+      Tests  84 passed (84)
+   Start at  22:04:09
+   Duration  2.17s (transform 180ms, setup 53ms, collect 198ms, tests 276ms, environment 1ms, prepare 153ms)
+
+
+ Test Files  2 passed (2)
+      Tests  84 passed (84)
+   Start at  22:04:09
+   Duration  2.17s (transform 180ms, setup 53ms, collect 198ms, tests 276ms, environment 1ms, prepare 153ms)
+
+ % Coverage report from v8
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |    1.83 |    47.14 |   10.46 |    1.83 |                   
+ workspace         |       0 |     5.26 |    5.26 |       0 |                   
+  ...e-coverage.js |       0 |        0 |       0 |       0 | 1-91              
+  ...k-coverage.js |       0 |        0 |       0 |       0 | 1-31              
+  ...s-coverage.js |       0 |        0 |       0 |       0 | 1-59              
+  ...-coverage.mjs |       0 |        0 |       0 |       0 | 1-87              
+  ...n-coverage.js |       0 |        0 |       0 |       0 | 1-134             
+  ...-coverage.mjs |       0 |        0 |       0 |       0 | 1-134             
+  ...zle.config.ts |       0 |        0 |       0 |       0 | 1-14              
+  ...t-coverage.js |       0 |        0 |       0 |       0 | 1-63              
+  ...n-coverage.js |       0 |        0 |       0 |       0 | 1-141             
+  ...s-coverage.js |       0 |        0 |       0 |       0 | 1-63              
+  ...-functions.js |       0 |        0 |       0 |       0 | 1-153             
+  get-coverage.js  |       0 |        0 |       0 |       0 | 1-43              
+  run-perf-test.js |       0 |        0 |       0 |       0 | 1-28              
+  ...s-coverage.js |       0 |        0 |       0 |       0 | 1-76              
+  ...-coverage.mjs |       0 |        0 |       0 |       0 | 1-91              
+  ...ind.config.ts |       0 |      100 |     100 |       0 | 3-90              
+  temp-test.js     |       0 |        0 |       0 |       0 | 1-16              
+  ...extraction.js |       0 |        0 |       0 |       0 | 1-68              
+  vite.config.ts   |       0 |        0 |       0 |       0 | 1-36              
+ ...ace/client/src |       0 |        0 |       0 |       0 |                   
+  App.tsx          |       0 |        0 |       0 |       0 | 1-28              
+  main.tsx         |       0 |        0 |       0 |       0 | 1-53              
+ ...src/components |       0 |        0 |       0 |       0 |                   
+  ...usMonitor.tsx |       0 |        0 |       0 |       0 | 1-440             
+  ...nts-table.tsx |       0 |        0 |       0 |       0 | 1-75              
+  ...interface.tsx |       0 |        0 |       0 |       0 | 1-155             
+  chat-message.tsx |       0 |        0 |       0 |       0 | 1-102             
+  config-panel.tsx |       0 |        0 |       0 |       0 | 1-142             
+  ...-boundary.tsx |       0 |        0 |       0 |       0 | 1-29              
+  ...atus-card.tsx |       0 |        0 |       0 |       0 | 1-105             
+ .../components/ui |       0 |        0 |       0 |       0 |                   
+  accordion.tsx    |       0 |        0 |       0 |       0 | 1-54              
+  alert-dialog.tsx |       0 |        0 |       0 |       0 | 1-125             
+  alert.tsx        |       0 |        0 |       0 |       0 | 1-57              
+  aspect-ratio.tsx |       0 |        0 |       0 |       0 | 1-3               
+  avatar.tsx       |       0 |        0 |       0 |       0 | 1-46              
+  badge.tsx        |       0 |        0 |       0 |       0 | 1-34              
+  breadcrumb.tsx   |       0 |        0 |       0 |       0 | 1-105             
+  button.tsx       |       0 |        0 |       0 |       0 | 1-54              
+  calendar.tsx     |       0 |        0 |       0 |       0 | 1-62              
+  card.tsx         |       0 |        0 |       0 |       0 | 1-77              
+  carousel.tsx     |       0 |        0 |       0 |       0 | 1-251             
+  chart.tsx        |       0 |        0 |       0 |       0 | 1-354             
+  checkbox.tsx     |       0 |        0 |       0 |       0 | 1-26              
+  collapsible.tsx  |       0 |        0 |       0 |       0 | 1-7               
+  command.tsx      |       0 |        0 |       0 |       0 | 1-141             
+  context-menu.tsx |       0 |        0 |       0 |       0 | 1-180             
+  data-card.tsx    |       0 |        0 |       0 |       0 | 1-47              
+  dialog.tsx       |       0 |        0 |       0 |       0 | 1-107             
+  drawer.tsx       |       0 |        0 |       0 |       0 | 1-103             
+  ...down-menu.tsx |       0 |        0 |       0 |       0 | 1-180             
+  form.tsx         |       0 |        0 |       0 |       0 | 1-165             
+  hover-card.tsx   |       0 |        0 |       0 |       0 | 1-25              
+  input-otp.tsx    |       0 |        0 |       0 |       0 | 1-67              
+  input.tsx        |       0 |        0 |       0 |       0 | 1-23              
+  label.tsx        |       0 |        0 |       0 |       0 | 1-22              
+  menubar.tsx      |       0 |        0 |       0 |       0 | 1-215             
+  ...tion-menu.tsx |       0 |        0 |       0 |       0 | 1-116             
+  pagination.tsx   |       0 |        0 |       0 |       0 | 1-107             
+  popover.tsx      |       0 |        0 |       0 |       0 | 1-27              
+  progress.tsx     |       0 |        0 |       0 |       0 | 1-24              
+  radio-group.tsx  |       0 |        0 |       0 |       0 | 1-40              
+  resizable.tsx    |       0 |        0 |       0 |       0 | 1-40              
+  scroll-area.tsx  |       0 |        0 |       0 |       0 | 1-44              
+  select.tsx       |       0 |        0 |       0 |       0 | 1-145             
+  separator.tsx    |       0 |        0 |       0 |       0 | 1-27              
+  sheet.tsx        |       0 |        0 |       0 |       0 | 1-125             
+  sidebar.tsx      |       0 |        0 |       0 |       0 | 1-735             
+  skeleton.tsx     |       0 |        0 |       0 |       0 | 1-13              
+  slider.tsx       |       0 |        0 |       0 |       0 | 1-24              
+  ...ransition.tsx |       0 |        0 |       0 |       0 | 1-41              
+  switch.tsx       |       0 |        0 |       0 |       0 | 1-25              
+  table.tsx        |       0 |        0 |       0 |       0 | 1-106             
+  tabs.tsx         |       0 |        0 |       0 |       0 | 1-51              
+  terminal.tsx     |       0 |        0 |       0 |       0 | 1-42              
+  textarea.tsx     |       0 |        0 |       0 |       0 | 1-22              
+  toast.tsx        |       0 |        0 |       0 |       0 | 1-111             
+  toaster.tsx      |       0 |        0 |       0 |       0 | 1-33              
+  toggle-group.tsx |       0 |        0 |       0 |       0 | 1-57              
+  toggle.tsx       |       0 |        0 |       0 |       0 | 1-41              
+  tooltip.tsx      |       0 |        0 |       0 |       0 | 1-26              
+ ...visualizations |       0 |        0 |       0 |       0 |                   
+  ...tAnalysis.tsx |       0 |        0 |       0 |       0 | 1-190             
+  ...estendorp.tsx |       0 |        0 |       0 |       0 | 1-296             
+  ...nRenderer.tsx |       0 |        0 |       0 |       0 | 1-61              
+ ...ient/src/hooks |       0 |        0 |       0 |       0 |                   
+  use-chat.ts      |       0 |        0 |       0 |       0 | 1-119             
+  use-mobile.tsx   |       0 |        0 |       0 |       0 | 1-19              
+  use-toast.ts     |       0 |        0 |       0 |       0 | 1-189             
+ ...client/src/lib |       0 |        0 |       0 |       0 |                   
+  queryClient.ts   |       0 |        0 |       0 |       0 | 1-118             
+  utils.ts         |       0 |        0 |       0 |       0 | 1-89              
+ ...ient/src/pages |       0 |        0 |       0 |       0 |                   
+  dashboard.tsx    |       0 |        0 |       0 |       0 | 1-192             
+  not-found.tsx    |       0 |        0 |       0 |       0 | 1-21              
+ workspace/config  |       0 |       50 |      50 |       0 |                   
+  config.js        |       0 |      100 |     100 |       0 | 5-49              
+  env.js           |       0 |        0 |       0 |       0 | 1-51              
+ ...ce/middlewares |       0 |        0 |       0 |       0 |                   
+  requestTracer.js |       0 |        0 |       0 |       0 | 1-83              
+ ...pace/public/js |       0 |        0 |       0 |       0 |                   
+  error-handler.js |       0 |        0 |       0 |       0 | 1-41              
+ ...reports/assets |       0 |        0 |       0 |       0 |                   
+  ...x-CsZqQx26.js |       0 |        0 |       0 |       0 | 1-52              
+ ...ports/coverage |       0 |        0 |       0 |       0 |                   
+  ...navigation.js |       0 |        0 |       0 |       0 | 1-87              
+  prettify.js      |       0 |        0 |       0 |       0 | 1-2               
+  sorter.js        |       0 |        0 |       0 |       0 | 1-196             
+ ...ge/lcov-report |       0 |        0 |       0 |       0 |                   
+  ...navigation.js |       0 |        0 |       0 |       0 | 1-87              
+  prettify.js      |       0 |        0 |       0 |       0 | 1-2               
+  sorter.js        |       0 |        0 |       0 |       0 | 1-196             
+ workspace/server  |       0 |    16.66 |   16.66 |       0 |                   
+  db.ts            |       0 |        0 |       0 |       0 | 1-72              
+  index.ts         |       0 |        0 |       0 |       0 | 1-207             
+  pg-storage.ts    |       0 |        0 |       0 |       0 | 1-201             
+  routes.ts        |       0 |        0 |       0 |       0 | 1-2588            
+  storage.ts       |       0 |      100 |     100 |       0 | 47-61             
+  vite.ts          |       0 |        0 |       0 |       0 | 1-88              
+ ...erver/services |       0 |    16.66 |   16.66 |       0 |                   
+  claude.ts        |       0 |        0 |       0 |       0 | 1-274             
+  diagnostic.ts    |       0 |      100 |     100 |       0 | 84-327            
+  healthCheck.js   |       0 |        0 |       0 |       0 | 1-114             
+  healthCheck.ts   |       0 |        0 |       0 |       0 | 1-100             
+  perplexity.ts    |       0 |        0 |       0 |       0 | 1-307             
+  router.ts        |       0 |        0 |       0 |       0 | 1-242             
+ ...space/services |       0 |        0 |       0 |       0 |                   
+  claudeService.js |       0 |        0 |       0 |       0 | 1-456             
+  ...extManager.js |       0 |        0 |       0 |       0 | 1-170             
+  healthMonitor.js |       0 |        0 |       0 |       0 | 1-439             
+  ...ckResearch.js |       0 |        0 |       0 |       0 | 1-155             
+  jobManager.js    |       0 |        0 |       0 |       0 | 1-219             
+  ...JobManager.js |       0 |        0 |       0 |       0 | 1-265             
+  ...viceClient.js |       0 |        0 |       0 |       0 | 1-384             
+  ...ityService.js |       0 |        0 |       0 |       0 | 1-458             
+  promptManager.js |       0 |        0 |       0 |       0 | 1-534             
+  redisService.js  |       0 |        0 |       0 |       0 | 1-226             
+  ...rchService.js |       0 |        0 |       0 |       0 | 1-393             
+  serviceRouter.js |       0 |        0 |       0 |       0 | 1-523             
+ workspace/shared  |       0 |        0 |       0 |       0 |                   
+  schema.ts        |       0 |        0 |       0 |       0 | 1-158             
+ workspace/utils   |    4.24 |     73.2 |   29.16 |    4.24 |                   
+  apiClient.js     |       0 |        0 |       0 |       0 | 1-323             
+  ...hProcessor.js |       0 |        0 |       0 |       0 | 1-492             
+  cacheMonitor.js  |       0 |        0 |       0 |       0 | 1-155             
+  ...uitBreaker.js |       0 |        0 |       0 |       0 | 1-185             
+  ...nentLoader.js |       0 |        0 |       0 |       0 | 1-298             
+  ...entChunker.js |       0 |        0 |       0 |       0 | 1-449             
+  costOptimizer.js |       0 |        0 |       0 |       0 | 1-652             
+  costTracker.js   |       0 |        0 |       0 |       0 | 1-495             
+  ...ultPrompts.js |       0 |        0 |       0 |       0 | 1-84              
+  ...leLlmCalls.js |       0 |        0 |       0 |       0 | 1-14              
+  ...gerprinter.js |       0 |        0 |       0 |       0 | 1-365             
+  enhancedCache.js |       0 |        0 |       0 |       0 | 1-253             
+  ...hProcessor.js |       0 |        0 |       0 |       0 | 1-433             
+  ...ostTracker.js |       0 |        0 |       0 |       0 | 1-502             
+  ...gerprinter.js |       0 |        0 |       0 |       0 | 1-320             
+  ...eOptimizer.js |       0 |        0 |       0 |       0 | 1-180             
+  logger.js        |       0 |        0 |       0 |       0 | 1-12              
+  logger.ts        |       0 |        0 |       0 |       0 | 1-64              
+  ...ge-prompts.js |       0 |        0 |       0 |       0 | 1-423             
+  ...akDetector.js |       0 |        0 |       0 |       0 | 1-328             
+  monitoring.js    |       0 |        0 |       0 |       0 | 1-326             
+  ...nceMonitor.js |       0 |        0 |       0 |       0 | 1-232             
+  promptManager.js |       0 |        0 |       0 |       0 | 1-190             
+  ...tScorecard.js |       0 |        0 |       0 |       0 | 1-601             
+  ...tVersioner.js |       0 |        0 |       0 |       0 | 1-199             
+  rateLimiter.js   |       0 |        0 |       0 |       0 | 1-355             
+  ...ck-adapter.js |       0 |        0 |       0 |       0 | 1-219             
+  redis-mock.js    |       0 |        0 |       0 |       0 | 1-819             
+  ...test-utils.js |       0 |        0 |       0 |       0 | 1-273             
+  ...rceManager.js |       0 |        0 |       0 |       0 | 1-404             
+  searchUtils.js   |   96.72 |    87.42 |     100 |   96.72 | ...30-432,438-440 
+  smartCache.js    |       0 |        0 |       0 |       0 | 1-683             
+  systemHealth.js  |       0 |        0 |       0 |       0 | 1-80              
+  ...seStrategy.js |       0 |        0 |       0 |       0 | 1-283             
+  ...nOptimizer.js |       0 |        0 |       0 |       0 | 1-310             
+-------------------|---------|----------|---------|---------|-------------------

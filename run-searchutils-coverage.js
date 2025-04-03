@@ -41,6 +41,7 @@ async function runSearchUtilsCoverage() {
 ## Test Files
 - tests/unit/utils/searchUtils.vitest.js: Core functionality tests
 - tests/unit/utils/searchUtils.private.vitest.js: Private helper function tests
+- tests/unit/utils/searchUtils.private-functions.vitest.js: Additional private function tests
 
 ## Status
 ${statementCoverage >= 80 && branchCoverage >= 80 && functionCoverage >= 80 ? 
