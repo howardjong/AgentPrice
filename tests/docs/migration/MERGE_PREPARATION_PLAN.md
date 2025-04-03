@@ -56,9 +56,13 @@ This document outlines the comprehensive plan for merging our Jest to Vitest mig
 - [x] Created example test files demonstrating proper ES module mocking
 
 ### Database Testing
-- [ ] Run tests for database migrations with proper isolation
-- [ ] Verify that no tests are making destructive changes to real databases
-- [ ] Confirm proper use of test transactions or in-memory databases for tests
+- [x] Run tests for database migrations with proper isolation
+- [x] Verify that no tests are making destructive changes to real databases
+- [x] Confirm proper use of test transactions or in-memory databases for tests
+- [x] Implement database test utilities for Vitest integration
+- [x] Create comprehensive documentation for database testing patterns
+- [x] Implement transaction isolation pattern for database tests
+- [x] Create scripting infrastructure for database test execution
 
 ## Merge Strategy
 
@@ -93,6 +97,17 @@ This document outlines the comprehensive plan for merging our Jest to Vitest mig
   DEBUG=socket.io* node scripts/run-vitest.js --testNamePattern "Socket"
   ```
 
+- [ ] Run database tests with transaction isolation:
+  ```bash
+  ./run-db-tests.sh
+  ```
+
+- [ ] Verify database test safety:
+  ```bash
+  # Check for potential destructive operations
+  grep -r "DROP TABLE\|DELETE FROM\|TRUNCATE" ./tests/
+  ```
+
 - [ ] Run a memory profile on the test suite:
   ```bash
   node --inspect scripts/run-vitest.js
@@ -117,11 +132,16 @@ This document outlines the comprehensive plan for merging our Jest to Vitest mig
   - Socket.IO testing patterns
   - Vitest mocking approaches
   - Service consolidation impact
+  - Database testing infrastructure and safety protocols
+  - Transaction isolation implementation details
 
 - [ ] Create rollout announcement detailing:
   - New testing commands replacing Jest commands
   - How to run and debug tests in the new environment
   - Performance improvements from the migration
+  - Database testing capabilities and safeguards
+  - How to run database tests with proper isolation
+  - Guidelines for creating new database tests safely
 
 ## Validation Script
 
@@ -132,6 +152,10 @@ The pre-merge validation script (`pre-merge-validation.js`) should be run to:
 - Check Socket.IO tests for proper cleanup patterns
 - Verify Jest removal is complete
 - Check for consistent test patterns
+- Verify database tests use transaction isolation
+- Check for potential destructive database operations
+- Validate that database tests use unique test data
+- Confirm database tests follow documented patterns
 
 ## Rollback Plan
 
@@ -152,6 +176,14 @@ git revert <merge-commit-hash>
   - Perplexity Service
   - Socket.IO testing
   - Search Utilities
+  - Database testing infrastructure
+  
+### Database Testing Recovery
+If database testing issues are encountered:
+1. Revert to in-memory storage for affected tests
+2. Disable transaction isolation if it's causing connection issues
+3. Use the mock-storage pattern until database issues are resolved
+4. Check for any potential schema conflicts with the current database
 
 ## Post-Merge Verification
 
@@ -165,13 +197,31 @@ git revert <merge-commit-hash>
   node scripts/run-vitest.js
   ```
 
+- [ ] Run database-specific tests:
+  ```bash
+  ./run-db-tests.sh
+  ```
+
+- [ ] Verify transaction isolation in database tests:
+  ```bash
+  # Check for any database changes that persist after tests
+  node scripts/verify-db-isolation.js
+  ```
+
 - [ ] Verify documentation accuracy:
   - Ensure all README files reflect current codebase
   - Verify all examples in documentation work with merged code
+  - Check that DATABASE_TESTING_WITH_VITEST.md examples work correctly
 
 - [ ] Check for performance regressions:
   ```bash
   node scripts/performance-comparison.js
+  ```
+
+- [ ] Verify database test safety:
+  ```bash
+  # Ensure no tests made destructive changes
+  node scripts/verify-db-safety.js
   ```
 
 ## Sign-Off Requirements
@@ -181,6 +231,8 @@ Before final merge, obtain sign-off from:
 - [ ] Technical Lead
 - [ ] Integration Lead
 - [ ] Documentation Lead
+- [ ] Database Specialist (for database testing implementation)
+- [ ] Security Lead (verifying no destructive database operations)
 
 ## Notes and Observations
 
@@ -206,6 +258,18 @@ Before final merge, obtain sign-off from:
    - Created comprehensive documentation in esm-mocking-explained.md to guide developers.
    - Common issues identified: 120 files missing vi.resetModules(), 98 files missing proper cleanup, 115 files with incorrect mocking order.
    - Two main approaches documented for fixing vi.mock() ordering issues: 1) reordering statements and 2) using hoistingImports: true (preferred).
+
+5. **Database Testing Integration**:
+   - Created comprehensive database testing infrastructure with transaction isolation pattern.
+   - Implemented `run-db-tests.sh` script for database test execution with proper safeguards.
+   - Safeguards implemented to prevent destructive changes to databases:
+     * Transaction isolation for all database tests
+     * Unique test data generation with timestamps
+     * No schema modification in tests
+     * Test database environment check
+   - Documented best practices in DATABASE_TESTING_WITH_VITEST.md and DATABASE_TESTING_PATTERNS.md.
+   - Created three example test patterns: PostgreSQL storage testing, mock storage testing, and transaction isolation testing.
+   - Pre-merge validation confirms no destructive operations in database test suite.
 
 ## Appendix: Key Documentation References
 
