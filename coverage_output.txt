@@ -6,277 +6,65 @@
  RUN  v3.0.9 /home/runner/workspace
       Coverage enabled with v8
 
-stdout | tests/unit/utils/redis-test-utils.function-coverage.vitest.js
+stdout | tests/unit/utils/searchUtils.vitest.js
 ✅ Vitest setup complete
 
-stdout | tests/unit/utils/redis-test-utils.function-coverage.vitest.js
+stdout | tests/unit/utils/searchUtils.vitest.js
 ✅ Vitest setup complete
 
-stdout | tests/unit/utils/redis-test-utils.enhanced.vitest.js
-✅ Vitest setup complete
-
-stdout | tests/unit/utils/redis-test-utils.enhanced.vitest.js
-✅ Vitest setup complete
-
-stdout | tests/unit/utils/redis-test-utils.vitest.js
-✅ Vitest setup complete
-
-stdout | tests/unit/utils/redis-test-utils.vitest.js
-✅ Vitest setup complete
-
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Client > should create a mock Redis client with default options
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Client > should create a mock Redis client with autoConnect=false
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Client > should create a mock Redis client with a namespace
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Client > should initialize with provided data
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > populateMockRedis > should populate a mock client with string data
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > populateMockRedis > should populate a mock client with hash data
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Error Simulation > should simulate Redis errors
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Mock Redis Client > should skip initialization when empty data is provided
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > populateMockRedis > should handle empty data object
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > populateMockRedis > should handle array values
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > populateMockRedis > should handle null values
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Error Simulation > should use default error message when none provided
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Error Simulation > should use default timeout value when none provided
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Error Simulation > should simulate disconnection for all standard Redis operations
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Testable Redis Client > should support method chaining and accessing the original interface
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Mock Redis Service > should access methods through service interface
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Mock Redis Service > should support method chaining on service methods
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Redis Module Mock > should create Redis instance with constructor function
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js > Redis Test Utilities Enhanced Coverage > Redis Module Mock > should create Cluster instances
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover connect method on Redis service
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover getClient method on Redis service
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover ping method with success response
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover ping method with error response
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover getWithFallback method
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover set method with and without expiry
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover stop method success and failure
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover service _simulateTimeout method
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover service _simulateDisconnection method
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover service _populate method
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Service Object Methods > should cover service _inspect method
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Testable Redis Client Methods > should cover _simulateTimeout and ensure it supports chaining
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Testable Redis Client Methods > should cover _simulateDisconnection and ensure it supports chaining
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Testable Redis Client Methods > should cover _populate in testable client
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Testable Redis Client Methods > should cover _inspect in testable client
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Module Constructor Tests > should cover Redis constructor function
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Module Constructor Tests > should cover Redis.Cluster constructor
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Redis Module Constructor Tests > should cover the exported mockRedisModule
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Timeout and Disconnect Simulation > should properly trigger the timeout callback inside simulateRedisTimeout
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js > Redis Test Utilities Function Coverage > Timeout and Disconnect Simulation > should cover specific Redis methods when simulating disconnection
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Error Simulation > should simulate Redis timeouts
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Error Simulation > should simulate Redis disconnection
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should create a testable Redis client with extra methods
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should provide access to the original client methods
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should support chaining of test methods
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should provide inspection capabilities
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should simulate error through _simulateError method
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should simulate timeout through _simulateTimeout method
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should simulate disconnection through _simulateDisconnection method
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should populate data through _populate method
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Testable Redis Client > should provide detailed inspection through _inspect method
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should create a mock Redis service
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should initialize with provided data
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should support simulation methods directly
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should support method mocking
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should get client instance
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should handle ping success and failure
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should use fallback value when key does not exist
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should use fallback value when get throws error
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should set values with and without expiry
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should handle set errors gracefully
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should handle service operations
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Mock Redis Service > should handle service operation errors
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Redis Module Mock > should create a Redis module mock
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Redis Module Mock > should return a mock client when instantiated
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Redis Module Mock > should support cluster clients
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Redis Module Mock > should instantiate with options
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Redis Module Mock > should create a working client when instantiated
- ✓ tests/unit/utils/redis-test-utils.vitest.js > Redis Test Utilities > Redis Module Mock > should create working cluster clients
- ✓ tests/unit/utils/redis-test-utils.enhanced.vitest.js (12 tests) 118ms
- ✓ tests/unit/utils/redis-test-utils.function-coverage.vitest.js (20 tests) 124ms
- ✓ tests/unit/utils/redis-test-utils.vitest.js (36 tests) 175ms
-
- Test Files  3 passed (3)
-      Tests  68 passed (68)
-   Start at  21:43:08
-   Duration  2.04s (transform 105ms, setup 78ms, collect 156ms, tests 417ms, environment 1ms, prepare 273ms)
-
-
- Test Files  3 passed (3)
-      Tests  68 passed (68)
-   Start at  21:43:08
-   Duration  2.05s (transform 105ms, setup 78ms, collect 156ms, tests 417ms, environment 1ms, prepare 273ms)
-
- % Coverage report from v8
--------------------|---------|----------|---------|---------|-------------------
-File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
--------------------|---------|----------|---------|---------|-------------------
-All files          |    2.81 |    34.72 |   19.46 |    2.81 |                   
- workspace         |       0 |     9.09 |    9.09 |       0 |                   
-  ...e-coverage.js |       0 |        0 |       0 |       0 | 1-91              
-  ...zle.config.ts |       0 |        0 |       0 |       0 | 1-14              
-  ...t-coverage.js |       0 |        0 |       0 |       0 | 1-63              
-  ...n-coverage.js |       0 |        0 |       0 |       0 | 1-141             
-  ...s-coverage.js |       0 |        0 |       0 |       0 | 1-63              
-  ...-functions.js |       0 |        0 |       0 |       0 | 1-153             
-  get-coverage.js  |       0 |        0 |       0 |       0 | 1-43              
-  ...ind.config.ts |       0 |      100 |     100 |       0 | 3-90              
-  temp-test.js     |       0 |        0 |       0 |       0 | 1-16              
-  ...extraction.js |       0 |        0 |       0 |       0 | 1-68              
-  vite.config.ts   |       0 |        0 |       0 |       0 | 1-36              
- ...ace/client/src |       0 |        0 |       0 |       0 |                   
-  App.tsx          |       0 |        0 |       0 |       0 | 1-28              
-  main.tsx         |       0 |        0 |       0 |       0 | 1-53              
- ...src/components |       0 |        0 |       0 |       0 |                   
-  ...usMonitor.tsx |       0 |        0 |       0 |       0 | 1-440             
-  ...nts-table.tsx |       0 |        0 |       0 |       0 | 1-75              
-  ...interface.tsx |       0 |        0 |       0 |       0 | 1-155             
-  chat-message.tsx |       0 |        0 |       0 |       0 | 1-102             
-  config-panel.tsx |       0 |        0 |       0 |       0 | 1-142             
-  ...-boundary.tsx |       0 |        0 |       0 |       0 | 1-29              
-  ...atus-card.tsx |       0 |        0 |       0 |       0 | 1-105             
- .../components/ui |       0 |        0 |       0 |       0 |                   
-  accordion.tsx    |       0 |        0 |       0 |       0 | 1-54              
-  alert-dialog.tsx |       0 |        0 |       0 |       0 | 1-125             
-  alert.tsx        |       0 |        0 |       0 |       0 | 1-57              
-  aspect-ratio.tsx |       0 |        0 |       0 |       0 | 1-3               
-  avatar.tsx       |       0 |        0 |       0 |       0 | 1-46              
-  badge.tsx        |       0 |        0 |       0 |       0 | 1-34              
-  breadcrumb.tsx   |       0 |        0 |       0 |       0 | 1-105             
-  button.tsx       |       0 |        0 |       0 |       0 | 1-54              
-  calendar.tsx     |       0 |        0 |       0 |       0 | 1-62              
-  card.tsx         |       0 |        0 |       0 |       0 | 1-77              
-  carousel.tsx     |       0 |        0 |       0 |       0 | 1-251             
-  chart.tsx        |       0 |        0 |       0 |       0 | 1-354             
-  checkbox.tsx     |       0 |        0 |       0 |       0 | 1-26              
-  collapsible.tsx  |       0 |        0 |       0 |       0 | 1-7               
-  command.tsx      |       0 |        0 |       0 |       0 | 1-141             
-  context-menu.tsx |       0 |        0 |       0 |       0 | 1-180             
-  data-card.tsx    |       0 |        0 |       0 |       0 | 1-47              
-  dialog.tsx       |       0 |        0 |       0 |       0 | 1-107             
-  drawer.tsx       |       0 |        0 |       0 |       0 | 1-103             
-  ...down-menu.tsx |       0 |        0 |       0 |       0 | 1-180             
-  form.tsx         |       0 |        0 |       0 |       0 | 1-165             
-  hover-card.tsx   |       0 |        0 |       0 |       0 | 1-25              
-  input-otp.tsx    |       0 |        0 |       0 |       0 | 1-67              
-  input.tsx        |       0 |        0 |       0 |       0 | 1-23              
-  label.tsx        |       0 |        0 |       0 |       0 | 1-22              
-  menubar.tsx      |       0 |        0 |       0 |       0 | 1-215             
-  ...tion-menu.tsx |       0 |        0 |       0 |       0 | 1-116             
-  pagination.tsx   |       0 |        0 |       0 |       0 | 1-107             
-  popover.tsx      |       0 |        0 |       0 |       0 | 1-27              
-  progress.tsx     |       0 |        0 |       0 |       0 | 1-24              
-  radio-group.tsx  |       0 |        0 |       0 |       0 | 1-40              
-  resizable.tsx    |       0 |        0 |       0 |       0 | 1-40              
-  scroll-area.tsx  |       0 |        0 |       0 |       0 | 1-44              
-  select.tsx       |       0 |        0 |       0 |       0 | 1-145             
-  separator.tsx    |       0 |        0 |       0 |       0 | 1-27              
-  sheet.tsx        |       0 |        0 |       0 |       0 | 1-125             
-  sidebar.tsx      |       0 |        0 |       0 |       0 | 1-735             
-  skeleton.tsx     |       0 |        0 |       0 |       0 | 1-13              
-  slider.tsx       |       0 |        0 |       0 |       0 | 1-24              
-  ...ransition.tsx |       0 |        0 |       0 |       0 | 1-41              
-  switch.tsx       |       0 |        0 |       0 |       0 | 1-25              
-  table.tsx        |       0 |        0 |       0 |       0 | 1-106             
-  tabs.tsx         |       0 |        0 |       0 |       0 | 1-51              
-  terminal.tsx     |       0 |        0 |       0 |       0 | 1-42              
-  textarea.tsx     |       0 |        0 |       0 |       0 | 1-22              
-  toast.tsx        |       0 |        0 |       0 |       0 | 1-111             
-  toaster.tsx      |       0 |        0 |       0 |       0 | 1-33              
-  toggle-group.tsx |       0 |        0 |       0 |       0 | 1-57              
-  toggle.tsx       |       0 |        0 |       0 |       0 | 1-41              
-  tooltip.tsx      |       0 |        0 |       0 |       0 | 1-26              
- ...visualizations |       0 |        0 |       0 |       0 |                   
-  ...tAnalysis.tsx |       0 |        0 |       0 |       0 | 1-190             
-  ...estendorp.tsx |       0 |        0 |       0 |       0 | 1-296             
-  ...nRenderer.tsx |       0 |        0 |       0 |       0 | 1-61              
- ...ient/src/hooks |       0 |        0 |       0 |       0 |                   
-  use-chat.ts      |       0 |        0 |       0 |       0 | 1-119             
-  use-mobile.tsx   |       0 |        0 |       0 |       0 | 1-19              
-  use-toast.ts     |       0 |        0 |       0 |       0 | 1-189             
- ...client/src/lib |       0 |        0 |       0 |       0 |                   
-  queryClient.ts   |       0 |        0 |       0 |       0 | 1-118             
-  utils.ts         |       0 |        0 |       0 |       0 | 1-89              
- ...ient/src/pages |       0 |        0 |       0 |       0 |                   
-  dashboard.tsx    |       0 |        0 |       0 |       0 | 1-192             
-  not-found.tsx    |       0 |        0 |       0 |       0 | 1-21              
- workspace/config  |       0 |       50 |      50 |       0 |                   
-  config.js        |       0 |      100 |     100 |       0 | 5-49              
-  env.js           |       0 |        0 |       0 |       0 | 1-41              
- ...ce/middlewares |       0 |        0 |       0 |       0 |                   
-  requestTracer.js |       0 |        0 |       0 |       0 | 1-83              
- ...pace/public/js |       0 |        0 |       0 |       0 |                   
-  error-handler.js |       0 |        0 |       0 |       0 | 1-41              
- ...reports/assets |       0 |        0 |       0 |       0 |                   
-  ...x-CsZqQx26.js |       0 |        0 |       0 |       0 | 1-52              
- ...ports/coverage |       0 |        0 |       0 |       0 |                   
-  ...navigation.js |       0 |        0 |       0 |       0 | 1-87              
-  prettify.js      |       0 |        0 |       0 |       0 | 1-2               
-  sorter.js        |       0 |        0 |       0 |       0 | 1-196             
- ...ge/lcov-report |       0 |        0 |       0 |       0 |                   
-  ...navigation.js |       0 |        0 |       0 |       0 | 1-87              
-  prettify.js      |       0 |        0 |       0 |       0 | 1-2               
-  sorter.js        |       0 |        0 |       0 |       0 | 1-196             
- workspace/server  |       0 |       25 |      25 |       0 |                   
-  index.ts         |       0 |        0 |       0 |       0 | 1-207             
-  routes.ts        |       0 |        0 |       0 |       0 | 1-2405            
-  storage.ts       |       0 |      100 |     100 |       0 | 45-333            
-  vite.ts          |       0 |        0 |       0 |       0 | 1-88              
- ...erver/services |       0 |    16.66 |   16.66 |       0 |                   
-  claude.ts        |       0 |        0 |       0 |       0 | 1-274             
-  diagnostic.ts    |       0 |      100 |     100 |       0 | 84-327            
-  healthCheck.js   |       0 |        0 |       0 |       0 | 1-114             
-  healthCheck.ts   |       0 |        0 |       0 |       0 | 1-100             
-  perplexity.ts    |       0 |        0 |       0 |       0 | 1-307             
-  router.ts        |       0 |        0 |       0 |       0 | 1-242             
- ...space/services |       0 |        0 |       0 |       0 |                   
-  ...picService.js |       0 |        0 |       0 |       0 | 1-451             
-  claudeService.js |       0 |        0 |       0 |       0 | 1-456             
-  ...extManager.js |       0 |        0 |       0 |       0 | 1-170             
-  healthMonitor.js |       0 |        0 |       0 |       0 | 1-439             
-  ...ckResearch.js |       0 |        0 |       0 |       0 | 1-155             
-  jobManager.js    |       0 |        0 |       0 |       0 | 1-219             
-  ...JobManager.js |       0 |        0 |       0 |       0 | 1-265             
-  ...viceClient.js |       0 |        0 |       0 |       0 | 1-384             
-  ...ityService.js |       0 |        0 |       0 |       0 | 1-458             
-  promptManager.js |       0 |        0 |       0 |       0 | 1-534             
-  redisService.js  |       0 |        0 |       0 |       0 | 1-226             
-  ...rchService.js |       0 |        0 |       0 |       0 | 1-393             
-  serviceRouter.js |       0 |        0 |       0 |       0 | 1-523             
- workspace/shared  |       0 |        0 |       0 |       0 |                   
-  schema.ts        |       0 |        0 |       0 |       0 | 1-157             
- workspace/utils   |    6.61 |     63.7 |   36.03 |    6.61 |                   
-  apiClient.js     |       0 |        0 |       0 |       0 | 1-231             
-  ...hProcessor.js |       0 |        0 |       0 |       0 | 1-492             
-  cacheMonitor.js  |       0 |        0 |       0 |       0 | 1-155             
-  ...uitBreaker.js |       0 |        0 |       0 |       0 | 1-185             
-  ...nentLoader.js |       0 |        0 |       0 |       0 | 1-298             
-  ...entChunker.js |       0 |        0 |       0 |       0 | 1-449             
-  costOptimizer.js |       0 |        0 |       0 |       0 | 1-652             
-  costTracker.js   |       0 |        0 |       0 |       0 | 1-495             
-  ...ultPrompts.js |       0 |        0 |       0 |       0 | 1-84              
-  ...leLlmCalls.js |       0 |        0 |       0 |       0 | 1-14              
-  ...gerprinter.js |       0 |        0 |       0 |       0 | 1-365             
-  enhancedCache.js |       0 |        0 |       0 |       0 | 1-253             
-  ...hProcessor.js |       0 |        0 |       0 |       0 | 1-433             
-  ...ostTracker.js |       0 |        0 |       0 |       0 | 1-502             
-  ...gerprinter.js |       0 |        0 |       0 |       0 | 1-320             
-  ...eOptimizer.js |       0 |        0 |       0 |       0 | 1-180             
-  logger.js        |       0 |        0 |       0 |       0 | 1-85              
-  ...ge-prompts.js |       0 |        0 |       0 |       0 | 1-423             
-  ...akDetector.js |       0 |        0 |       0 |       0 | 1-328             
-  monitoring.js    |       0 |        0 |       0 |       0 | 1-326             
-  ...nceMonitor.js |       0 |        0 |       0 |       0 | 1-232             
-  promptManager.js |       0 |        0 |       0 |       0 | 1-190             
-  ...tScorecard.js |       0 |        0 |       0 |       0 | 1-601             
-  ...tVersioner.js |       0 |        0 |       0 |       0 | 1-199             
-  rateLimiter.js   |       0 |        0 |       0 |       0 | 1-355             
-  ...ck-adapter.js |    58.9 |    92.85 |   46.15 |    58.9 | ...92-209,215-216 
-  redis-mock.js    |   37.97 |    51.85 |   17.07 |   37.97 | ...06-807,814-816 
-  ...test-utils.js |   99.23 |    98.11 |     100 |   99.23 | 197-198           
-  ...rceManager.js |       0 |        0 |       0 |       0 | 1-404             
-  smartCache.js    |       0 |        0 |       0 |       0 | 1-683             
-  systemHealth.js  |       0 |        0 |       0 |       0 | 1-80              
-  ...seStrategy.js |       0 |        0 |       0 |       0 | 1-283             
-  ...nOptimizer.js |       0 |        0 |       0 |       0 | 1-310             
--------------------|---------|----------|---------|---------|-------------------
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > buildQuery > should build a basic search query with defaults
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > buildQuery > should throw an error if neither query nor filters are provided
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > buildQuery > should accept a query with custom sort and pagination
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > buildQuery > should handle invalid pagination parameters gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > buildQuery > should allow search with only filters and no query text
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > normalizeFilters > should handle empty filters object
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > normalizeFilters > should filter out null, undefined, and empty string values
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > normalizeFilters > should handle date range filters
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > normalizeFilters > should handle numeric range filters
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > normalizeFilters > should handle array filters
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should return all items when no filters are applied
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should handle null or undefined items gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should filter by exact match
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should filter by partial string match
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should filter by array values
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should filter by date range
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should filter by numeric range
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should combine multiple filters with AND logic
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > applyFilters > should handle properties that don't exist on items
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > sortResults > should sort by default field (timestamp) in descending order when no field is specified
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > sortResults > should sort by date fields correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > sortResults > should sort by numeric fields correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > sortResults > should sort by string fields correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > sortResults > should handle empty arrays gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > sortResults > should handle missing fields gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should paginate results with default parameters
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should return specific pages of results
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should handle the last page with fewer items
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should handle empty arrays gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should handle null or undefined inputs gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should clamp page and limit to valid values
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > paginateResults > should return an empty array for an out-of-bounds page
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > transformResults > should return the original items when no transformation options are specified
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > transformResults > should include scores when includeScores is true
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > transformResults > should generate summaries when summarize is true
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > transformResults > should filter fields when fields array is provided
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > transformResults > should handle empty, null, or undefined inputs gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > transformResults > should generate a UUID for items without an id
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should handle null or undefined collection gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should return the collection when search text is empty
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should filter items based on search text in title, content, or description
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should perform basic search with all defaults
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should apply filters, sorting and pagination correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should handle search with only filters
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should apply date range filters correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should apply numeric range filters correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should apply transformations correctly
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > search > should handle errors gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should filter items by query in title
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should filter items by query in content
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should filter items by query in description
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should handle case-insensitive search
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should handle empty query gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should handle null collection gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js > Search Utilities Module > performTextSearch > should handle undefined collection gracefully
+ ✓ tests/unit/utils/searchUtils.vitest.js (55 tests) 165ms

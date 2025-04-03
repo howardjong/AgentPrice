@@ -1,28 +1,35 @@
 {
-  "command": "npx vitest run tests/unit/utils/searchUtils.vitest.js",
-  "timestamp": "2025-04-03T16:22:51.207Z",
+  "command": "npx vitest run tests/unit/utils/performanceMonitor.vitest.js",
+  "timestamp": "2025-04-03T19:20:11.070Z",
   "summary": {
-    "duration": 2400,
-    "exitCode": 1,
-    "peakRSS": 45.375,
-    "peakHeapUsed": 4.41058349609375,
-    "finalRSS": 45.375,
-    "finalHeapUsed": 4.41058349609375,
-    "sampleCount": 2
+    "duration": 3834,
+    "exitCode": 0,
+    "peakRSS": 46.25,
+    "peakHeapUsed": 4.413673400878906,
+    "finalRSS": 46.25,
+    "finalHeapUsed": 4.413673400878906,
+    "sampleCount": 3
   },
   "samples": [
     {
       "timestamp": 1002,
-      "rss": 45.375,
+      "rss": 46.25,
       "heapTotal": 4.72265625,
-      "heapUsed": 4.397705078125,
+      "heapUsed": 4.397972106933594,
       "external": 1.6881675720214844
     },
     {
-      "timestamp": 2002,
-      "rss": 45.375,
+      "timestamp": 2003,
+      "rss": 46.25,
       "heapTotal": 4.72265625,
-      "heapUsed": 4.41058349609375,
+      "heapUsed": 4.40447998046875,
+      "external": 1.6882057189941406
+    },
+    {
+      "timestamp": 3003,
+      "rss": 46.25,
+      "heapTotal": 4.72265625,
+      "heapUsed": 4.413673400878906,
       "external": 1.6882781982421875
     }
   ]

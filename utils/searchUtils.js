@@ -30,6 +30,26 @@ export async function initialize(options = {}) {
 }
 
 /**
+ * Perform text search on a collection
+ * @param {Array} collection - Collection of items to search
+ * @param {string} query - Search query text
+ * @returns {Array} - Filtered collection
+ */
+export function performTextSearch(collection, query) {
+  if (!query || !collection || !Array.isArray(collection)) {
+    return collection || [];
+  }
+  
+  const lowerCaseQuery = query.toLowerCase();
+  
+  return collection.filter(item => 
+    (item.title && item.title.toLowerCase().includes(lowerCaseQuery)) || 
+    (item.description && item.description.toLowerCase().includes(lowerCaseQuery)) ||
+    (item.content && item.content.toLowerCase().includes(lowerCaseQuery))
+  );
+}
+
+/**
  * Search for items matching the query
  * @param {Array} collection - Collection of items to search
  * @param {Object} params - Search parameters
@@ -50,12 +70,12 @@ export function search(collection, params = {}, textSearchFn = null) {
     } = params;
     
     // Use the provided text search function or the default one
-    const performTextSearch = textSearchFn || _performTextSearch;
+    const doTextSearch = textSearchFn || performTextSearch;
     
     // Perform the text search
     let results = [];
     if (query) {
-      results = performTextSearch(collection, query);
+      results = doTextSearch(collection, query);
     } else {
       results = collection || [];
     }
@@ -476,6 +496,7 @@ const searchUtils = {
   initialize,
   search,
   processResults,
+  performTextSearch,
   _performTextSearch,
   sortResults,
   paginateResults,

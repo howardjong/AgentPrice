@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import searchUtils from '../../../utils/searchUtils.js';
-import { _performTextSearch } from '../../../utils/searchUtils.js';
+import { _performTextSearch, performTextSearch } from '../../../utils/searchUtils.js';
 import logger from '../../../utils/logger.js';
 
 // Mock dependencies
@@ -639,6 +639,9 @@ describe('Search Utilities Module', () => {
         return collection;
       });
       
+      // Create a spy on the performTextSearch function to verify it's not called
+      const performTextSearchSpy = vi.spyOn(searchUtils, 'performTextSearch');
+      
       const result = searchUtils.search(
         testCollection, 
         { 
@@ -648,11 +651,6 @@ describe('Search Utilities Module', () => {
         mockTextSearchFn
       );
       
-      // Debug output
-      console.log('Search Results IDs:', result.results.map(item => item.id));
-      console.log('Search Results Count:', result.results.length);
-      console.log('Total Items in Pagination:', result.pagination.total);
-      
       // Verify results
       expect(result.results).toHaveLength(2); // Should match items 1 and 4
       expect(result.results.map(item => item.id)).toContain('1');
@@ -661,6 +659,11 @@ describe('Search Utilities Module', () => {
       
       // Verify that our mock was called with the correct parameters
       expect(mockTextSearchFn).toHaveBeenCalledWith(testCollection, 'machine learning');
+      // Verify that the real function wasn't called (dependency injection worked)
+      expect(performTextSearchSpy).not.toHaveBeenCalled();
+      
+      // Clean up
+      performTextSearchSpy.mockRestore();
     });
 
     it('should apply filters, sorting and pagination correctly', () => {
@@ -736,6 +739,9 @@ describe('Search Utilities Module', () => {
         return collection;
       });
       
+      // Create a spy on the performTextSearch function to verify it's not called
+      const performTextSearchSpy = vi.spyOn(searchUtils, 'performTextSearch');
+      
       const result = searchUtils.search(testCollection, {
         query: 'machine learning',
         summarize: true,
@@ -751,20 +757,99 @@ describe('Search Utilities Module', () => {
       
       // Verify that our mock was called with the correct parameters
       expect(mockTextSearchFn).toHaveBeenCalledWith(testCollection, 'machine learning');
+      // Verify that the real function wasn't called (dependency injection worked)
+      expect(performTextSearchSpy).not.toHaveBeenCalled();
+      
+      // Clean up
+      performTextSearchSpy.mockRestore();
     });
 
-    // TODO: Fix this test in the next iteration
-    // The current mocking approach for the buildQuery function is not working correctly
-    // Issue appears to be related to how the search function handles the error thrown by buildQuery
-    // We've already fixed the main issue with performTextSearch function handling null/undefined collections
-    // Meeting the 80% coverage target even with this test skipped
-    it.skip('should handle errors gracefully', () => {
-      // The test for error handling has been temporarily skipped but should be 
-      // implemented with a different mocking strategy in the future
-      // Possible approaches:
-      // 1. Mock at a lower level in the search function call chain
-      // 2. Use vi.doMock for module-level mocking instead of spyOn
-      // 3. Refactor the search function to make it more testable
+    it('should handle errors gracefully', () => {
+      // Create a mock text search function that throws an error
+      const mockTextSearchFn = vi.fn(() => {
+        throw new Error('Simulated text search error');
+      });
+      
+      // Use our new function extraction to mock the functions in the search call stack
+      vi.spyOn(logger, 'error').mockImplementation(() => {});
+      
+      const result = searchUtils.search(
+        testCollection, 
+        { 
+          query: 'machine learning',
+        },
+        mockTextSearchFn
+      );
+      
+      // Verify that the error was handled and a default empty result was returned
+      expect(result.results).toEqual([]);
+      expect(result.pagination.total).toBe(0);
+      expect(logger.error).toHaveBeenCalled();
+      
+      // Clean up
+      logger.error.mockRestore();
+    });
+  });
+
+  describe('performTextSearch', () => {
+    const testItems = [
+      {
+        id: '1',
+        title: 'Machine Learning Research',
+        content: 'Research on neural networks.',
+        description: 'Deep learning applications.'
+      },
+      {
+        id: '2',
+        title: 'Web Development',
+        content: 'Modern web frameworks.',
+        description: 'Frontend and backend best practices.'
+      },
+      {
+        id: '3',
+        title: 'Database Design',
+        content: 'SQL and NoSQL database structures.',
+        description: 'Data modeling techniques.'
+      }
+    ];
+
+    it('should filter items by query in title', () => {
+      const result = performTextSearch(testItems, 'machine');
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('1');
+    });
+
+    it('should filter items by query in content', () => {
+      const result = performTextSearch(testItems, 'web frameworks');
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('2');
+    });
+
+    it('should filter items by query in description', () => {
+      const result = performTextSearch(testItems, 'data modeling');
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('3');
+    });
+
+    it('should handle case-insensitive search', () => {
+      const result = performTextSearch(testItems, 'MACHINE learning');
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('1');
+    });
+
+    it('should handle empty query gracefully', () => {
+      const result = performTextSearch(testItems, '');
+      expect(result).toEqual(testItems);
+    });
+
+    it('should handle null collection gracefully', () => {
+      const result = performTextSearch(null, 'test');
+      expect(result).toEqual([]);
+    });
+
+    it('should handle undefined collection gracefully', () => {
+      const result = performTextSearch(undefined, 'test');
+      expect(result).toEqual([]);
     });
   });
 });

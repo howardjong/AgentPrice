@@ -3,11 +3,9 @@
  */
 
 import { describe, beforeEach, afterEach, it, expect, vi } from 'vitest';
-import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
-import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
-import { assertRejects, createErrorTrackingSpy } from '../utils/error-handling-utils.js';
-import performanceNowMock from '../../utils/performanceNowMock.js'
-import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../utils/time-testing-utils.js';;
+import { assertRejects, createErrorTrackingSpy } from '../../utils/error-handling-utils.js';
+import performanceNowMock from '../../utils/performanceNowMock.js';
+import { createTimeController, mockPerformanceNowSequence, wait, withTimeout } from '../../utils/time-testing-utils.js';
 
 describe('performanceNowMock', () => {
   const originalPerformanceNow = performance.now;
