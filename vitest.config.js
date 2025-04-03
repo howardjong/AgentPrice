@@ -43,6 +43,7 @@ export default defineConfig({
     include: [
       '**/*.vitest.js',
       '**/unit/**/*.vitest.js',
+      '**/storage/**/*.test.ts',
     ],
     
     // Clean environment between tests

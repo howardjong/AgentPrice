@@ -626,6 +626,10 @@ describe('Search Utilities Module', () => {
     ];
 
     it('should perform basic search with all defaults', () => {
+      // Define specific items that will match the query "machine learning"
+      // Items with IDs 1 and 4 already mention "machine learning" in their content
+      // This gives us a predictable test collection
+      
       // Create a mock text search function
       const mockTextSearchFn = vi.fn((collection, searchText) => {
         // Return items with IDs 1 and 4 when searching for 'machine learning'
@@ -643,6 +647,11 @@ describe('Search Utilities Module', () => {
         },
         mockTextSearchFn
       );
+      
+      // Debug output
+      console.log('Search Results IDs:', result.results.map(item => item.id));
+      console.log('Search Results Count:', result.results.length);
+      console.log('Total Items in Pagination:', result.pagination.total);
       
       // Verify results
       expect(result.results).toHaveLength(2); // Should match items 1 and 4
