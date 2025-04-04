@@ -130,6 +130,11 @@ export class MemoryStorage {
       new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
   }
+  
+  // Alias method for getMessagesByConversationId
+  async getMessagesByConversation(conversationId) {
+    return this.getMessagesByConversationId(conversationId);
+  }
 
   // Research job operations
   async createResearchJob(job) {

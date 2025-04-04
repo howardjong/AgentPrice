@@ -29,6 +29,7 @@ export interface IStorage {
   createMessage(message: Partial<Message>): Promise<Message>;
   getMessageById(id: string): Promise<Message | null>;
   getMessagesByConversationId(conversationId: string): Promise<Message[]>;
+  getMessagesByConversation(conversationId: string): Promise<Message[]>; // Alias for getMessagesByConversationId
   
   // Research job operations
   createResearchJob(job: Partial<ResearchJob>): Promise<ResearchJob>;
