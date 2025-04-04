@@ -1,0 +1,67 @@
+{
+  "basic": {
+    "contentPatterns": [
+      "energy storage",
+      "renewable",
+      "technology"
+    ],
+    "chartType": "bar",
+    "minContentLength": 200,
+    "minSourceCount": 2
+  },
+  "performance": {
+    "contentPatterns": [
+      "quantum",
+      "qubit",
+      "superposition"
+    ],
+    "chartType": "line",
+    "minContentLength": 200,
+    "maxDurationMs": 12000
+  },
+  "reliability": {
+    "queries": {
+      "factual": {
+        "contentPatterns": [
+          "quantum",
+          "hardware",
+          "development"
+        ],
+        "minContentLength": 200,
+        "minSourceCount": 2
+      },
+      "analytical": {
+        "contentPatterns": [
+          "generative AI",
+          "content creation",
+          "impact"
+        ],
+        "minContentLength": 200,
+        "minSourceCount": 2
+      },
+      "numeric": {
+        "contentPatterns": [
+          "EV",
+          "market share",
+          "manufacturer"
+        ],
+        "chartType": "pie",
+        "minContentLength": 200,
+        "minSourceCount": 2
+      },
+      "technical": {
+        "contentPatterns": [
+          "transformer",
+          "NLP",
+          "architecture"
+        ],
+        "minContentLength": 200,
+        "minSourceCount": 2
+      }
+    }
+  },
+  "errorHandling": {
+    "minContentLength": 0,
+    "fallbackExpected": true
+  }
+}

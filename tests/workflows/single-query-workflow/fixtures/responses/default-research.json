@@ -1,0 +1,13 @@
+{
+  "content": "This is a default research response used when a specific response isn't available for the query. In a real implementation, the Perplexity API would provide custom research results for any query. This placeholder allows tests to run without requiring every possible test query to have a predefined response file. The actual content would include detailed information relevant to the query topic, with facts, analysis, and data points suitable for visualization. For testing purposes, this generic response simply indicates that a default response was generated instead of a specific one.",
+  "sources": [
+    {
+      "title": "Sample Source 1",
+      "url": "https://example.com/source1"
+    },
+    {
+      "title": "Sample Source 2",
+      "url": "https://example.com/source2"
+    }
+  ]
+}

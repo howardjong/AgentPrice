@@ -1,170 +1,119 @@
-
+#!/usr/bin/env node
 /**
- * Manual Test for Single Query Workflow
+ * Manual test script for Single Query Workflow
  * 
- * This script allows manual testing of the single-query workflow
- * with options to run in either mock mode or live API mode.
- * 
- * Usage:
- *   node tests/manual/test-single-query-workflow.js [--variant=basic] [--use-real-apis] [--query="Your query"]
- * 
- * Options:
- *   --variant=NAME     Test variant to run (basic, performance, reliability, noDeepResearch, charts)
- *   --use-real-apis    Use real APIs instead of mocks (requires API keys)
- *   --query="..."      Custom research query
- *   --type=...         Chart type (basic_bar, van_westendorp, conjoint)
- *   --save-results     Save test results to file
- *   --log-level=LEVEL  Set logging level (debug, info, warn, error)
+ * This script allows running the Single Query Workflow test suite from the command line.
+ * It provides more control and output than running the tests through Vitest.
  */
 
-import { runWorkflowTest } from '../workflows/single-query-workflow/test-runner.js';
-import { testVariants as TEST_VARIANTS } from '../workflows/single-query-workflow/test-config.js';
+import path from 'path';
+import fs from 'fs/promises';
+import { fileURLToPath } from 'url';
+
+// Get the directory of the current module
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Import test utilities from the workflow test suite
+const testWorkflowPath = path.join(__dirname, '..', 'workflows', 'single-query-workflow');
+const { runAndValidateTest, loadFixtures } = await import(path.join(testWorkflowPath, 'test-utils.js'));
+const { testVariants } = await import(path.join(testWorkflowPath, 'test-config.js'));
 
 // Parse command line arguments
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const options = {
-    useRealAPIs: args.includes('--use-real-apis'),
-    saveResults: args.includes('--save-results'),
-    enableDeepResearch: !args.includes('--no-deep-research'),
-    timeout: 15000 // Default 15 second timeout for API calls
-  };
-  
-  // Parse variant
-  const variantArg = args.find(arg => arg.startsWith('--variant='));
-  if (variantArg) {
-    options.variant = variantArg.substring('--variant='.length);
-  }
-  
-  // Parse query
-  const queryArg = args.find(arg => arg.startsWith('--query='));
-  if (queryArg) {
-    options.query = queryArg.substring('--query='.length);
-  }
-  
-  // Parse timeout
-  const timeoutArg = args.find(arg => arg.startsWith('--timeout='));
-  if (timeoutArg) {
-    const timeoutValue = parseInt(timeoutArg.substring('--timeout='.length), 10);
-    if (!isNaN(timeoutValue) && timeoutValue > 0) {
-      options.timeout = timeoutValue;
-    }
-  }
-  
-  // Parse chart type
-  const typeArg = args.find(arg => arg.startsWith('--type='));
-  if (typeArg) {
-    options.visualizationType = typeArg.substring('--type='.length);
-  }
-  
-  // Parse log level
-  const logLevelArg = args.find(arg => arg.startsWith('--log-level='));
-  if (logLevelArg) {
-    options.logLevel = logLevelArg.substring('--log-level='.length);
-  }
-  
-  return options;
-}
+const args = process.argv.slice(2);
+const options = {
+  variant: args[0] || 'basic',
+  useRealAPIs: args.includes('--use-real-apis'),
+  query: args.find(arg => arg.startsWith('--query='))?.substring('--query='.length),
+  saveResults: true
+};
 
 async function runTest() {
-  console.log('=================================================');
-  console.log('  Single Query Workflow Test');
-  console.log('=================================================');
-  
   try {
-    const options = parseArgs();
-    const variant = options.variant || 'basic';
+    console.log(`
+=====================================================
+  Single Query Workflow Manual Test Runner
+=====================================================
+Running test with options:
+${JSON.stringify(options, null, 2)}
+=====================================================
+`);
     
-    // Display available variants if requested
-    if (variant === 'list') {
-      console.log('\nAvailable test variants:');
-      Object.entries(TEST_VARIANTS).forEach(([key, data]) => {
-        console.log(`- ${key}: ${data.name}`);
-        console.log(`  ${data.description}`);
-      });
-      console.log('=================================================');
-      return;
+    // Create results directory if it doesn't exist
+    const resultsDir = path.join(process.cwd(), 'test-results', 'single-query-workflow');
+    await fs.mkdir(resultsDir, { recursive: true }).catch(() => {});
+    
+    // Load fixtures
+    await loadFixtures();
+    
+    // Get variant info
+    const variantInfo = testVariants[options.variant] || 
+                       { name: 'Custom Test', description: 'Custom test configuration' };
+    
+    console.log(`Running test variant: ${variantInfo.name}`);
+    console.log(variantInfo.description);
+    console.log('');
+    
+    // Run the test
+    console.log('Starting test...');
+    const startTime = Date.now();
+    
+    const results = await runAndValidateTest(options.variant, {
+      query: options.query,
+      useRealAPIs: options.useRealAPIs,
+      saveResults: options.saveResults
+    });
+    
+    const endTime = Date.now();
+    const duration = endTime - startTime;
+    
+    // Print results
+    console.log('\nTest completed in', duration, 'ms');
+    console.log('Success:', results.success);
+    
+    if (!results.success) {
+      console.error('Error:', results.error);
+      process.exit(1);
     }
     
-    console.log(`Test Variant: ${variant} (${TEST_VARIANTS[variant]?.name || 'Custom Test'})`);
-    console.log('Test Options:');
-    console.log(JSON.stringify(options, null, 2));
-    console.log('=================================================');
+    // Print workflow stages timing
+    console.log('\nWorkflow Stages:');
+    Object.entries(results.stageTiming).forEach(([stage, timing]) => {
+      const stageDuration = timing.end - timing.start;
+      console.log(`- ${stage}: ${stageDuration}ms`);
+    });
     
-    // Load environment variables if using real APIs
-    if (options.useRealAPIs) {
-      try {
-        const { config } = await import('dotenv');
-        config();
-        console.log('Environment variables loaded from .env file');
-      } catch (error) {
-        console.warn('Failed to load .env file:', error.message);
-        console.warn('Make sure API keys are available in environment variables or .env file');
-      }
+    // Print validation results
+    console.log('\nValidation Results:');
+    console.log(`Valid: ${results.validation.valid}`);
+    
+    if (results.validation.errors.length > 0) {
+      console.log('Errors:');
+      results.validation.errors.forEach(error => console.log(`- ${error}`));
     }
     
-    // Run the test using the enhanced framework
-    const results = await runWorkflowTest(variant, options);
-    
-    console.log('=================================================');
-    if (results.success) {
-      console.log('✅ Test completed successfully');
-      
-      // Display summary of results
-      console.log('\nSummary:');
-      console.log(`- Mode: ${results.testMode}`);
-      console.log(`- Variant: ${results.variant} (${results.variantName})`);
-      console.log(`- Query: "${results.query}"`);
-      console.log(`- Research length: ${results.researchContent.length} characters`);
-      console.log(`- Sources: ${results.sources?.length || 0}`);
-      console.log(`- Insights: ${results.chartData.insights.length}`);
-      
-      // Display timing information
-      console.log('\nTiming:');
-      Object.entries(results.metrics.stages).forEach(([stage, data]) => {
-        console.log(`- ${stage}: ${data.duration.toFixed(2)}ms`);
-      });
-      console.log(`- Total duration: ${results.metrics.test.duration.toFixed(2)}ms`);
-      
-      // Display API call summary if available
-      if (results.metrics.apiCalls) {
-        console.log('\nAPI Calls:');
-        Object.entries(results.metrics.apiCalls).forEach(([service, operations]) => {
-          console.log(`- ${service}:`);
-          Object.entries(operations).forEach(([op, data]) => {
-            console.log(`  - ${op}: ${data.count} calls, ${data.totalDuration.toFixed(2)}ms total`);
-          });
-        });
-      }
-      
-      // Display result path if saved
-      if (results.resultPath) {
-        console.log(`\nResults saved to: ${results.resultPath}`);
-      }
-      
-      // Display metrics path if saved
-      if (results.metricsPath) {
-        console.log(`Metrics saved to: ${results.metricsPath}`);
-      }
-    } else {
-      console.error('❌ Test failed:', results.error);
-      if (results.errorDetails) {
-        console.error('Error details:', results.errorDetails);
-      }
-      
-      // Show metrics even on failure
-      if (results.metrics?.errors?.length > 0) {
-        console.log('\nErrors encountered:');
-        results.metrics.errors.forEach((err, i) => {
-          console.log(`[${i+1}] ${err.stage}: ${err.message}`);
-        });
-      }
+    if (results.validation.warnings.length > 0) {
+      console.log('Warnings:');
+      results.validation.warnings.forEach(warning => console.log(`- ${warning}`));
     }
-    console.log('=================================================');
+    
+    // Print output summary
+    console.log('\nOutput Summary:');
+    console.log(`- Query: "${options.query || results.query}"`);
+    console.log(`- Clarified Query: "${results.clarifiedQuery}"`);
+    console.log(`- Research Content: ${results.researchContent.length} characters`);
+    console.log(`- Sources: ${results.sources.length}`);
+    console.log(`- Chart Type: ${results.plotlyConfig.data[0].type}`);
+    
+    // Save results to file
+    console.log('\nResults saved to:', path.join(resultsDir, `${options.variant || 'custom'}-manual-test.json`));
+    
+    return results;
   } catch (error) {
-    console.error('Fatal error running test:', error);
+    console.error('Test execution failed:', error);
+    process.exit(1);
   }
 }
 
 // Run the test
-runTest();
+await runTest();
