@@ -5,8 +5,8 @@
  * for testing workflows without making real API calls.
  */
 
-const fs = require('fs').promises;
-const path = require('path');
+import { promises as fs } from 'fs';
+import path from 'path';
 
 /**
  * Mock implementation of Claude service
@@ -352,7 +352,7 @@ function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-module.exports = {
+export {
   mockClaudeService,
   mockPerplexityService
 };

@@ -147,6 +147,41 @@ class CircuitBreaker {
   }
   
   /**
+   * Executes a function within the circuit breaker's protection
+   * If the circuit is open, throws an error without calling the function
+   * @param {Function} fn - The function to execute
+   * @returns {Promise<any>} - The result of the function execution
+   * @throws {Error} - If the circuit is open or if the function throws an error
+   */
+  async execute(fn) {
+    // Check if circuit is open
+    if (this.isOpen()) {
+      const error = new Error(`${this.name}: Circuit is open, request rejected`);
+      error.code = 'CIRCUIT_OPEN';
+      throw error;
+    }
+    
+    try {
+      // Execute the function
+      const result = await fn();
+      
+      // Record success
+      this.recordSuccess();
+      
+      return result;
+    } catch (error) {
+      // Record failure
+      this.recordFailure();
+      
+      // Add circuit breaker context to error
+      error.circuitBreakerState = this.state;
+      
+      // Re-throw the original error
+      throw error;
+    }
+  }
+  
+  /**
    * Helper to transition between states
    * @param {string} newState - The new state
    * @param {string} reason - The reason for the state change

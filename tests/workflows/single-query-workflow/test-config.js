@@ -4,7 +4,7 @@
  * This file defines the available test variants and their configurations.
  */
 
-const TEST_VARIANTS = {
+export const testVariants = {
   /**
    * Basic test with standard configuration
    */
@@ -139,6 +139,3 @@ const TEST_VARIANTS = {
   }
 };
 
-module.exports = {
-  TEST_VARIANTS
-};

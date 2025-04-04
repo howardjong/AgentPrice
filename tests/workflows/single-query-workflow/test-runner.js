@@ -6,16 +6,16 @@
  * in test-config.js and collects metrics for performance analysis.
  */
 
-const { TEST_VARIANTS } = require('./test-config');
-const MetricsCollector = require('./metrics-collector');
-const fs = require('fs').promises;
-const path = require('path');
+import { testVariants } from './test-config.js';
+import MetricsCollector from './metrics-collector.js';
+import { promises as fs } from 'fs';
+import path from 'path';
 
 /**
  * Initialize mock services for testing
  */
-function initializeMockServices() {
-  const { mockClaudeService, mockPerplexityService } = require('./mock-services');
+async function initializeMockServices() {
+  const { mockClaudeService, mockPerplexityService } = await import('./mock-services.js');
 
   return {
     claude: mockClaudeService,
@@ -29,8 +29,12 @@ function initializeMockServices() {
  */
 async function initializeRealServices() {
   // Dynamically import actual service modules
-  const claudeService = require('../../../services/claudeService');
-  const perplexityService = require('../../../services/perplexityService');
+  const claudeServiceModule = await import('../../../services/claudeService.js');
+  const perplexityServiceModule = await import('../../../services/perplexityService.js');
+
+  // Get the default exports
+  const claudeService = claudeServiceModule.default;
+  const perplexityService = perplexityServiceModule.default;
 
   // Verify API keys are available
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
@@ -55,7 +59,7 @@ async function initializeRealServices() {
  */
 async function runWorkflowTest(variantName = 'basic', options = {}) {
   // Get variant configuration
-  const variant = TEST_VARIANTS[variantName] || TEST_VARIANTS.basic;
+  const variant = testVariants[variantName] || testVariants.basic;
 
   // Initialize metrics collector
   const metrics = new MetricsCollector({
@@ -75,13 +79,14 @@ async function runWorkflowTest(variantName = 'basic', options = {}) {
   const saveResults = options.hasOwnProperty('saveResults') 
     ? options.saveResults 
     : variant.saveResults;
+  const timeout = options.timeout || 30000; // Default to 30 seconds if not specified
 
   try {
     // Configure services based on mode
     metrics.startStage('initialization');
     const services = useRealAPIs 
       ? await initializeRealServices() 
-      : initializeMockServices();
+      : await initializeMockServices();
     metrics.endStage('initialization');
 
     console.log(`Running test variant "${variantName}" in ${useRealAPIs ? 'REAL API' : 'MOCK'} mode`);
@@ -95,7 +100,8 @@ async function runWorkflowTest(variantName = 'basic', options = {}) {
       model: enableDeepResearch 
         ? 'llama-3.1-sonar-large-128k-online' 
         : 'llama-3.1-sonar-small-128k-online',
-      followupQuestions: variant.followupQuestions || false
+      followupQuestions: variant.followupQuestions || false,
+      timeout: timeout // Add the timeout parameter
     };
 
     const researchResults = await services.perplexity.performDeepResearch(
@@ -234,7 +240,7 @@ async function runWorkflowTest(variantName = 'basic', options = {}) {
   }
 }
 
-module.exports = {
+export {
   runWorkflowTest,
   initializeMockServices,
   initializeRealServices

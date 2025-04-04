@@ -317,6 +317,49 @@ class RobustAPIClient {
       data
     });
   }
+  
+  /**
+   * Executes a function with circuit breaker protection
+   * 
+   * @param {Function} fn - The function to execute
+   * @returns {Promise<any>} - The result of the function
+   * @throws {Error} - If the circuit is open or if the function fails
+   */
+  async execute(fn) {
+    // Check if circuit breaker is open
+    if (this.circuitBreaker.isOpen()) {
+      logger.warn(`${this.name}: Circuit breaker open, function execution blocked`, {
+        component: 'apiClient'
+      });
+      throw new Error(`Circuit breaker open for ${this.name}`);
+    }
+    
+    try {
+      // Execute the function
+      const result = await fn();
+      
+      // Record success in circuit breaker
+      this.circuitBreaker.recordSuccess();
+      
+      return result;
+    } catch (error) {
+      // Record failure in circuit breaker
+      this.circuitBreaker.recordFailure();
+      
+      // Rethrow the error with context
+      if (error instanceof Error) {
+        // Add circuit breaker context to error
+        error.circuitBreakerState = this.circuitBreaker.getState();
+        throw error;
+      } else {
+        // Convert non-Error to Error object
+        const wrappedError = new Error(String(error));
+        wrappedError.originalError = error;
+        wrappedError.circuitBreakerState = this.circuitBreaker.getState();
+        throw wrappedError;
+      }
+    }
+  }
 }
 
 export { RobustAPIClient };

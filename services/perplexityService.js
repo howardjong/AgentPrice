@@ -72,6 +72,7 @@ async function processWebQuery(query, options = {}) {
   const maxTokens = options.maxTokens || 1024;
   const temperature = options.temperature || 0.2; // Lower temperature for factual answers
   const recencyFilter = options.recencyFilter || 'month';
+  const timeout = options.timeout || 30000; // Default to 30 seconds
   
   logger.info(`Processing web query with Perplexity [${requestId}]`, { 
     model, 
@@ -114,7 +115,7 @@ async function processWebQuery(query, options = {}) {
           headers: {
             'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
             'Content-Type': 'application/json'
-          }
+          }, timeout: timeout // Add timeout parameter
         });
       });
     });
@@ -196,6 +197,7 @@ async function processConversation(messages, options = {}) {
   const temperature = options.temperature || 0.5;
   const systemPrompt = options.systemPrompt || '';
   const enableWebSearch = options.webSearch !== false; // Enable by default for Perplexity
+  const timeout = options.timeout || 30000; // Default to 30 seconds
   
   if (!Array.isArray(messages)) {
     throw new Error('Messages must be an array of message objects');

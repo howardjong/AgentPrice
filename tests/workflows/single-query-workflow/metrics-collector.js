@@ -5,9 +5,9 @@
  * providing consistent measurement across test variants and modes.
  */
 
-const fs = require('fs').promises;
-const path = require('path');
-const os = require('os');
+import { promises as fs } from 'fs';
+import path from 'path';
+import os from 'os';
 
 class MetricsCollector {
   constructor(options = {}) {
@@ -232,4 +232,4 @@ class MetricsCollector {
   }
 }
 
-module.exports = MetricsCollector;
+export default MetricsCollector;
