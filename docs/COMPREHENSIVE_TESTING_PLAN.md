@@ -144,9 +144,28 @@ async function testSingleQueryWorkflow({
     
     // Stage 1: Initial Deep Research
     metrics.stages.research = { start: Date.now() };
-    const researchResults = await services.perplexity.performDeepResearch(query, {
+    // Stage 0: Conversational Step with Claude for Clarifying Questions
+    metrics.stages.conversation = { start: Date.now() };
+    // Generate clarifying questions using Claude
+    const clarifyingQuestions = await services.claude.generateClarifyingQuestions(query);
+    
+    // Simulate user responses (in real app, this would be from user input)
+    const userResponses = {
+      "question1": "I'm interested in the latest commercial applications.",
+      "question2": "Yes, I need information about costs and implementation timelines."
+    };
+    
+    // Process user responses and create enhanced research prompt
+    const enhancedPrompt = await services.claude.processUserResponses(
+      query,
+      clarifyingQuestions,
+      userResponses
+    );
+    metrics.stages.conversation.end = Date.now();
+
+    const researchResults = await services.perplexity.performDeepResearch(enhancedPrompt, {
       enableChunking: true,
-      model: enableDeepResearch ? 'llama-3.1-sonar-large-128k-online' : 'llama-3.1-sonar-small-128k-online'
+      model: enableDeepResearch ? 'sonar-deep-research' : 'sonar'
     });
     metrics.stages.research.end = Date.now();
     
@@ -585,3 +604,47 @@ jobs:
 ## Conclusion
 
 This comprehensive testing plan ensures that our application's core functionality - the single-query workflow incorporating deep research and visualization - is thoroughly tested using both mock-based and live API approaches. By implementing this plan, we can confidently make changes to the system while ensuring that the core workflow continues to function correctly.
+## Appendix: Perplexity API Model Configuration
+
+### Model Selection for Different Research Types
+
+The Perplexity API provides several different models optimized for different types of research. The correct model choice is critical for both test accuracy and production performance:
+
+1. **Regular Internet Search**: Use the `sonar` model
+   - Optimized for standard web search queries
+   - Returns results quickly with standard format
+   - Suitable for basic information retrieval
+
+2. **Deep Research**: Use the `sonar-deep-research` model
+   - Specialized for in-depth academic and analytical research
+   - Uses asynchronous polling mechanism instead of waiting for immediate responses
+   - Provides more comprehensive results with follow-up questions and detailed analysis
+   - Longer response times (may be several seconds to minutes)
+
+3. **Fallback Model**: Use the `sonar-pro` model
+   - Should be used as fallback when deep research model is unavailable
+   - Provides enhanced capabilities over the standard model
+   - Better suited for complex queries than the base model
+
+### Testing Considerations
+
+1. **Timeouts**: Deep research tests require significantly longer timeouts (60+ seconds) compared to regular search (15-30 seconds)
+
+2. **Polling Mechanism**: Tests for deep research must implement proper polling with appropriate backoff strategies
+
+3. **Rate Limiting**: Deep research queries are more resource-intensive and subject to stricter rate limits (typically 5 requests per minute)
+
+4. **Model-Specific Validation**: Each model returns slightly different response formats that should be validated appropriately
+
+5. **Error Handling**: Different models may return different error formats that need specific handling
+
+### Mock Implementation Guidelines
+
+When implementing mock services for testing, ensure that:
+
+1. The mock service simulates the appropriate latency for the selected model
+2. Response formats match those of the actual model being simulated
+3. Rate limit behavior is properly simulated
+4. Polling behavior is accurately represented for deep research tests
+
+This appendix serves as a reference to ensure all tests correctly utilize the appropriate models for their intended use cases.
