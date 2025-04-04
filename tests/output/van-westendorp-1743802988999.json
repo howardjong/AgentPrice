@@ -1,0 +1,237 @@
+{
+  "success": true,
+  "plotlyConfig": {
+    "data": [
+      {
+        "x": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50
+        ],
+        "y": [
+          1,
+          5,
+          10,
+          25,
+          50,
+          65,
+          80,
+          92,
+          98,
+          100
+        ],
+        "mode": "lines",
+        "name": "Too Expensive",
+        "line": {
+          "color": "#e74c3c",
+          "width": 3
+        }
+      },
+      {
+        "x": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50
+        ],
+        "y": [
+          99,
+          92,
+          80,
+          60,
+          45,
+          30,
+          18,
+          8,
+          2,
+          1
+        ],
+        "mode": "lines",
+        "name": "Too Inexpensive",
+        "line": {
+          "color": "#3498db",
+          "width": 3
+        }
+      },
+      {
+        "x": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50
+        ],
+        "y": [
+          0,
+          2,
+          5,
+          15,
+          30,
+          55.00000000000001,
+          70,
+          85,
+          95,
+          99
+        ],
+        "mode": "lines",
+        "name": "Expensive",
+        "line": {
+          "color": "#e67e22",
+          "width": 3,
+          "dash": "dot"
+        }
+      },
+      {
+        "x": [
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50
+        ],
+        "y": [
+          80,
+          75,
+          60,
+          45,
+          30,
+          20,
+          10,
+          5,
+          2,
+          0
+        ],
+        "mode": "lines",
+        "name": "Inexpensive",
+        "line": {
+          "color": "#2ecc71",
+          "width": 3,
+          "dash": "dot"
+        }
+      }
+    ],
+    "layout": {
+      "title": "Van Westendorp Price Sensitivity Analysis",
+      "xaxis": {
+        "title": "Price ($)",
+        "range": [
+          0,
+          55
+        ]
+      },
+      "yaxis": {
+        "title": "Percentage of Respondents (%)",
+        "range": [
+          0,
+          100
+        ]
+      },
+      "hovermode": "closest",
+      "legend": {
+        "x": 0.1,
+        "y": 1
+      },
+      "shapes": [
+        {
+          "type": "line",
+          "xref": "x",
+          "yref": "paper",
+          "x0": 24,
+          "y0": 0,
+          "x1": 24,
+          "y1": 1,
+          "line": {
+            "color": "rgba(0, 0, 0, 0.4)",
+            "width": 1,
+            "dash": "dash"
+          }
+        },
+        {
+          "type": "line",
+          "xref": "x",
+          "yref": "paper",
+          "x0": 19,
+          "y0": 0,
+          "x1": 19,
+          "y1": 1,
+          "line": {
+            "color": "rgba(0, 0, 0, 0.4)",
+            "width": 1,
+            "dash": "dash"
+          }
+        }
+      ],
+      "annotations": [
+        {
+          "x": 24,
+          "y": 95,
+          "xref": "x",
+          "yref": "y",
+          "text": "IPP: $24",
+          "showarrow": true,
+          "arrowhead": 4,
+          "ax": 0,
+          "ay": -40
+        },
+        {
+          "x": 19,
+          "y": 85,
+          "xref": "x",
+          "yref": "y",
+          "text": "OPP: $19",
+          "showarrow": true,
+          "arrowhead": 4,
+          "ax": 0,
+          "ay": -40
+        }
+      ]
+    },
+    "config": {
+      "responsive": true,
+      "displayModeBar": true,
+      "modeBarButtonsToRemove": [
+        "lasso2d",
+        "select2d"
+      ],
+      "toImageButtonOptions": {
+        "format": "png",
+        "filename": "van_westendorp_analysis",
+        "height": 500,
+        "width": 700,
+        "scale": 2
+      }
+    }
+  },
+  "insights": [
+    "The Indifference Price Point (IPP) is at $24, where an equal percentage of respondents consider the product expensive and inexpensive.",
+    "The Optimal Price Point (OPP) is at $19, where fewest respondents reject the price as either too expensive or too inexpensive.",
+    "The acceptable price range appears to be between $18 and $29.",
+    "Pricing below $15 may lead to perceptions of poor quality.",
+    "Pricing above $35 significantly increases the percentage of customers who would consider the product too expensive."
+  ],
+  "source": "generated",
+  "type": "van_westendorp"
+}

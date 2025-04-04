@@ -1,0 +1,330 @@
+{
+  "success": true,
+  "plotlyConfig": {
+    "importanceChart": {
+      "data": [
+        {
+          "x": [
+            "Brand",
+            "Price Point",
+            "Features",
+            "Customer Support"
+          ],
+          "y": [
+            35,
+            40,
+            15,
+            10
+          ],
+          "type": "bar",
+          "marker": {
+            "color": [
+              "#3498db",
+              "#e74c3c",
+              "#2ecc71",
+              "#f39c12"
+            ],
+            "line": {
+              "color": "rgb(8,48,107)",
+              "width": 1.5
+            }
+          }
+        }
+      ],
+      "layout": {
+        "title": "Attribute Importance in Product Selection",
+        "xaxis": {
+          "title": "Attributes"
+        },
+        "yaxis": {
+          "title": "Importance (%)"
+        }
+      },
+      "config": {
+        "responsive": true
+      }
+    },
+    "utilitiesChart": {
+      "data": [
+        {
+          "x": [
+            "Premium Brand",
+            "Mid-tier Brand",
+            "Value Brand",
+            "Generic Brand"
+          ],
+          "y": [
+            0.8,
+            0.4,
+            -0.2,
+            -1
+          ],
+          "type": "bar",
+          "name": "Brand",
+          "xaxis": "x1",
+          "yaxis": "y1",
+          "marker": {
+            "color": "#3498db",
+            "line": {
+              "color": "rgb(8,48,107)",
+              "width": 1.5
+            }
+          }
+        },
+        {
+          "x": [
+            "$9.99/month",
+            "$14.99/month",
+            "$19.99/month",
+            "$29.99/month"
+          ],
+          "y": [
+            1.2,
+            0.6,
+            -0.2,
+            -1.6
+          ],
+          "type": "bar",
+          "name": "Price Point",
+          "xaxis": "x2",
+          "yaxis": "y2",
+          "marker": {
+            "color": "#2980b9",
+            "line": {
+              "color": "rgb(8,48,107)",
+              "width": 1.5
+            }
+          }
+        },
+        {
+          "x": [
+            "Basic",
+            "Standard",
+            "Premium"
+          ],
+          "y": [
+            -0.8,
+            0.1,
+            0.7
+          ],
+          "type": "bar",
+          "name": "Features",
+          "xaxis": "x3",
+          "yaxis": "y3",
+          "marker": {
+            "color": "#1abc9c",
+            "line": {
+              "color": "rgb(8,48,107)",
+              "width": 1.5
+            }
+          }
+        },
+        {
+          "x": [
+            "Email Only",
+            "Email + Chat",
+            "Email + Chat + Phone"
+          ],
+          "y": [
+            -0.4,
+            0.3,
+            0.5
+          ],
+          "type": "bar",
+          "name": "Customer Support",
+          "xaxis": "x4",
+          "yaxis": "y4",
+          "marker": {
+            "color": "#16a085",
+            "line": {
+              "color": "rgb(8,48,107)",
+              "width": 1.5
+            }
+          }
+        }
+      ],
+      "layout": {
+        "title": "Part-Worth Utilities for Each Level",
+        "grid": {
+          "rows": 2,
+          "columns": 2,
+          "pattern": "independent"
+        },
+        "annotations": [
+          {
+            "text": "Brand",
+            "showarrow": false,
+            "x": 0.25,
+            "y": 1,
+            "xref": "paper",
+            "yref": "paper",
+            "font": {
+              "size": 16
+            }
+          },
+          {
+            "text": "Price Point",
+            "showarrow": false,
+            "x": 0.8,
+            "y": 1,
+            "xref": "paper",
+            "yref": "paper",
+            "font": {
+              "size": 16
+            }
+          },
+          {
+            "text": "Features",
+            "showarrow": false,
+            "x": 0.25,
+            "y": 0.45,
+            "xref": "paper",
+            "yref": "paper",
+            "font": {
+              "size": 16
+            }
+          },
+          {
+            "text": "Customer Support",
+            "showarrow": false,
+            "x": 0.8,
+            "y": 0.45,
+            "xref": "paper",
+            "yref": "paper",
+            "font": {
+              "size": 16
+            }
+          }
+        ],
+        "height": 600
+      },
+      "config": {
+        "responsive": true
+      }
+    }
+  },
+  "data": {
+    "attributes": [
+      {
+        "name": "Brand",
+        "levels": [
+          {
+            "name": "Premium Brand",
+            "utility": 0.8
+          },
+          {
+            "name": "Mid-tier Brand",
+            "utility": 0.4
+          },
+          {
+            "name": "Value Brand",
+            "utility": -0.2
+          },
+          {
+            "name": "Generic Brand",
+            "utility": -1
+          }
+        ],
+        "importance": 35
+      },
+      {
+        "name": "Price Point",
+        "levels": [
+          {
+            "name": "$9.99/month",
+            "utility": 1.2
+          },
+          {
+            "name": "$14.99/month",
+            "utility": 0.6
+          },
+          {
+            "name": "$19.99/month",
+            "utility": -0.2
+          },
+          {
+            "name": "$29.99/month",
+            "utility": -1.6
+          }
+        ],
+        "importance": 40
+      },
+      {
+        "name": "Features",
+        "levels": [
+          {
+            "name": "Basic",
+            "utility": -0.8
+          },
+          {
+            "name": "Standard",
+            "utility": 0.1
+          },
+          {
+            "name": "Premium",
+            "utility": 0.7
+          }
+        ],
+        "importance": 15
+      },
+      {
+        "name": "Customer Support",
+        "levels": [
+          {
+            "name": "Email Only",
+            "utility": -0.4
+          },
+          {
+            "name": "Email + Chat",
+            "utility": 0.3
+          },
+          {
+            "name": "Email + Chat + Phone",
+            "utility": 0.5
+          }
+        ],
+        "importance": 10
+      }
+    ],
+    "optimalCombinations": [
+      {
+        "combination": [
+          "Premium Brand",
+          "$14.99/month",
+          "Premium",
+          "Email + Chat + Phone"
+        ],
+        "totalUtility": 2,
+        "marketShare": "28%"
+      },
+      {
+        "combination": [
+          "Mid-tier Brand",
+          "$9.99/month",
+          "Premium",
+          "Email + Chat + Phone"
+        ],
+        "totalUtility": 1.8,
+        "marketShare": "25%"
+      },
+      {
+        "combination": [
+          "Premium Brand",
+          "$19.99/month",
+          "Premium",
+          "Email + Chat + Phone"
+        ],
+        "totalUtility": 1.2,
+        "marketShare": "18%"
+      }
+    ]
+  },
+  "insights": [
+    "Price Point is the most important attribute at 40%, followed by Brand at 35%.",
+    "The combination of Premium Brand at $14.99/month with Premium features has the highest predicted market share of 28%.",
+    "Reducing price from $19.99 to $9.99 increases utility more than upgrading from Value to Premium brand.",
+    "Customer support has relatively low importance (10%) but could be a differentiator for similarly priced products."
+  ],
+  "source": "generated",
+  "type": "conjoint_analysis"
+}

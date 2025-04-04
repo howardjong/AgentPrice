@@ -1,0 +1,137 @@
+{
+  "What are the latest advancements in renewable energy storage?": {
+    "clarification": {
+      "clarifiedQuery": "What are the most recent technological breakthroughs and implementations in grid-scale and residential renewable energy storage systems, focusing on developments from the past 2-3 years?",
+      "clarificationContext": {
+        "refinementReason": "Added specificity about timeframe and application domains",
+        "confidenceScore": 0.95,
+        "modelUsed": "claude-mock"
+      }
+    },
+    "research": {
+      "content": "Recent advancements in renewable energy storage have been substantial, with several breakthrough technologies reaching commercial viability in the past 2-3 years.\n\nFor grid-scale storage:\n1. Flow batteries have seen significant improvements, with vanadium redox flow batteries now achieving 80-90% round-trip efficiency and 20+ year lifespans. Companies like ESS Inc and Invinity Energy Systems have deployed multi-megawatt systems.\n\n2. Compressed air energy storage (CAES) has evolved with Hydrostor's Advanced Compressed Air Energy Storage (A-CAES) technology, which achieves 60-70% efficiency without fossil fuels.\n\n3. Gravity-based storage solutions like Energy Vault's crane and block system can store 35MWh of energy and discharge at 4MW, with 80-90% round-trip efficiency.\n\nFor residential storage:\n1. Lithium iron phosphate (LFP) batteries have become dominant due to improved safety and longevity, with companies like Tesla, Enphase, and SunPower offering integrated solar+storage solutions.\n\n2. Solid-state batteries are beginning to enter the market with companies like QuantumScape and Solid Power making progress on commercial production.\n\n3. Salt (sodium-ion) batteries are emerging as a promising alternative to lithium-ion, with CATL announcing mass production of sodium-ion batteries with energy densities of 160Wh/kg.\n\nCost reductions have been remarkable, with lithium-ion battery costs declining approximately 85% over the past decade to around $130/kWh in 2023, approaching the $100/kWh threshold considered competitive with traditional power sources.\n\nIntegration technologies have also advanced significantly, with AI-powered energy management systems optimizing storage use based on electricity prices, weather forecasts, and consumption patterns.",
+      "sources": [
+        { "title": "BloombergNEF Battery Price Survey 2023", "url": "https://example.com/bnef-battery-survey-2023" },
+        { "title": "IEA Energy Storage Tracking Report 2023", "url": "https://example.com/iea-storage-tracking-2023" },
+        { "title": "NREL Grid-Scale Storage Technology Cost Analysis", "url": "https://example.com/nrel-storage-cost-2023" }
+      ],
+      "modelUsed": "sonar-deep-research-mock"
+    },
+    "extraction": {
+      "data": {
+        "chartTitle": "Renewable Energy Storage Technologies Efficiency Comparison",
+        "chartType": "bar",
+        "categories": ["Vanadium Flow Batteries", "A-CAES", "Gravity Storage", "Lithium Iron Phosphate", "Solid-State Batteries"],
+        "values": [85, 65, 85, 90, 75],
+        "metricName": "Round-Trip Efficiency (%)"
+      },
+      "prompt": "Extract numerical data about storage efficiency from the research content for visualization"
+    },
+    "chart": {
+      "data": {
+        "chartTitle": "Renewable Energy Storage Technologies Efficiency Comparison",
+        "chartType": "bar",
+        "categories": ["Vanadium Flow Batteries", "A-CAES", "Gravity Storage", "Lithium Iron Phosphate", "Solid-State Batteries"],
+        "values": [85, 65, 85, 90, 75],
+        "metricName": "Round-Trip Efficiency (%)"
+      },
+      "plotlyConfig": {
+        "data": [{
+          "type": "bar",
+          "x": ["Vanadium Flow Batteries", "A-CAES", "Gravity Storage", "Lithium Iron Phosphate", "Solid-State Batteries"],
+          "y": [85, 65, 85, 90, 75],
+          "marker": {
+            "color": "rgb(55, 83, 109)"
+          }
+        }],
+        "layout": {
+          "title": "Renewable Energy Storage Technologies Efficiency Comparison",
+          "xaxis": {
+            "title": "Storage Technology"
+          },
+          "yaxis": {
+            "title": "Round-Trip Efficiency (%)",
+            "range": [0, 100]
+          }
+        }
+      }
+    }
+  },
+  "What are the latest advancements in quantum computing?": {
+    "clarification": {
+      "clarifiedQuery": "What are the most significant hardware and software advancements in quantum computing from the past year, focusing on qubit count, error correction, and practical applications?",
+      "clarificationContext": {
+        "refinementReason": "Added specificity about timeframe and technical areas of interest",
+        "confidenceScore": 0.9,
+        "modelUsed": "claude-mock"
+      }
+    },
+    "research": {
+      "content": "Recent advancements in quantum computing have been remarkable, spanning hardware, software, and practical applications.\n\nOn the hardware front, significant milestones include:\n1. IBM's Osprey quantum processor with 433 qubits, more than tripling their previous system's qubit count.\n2. Google's achievement of error correction using logical qubits with their Sycamore processor.\n3. IonQ's demonstration of algorithmic qubits with fidelities exceeding 99.9%.\n4. PsiQuantum's progress in manufacturing silicon photonic chips for their million-qubit system.\n\nIn quantum software and algorithms:\n1. The development of hybrid quantum-classical algorithms has expanded, with Variational Quantum Eigensolver (VQE) and Quantum Approximate Optimization Algorithm (QAOA) seeing significant improvements.\n2. Quantum machine learning frameworks have matured, with TensorFlow Quantum and PennyLane enabling seamless integration with classical ML workflows.\n3. Improved error mitigation techniques like Zero-Noise Extrapolation (ZNE) and Probabilistic Error Cancellation (PEC) have enhanced algorithm performance on noisy hardware.\n\nPractical applications have begun to emerge:\n1. Materials science: Simulation of complex molecules and materials properties using quantum algorithms has advanced, with companies like Zapata Computing demonstrating potential advantages in catalyst discovery.\n2. Finance: JPMorgan Chase and Goldman Sachs have implemented quantum algorithms for option pricing and portfolio optimization.\n3. Logistics: Optimization problems like vehicle routing have been tackled by D-Wave's quantum annealing systems with promising results.\n\nInvestment in the sector continues to grow, with over $1.5 billion in private funding in 2023. Government initiatives like the US National Quantum Initiative, EU Quantum Flagship, and China's national quantum program have committed billions to quantum research and development.",
+      "sources": [
+        { "title": "IBM Quantum Development Roadmap 2023", "url": "https://example.com/ibm-quantum-roadmap" },
+        { "title": "Nature: Quantum Error Correction with the Surface Code", "url": "https://example.com/nature-quantum-error-correction" },
+        { "title": "McKinsey Quantum Computing Investment Report 2023", "url": "https://example.com/mckinsey-quantum-report" }
+      ],
+      "modelUsed": "sonar-deep-research-mock"
+    }
+  },
+  "What are global renewable energy adoption rates?": {
+    "clarification": {
+      "clarifiedQuery": "What are the current global adoption rates of different renewable energy technologies, including regional variations and recent growth trends?",
+      "clarificationContext": {
+        "refinementReason": "Added specificity about technology types and analytical dimensions",
+        "confidenceScore": 0.95,
+        "modelUsed": "claude-mock"
+      }
+    },
+    "research": {
+      "content": "Global renewable energy adoption has seen significant growth in recent years, with uneven distribution across regions and technologies.\n\nSolar energy adoption reached 25% in developed countries and 15% in developing nations, with China leading global capacity at 306 GW installed. The EU follows at 208 GW and the US at 95 GW.\n\nWind power accounts for 20% of energy production in Europe, 12% in North America, and 8% in Asia. Denmark has the highest proportion of wind in its electricity mix at 48%, followed by Ireland at 33% and Portugal at 27%.\n\nHydroelectric power remains at 30% globally with minimal recent growth. It dominates in countries like Norway (95%), Brazil (65%), and Canada (60%).\n\nGeothermal energy is still only at 5% adoption worldwide, with Iceland (30%), Philippines (15%), and Kenya (10%) as leading adopters.\n\nThe growth rates show solar increasing at 25% annually, wind at 15%, while hydroelectric remains stable at 2%. Emerging technologies like offshore wind are growing at 35% annually from a smaller base.\n\nRegional leaders in overall renewable adoption include Iceland (85%), Norway (72%), Brazil (65%), and New Zealand (60%), while global laggards include Russia (18%), Saudi Arabia (12%), and various oil-producing nations.\n\nCost factors have been the primary driver of recent adoption, with solar PV prices dropping 85% and onshore wind dropping 56% over the past decade. Battery storage costs have fallen by 89% in the same period, enabling higher penetration of variable renewables.",
+      "sources": [
+        { "title": "Global Renewable Energy Report 2024", "url": "https://example.com/global-energy-report" },
+        { "title": "IRENA Renewable Capacity Statistics 2023", "url": "https://example.com/irena-statistics" },
+        { "title": "IEA World Energy Outlook 2023", "url": "https://example.com/iea-outlook" }
+      ],
+      "modelUsed": "sonar-deep-research-mock"
+    },
+    "extraction": {
+      "data": {
+        "chartTitle": "Global Renewable Energy Adoption by Technology",
+        "chartType": "bar",
+        "categories": ["Solar", "Wind", "Hydroelectric", "Geothermal", "Bioenergy"],
+        "values": [20, 15, 30, 5, 10],
+        "metricName": "Global Adoption Rate (%)"
+      },
+      "prompt": "Extract data on global adoption rates for different renewable energy technologies"
+    },
+    "chart": {
+      "data": {
+        "chartTitle": "Global Renewable Energy Adoption by Technology",
+        "chartType": "bar",
+        "categories": ["Solar", "Wind", "Hydroelectric", "Geothermal", "Bioenergy"],
+        "values": [20, 15, 30, 5, 10],
+        "metricName": "Global Adoption Rate (%)"
+      },
+      "plotlyConfig": {
+        "data": [{
+          "type": "bar",
+          "x": ["Solar", "Wind", "Hydroelectric", "Geothermal", "Bioenergy"],
+          "y": [20, 15, 30, 5, 10],
+          "marker": {
+            "color": ["#f1c40f", "#3498db", "#2ecc71", "#e74c3c", "#9b59b6"]
+          }
+        }],
+        "layout": {
+          "title": "Global Renewable Energy Adoption by Technology",
+          "xaxis": {
+            "title": "Technology"
+          },
+          "yaxis": {
+            "title": "Global Adoption Rate (%)",
+            "range": [0, 35]
+          }
+        }
+      }
+    }
+  }
+}

@@ -1598,34 +1598,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       origin: '*',
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-      credentials: true,
-      preflightContinue: false
+      credentials: true
     },
-    // Transport configuration optimized for Replit
-    // Start with WebSocket but fall back to polling if WebSockets are unstable
-    transports: ['websocket', 'polling'],
+    // Replit-optimized transport configuration with enhanced reliability
+    // Force polling first for reliability, then upgrade to websocket if possible
+    transports: ['polling', 'websocket'],
     allowUpgrades: true,
-    upgradeTimeout: 10000, // More generous upgrade timeout
+    upgradeTimeout: 30000, // Further increased upgrade timeout for Replit's environment
     
-    // Connection health monitoring for Replit environment
-    pingTimeout: 30000,  // Reduced from 60000 to detect failures faster but still not too aggressive
-    pingInterval: 15000, // More frequent pings to maintain connection
+    // More resilient connection parameters optimized for Replit
+    pingTimeout: 90000,    // Increased ping timeout to reduce disconnects in constrained environments
+    pingInterval: 25000,   // Balance between network saturation and connection monitoring
     
-    // Resource constraints
+    // Resource constraints with values tuned for Replit's environment
     maxHttpBufferSize: 1e6, // 1MB to prevent large payloads
     
-    // Connection and retry options
-    connectTimeout: 30000, // 30 seconds timeout for initial connection
+    // Extended connection options for improved reliability
+    connectTimeout: 60000, // Significantly extended timeout for initial connection
     
-    // Enable detailed logging
-    // Comment out in production if logs become too voluminous
-    /* 
+    // Handle reconnection on the client side instead
+    // This allows custom reconnection logic with more aggressive incremental backoff
+    // @ts-ignore - Property exists at runtime but not in type definition
+    reconnection: false,
+    
+    // Transport layer options for better stability
+    // @ts-ignore - Property exists at runtime but not in type definition
+    perMessageDeflate: false, // Disable for better stability
+    
+    // Enable detailed logging for debugging connection issues
     logger: {
       debug: (...args) => console.debug('[socket.io]', ...args),
       info: (...args) => console.info('[socket.io]', ...args),
       error: (...args) => console.error('[socket.io]', ...args),
     },
-    */
     
     // Prevent memory leak from excessive socket reconnects
     cleanupEmptyChildNamespaces: true

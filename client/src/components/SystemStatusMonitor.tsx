@@ -80,16 +80,30 @@ const SystemStatusMonitor: React.FC = () => {
       socketRef.current.disconnect();
     }
     
-    // Create new Socket.IO connection with more robust configuration
-    const socket = io({
+    // Create new Socket.IO connection with Replit-optimized configuration
+    // Type cast as any to work around Socket.IO type limitations
+    const socket = io('', {
       path: '/socket.io',
-      transports: ['polling', 'websocket'], // Try polling first, then upgrade
-      reconnectionAttempts: 10, // Max reconnection attempts
-      reconnectionDelay: 1000, // Initial delay (will be multiplied by backoff factor)
-      reconnectionDelayMax: 10000, // Maximum delay between reconnection attempts
-      timeout: 20000, // Connection timeout
-      autoConnect: true, // Auto-connect on instantiation
-      forceNew: true // Create a new connection instead of reusing existing
+      // Replit-specific transport configuration: force polling first for reliability
+      transports: ['polling', 'websocket'],
+      // Enhanced reconnection settings for Replit's environment (with valid types)
+      // @ts-ignore - Socket.IO types are incomplete but these options work
+      reconnection: true,
+      reconnectionAttempts: 15,       // More attempts
+      reconnectionDelay: 2000,        // Start with a longer delay
+      reconnectionDelayMax: 30000,    // Allow longer delays between attempts
+      randomizationFactor: 0.5,       // More randomization to avoid connection waves
+      timeout: 40000,                 // Longer timeout for slow connections
+      // Connection settings
+      autoConnect: true,
+      forceNew: true,
+      // Disable some potentially problematic features in Replit's environment
+      // @ts-ignore - Socket.IO types are incomplete
+      upgrade: true,
+      rememberUpgrade: false,
+      // Connection test can block threads and cause issues, so disable
+      // @ts-ignore - Socket.IO type system doesn't correctly model all options but these work at runtime
+      perMessageDeflate: false
     });
     
     socketRef.current = socket;
@@ -199,26 +213,61 @@ const SystemStatusMonitor: React.FC = () => {
     (socket as any).pingIntervalId = pingInterval;
   };
   
-  // Manual reconnection with exponential backoff when Socket.IO's reconnection fails
+  // Advanced manual reconnection with exponential backoff and additional safeguards for Replit
   const handleManualReconnect = () => {
     // Clear any existing reconnect attempt
     if (reconnectTimeoutRef.current) {
       clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
     }
     
-    // Calculate backoff delay (capped at 60 seconds)
+    // Calculate backoff delay with jitter for Replit's environment
+    // This helps prevent reconnection storms and spread out reconnection attempts
     const nextAttempt = reconnectAttempts + 1;
-    const reconnectDelay = Math.min(
-      60000, // Max 60 seconds
-      1000 * Math.pow(2, Math.min(nextAttempt, 10)) // Exponential backoff
+    
+    // Base delay with exponential backoff: 2^n seconds (with a cap)
+    let reconnectDelay = Math.min(
+      120000, // Max 2 minutes - longer for Replit's environment
+      2000 * Math.pow(1.5, Math.min(nextAttempt, 12)) // Slower growth curve (1.5 instead of 2)
     );
+    
+    // Add jitter (±25%) to prevent reconnection thundering herd
+    const jitter = reconnectDelay * 0.25 * (Math.random() * 2 - 1);
+    reconnectDelay = Math.floor(reconnectDelay + jitter);
     
     console.log(`Manually reconnecting in ${reconnectDelay}ms (attempt ${nextAttempt})...`);
     
-    // Set reconnect timeout
+    // Set reconnect timeout with safety checks
     reconnectTimeoutRef.current = setTimeout(() => {
-      setReconnectAttempts(nextAttempt);
-      connectSocketIO();
+      // Check if component is still mounted
+      if (socketRef.current !== null || document.body.contains(document.getElementById('system-status-monitor'))) {
+        setReconnectAttempts(nextAttempt);
+        
+        try {
+          // Force clean up old connection first
+          if (socketRef.current) {
+            try {
+              // Clean up any lingering connections and listeners
+              socketRef.current.removeAllListeners();
+              socketRef.current.disconnect();
+              socketRef.current = null;
+            } catch (e) {
+              console.error('Error cleaning up socket connection:', e);
+            }
+          }
+          
+          // Create fresh connection
+          connectSocketIO();
+        } catch (error) {
+          console.error('Error during manual reconnect:', error);
+          // If reconnection failed, try again after a delay
+          if (nextAttempt < 30) { // Limit maximum retry attempts
+            setTimeout(() => handleManualReconnect(), 5000);
+          } else {
+            console.error('Maximum reconnection attempts exceeded, giving up');
+          }
+        }
+      }
     }, reconnectDelay);
   };
   
@@ -277,7 +326,7 @@ const SystemStatusMonitor: React.FC = () => {
   
   // Render the monitor UI
   return (
-    <div className="bg-white shadow rounded-lg p-4">
+    <div id="system-status-monitor" className="bg-white shadow rounded-lg p-4">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">System Status</h2>
         <div className="flex items-center">
