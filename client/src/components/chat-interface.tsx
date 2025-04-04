@@ -30,7 +30,7 @@ export function ChatInterface({ messages, onSendMessage, isLoading }: ChatInterf
 
   // Transform the messages to include service switching indicators
   const processedMessages = React.useMemo(() => {
-    const result: (Message | { id: string; role: "system"; content: string; timestamp: Date; service: "system" })[] = [];
+    const result: (Message | { id: string; role: "system"; content: string; createdAt: string; service: "system" })[] = [];
     let lastService: string | null = null;
 
     messages.forEach((message, index) => {
@@ -40,7 +40,7 @@ export function ChatInterface({ messages, onSendMessage, isLoading }: ChatInterf
           id: `system-${index}`,
           role: "system",
           content: getServiceChangedMessage(message.service as any),
-          timestamp: new Date(message.timestamp),
+          createdAt: new Date().toISOString(),
           service: "system"
         });
       }
@@ -100,7 +100,7 @@ export function ChatInterface({ messages, onSendMessage, isLoading }: ChatInterf
               key={message.id}
               role={message.role as any}
               content={message.content}
-              timestamp={new Date(message.timestamp)}
+              timestamp={message.createdAt || new Date().toISOString()}
               service={message.service as any}
               visualizationData={message.visualizationData}
               citations={message.citations}

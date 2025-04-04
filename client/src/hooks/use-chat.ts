@@ -37,7 +37,7 @@ export function useChat() {
           role: 'user',
           content: message,
           service: 'system',
-          timestamp: new Date(), // Use Date object directly
+          createdAt: new Date().toISOString(), // Use ISO string timestamp for consistency
           visualizationData: null,
           citations: null
         } as unknown as Message

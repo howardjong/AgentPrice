@@ -6,14 +6,23 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 interface ChatMessageProps {
   role: "user" | "assistant" | "system";
   content: string;
-  timestamp: Date;
+  timestamp: Date | string;
   service?: "claude" | "perplexity" | "system";
   visualizationData?: any;
   citations?: string[];
 }
 
 export function ChatMessage({ role, content, timestamp, service, visualizationData, citations }: ChatMessageProps) {
-  const time = format(timestamp, "h:mm a");
+  // Safely format the timestamp
+  let formattedTime = "";
+  try {
+    // Convert string timestamps to Date objects if needed
+    const dateTimestamp = timestamp instanceof Date ? timestamp : new Date(timestamp);
+    formattedTime = format(dateTimestamp, "h:mm a");
+  } catch (error) {
+    console.warn("Invalid timestamp format:", timestamp);
+    formattedTime = "just now"; // Fallback text
+  }
 
   if (role === "system") {
     return (
@@ -36,7 +45,7 @@ export function ChatMessage({ role, content, timestamp, service, visualizationDa
             <p>{content}</p>
           </div>
           <div className="mt-1 text-xs text-gray-500">
-            <span>{time}</span>
+            <span>{formattedTime}</span>
           </div>
         </div>
       </div>
@@ -91,7 +100,7 @@ export function ChatMessage({ role, content, timestamp, service, visualizationDa
           )}
         </div>
         <div className="mt-1 text-xs text-gray-500 text-right">
-          <span>{time}</span>
+          <span>{formattedTime}</span>
         </div>
       </div>
       <div className={`w-9 h-9 rounded-full ${service === "claude" ? "bg-primary/10" : "bg-secondary/10"} flex items-center justify-center ml-2`}>
