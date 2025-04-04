@@ -1,25 +1,16 @@
 {
-  "id": "mock-perplexity-id-123",
-  "model": "llama-3.1-sonar-small-128k-online",
-  "object": "chat.completion",
-  "created": 1724369245,
-  "citations": [
-    "https://example.com/source1",
-    "https://example.com/source2"
-  ],
+  "id": "chatcmpl-7RyNSG3h8KL9D2K0",
   "choices": [
     {
       "index": 0,
-      "finish_reason": "stop",
       "message": {
+        "content": "Based on my research, the specialty coffee market in the Bay Area is estimated at $1.2 billion annually with 8% growth. Premium coffee experiences ($6+ per cup) represent about 35% of this market.\n\nYour target demographic of 25-45 year-old professionals makes up approximately 65% of specialty coffee consumers in the region. Research indicates that 42% of specialty coffee drinkers report willingness to try innovative coffee experiences.\n\nCompetitor pricing shows Blue Bottle at $5.25-$6.50 (standard), $7.00-$8.50 (reserve); Philz at $4.75-$6.25 (standard), $6.50-$7.50 (specialty); and Sightglass at $5.00-$6.50 (standard), $7.00-$9.00 (limited).\n\nFor your chemistry-infused specialty coffee, I recommend a tiered pricing strategy with standard infusions at $7.50-$8.50, premium infusions at $9.00-$10.00, and limited edition experiences at $11.00-$12.00. This positions you in the premium segment, differentiates from competitors, and should maintain your 35% profit margin.",
         "role": "assistant",
-        "content": "This is a standard mocked response from the Perplexity API using the sonar model. It includes some citations and a complete response."
-      }
+        "function_call": null
+      },
+      "finish_reason": "stop"
     }
   ],
-  "usage": {
-    "prompt_tokens": 25,
-    "completion_tokens": 30,
-    "total_tokens": 55
-  }
+  "created": 1680000000,
+  "model": "llama-3.1-sonar-small-128k-online"
 }

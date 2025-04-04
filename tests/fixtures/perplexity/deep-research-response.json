@@ -1,28 +1,33 @@
 {
-  "id": "mock-perplexity-id-456",
-  "model": "llama-3.1-sonar-large-128k-online",
-  "object": "chat.completion",
-  "created": 1724369265,
-  "citations": [
-    "https://example.com/research/source1",
-    "https://example.com/research/source2",
-    "https://example.com/research/source3",
-    "https://example.com/research/source4",
-    "https://example.com/research/source5"
-  ],
+  "id": "chatcmpl-7RyNSG3h8KL9D2K0",
   "choices": [
     {
       "index": 0,
-      "finish_reason": "stop",
       "message": {
+        "content": "# Specialty Coffee Business Market Analysis\n\n## Market Overview\n\nThe specialty coffee market in the Bay Area is thriving with estimated annual revenue of $1.2-1.5 billion and projected growth of 7-9% annually through 2028. The premium segment (coffee priced above $5.50 per cup) represents approximately 38% of the market and is growing faster at 11-13% annually.\n\n## Consumer Demographics & Behavior\n\nYour target demographic of coffee connoisseurs and adventurous professionals aged 25-45 makes up approximately 62% of specialty coffee consumers in the Bay Area. Research from the Specialty Coffee Association indicates:\n\n- 68% consume specialty coffee 3+ times weekly\n- 42% explicitly value unique flavor experiences\n- 57% consider themselves \"coffee enthusiasts\" willing to pay premium prices\n- 38% regularly try new coffee shops and innovations\n\n## Competitive Landscape\n\n### Blue Bottle Coffee\n- Market position: Premium established brand\n- Price points: $4.75-$6.50 standard, $7.00-$9.00 reserve\n- Strengths: Brand recognition, consistent quality, minimalist aesthetic\n- Weaknesses: Limited flavor innovation, perceived as corporate since Nestlé acquisition\n\n### Philz Coffee\n- Market position: Customized coffee experience\n- Price points: $4.25-$6.00 standard, $6.50-$8.00 specialty\n- Strengths: Personalization, loyal following, comfortable atmosphere\n- Weaknesses: Inconsistent quality between locations, limited science-based innovation\n\n### Other competitors:\n- Ritual Coffee Roasters: $5.00-$7.00, known for direct trade\n- Sightglass: $5.25-$8.50, emphasizes roasting technique\n- Equator Coffees: $4.75-$7.50, sustainability focus\n\n## Price Sensitivity Analysis\n\n### Van Westendorp Price Sensitivity Model\n- Too cheap (quality concerns): Below $4.50\n- Bargain (good value): $5.50-$7.00\n- Expected price point: $7.50 \n- Premium (still acceptable): $8.00-$10.00\n- Too expensive (resistance point): Above $11.00\n\n### Feature-Price Analysis\n- Basic specialty coffee: $5.00-$6.00 baseline\n- Unique brewing method: +$1.00-$1.50\n- Uncommon bean variety: +$1.00-$2.00\n- Novel flavor infusion: +$1.50-$2.50\n- Limited edition experience: +$3.00-$4.00\n\n## Strategic Recommendations\n\n### Pricing Strategy\n1. **Tiered Pricing Approach:**\n   - Core offerings: $7.50-$8.50\n   - Premium infusions: $9.00-$10.50\n   - Limited edition/experimental: $11.00-$12.00\n\n2. **Subscription Model:**\n   - Monthly subscription at $65-$75 for 10 drinks (effectively $6.50-$7.50 per drink)\n   - Includes early access to new flavors and member-only varieties\n\n3. **Tasting Flights:**\n   - $15-$18 for three small servings of different infusions\n   - Encourages experimentation and higher overall spend\n\n### Marketing Positioning\n1. Position as a **scientific coffee laboratory** rather than just another coffee shop\n2. Emphasize your **unique chemistry-driven innovation** as justification for premium pricing\n3. Create **transparent storytelling** about ingredient sourcing and infusion processes\n\n### Cost Management (to maintain 35% margin)\n1. Optimize batch preparation of infusions to reduce labor costs\n2. Develop relationships with direct-trade coffee suppliers\n3. Create operational efficiencies through specialized equipment\n4. Consider a smaller focused menu rather than extensive offerings\n\n## Market Entry Strategy\n\n1. **Launch with premium positioning** - don't compete on price with established players\n2. Begin with a **pop-up or limited location** to create exclusivity and manage costs\n3. Leverage **social media-worthy presentations** to drive organic marketing\n4. Create a **\"lab membership\"** for early adopters to build community and stable revenue\n\n## Conclusion\n\nThe Bay Area market has demonstrated strong receptivity to premium coffee experiences with scientific or artisanal narratives. Your chemistry-infused coffee concept has significant market potential if positioned correctly. The recommended price points of $7.50-$10.00 for standard offerings and up to $12.00 for premium experiences aligns with market expectations for truly innovative products while maintaining your required 35% profit margin.\n\nSources:\n1. Specialty Coffee Association Market Research Report 2024\n2. Bay Area Food & Beverage Consumption Trends Q1 2025\n3. Premium Coffee Pricing Analysis, Beverage Industry Insights\n4. Coffee Business Quarterly Financial Benchmarks 2024",
         "role": "assistant",
-        "content": "This is a comprehensive mock deep research response from Perplexity using the larger sonar model. It includes multiple citations and detailed analysis of the requested topic.\n\nThe research shows several key findings:\n\n1. Finding one with supporting evidence\n2. Finding two with additional context\n3. Finding three with comparative analysis\n\nConclusion: This mock research response demonstrates the expected format and depth of a thorough analysis."
-      }
+        "function_call": null
+      },
+      "finish_reason": "stop"
     }
   ],
-  "usage": {
-    "prompt_tokens": 45,
-    "completion_tokens": 120,
-    "total_tokens": 165
-  }
+  "created": 1680000000,
+  "model": "llama-3.1-sonar-large-128k-online",
+  "sources": [
+    {
+      "title": "Specialty Coffee Association Market Report",
+      "url": "https://sca.coffee/research/market-reports",
+      "text": "The specialty coffee segment continues to show robust growth..."
+    },
+    {
+      "title": "Bay Area Consumer Trends 2025",
+      "url": "https://example.com/bay-area-trends",
+      "text": "Premium experiences in food and beverage continue to outperform..."
+    },
+    {
+      "title": "Coffee Business Financial Benchmarks",
+      "url": "https://example.com/coffee-business-finance",
+      "text": "Specialty coffee shops maintain gross margins between 28-42%..."
+    }
+  ]
 }

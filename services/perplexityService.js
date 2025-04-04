@@ -457,6 +457,18 @@ function getHealthStatus() {
   };
 }
 
+// Create a default export object
+const perplexityService = {
+  processWebQuery,
+  processConversation,
+  performDeepResearch: conductDeepResearch, // Alias to match the name used in tests
+  conductDeepResearch,
+  getHealthStatus,
+};
+
+export default perplexityService;
+
+// Also export individual functions
 export {
   processWebQuery,
   processConversation,

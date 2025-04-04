@@ -1,17 +1,13 @@
 {
-  "id": "msg_mock_standard",
+  "id": "msg_01abcdefghijkl",
   "type": "message",
   "role": "assistant",
   "content": [
     {
       "type": "text",
-      "text": "This is a standard mock response from Claude. It demonstrates the expected format for a basic text response without any special features."
+      "text": "Based on your coffee business concept and the answers you've provided, I've analyzed the specialty coffee market in the Bay Area. Here are my findings and recommendations for your chemistry-infused coffee business:\n\n## Market Analysis\n\n- The Bay Area specialty coffee market is valued at approximately $1.2 billion annually with 8-9% growth.\n- Premium coffee experiences (>$6/cup) represent about 35% of this market.\n- Your target demographic (25-45 year-old professionals) makes up 65% of specialty coffee consumers.\n- 42% of specialty coffee drinkers report willingness to try \"innovative\" coffee experiences.\n\n## Pricing Strategy\n\nBased on Van Westendorp price sensitivity analysis:\n\n- **Too cheap** (quality concerns): Below $4.50\n- **Bargain** (good value): $5.50-$7.00\n- **Expected price point**: $7.50\n- **Premium** (still acceptable): $8.00-$10.00\n- **Too expensive** (resistance point): Above $11.00\n\nCompetitor pricing:\n- Blue Bottle: $5.25-$6.50 (standard), $7.00-$8.50 (reserve)\n- Philz: $4.75-$6.25 (standard), $6.50-$7.50 (specialty)\n- Sightglass: $5.00-$6.50 (standard), $7.00-$9.00 (limited)\n\n## Recommendations\n\n1. **Tiered pricing strategy**:\n   - Standard infusions: $7.50-$8.50\n   - Premium/seasonal infusions: $9.00-$10.00\n   - Limited edition experiences: $11.00-$12.00\n\n2. **Bundle options** to improve perceived value:\n   - Tasting flights: $15.00 for 3 small infusions\n   - Subscription model: $65.00/month for 10 cups (effective $6.50/cup)\n\n3. **Cost management** to maintain 35% margins:\n   - Optimize labor costs through efficient workflow design\n   - Consider strategic sourcing of specialty beans\n   - Develop reusable infusion methods to reduce per-cup costs\n\nThis pricing strategy positions you firmly in the premium segment, differentiates from competitors, and maintains your required profit margins."
     }
   ],
   "model": "claude-3-7-sonnet-20250219",
-  "stop_reason": "end_turn",
-  "usage": {
-    "input_tokens": 25,
-    "output_tokens": 32
-  }
+  "stop_reason": "end_turn"
 }

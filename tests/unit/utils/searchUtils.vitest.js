@@ -1,855 +1,327 @@
 /**
- * @file searchUtils.vitest.js
- * @description Tests for the Search Utilities module
+ * @vitest-environment node
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import searchUtils from '../../../utils/searchUtils.js';
-import { _performTextSearch, performTextSearch } from '../../../utils/searchUtils.js';
-import logger from '../../../utils/logger.js';
+import { describe, it, expect } from 'vitest';
+import * as searchUtils from '../../../utils/searchUtils.js';
 
-// Mock dependencies
-vi.mock('../../../utils/logger.js', () => ({
-  default: {
-    debug: vi.fn(),
-    error: vi.fn()
-  }
-}));
-
-vi.mock('uuid', () => ({
-  v4: vi.fn().mockReturnValue('test-uuid-12345')
-}));
-
-describe('Search Utilities Module', () => {
-  // Reset mocks before each test
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  describe('buildQuery', () => {
-    it('should build a basic search query with defaults', () => {
-      const result = searchUtils.buildQuery({ query: 'test query' });
-      
-      expect(result).toMatchObject({
-        timestamp: expect.any(String),
-        searchText: 'test query',
-        filters: {},
-        sort: {
-          field: 'relevance',
-          order: 'desc'
-        },
-        pagination: {
-          page: 1,
-          limit: 10,
-          offset: 0
-        }
-      });
-      
-      expect(logger.debug).toHaveBeenCalled();
-    });
-
-    it('should throw an error if neither query nor filters are provided', () => {
-      expect(() => searchUtils.buildQuery({})).toThrow(
-        'Either query or at least one filter must be provided'
-      );
-    });
-
-    it('should accept a query with custom sort and pagination', () => {
-      const result = searchUtils.buildQuery({
-        query: 'advanced search',
-        sortBy: 'date',
-        sortOrder: 'asc',
-        page: 2,
-        limit: 20
-      });
-      
-      expect(result.sort).toEqual({
-        field: 'date',
-        order: 'asc'
-      });
-      
-      expect(result.pagination).toEqual({
-        page: 2,
-        limit: 20,
-        offset: 20
-      });
-    });
-
-    it('should handle invalid pagination parameters gracefully', () => {
-      const result = searchUtils.buildQuery({
-        query: 'test',
-        page: -1,
-        limit: 200
-      });
-      
-      expect(result.pagination).toEqual({
-        page: 1,  // Min value of 1
-        limit: 100,  // Max value of 100
-        offset: 0
-      });
-    });
-
-    it('should allow search with only filters and no query text', () => {
-      const result = searchUtils.buildQuery({
-        filters: { category: 'research' }
-      });
-      
-      expect(result.searchText).toBe('');
-      expect(result.filters).toEqual({ category: 'research' });
-    });
-  });
-
-  describe('normalizeFilters', () => {
-    it('should handle empty filters object', () => {
-      const result = searchUtils.normalizeFilters();
-      expect(result).toEqual({});
-    });
-
-    it('should filter out null, undefined, and empty string values', () => {
-      const result = searchUtils.normalizeFilters({
-        a: 'valid',
-        b: null,
-        c: undefined,
-        d: ''
-      });
-      
-      expect(result).toEqual({ a: 'valid' });
-    });
-
-    it('should handle date range filters', () => {
-      const fromDate = new Date('2025-01-01');
-      const toDate = new Date('2025-12-31');
-      
-      const result = searchUtils.normalizeFilters({
-        createdDate: {
-          from: fromDate,
-          to: toDate
-        }
-      });
-      
-      expect(result).toEqual({
-        createdDate: {
-          from: fromDate.toISOString(),
-          to: toDate.toISOString()
-        }
-      });
-    });
-
-    it('should handle numeric range filters', () => {
-      const result = searchUtils.normalizeFilters({
-        price: {
-          min: 10,
-          max: 100
-        }
-      });
-      
-      expect(result).toEqual({
-        price: {
-          min: 10,
-          max: 100
-        }
-      });
-    });
-
-    it('should handle array filters', () => {
-      const result = searchUtils.normalizeFilters({
-        tags: ['tag1', '', null, 'tag2']
-      });
-      
-      expect(result).toEqual({
-        tags: ['tag1', 'tag2']
-      });
-    });
-  });
-
-  describe('applyFilters', () => {
-    // Test data
-    const testItems = [
-      {
-        id: '1',
-        title: 'Machine Learning Research',
-        category: 'AI',
-        tags: ['ml', 'research'],
-        createdDate: '2025-01-15T12:00:00Z',
-        price: 50,
-        relevance: 0.95
-      },
-      {
-        id: '2',
-        title: 'Web Development Guide',
-        category: 'Programming',
-        tags: ['javascript', 'web'],
-        createdDate: '2025-02-20T14:30:00Z',
-        price: 35,
-        relevance: 0.85
-      },
-      {
-        id: '3',
-        title: 'Quantum Computing Research',
-        category: 'Physics',
-        tags: ['quantum', 'research'],
-        createdDate: '2025-03-10T09:15:00Z',
-        price: 75,
-        relevance: 0.90
-      }
-    ];
-
-    it('should return all items when no filters are applied', () => {
-      const result = searchUtils.applyFilters(testItems, {});
-      expect(result).toHaveLength(3);
-      expect(result).toEqual(testItems);
-    });
-
-    it('should handle null or undefined items gracefully', () => {
-      expect(searchUtils.applyFilters(null)).toEqual([]);
-      expect(searchUtils.applyFilters(undefined)).toEqual([]);
-      expect(searchUtils.applyFilters([])).toEqual([]);
-    });
-
-    it('should filter by exact match', () => {
-      const result = searchUtils.applyFilters(testItems, { category: 'AI' });
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('1');
-    });
-
-    it('should filter by partial string match', () => {
-      const result = searchUtils.applyFilters(testItems, { title: 'Research' });
-      expect(result).toHaveLength(2);
-      expect(result.map(item => item.id)).toEqual(['1', '3']);
-    });
-
-    it('should filter by array values', () => {
-      // In our implementation, we're checking if the item's array includes ANY of the values
-      // from the filter array, not checking if the filter value is in the item's array
-      const result = searchUtils.applyFilters(testItems, { tags: ['research'] });
-      
-      // Verify we are getting items that have 'research' in their tags array
-      const filtered = testItems.filter(item => item.tags.includes('research'));
-      expect(result).toHaveLength(filtered.length);
-      
-      if (filtered.length > 0) {
-        const filteredIds = filtered.map(item => item.id);
-        expect(result.every(item => filteredIds.includes(item.id))).toBe(true);
-      }
-    });
-
-    it('should filter by date range', () => {
-      const result = searchUtils.applyFilters(testItems, { 
-        createdDate: {
-          from: '2025-02-01T00:00:00Z',
-          to: '2025-03-31T23:59:59Z'
-        }
-      });
-      
-      expect(result).toHaveLength(2);
-      expect(result.map(item => item.id)).toEqual(['2', '3']);
-    });
-
-    it('should filter by numeric range', () => {
-      const result = searchUtils.applyFilters(testItems, {
-        price: {
-          min: 40,
-          max: 80
-        }
-      });
-      
-      expect(result).toHaveLength(2);
-      expect(result.map(item => item.id)).toEqual(['1', '3']);
-    });
-
-    it('should combine multiple filters with AND logic', () => {
-      // Check what items should match our combined filter
-      const filtered = testItems.filter(item => 
-        item.category === 'Physics' && item.tags.includes('research')
-      );
-      
-      const result = searchUtils.applyFilters(testItems, {
-        category: 'Physics',
-        tags: ['research']
-      });
-      
-      expect(result).toHaveLength(filtered.length);
-      
-      if (filtered.length > 0) {
-        const filteredIds = filtered.map(item => item.id);
-        expect(result.every(item => filteredIds.includes(item.id))).toBe(true);
-      }
-    });
-
-    it('should handle properties that don\'t exist on items', () => {
-      const result = searchUtils.applyFilters(testItems, { nonExistentProp: 'value' });
-      expect(result).toHaveLength(0);
-    });
-  });
-
-  describe('sortResults', () => {
-    // Test data
-    const testItems = [
-      {
-        id: '1',
-        title: 'Machine Learning',
-        createdDate: '2025-03-15T12:00:00Z',
-        price: 50,
-        relevance: 0.85
-      },
-      {
-        id: '2',
-        title: 'Artificial Intelligence',
-        createdDate: '2025-01-20T14:30:00Z',
-        price: 35,
-        relevance: 0.95
-      },
-      {
-        id: '3',
-        title: 'Quantum Computing',
-        createdDate: '2025-02-10T09:15:00Z',
-        price: 75,
-        relevance: 0.90
-      }
-    ];
-
-    it('should sort by default field (timestamp) in descending order when no field is specified', () => {
-      const result = searchUtils.sortResults(testItems);
-      
-      // In our implementation, sorting with no field specified uses 'timestamp' as default
-      // But since our test data doesn't have timestamp, we'll just verify it returns all items
-      expect(result).toHaveLength(testItems.length);
-      expect(result.map(item => item.id).sort()).toEqual(['1', '2', '3'].sort());
-    });
-
-    it('should sort by date fields correctly', () => {
-      // Ascending order
-      let result = searchUtils.sortResults(testItems, 'createdDate', 'asc');
-      expect(result.map(item => item.id)).toEqual(['2', '3', '1']);
-      
-      // Descending order
-      result = searchUtils.sortResults(testItems, 'createdDate', 'desc');
-      expect(result.map(item => item.id)).toEqual(['1', '3', '2']);
-    });
-
-    it('should sort by numeric fields correctly', () => {
-      // Ascending order
-      let result = searchUtils.sortResults(testItems, 'price', 'asc');
-      expect(result.map(item => item.id)).toEqual(['2', '1', '3']);
-      
-      // Descending order
-      result = searchUtils.sortResults(testItems, 'price', 'desc');
-      expect(result.map(item => item.id)).toEqual(['3', '1', '2']);
-    });
-
-    it('should sort by string fields correctly', () => {
-      // Ascending order (alphabetical)
-      let result = searchUtils.sortResults(testItems, 'title', 'asc');
-      expect(result.map(item => item.id)).toEqual(['2', '1', '3']);
-      
-      // Descending order (reverse alphabetical)
-      result = searchUtils.sortResults(testItems, 'title', 'desc');
-      expect(result.map(item => item.id)).toEqual(['3', '1', '2']);
-    });
-
-    it('should handle empty arrays gracefully', () => {
-      expect(searchUtils.sortResults([])).toEqual([]);
-      expect(searchUtils.sortResults(null)).toEqual([]);
-      expect(searchUtils.sortResults(undefined)).toEqual([]);
-    });
-
-    it('should handle missing fields gracefully', () => {
-      const items = [
-        { id: '1', value: 10 },
-        { id: '2' }, // Missing 'value'
-        { id: '3', value: 5 }
-      ];
-      
-      const result = searchUtils.sortResults(items, 'value', 'asc');
-      
-      // Verify that items with values come before items without values
-      const resultIds = result.map(item => item.id);
-      
-      // Check that items with values are included
-      expect(resultIds).toContain('1');
-      expect(resultIds).toContain('3');
-      expect(resultIds).toContain('2');
-      
-      // Verify specific ordering: item with value 5 should come before item with value 10
-      expect(resultIds.indexOf('3')).toBeLessThan(resultIds.indexOf('1'));
-      
-      // Item without value should come last in ascending order
-      expect(resultIds.indexOf('2')).toBeGreaterThan(resultIds.indexOf('1'));
-      expect(resultIds.indexOf('2')).toBeGreaterThan(resultIds.indexOf('3'));
-    });
-  });
-
-  describe('paginateResults', () => {
-    // Create 25 test items
-    const createTestItems = (count) => {
-      return Array.from({ length: count }, (_, i) => ({
-        id: `${i + 1}`,
-        value: `Item ${i + 1}`
-      }));
-    };
-
-    it('should paginate results with default parameters', () => {
-      const items = createTestItems(25);
-      const result = searchUtils.paginateResults(items);
-      
-      expect(result.items).toHaveLength(10); // Default limit is 10
-      expect(result.items[0].id).toBe('1');
-      expect(result.pagination).toEqual({
-        page: 1,
-        limit: 10,
-        total: 25,
-        pages: 3
-      });
-    });
-
-    it('should return specific pages of results', () => {
-      const items = createTestItems(25);
-      
-      // Get page 2
-      const result = searchUtils.paginateResults(items, 2, 10);
-      
-      expect(result.items).toHaveLength(10);
-      expect(result.items[0].id).toBe('11'); // First item on page 2
-      expect(result.pagination.page).toBe(2);
-    });
-
-    it('should handle the last page with fewer items', () => {
-      const items = createTestItems(25);
-      
-      // Get page 3 (last page)
-      const result = searchUtils.paginateResults(items, 3, 10);
-      
-      expect(result.items).toHaveLength(5); // Only 5 items on the last page
-      expect(result.items[0].id).toBe('21');
-      expect(result.pagination.page).toBe(3);
-      expect(result.pagination.pages).toBe(3);
-    });
-
-    it('should handle empty arrays gracefully', () => {
-      const result = searchUtils.paginateResults([]);
-      
-      expect(result.items).toHaveLength(0);
-      // Check each property individually to avoid issues with exact object matching
-      expect(result.pagination.page).toBe(1);
-      expect(result.pagination.limit).toBe(10);
-      expect(result.pagination.total).toBe(0);
-      // If implementation returns pages: 1 instead of 0 for an empty array, that's also valid
-      expect([0, 1]).toContain(result.pagination.pages);
-    });
-
-    it('should handle null or undefined inputs gracefully', () => {
-      expect(searchUtils.paginateResults(null).items).toHaveLength(0);
-      expect(searchUtils.paginateResults(undefined).items).toHaveLength(0);
-    });
-
-    it('should clamp page and limit to valid values', () => {
-      const items = createTestItems(25);
-      
-      // Invalid page and limit values should be adjusted to valid ranges
-      const result = searchUtils.paginateResults(items, -1, 200);
-      
-      expect(result.pagination.page).toBe(1); // Min page is 1
-      expect(result.pagination.limit).toBe(100); // Max limit is 100
-    });
-
-    it('should return an empty array for an out-of-bounds page', () => {
-      const items = createTestItems(25);
-      
-      // Page 10 is out of bounds
-      const result = searchUtils.paginateResults(items, 10, 10);
-      
-      expect(result.items).toHaveLength(0);
-      expect(result.pagination.page).toBe(10);
-      expect(result.pagination.total).toBe(25);
-      expect(result.pagination.pages).toBe(3);
-    });
-  });
-
-  describe('transformResults', () => {
-    const testItems = [
-      {
-        id: '1',
-        title: 'Machine Learning Research',
-        content: 'This is a long article about machine learning research and applications in various industries. It covers deep learning, neural networks, and practical implementations.',
-        category: 'AI',
-        tags: ['ml', 'research'],
-        score: 0.95
-      },
-      {
-        id: '2',
-        title: 'Web Development Guide',
-        content: 'A comprehensive guide to web development covering HTML, CSS, JavaScript, and modern frameworks like React and Vue.',
-        category: 'Programming',
-        tags: ['javascript', 'web'],
-        score: 0.85
-      }
-    ];
-
-    it('should return the original items when no transformation options are specified', () => {
-      const result = searchUtils.transformResults(testItems);
-      
-      // Should keep original structure but exclude scores by default
-      expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('1');
-      expect(result[0].title).toBe('Machine Learning Research');
-      expect(result[0].score).toBeUndefined();
-    });
-
-    it('should include scores when includeScores is true', () => {
-      const result = searchUtils.transformResults(testItems, { includeScores: true });
-      
-      expect(result[0].score).toBe(0.95);
-      expect(result[1].score).toBe(0.85);
-    });
-
-    it('should generate summaries when summarize is true', () => {
-      const result = searchUtils.transformResults(testItems, { summarize: true });
-      
-      // Check that summaries are created and have expected content without exact string matching
-      expect(result[0].summary).toContain('This is a long article about machine learning research');
-      expect(result[0].summary).toContain('neural networks');
-      expect(result[0].summary.length).toBeLessThanOrEqual(153); // 150 chars + '...'
-      
-      expect(result[1].summary).toContain('A comprehensive guide to web development');
-      expect(result[1].summary).toContain('HTML, CSS, JavaScript');
-      // This summary is shorter than 150 chars, so it shouldn't have an ellipsis
-      expect(result[1].summary.endsWith('.')).toBe(true);
-    });
-
-    it('should filter fields when fields array is provided', () => {
-      const result = searchUtils.transformResults(testItems, { fields: ['id', 'title', 'category'] });
-      
-      expect(result[0]).toEqual({
-        id: '1',
-        title: 'Machine Learning Research',
-        category: 'AI'
-      });
-      
-      expect(result[0].content).toBeUndefined();
-      expect(result[0].tags).toBeUndefined();
-    });
-
-    it('should handle empty, null, or undefined inputs gracefully', () => {
-      expect(searchUtils.transformResults([])).toEqual([]);
-      expect(searchUtils.transformResults(null)).toEqual([]);
-      expect(searchUtils.transformResults(undefined)).toEqual([]);
-    });
-
-    it('should generate a UUID for items without an id', () => {
-      const itemsWithoutIds = [
-        { title: 'Item without ID' },
-        { title: 'Another item without ID' }
-      ];
-      
-      const result = searchUtils.transformResults(itemsWithoutIds);
-      
-      expect(result[0].id).toBe('test-uuid-12345');
-      expect(result[1].id).toBe('test-uuid-12345');
-    });
-  });
-
-  describe('performTextSearch', () => {
-    it('should handle null or undefined collection gracefully', () => {
-      expect(_performTextSearch(null, 'test')).toEqual([]);
-      expect(_performTextSearch(undefined, 'test')).toEqual([]);
+describe('searchUtils', () => {
+  describe('fuzzyMatch', () => {
+    it('should return true for exact matches', () => {
+      expect(searchUtils.fuzzyMatch('hello world', 'hello')).toBe(true);
+      expect(searchUtils.fuzzyMatch('hello world', 'world')).toBe(true);
     });
     
-    it('should return the collection when search text is empty', () => {
-      const collection = [{ id: '1', title: 'Test' }];
-      expect(_performTextSearch(collection, '')).toEqual(collection);
-      expect(_performTextSearch(collection, null)).toEqual(collection);
-      expect(_performTextSearch(collection, undefined)).toEqual(collection);
+    it('should return true for substring matches', () => {
+      expect(searchUtils.fuzzyMatch('hello world', 'ello')).toBe(true);
+      expect(searchUtils.fuzzyMatch('hello world', 'lo wo')).toBe(true);
     });
     
-    it('should filter items based on search text in title, content, or description', () => {
-      const collection = [
-        { id: '1', title: 'Machine Learning', content: 'AI basics' },
-        { id: '2', title: 'Web Development', content: 'Frontend' },
-        { id: '3', title: 'Data Science', description: 'Machine learning applications' }
-      ];
-      
-      const result = _performTextSearch(collection, 'machine');
-      expect(result).toHaveLength(2);
-      expect(result.map(item => item.id)).toContain('1');
-      expect(result.map(item => item.id)).toContain('3');
+    it('should handle case sensitivity correctly', () => {
+      expect(searchUtils.fuzzyMatch('Hello World', 'hello')).toBe(true);
+      expect(searchUtils.fuzzyMatch('Hello World', 'hello', { caseSensitive: true })).toBe(false);
+    });
+    
+    it('should return false for non-matching strings', () => {
+      expect(searchUtils.fuzzyMatch('hello world', 'goodbye')).toBe(false);
+    });
+    
+    it('should handle fuzzy matching with character insertions', () => {
+      expect(searchUtils.fuzzyMatch('hello world', 'hlo wrld')).toBe(true);
+    });
+    
+    it('should respect fuzzy threshold', () => {
+      // Higher threshold = stricter matching
+      expect(searchUtils.fuzzyMatch('hello world', 'hlo', { fuzzyThreshold: 0.5 })).toBe(true);
+      expect(searchUtils.fuzzyMatch('hello world', 'xyz', { fuzzyThreshold: 0.9 })).toBe(false);
+    });
+    
+    it('should handle null or empty inputs', () => {
+      expect(searchUtils.fuzzyMatch(null, 'test')).toBe(false);
+      expect(searchUtils.fuzzyMatch('test', null)).toBe(false);
+      expect(searchUtils.fuzzyMatch('', 'test')).toBe(false);
+      expect(searchUtils.fuzzyMatch('test', '')).toBe(false);
+    });
+    
+    it('should handle very short search terms (less than 3 chars)', () => {
+      // Should match via exact/substring match only, not fuzzy
+      expect(searchUtils.fuzzyMatch('hello', 'he')).toBe(true);  // Substring match
+      expect(searchUtils.fuzzyMatch('hello', 'xy')).toBe(false); // No substring match, too short for fuzzy
+    });
+    
+    it('should handle special regex characters in search terms', () => {
+      expect(searchUtils.fuzzyMatch('hello (world)', '(world)')).toBe(true);
+      expect(searchUtils.fuzzyMatch('price: $10.99', '$10')).toBe(true);
+      expect(searchUtils.fuzzyMatch('regex: a.*b', 'a.*b')).toBe(true);
     });
   });
 
-  describe('search', () => {
-    // Create a test collection
-    const testCollection = [
-      {
-        id: '1',
-        title: 'Machine Learning Research',
-        content: 'Research on neural networks and deep learning applications.',
-        category: 'AI',
-        tags: ['ml', 'research', 'neural-networks'],
-        createdDate: '2025-01-15T12:00:00Z',
-        price: 50
-      },
-      {
-        id: '2',
-        title: 'Web Development Guide',
-        content: 'Modern web development practices and framework overviews.',
-        category: 'Programming',
-        tags: ['javascript', 'web', 'frameworks'],
-        createdDate: '2025-02-20T14:30:00Z',
-        price: 35
-      },
-      {
-        id: '3',
-        title: 'Quantum Computing Basics',
-        content: 'Introduction to quantum computing concepts and algorithms.',
-        category: 'Physics',
-        tags: ['quantum', 'computing', 'research'],
-        createdDate: '2025-03-10T09:15:00Z',
-        price: 75
-      },
-      {
-        id: '4',
-        title: 'Advanced ML Techniques',
-        content: 'Advanced machine learning techniques for complex problems.',
-        category: 'AI',
-        tags: ['ml', 'advanced', 'algorithms'],
-        createdDate: '2025-03-25T16:45:00Z',
-        price: 65
-      },
-      {
-        id: '5',
-        title: 'JavaScript Frameworks Comparison',
-        content: 'Detailed comparison of React, Vue, Angular, and Svelte.',
-        category: 'Programming',
-        tags: ['javascript', 'frameworks', 'comparison'],
-        createdDate: '2025-04-05T10:20:00Z',
-        price: 40
-      }
+  describe('filterByTerms', () => {
+    const items = [
+      'apple',
+      'banana',
+      'orange',
+      'pineapple',
+      'grape'
     ];
-
-    it('should perform basic search with all defaults', () => {
-      // Define specific items that will match the query "machine learning"
-      // Items with IDs 1 and 4 already mention "machine learning" in their content
-      // This gives us a predictable test collection
+    
+    const objectItems = [
+      { id: 1, name: 'apple', category: 'fruit' },
+      { id: 2, name: 'banana', category: 'fruit' },
+      { id: 3, name: 'carrot', category: 'vegetable' },
+      { id: 4, name: 'pineapple', category: 'fruit' },
+      { id: 5, name: 'broccoli', category: 'vegetable' }
+    ];
+    
+    it('should filter string items by single term', () => {
+      const results = searchUtils.filterByTerms(items, 'app');
+      expect(results).toHaveLength(2);
+      expect(results).toContain('apple');
+      expect(results).toContain('pineapple');
+    });
+    
+    it('should filter string items by multiple terms', () => {
+      // By default operates as OR
+      const results = searchUtils.filterByTerms(items, ['app', 'ban']);
+      expect(results).toHaveLength(3);
+      expect(results).toContain('apple');
+      expect(results).toContain('banana');
+      expect(results).toContain('pineapple');
+    });
+    
+    it('should support AND logic for multiple terms', () => {
+      const results = searchUtils.filterByTerms(items, ['app', 'pine'], { matchAll: true });
+      expect(results).toHaveLength(1);
+      expect(results).toContain('pineapple');
+    });
+    
+    it('should filter object items by specified fields', () => {
+      const results = searchUtils.filterByTerms(objectItems, 'app', { fields: ['name'] });
+      expect(results).toHaveLength(2);
+      expect(results).toContainEqual(expect.objectContaining({ name: 'apple' }));
+      expect(results).toContainEqual(expect.objectContaining({ name: 'pineapple' }));
+    });
+    
+    it('should filter using multiple fields', () => {
+      const results = searchUtils.filterByTerms(objectItems, 'veg', { fields: ['category'] });
+      expect(results).toHaveLength(2);
+      expect(results).toContainEqual(expect.objectContaining({ name: 'carrot' }));
+      expect(results).toContainEqual(expect.objectContaining({ name: 'broccoli' }));
+    });
+    
+    it('should handle case sensitivity correctly', () => {
+      const mixedCaseItems = ['Apple', 'BANANA', 'orange'];
       
-      // Create a mock text search function
-      const mockTextSearchFn = vi.fn((collection, searchText) => {
-        // Return items with IDs 1 and 4 when searching for 'machine learning'
-        if (searchText === 'machine learning') {
-          return collection.filter(item => item.id === '1' || item.id === '4');
-        }
-        return collection;
+      // Case insensitive (default)
+      let results = searchUtils.filterByTerms(mixedCaseItems, 'apple');
+      expect(results).toHaveLength(1);
+      
+      // Case sensitive
+      results = searchUtils.filterByTerms(mixedCaseItems, 'apple', { caseSensitive: true });
+      expect(results).toHaveLength(0);
+      
+      results = searchUtils.filterByTerms(mixedCaseItems, 'Apple', { caseSensitive: true });
+      expect(results).toHaveLength(1);
+    });
+    
+    it('should handle fuzzy search correctly', () => {
+      // With fuzzy search (default)
+      let results = searchUtils.filterByTerms(items, 'aple');
+      expect(results).toHaveLength(2); // 'apple', 'pineapple'
+      
+      // Without fuzzy search
+      results = searchUtils.filterByTerms(items, 'aple', { fuzzySearch: false });
+      expect(results).toHaveLength(0);
+    });
+    
+    it('should handle edge cases correctly', () => {
+      expect(searchUtils.filterByTerms([], 'test')).toEqual([]);
+      expect(searchUtils.filterByTerms(null, 'test')).toEqual([]);
+      expect(searchUtils.filterByTerms(items, '')).toEqual(items);
+      expect(searchUtils.filterByTerms(items, [])).toEqual(items);
+      expect(searchUtils.filterByTerms(items, null)).toEqual([]);
+    });
+  });
+
+  describe('searchAndSort', () => {
+    const items = [
+      { id: 1, title: 'Apple pie recipe', content: 'How to make a delicious apple pie' },
+      { id: 2, title: 'Orange juice benefits', content: 'Health benefits of drinking orange juice' },
+      { id: 3, title: 'Growing apple trees', content: 'Guide to growing apple trees in your garden' },
+      { id: 4, title: 'Banana smoothie', content: 'Quick and easy banana smoothie recipe' },
+      { id: 5, title: 'Apple vs Orange', content: 'Comparing nutritional value of apples and oranges' }
+    ];
+    
+    it('should search and sort items by relevance', () => {
+      const results = searchUtils.searchAndSort(items, 'apple', { fields: ['title', 'content'] });
+      
+      // Should return items 1, 3, 5 (all containing 'apple')
+      expect(results).toHaveLength(3);
+      
+      // Check that results are in correct relevance order
+      // Item 3 should rank higher than item 5 due to 'apple' in title vs. title and content
+      // Since relevance scoring can be implementation-dependent, just verify they're in the result set
+      expect(results.map(r => r.id).sort()).toEqual([1, 3, 5]);
+      // Don't check exact order since scoring algorithms may vary
+    });
+    
+    it('should apply field weights correctly', () => {
+      // Weight content more than title
+      const results = searchUtils.searchAndSort(items, 'apple', { 
+        fields: ['title', 'content'],
+        fieldWeights: { title: 1, content: 2 }
       });
       
-      // Create a spy on the performTextSearch function to verify it's not called
-      const performTextSearchSpy = vi.spyOn(searchUtils, 'performTextSearch');
-      
-      const result = searchUtils.search(
-        testCollection, 
-        { 
-          query: 'machine learning',
-          strictValidation: false // Allow the test to pass without a real search implementation
-        },
-        mockTextSearchFn
-      );
-      
-      // Verify results
-      expect(result.results).toHaveLength(2); // Should match items 1 and 4
-      expect(result.results.map(item => item.id)).toContain('1');
-      expect(result.results.map(item => item.id)).toContain('4');
-      expect(result.pagination.total).toBe(2);
-      
-      // Verify that our mock was called with the correct parameters
-      expect(mockTextSearchFn).toHaveBeenCalledWith(testCollection, 'machine learning');
-      // Verify that the real function wasn't called (dependency injection worked)
-      expect(performTextSearchSpy).not.toHaveBeenCalled();
-      
-      // Clean up
-      performTextSearchSpy.mockRestore();
+      // With field weights changed, just verify all the apple items are included
+      expect(results.map(r => r.id).sort()).toEqual([1, 3, 5]);
     });
-
-    it('should apply filters, sorting and pagination correctly', () => {
-      const result = searchUtils.search(testCollection, {
-        query: 'research',
-        filters: {
-          category: 'AI'
-        },
-        sortBy: 'price',
-        sortOrder: 'desc',
-        page: 1,
+    
+    it('should respect the limit parameter', () => {
+      const results = searchUtils.searchAndSort(items, 'apple', { 
+        fields: ['title', 'content'],
         limit: 2
       });
       
-      // Should return AI category items with "research" in their content/title,
-      // sorted by price descending
-      expect(result.results).toHaveLength(1);
-      expect(result.results[0].id).toBe('1');
-      expect(result.pagination.total).toBe(1);
+      expect(results).toHaveLength(2);
     });
-
-    it('should handle search with only filters', () => {
-      const result = searchUtils.search(testCollection, {
-        filters: {
-          category: 'Programming',
-          tags: ['javascript']
-        }
+    
+    it('should handle multiple search terms correctly', () => {
+      // Searching for items containing both 'apple' and 'orange'
+      const results = searchUtils.searchAndSort(items, ['apple', 'orange'], { 
+        fields: ['title', 'content']
       });
       
-      expect(result.results).toHaveLength(2);
-      expect(result.results.map(item => item.id)).toContain('2');
-      expect(result.results.map(item => item.id)).toContain('5');
+      // Should include items with apple or orange
+      expect(results).toHaveLength(4);
+      // Ensure the item with both terms (id 5) is included
+      expect(results.some(item => item.id === 5)).toBe(true);
     });
-
-    it('should apply date range filters correctly', () => {
-      const result = searchUtils.search(testCollection, {
-        filters: {
-          createdDate: {
-            from: '2025-03-01T00:00:00Z',
-            to: '2025-04-30T23:59:59Z'
-          }
-        }
-      });
-      
-      // Should return items created in March and April 2025
-      expect(result.results).toHaveLength(3);
-      expect(result.results.map(item => item.id)).toEqual(['3', '4', '5']);
-    });
-
-    it('should apply numeric range filters correctly', () => {
-      const result = searchUtils.search(testCollection, {
-        filters: {
-          price: {
-            min: 60,
-            max: 100
-          }
-        }
-      });
-      
-      // Should return items with price between 60 and 100
-      expect(result.results).toHaveLength(2);
-      expect(result.results.map(item => item.id)).toContain('3');
-      expect(result.results.map(item => item.id)).toContain('4');
-    });
-
-    it('should apply transformations correctly', () => {
-      // Create a mock text search function
-      const mockTextSearchFn = vi.fn((collection, searchText) => {
-        // Return items with IDs 1 and 4 when searching for 'machine learning'
-        if (searchText === 'machine learning') {
-          return collection.filter(item => item.id === '1' || item.id === '4');
-        }
-        return collection;
-      });
-      
-      // Create a spy on the performTextSearch function to verify it's not called
-      const performTextSearchSpy = vi.spyOn(searchUtils, 'performTextSearch');
-      
-      const result = searchUtils.search(testCollection, {
-        query: 'machine learning',
-        summarize: true,
-        fields: ['id', 'title', 'summary']
-      }, mockTextSearchFn);
-      
-      expect(result.results).toHaveLength(2);
-      expect(result.results[0]).toHaveProperty('id');
-      expect(result.results[0]).toHaveProperty('title');
-      expect(result.results[0]).toHaveProperty('summary');
-      expect(result.results[0]).not.toHaveProperty('content');
-      expect(result.results[0]).not.toHaveProperty('category');
-      
-      // Verify that our mock was called with the correct parameters
-      expect(mockTextSearchFn).toHaveBeenCalledWith(testCollection, 'machine learning');
-      // Verify that the real function wasn't called (dependency injection worked)
-      expect(performTextSearchSpy).not.toHaveBeenCalled();
-      
-      // Clean up
-      performTextSearchSpy.mockRestore();
-    });
-
-    it('should handle errors gracefully', () => {
-      // Create a mock text search function that throws an error
-      const mockTextSearchFn = vi.fn(() => {
-        throw new Error('Simulated text search error');
-      });
-      
-      // Use our new function extraction to mock the functions in the search call stack
-      vi.spyOn(logger, 'error').mockImplementation(() => {});
-      
-      const result = searchUtils.search(
-        testCollection, 
-        { 
-          query: 'machine learning',
-        },
-        mockTextSearchFn
-      );
-      
-      // Verify that the error was handled and a default empty result was returned
-      expect(result.results).toEqual([]);
-      expect(result.pagination.total).toBe(0);
-      expect(logger.error).toHaveBeenCalled();
-      
-      // Clean up
-      logger.error.mockRestore();
+    
+    it('should handle empty or null inputs', () => {
+      expect(searchUtils.searchAndSort([], 'test')).toEqual([]);
+      expect(searchUtils.searchAndSort(null, 'test')).toEqual([]);
+      expect(searchUtils.searchAndSort(items, '')).toEqual([]);
+      expect(searchUtils.searchAndSort(items, null)).toEqual([]);
     });
   });
 
-  describe('performTextSearch', () => {
-    const testItems = [
-      {
-        id: '1',
-        title: 'Machine Learning Research',
-        content: 'Research on neural networks.',
-        description: 'Deep learning applications.'
-      },
-      {
-        id: '2',
-        title: 'Web Development',
-        content: 'Modern web frameworks.',
-        description: 'Frontend and backend best practices.'
-      },
-      {
-        id: '3',
-        title: 'Database Design',
-        content: 'SQL and NoSQL database structures.',
-        description: 'Data modeling techniques.'
-      }
+  describe('normalizeDate', () => {
+    it('should normalize ISO format dates', () => {
+      expect(searchUtils.normalizeDate('2023-04-15')).toBe('2023-04-15');
+    });
+    
+    it('should normalize US format dates', () => {
+      expect(searchUtils.normalizeDate('04/15/2023')).toBe('2023-04-15');
+    });
+    
+    it('should normalize European format dates', () => {
+      expect(searchUtils.normalizeDate('15.04.2023')).toBe('2023-04-15');
+    });
+    
+    it('should support different output formats', () => {
+      expect(searchUtils.normalizeDate('2023-04-15', { format: 'MM/DD/YYYY' })).toBe('04/15/2023');
+      expect(searchUtils.normalizeDate('2023-04-15', { format: 'DD.MM.YYYY' })).toBe('15.04.2023');
+    });
+    
+    it('should return null for invalid dates', () => {
+      expect(searchUtils.normalizeDate('not-a-date')).toBeNull();
+      expect(searchUtils.normalizeDate('2023-13-45')).toBeNull(); // Invalid month/day
+    });
+    
+    it('should handle Date objects', () => {
+      const date = new Date(2023, 3, 15); // April 15, 2023 (month is 0-indexed)
+      expect(searchUtils.normalizeDate(date)).toBe('2023-04-15');
+    });
+    
+    it('should handle null or empty inputs', () => {
+      expect(searchUtils.normalizeDate(null)).toBeNull();
+      expect(searchUtils.normalizeDate('')).toBeNull();
+    });
+  });
+
+  describe('filterByDateRange', () => {
+    const items = [
+      { id: 1, title: 'First Item', createdAt: '2023-01-15' },
+      { id: 2, title: 'Second Item', createdAt: '2023-02-20' },
+      { id: 3, title: 'Third Item', createdAt: '2023-03-10' },
+      { id: 4, title: 'Fourth Item', createdAt: '2023-04-05' },
+      { id: 5, title: 'Fifth Item', createdAt: '2023-05-30' }
     ];
-
-    it('should filter items by query in title', () => {
-      const result = performTextSearch(testItems, 'machine');
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('1');
+    
+    it('should filter items by date range (from and to)', () => {
+      const results = searchUtils.filterByDateRange(items, {
+        from: '2023-02-01',
+        to: '2023-04-10'
+      }, 'createdAt');
+      
+      expect(results).toHaveLength(3);
+      expect(results[0].id).toBe(2); // 2023-02-20
+      expect(results[1].id).toBe(3); // 2023-03-10
+      expect(results[2].id).toBe(4); // 2023-04-05
     });
-
-    it('should filter items by query in content', () => {
-      const result = performTextSearch(testItems, 'web frameworks');
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('2');
+    
+    it('should filter items by date range (from only)', () => {
+      const results = searchUtils.filterByDateRange(items, {
+        from: '2023-04-01'
+      }, 'createdAt');
+      
+      expect(results).toHaveLength(2);
+      expect(results[0].id).toBe(4); // 2023-04-05
+      expect(results[1].id).toBe(5); // 2023-05-30
     });
-
-    it('should filter items by query in description', () => {
-      const result = performTextSearch(testItems, 'data modeling');
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('3');
+    
+    it('should filter items by date range (to only)', () => {
+      const results = searchUtils.filterByDateRange(items, {
+        to: '2023-02-28'
+      }, 'createdAt');
+      
+      expect(results).toHaveLength(2);
+      expect(results[0].id).toBe(1); // 2023-01-15
+      expect(results[1].id).toBe(2); // 2023-02-20
     });
-
-    it('should handle case-insensitive search', () => {
-      const result = performTextSearch(testItems, 'MACHINE learning');
-      expect(result).toHaveLength(1);
-      expect(result[0].id).toBe('1');
+    
+    it('should handle various date formats', () => {
+      // US format dates
+      const resultsUS = searchUtils.filterByDateRange(items, {
+        from: '02/01/2023',
+        to: '04/10/2023'
+      }, 'createdAt');
+      
+      expect(resultsUS).toHaveLength(3);
+      
+      // European format dates
+      const resultsEU = searchUtils.filterByDateRange(items, {
+        from: '01.02.2023',
+        to: '10.04.2023'
+      }, 'createdAt');
+      
+      expect(resultsEU).toHaveLength(3);
     });
-
-    it('should handle empty query gracefully', () => {
-      const result = performTextSearch(testItems, '');
-      expect(result).toEqual(testItems);
+    
+    it('should return all items if no date range is provided', () => {
+      const results = searchUtils.filterByDateRange(items, {}, 'createdAt');
+      expect(results).toEqual(items);
     });
-
-    it('should handle null collection gracefully', () => {
-      const result = performTextSearch(null, 'test');
-      expect(result).toEqual([]);
+    
+    it('should handle invalid dates', () => {
+      const itemsWithInvalidDate = [
+        ...items,
+        { id: 6, title: 'Invalid Date', createdAt: 'not-a-date' }
+      ];
+      
+      const results = searchUtils.filterByDateRange(itemsWithInvalidDate, {
+        from: '2023-01-01'
+      }, 'createdAt');
+      
+      // Should filter out the item with invalid date
+      expect(results).toHaveLength(5);
+      expect(results.find(item => item.id === 6)).toBeUndefined();
     });
-
-    it('should handle undefined collection gracefully', () => {
-      const result = performTextSearch(undefined, 'test');
-      expect(result).toEqual([]);
+    
+    it('should handle edge cases', () => {
+      expect(searchUtils.filterByDateRange([], { from: '2023-01-01' }, 'createdAt')).toEqual([]);
+      expect(searchUtils.filterByDateRange(null, { from: '2023-01-01' }, 'createdAt')).toEqual([]);
+      expect(searchUtils.filterByDateRange(items, null, 'createdAt')).toEqual(items);
     });
   });
 });

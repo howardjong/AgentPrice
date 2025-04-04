@@ -442,13 +442,165 @@ Make the visualization responsive and interactive.`
   }
 }
 
+/**
+ * Generate clarifying questions based on initial query
+ * Uses processText internally
+ */
+async function generateClarifyingQuestions(initialQuery) {
+  const prompt = `
+Given the following initial research query, generate 5 clarifying questions to better understand the user's needs:
+
+"${initialQuery}"
+
+Your questions should help understand:
+1. The specific industry or market segment
+2. Price point considerations
+3. Target customer demographics
+4. Competitive positioning
+5. Implementation timeline or urgency
+
+Format your response as a JSON array of question strings ONLY, with no additional explanation or text.
+Example: ["Question 1?", "Question 2?", "Question 3?", "Question 4?", "Question 5?"]
+`;
+
+  try {
+    const response = await processText(prompt);
+    // Parse the JSON array from the response
+    return JSON.parse(response.content);
+  } catch (error) {
+    logger.error('Error generating clarifying questions:', error);
+    // Return a default set of questions if there's an error
+    return [
+      "What specific industry or market segment are you in?",
+      "What price range are you considering?",
+      "Who is your target customer demographic?",
+      "Who are your main competitors?",
+      "When do you need to implement this pricing strategy?"
+    ];
+  }
+}
+
+/**
+ * Generate chart data based on research content
+ * Uses processText internally
+ */
+async function generateChartData(researchContent, chartType) {
+  // Ensure valid chart type
+  const validChartTypes = ['van_westendorp', 'conjoint', 'basic_bar'];
+  if (!validChartTypes.includes(chartType)) {
+    throw new Error(`Invalid chart type: ${chartType}. Must be one of: ${validChartTypes.join(', ')}`);
+  }
+
+  let prompt;
+  if (chartType === 'van_westendorp') {
+    prompt = `
+Based on the following research content, extract or generate data for a Van Westendorp Price Sensitivity Model:
+
+${researchContent.substring(0, 15000)}
+
+Return a JSON object with the following structure:
+{
+  "data": {
+    "x_values": [price points as numbers],
+    "too_cheap": [probability values as decimals],
+    "bargain": [probability values as decimals],
+    "expensive": [probability values as decimals],
+    "too_expensive": [probability values as decimals],
+    "optimal_price_point": number,
+    "indifference_price_point": number,
+    "price_range": { "min": number, "max": number }
+  },
+  "insights": [
+    "Insight 1 about price sensitivity",
+    "Insight 2 about optimal pricing",
+    "Insight 3 about customer perception"
+  ],
+  "chart_title": "Van Westendorp Price Sensitivity Analysis for [Product/Service]"
+}
+
+If the research doesn't contain sufficient data, generate realistic sample data based on the context.
+`;
+  } else if (chartType === 'conjoint') {
+    prompt = `
+Based on the following research content, extract or generate data for a Conjoint Analysis visualization:
+
+${researchContent.substring(0, 15000)}
+
+Return a JSON object with the following structure:
+{
+  "data": {
+    "attributes": ["attribute1", "attribute2", "attribute3", ...],
+    "importance": [0.35, 0.25, 0.20, ...],
+    "part_worths": {
+      "attribute1": { "level1": 0.8, "level2": 0.5, "level3": 0.2 },
+      "attribute2": { "level1": 0.7, "level2": 0.3 }
+    },
+    "optimal_combination": { "attribute1": "level1", "attribute2": "level2", ... }
+  },
+  "insights": [
+    "Insight 1 about feature importance",
+    "Insight 2 about optimal combination",
+    "Insight 3 about customer preferences"
+  ],
+  "chart_title": "Conjoint Analysis for [Product/Service] Features"
+}
+
+If the research doesn't contain sufficient data, generate realistic sample data based on the context.
+`;
+  } else { // basic_bar
+    prompt = `
+Based on the following research content, extract or generate data for a basic bar chart comparing competitor pricing:
+
+${researchContent.substring(0, 15000)}
+
+Return a JSON object with the following structure:
+{
+  "data": {
+    "competitors": ["Competitor A", "Competitor B", "You", "Competitor C", ...],
+    "prices": [49.99, 39.99, 44.99, 59.99, ...],
+    "market_segments": ["Premium", "Mid-market", "Budget"],
+    "segment_price_ranges": {
+      "Premium": { "min": 59.99, "max": 99.99 },
+      "Mid-market": { "min": 39.99, "max": 59.99 },
+      "Budget": { "min": 19.99, "max": 39.99 }
+    }
+  },
+  "insights": [
+    "Insight 1 about market positioning",
+    "Insight 2 about price gaps",
+    "Insight 3 about competitive advantages"
+  ],
+  "chart_title": "Competitive Pricing Analysis for [Industry/Market]"
+}
+
+If the research doesn't contain sufficient data, generate realistic sample data based on the context.
+`;
+  }
+
+  try {
+    const response = await processText(prompt);
+    // Parse the JSON object from the response
+    return JSON.parse(response.content);
+  } catch (error) {
+    logger.error(`Error generating ${chartType} chart data:`, error);
+    // Return a minimal valid chart data object if there's an error
+    return {
+      data: { error: "Failed to generate chart data" },
+      insights: ["Error processing research data"],
+      chart_title: `${chartType.charAt(0).toUpperCase() + chartType.slice(1)} Chart (Error)`
+    };
+  }
+}
+
 // Create default export object
 const claudeService = {
   processText,
   processMultimodal,
   processConversation,
   generatePlotlyVisualization,
-  getHealthStatus
+  getHealthStatus,
+  generateClarifyingQuestions,
+  generateChartData
 };
 
 export default claudeService;
@@ -459,5 +611,7 @@ export {
   processMultimodal,
   processConversation,
   generatePlotlyVisualization,
-  getHealthStatus
+  getHealthStatus,
+  generateClarifyingQuestions,
+  generateChartData
 };
