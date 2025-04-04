@@ -27,7 +27,7 @@ function parseArgs() {
     useRealAPIs: args.includes('--use-real-apis'),
     saveResults: args.includes('--save-results'),
     enableDeepResearch: !args.includes('--no-deep-research'),
-    timeout: 15000 // 15 second timeout for API calls
+    timeout: 15000 // Default 15 second timeout for API calls
   };
   
   // Parse variant
@@ -40,6 +40,15 @@ function parseArgs() {
   const queryArg = args.find(arg => arg.startsWith('--query='));
   if (queryArg) {
     options.query = queryArg.substring('--query='.length);
+  }
+  
+  // Parse timeout
+  const timeoutArg = args.find(arg => arg.startsWith('--timeout='));
+  if (timeoutArg) {
+    const timeoutValue = parseInt(timeoutArg.substring('--timeout='.length), 10);
+    if (!isNaN(timeoutValue) && timeoutValue > 0) {
+      options.timeout = timeoutValue;
+    }
   }
   
   // Parse chart type

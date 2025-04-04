@@ -10,7 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger.js';
 import CircuitBreaker from '../utils/circuitBreaker.js';
 import RobustAPIClient from '../utils/apiClient.js';
-import * as costTracker from '../utils/costTracker.js';
+import costTracker from '../utils/costTracker.js';
 import * as fs from 'fs/promises';
 import path from 'path';
 
@@ -64,6 +64,7 @@ const circuitBreaker = new CircuitBreaker({
  * @param {number} options.maxTokens - Maximum tokens to generate
  * @param {number} options.temperature - Temperature for generation
  * @param {string} options.recencyFilter - Time filter for search results (day, week, month, year)
+ * @param {number} options.timeout - Request timeout in milliseconds
  * @returns {Promise<Object>} - Perplexity's response
  */
 async function processWebQuery(query, options = {}) {
@@ -115,7 +116,8 @@ async function processWebQuery(query, options = {}) {
           headers: {
             'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
             'Content-Type': 'application/json'
-          }, timeout: timeout // Add timeout parameter
+          },
+          timeout: timeout // Add timeout parameter
         });
       });
     });
@@ -124,12 +126,13 @@ async function processWebQuery(query, options = {}) {
     const result = response.data;
     
     // Track costs for the API call
-    costTracker.trackAPIUsage({
+    costTracker.recordUsage({
       service: 'perplexity',
       model,
-      tokensUsed: result.usage?.total_tokens || 0,
-      duration,
-      isWebConnected: true
+      inputTokens: result.usage?.prompt_tokens || 0,
+      outputTokens: result.usage?.completion_tokens || 0,
+      operation: 'web_query',
+      requestId
     });
     
     // Save response for debugging/analysis if enabled
@@ -188,6 +191,7 @@ async function processWebQuery(query, options = {}) {
  * @param {number} options.maxTokens - Maximum tokens to generate
  * @param {number} options.temperature - Temperature for generation
  * @param {boolean} options.webSearch - Whether to enable web search
+ * @param {number} options.timeout - Request timeout in milliseconds
  * @returns {Promise<Object>} - Perplexity's response
  */
 async function processConversation(messages, options = {}) {
@@ -256,7 +260,8 @@ async function processConversation(messages, options = {}) {
           headers: {
             'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: timeout // Add timeout parameter
         });
       });
     });
@@ -265,12 +270,13 @@ async function processConversation(messages, options = {}) {
     const result = response.data;
     
     // Track costs for the API call
-    costTracker.trackAPIUsage({
+    costTracker.recordUsage({
       service: 'perplexity',
       model,
-      tokensUsed: result.usage?.total_tokens || 0,
-      duration,
-      isWebConnected: enableWebSearch
+      inputTokens: result.usage?.prompt_tokens || 0,
+      outputTokens: result.usage?.completion_tokens || 0,
+      operation: 'conversation',
+      requestId
     });
     
     logger.info(`Perplexity conversation completed [${requestId}]`, {
@@ -303,6 +309,7 @@ async function processConversation(messages, options = {}) {
  * @param {string} options.model - The Perplexity model to use
  * @param {Array} options.domainFilter - List of domains to filter search results
  * @param {string} options.recencyFilter - Time filter for search results
+ * @param {number} options.timeout - Request timeout in milliseconds
  * @returns {Promise<Object>} - Research results
  */
 async function conductDeepResearch(query, options = {}) {
@@ -310,6 +317,7 @@ async function conductDeepResearch(query, options = {}) {
   // For deep research, we prefer the larger models
   const model = options.model || SONAR_MODELS.large;
   const maxTokens = options.maxTokens || 4096; // Larger token limit for deep research
+  const timeout = options.timeout || 60000; // Longer timeout for deep research
   
   // Create a more detailed system prompt for deep research
   const systemPrompt = options.systemPrompt || 
@@ -334,7 +342,8 @@ async function conductDeepResearch(query, options = {}) {
       temperature: 0.2,
       systemPrompt,
       domainFilter: options.domainFilter || [],
-      recencyFilter: options.recencyFilter || 'month'
+      recencyFilter: options.recencyFilter || 'month',
+      timeout // Pass timeout to processWebQuery
     });
     
     // Generate follow-up questions based on initial results
@@ -344,7 +353,8 @@ async function conductDeepResearch(query, options = {}) {
         model: SONAR_MODELS.small, // Use smaller model for this intermediate step
         maxTokens: 1024,
         temperature: 0.7, // Higher temperature for more diverse questions
-        systemPrompt: 'Generate specific, targeted follow-up research questions. Be concise and focus on gaps in the initial research.'
+        systemPrompt: 'Generate specific, targeted follow-up research questions. Be concise and focus on gaps in the initial research.',
+        timeout // Pass timeout
       }
     );
     
@@ -377,7 +387,8 @@ async function conductDeepResearch(query, options = {}) {
             temperature: 0.2,
             systemPrompt: 'Focus specifically on this aspect of the research topic. Be concise but thorough.',
             domainFilter: options.domainFilter || [],
-            recencyFilter: options.recencyFilter || 'month'
+            recencyFilter: options.recencyFilter || 'month',
+            timeout // Pass timeout
           });
           return { question, result };
         } catch (error) {
@@ -407,7 +418,8 @@ ${researchMaterial}`;
       model,
       maxTokens: maxTokens,
       temperature: 0.2,
-      systemPrompt: 'You are creating a final comprehensive research report. Organize the information logically, eliminate redundancy, and ensure all key insights are preserved with proper citation.'
+      systemPrompt: 'You are creating a final comprehensive research report. Organize the information logically, eliminate redundancy, and ensure all key insights are preserved with proper citation.',
+      timeout // Pass timeout
     });
     
     // Combine all citations from each step

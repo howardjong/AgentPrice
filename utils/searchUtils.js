@@ -8,6 +8,33 @@
 import axios from 'axios';
 
 /**
+ * Performs text search on a collection
+ * 
+ * @param {Array} collection - The collection to search
+ * @param {string} searchText - The search text to match
+ * @returns {Array} - Filtered collection containing only items matching the search text
+ */
+export function performTextSearch(collection, searchText) {
+  // Handle invalid collection
+  if (!collection || !Array.isArray(collection)) {
+    return [];
+  }
+  
+  // If no search text provided, return the original collection
+  if (!searchText || typeof searchText !== 'string') {
+    return collection;
+  }
+  
+  const lowerSearchText = searchText.toLowerCase();
+  return collection.filter(item => {
+    const titleMatch = item.title && item.title.toLowerCase().includes(lowerSearchText);
+    const contentMatch = item.content && item.content.toLowerCase().includes(lowerSearchText);
+    const descriptionMatch = item.description && item.description.toLowerCase().includes(lowerSearchText);
+    return titleMatch || contentMatch || descriptionMatch;
+  });
+}
+
+/**
  * Search the API for results
  * 
  * @param {string} query - The search query
@@ -40,7 +67,15 @@ export async function search(query, options = {}) {
  * @returns {Array} - Filtered results
  */
 export function filterResults(results, threshold = 0.5) {
-  return results.filter(result => result.score >= threshold);
+  if (!results || !Array.isArray(results)) {
+    return [];
+  }
+  
+  return results.filter(result => 
+    result && typeof result === 'object' && 
+    typeof result.score === 'number' && 
+    result.score >= threshold
+  );
 }
 
 /**
@@ -50,7 +85,15 @@ export function filterResults(results, threshold = 0.5) {
  * @returns {Object} - Results grouped by category
  */
 export function groupByCategory(results) {
+  if (!results || !Array.isArray(results)) {
+    return {};
+  }
+  
   return results.reduce((groups, result) => {
+    if (!result || typeof result !== 'object') {
+      return groups;
+    }
+    
     const category = result.category || 'uncategorized';
     if (!groups[category]) {
       groups[category] = [];
@@ -67,7 +110,20 @@ export function groupByCategory(results) {
  * @returns {Array} - Sorted results
  */
 export function sortByScore(results) {
-  return [...results].sort((a, b) => b.score - a.score);
+  if (!results || !Array.isArray(results)) {
+    return [];
+  }
+  
+  try {
+    return [...results].sort((a, b) => {
+      const scoreA = a && typeof a === 'object' && typeof a.score === 'number' ? a.score : 0;
+      const scoreB = b && typeof b === 'object' && typeof b.score === 'number' ? b.score : 0;
+      return scoreB - scoreA;
+    });
+  } catch (error) {
+    console.error('Error sorting results by score:', error);
+    return [...results]; // Return a copy of the original array if sorting fails
+  }
 }
 
 /**
@@ -77,12 +133,33 @@ export function sortByScore(results) {
  * @returns {Array} - Transformed results
  */
 export function transformForDisplay(results) {
-  return results.map(result => ({
-    ...result,
-    displayTitle: result.title || 'Unnamed result',
-    scorePercentage: Math.round(result.score * 100) + '%',
-    date: result.timestamp ? new Date(result.timestamp).toLocaleDateString() : 'Unknown date'
-  }));
+  if (!results || !Array.isArray(results)) {
+    return [];
+  }
+  
+  try {
+    return results.map(result => {
+      if (!result || typeof result !== 'object') {
+        return {
+          displayTitle: 'Unnamed result',
+          scorePercentage: '0%',
+          date: 'Unknown date'
+        };
+      }
+      
+      const score = typeof result.score === 'number' ? result.score : 0;
+      
+      return {
+        ...result,
+        displayTitle: result.title || 'Unnamed result',
+        scorePercentage: Math.round(score * 100) + '%',
+        date: result.timestamp ? new Date(result.timestamp).toLocaleDateString() : 'Unknown date'
+      };
+    });
+  } catch (error) {
+    console.error('Error transforming results for display:', error);
+    return [];
+  }
 }
 
 /**
@@ -92,16 +169,26 @@ export function transformForDisplay(results) {
  * @returns {Array<string>} - Extracted keywords
  */
 export function extractKeywords(query) {
-  // Simple implementation - split by spaces and remove common words
-  const commonWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at'];
-  return query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(word => word.length > 1 && !commonWords.includes(word));
+  if (!query || typeof query !== 'string') {
+    return [];
+  }
+  
+  try {
+    // Simple implementation - split by spaces and remove common words
+    const commonWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to'];
+    return query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(word => word.length > 1 && !commonWords.includes(word));
+  } catch (error) {
+    console.error('Error extracting keywords:', error);
+    return [];
+  }
 }
 
 export default {
   search,
+  performTextSearch,
   filterResults,
   groupByCategory,
   sortByScore,
