@@ -18,7 +18,7 @@
  */
 
 const { runWorkflowTest } = require('../workflows/single-query-workflow/test-runner.js');
-const { TEST_VARIANTS } = require('../workflows/single-query-workflow/test-config.js');
+const TEST_VARIANTS = require('../workflows/single-query-workflow/test-config.js').TEST_VARIANTS;
 
 // Parse command line arguments
 function parseArgs() {
