@@ -9,6 +9,15 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
 import TestCircuitBreaker from '../../utils/test-circuit-breaker.js';
 
+// Mock data constants (defined in the global scope)
+const mockQuestions = [
+  "What industry are you in?",
+  "Who is your target customer?",
+  "What's your budget range?"
+];
+
+const mockResearchResponse = "Mock research results for testing";
+
 // Step 1: Mock CircuitBreaker before any imports
 vi.mock('../../../utils/circuitBreaker.js', () => {
   return {
@@ -16,57 +25,95 @@ vi.mock('../../../utils/circuitBreaker.js', () => {
   };
 });
 
-// Step 2: Create hardcoded mock data for Claude responses
-const MOCK_CLARIFYING_QUESTIONS = [
-  "What industry are you in?",
-  "Who is your target customer?",
-  "What's your budget range?"
-];
-
-const MOCK_RESEARCH_RESPONSE = "Mock research results for testing";
-
-// Step 3: Define complete Claude Service mock
+// Step 2: Define complete service mocks
+// Important: We're mocking the exact structure of the service
 vi.mock('../../../services/claudeService.js', () => {
+  // Mock the claudeService object structure exactly as it's exported
   return {
-    generateClarifyingQuestions: vi.fn().mockResolvedValue(MOCK_CLARIFYING_QUESTIONS),
-    processText: vi.fn().mockImplementation(() => {
-      return Promise.resolve({
+    default: {
+      processText: vi.fn().mockResolvedValue({
         content: "Mock text response",
         usage: { total_tokens: 100 },
         model: "mock-model",
         requestId: "mock-request-id"
-      });
-    }),
-    processConversation: vi.fn().mockImplementation(() => {
-      return Promise.resolve({
+      }),
+      
+      processConversation: vi.fn().mockResolvedValue({
         content: "Mock conversation response",
         response: "Mock conversation response",
         usage: { total_tokens: 200 },
         model: "mock-model",
         requestId: "mock-request-id"
-      });
+      }),
+      
+      generateClarifyingQuestions: vi.fn().mockResolvedValue(mockQuestions),
+      
+      generateChartData: vi.fn().mockResolvedValue({
+        data: { 
+          x_values: [1, 2, 3],
+          too_cheap: [0.1, 0.2, 0.3],
+          competitors: ["A", "B", "C"]
+        },
+        insights: ["Mock insight 1", "Mock insight 2"]
+      }),
+      
+      getHealthStatus: vi.fn().mockReturnValue({
+        service: 'claude',
+        status: 'available',
+        circuitBreakerStatus: 'CLOSED',
+        defaultModel: 'mock-model'
+      })
+    },
+    
+    // Also mock the named exports
+    processText: vi.fn().mockResolvedValue({
+      content: "Mock text response", 
+      usage: { total_tokens: 100 }
+    }),
+    
+    processConversation: vi.fn().mockResolvedValue({
+      content: "Mock conversation response",
+      response: "Mock conversation response",
+      usage: { total_tokens: 200 }
+    }),
+    
+    generateClarifyingQuestions: vi.fn().mockResolvedValue(mockQuestions),
+    
+    generateChartData: vi.fn().mockResolvedValue({
+      data: { x_values: [1, 2, 3] },
+      insights: ["Mock insight 1", "Mock insight 2"]
+    }),
+    
+    getHealthStatus: vi.fn().mockReturnValue({
+      service: 'claude',
+      status: 'available'
     })
   };
 });
 
-// Step 4: Define complete Perplexity Service mock
+// Step 3: Define Perplexity Service mock
 vi.mock('../../../services/perplexityService.js', () => {
   return {
-    performDeepResearch: vi.fn().mockImplementation(() => {
-      return Promise.resolve({
-        content: MOCK_RESEARCH_RESPONSE,
+    default: {
+      performDeepResearch: vi.fn().mockResolvedValue({
+        content: mockResearchResponse,
         sources: [
           { title: "Mock Source", url: "https://example.com", snippet: "Mock snippet" }
         ],
         modelUsed: "mock-model"
-      });
+      })
+    },
+    performDeepResearch: vi.fn().mockResolvedValue({
+      content: mockResearchResponse,
+      sources: [{ title: "Mock Source", url: "https://example.com", snippet: "Mock snippet" }],
+      modelUsed: "mock-model"
     })
   };
 });
 
-// Step 5: Import the mocked services
-import * as claudeService from '../../../services/claudeService.js';
-import * as perplexityService from '../../../services/perplexityService.js';
+// Step 4: Import the mocked services
+import claudeService from '../../../services/claudeService.js';
+import perplexityService from '../../../services/perplexityService.js';
 
 // Test suite
 describe('Simplified Workflow', () => {
@@ -115,7 +162,7 @@ describe('Simplified Workflow', () => {
     
     // Assert
     expect(results).toBeDefined();
-    expect(results.content).toBe(MOCK_RESEARCH_RESPONSE);
+    expect(results.content).toBe(mockResearchResponse); // Use our local constant
     expect(results.sources).toBeDefined();
     expect(Array.isArray(results.sources)).toBe(true);
     expect(perplexityService.performDeepResearch).toHaveBeenCalledWith(initialQuery);
