@@ -1,343 +1,168 @@
 /**
- * Test utilities for the single query workflow tests
+ * Test Utilities for Single Query Workflow Tests
+ * 
+ * This module provides helper functions for setting up and running tests.
  */
 
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { vi } from 'vitest';
 
-// Get the directory of the current module
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Define test data and fixtures
-const testDataDir = path.join(__dirname, 'fixtures');
-const testResultsDir = path.join(process.cwd(), 'test-results', 'single-query-workflow');
-let fixtures = {
-  queries: [],
-  expectedResponses: {}
-};
-
 /**
- * Load test fixtures from files
- */
-export async function loadFixtures() {
-  try {
-    // Ensure test results directory exists
-    await fs.mkdir(testResultsDir, { recursive: true }).catch(() => {});
-    
-    // Load query fixtures
-    const queriesPath = path.join(testDataDir, 'test-queries.json');
-    const queriesData = await fs.readFile(queriesPath, 'utf8');
-    fixtures.queries = JSON.parse(queriesData);
-    
-    // Load expected responses
-    const responsesPath = path.join(testDataDir, 'expected-responses.json');
-    const responsesData = await fs.readFile(responsesPath, 'utf8');
-    fixtures.expectedResponses = JSON.parse(responsesData);
-    
-    return true;
-  } catch (error) {
-    console.error('Error loading fixtures:', error);
-    return false;
-  }
-}
-
-/**
- * Run a test based on the given variant and options
- * @param {string} variant - Test variant to run
- * @param {object} options - Test options
- * @returns {object} Test results
- */
-export async function runAndValidateTest(variant, options = {}) {
-  const { runTest } = await import('./test-runner.js');
-  
-  // Set default options
-  const testOptions = {
-    query: options.query || selectQueryForVariant(variant),
-    useRealAPIs: options.useRealAPIs || false,
-    saveResults: options.saveResults || false,
-    ...options
-  };
-  
-  console.log(`Running test with query: "${testOptions.query}"`);
-  
-  // Capture start time
-  const startTime = Date.now();
-  
-  // Run the test
-  const results = await runTest(testOptions);
-  
-  // Calculate test duration
-  const endTime = Date.now();
-  const duration = endTime - startTime;
-  
-  // Add metrics to results
-  results.metrics = {
-    test: {
-      duration,
-      startTime,
-      endTime
-    },
-    stages: {}
-  };
-  
-  // Add stage metrics if available
-  if (results.stageTiming) {
-    for (const [stage, timing] of Object.entries(results.stageTiming)) {
-      results.metrics.stages[stage] = {
-        duration: timing.end - timing.start,
-        startTime: timing.start,
-        endTime: timing.end
-      };
-    }
-  }
-  
-  // Validate the results
-  const validation = validateResults(results, variant);
-  results.validation = validation;
-  
-  // Save results if requested
-  if (testOptions.saveResults) {
-    await saveTestResults(results, variant);
-  }
-  
-  return results;
-}
-
-/**
- * Select an appropriate test query for the given variant
- * @param {string} variant - Test variant
- * @returns {string} The selected query
- */
-function selectQueryForVariant(variant) {
-  if (!fixtures.queries || fixtures.queries.length === 0) {
-    return "What are the latest advancements in renewable energy storage?";
-  }
-  
-  // If the TEST_QUERY environment variable is set, use that
-  if (process.env.TEST_QUERY) {
-    return process.env.TEST_QUERY;
-  }
-  
-  // Otherwise select a query based on the variant
-  switch (variant) {
-    case 'basic':
-      return fixtures.queries[0] || "What are the latest advancements in renewable energy storage?";
-    case 'performance':
-      return fixtures.queries[1] || "Explain the concept of quantum computing in simple terms";
-    case 'reliability':
-      return fixtures.queries[2] || "What are the economic impacts of AI on employment?";
-    case 'errorHandling':
-      return fixtures.queries[3] || "What are the primary factors affecting climate change?";
-    default:
-      // Select a random query
-      const randomIndex = Math.floor(Math.random() * fixtures.queries.length);
-      return fixtures.queries[randomIndex] || "What are the latest breakthroughs in AI research?";
-  }
-}
-
-/**
- * Validate test results against expected outputs
- * @param {object} results - Test results
- * @param {string} variant - Test variant
- * @returns {object} Validation results
- */
-function validateResults(results, variant) {
-  const validation = {
-    valid: true,
-    errors: [],
-    warnings: []
-  };
-  
-  // Check if test succeeded
-  if (!results.success) {
-    validation.valid = false;
-    validation.errors.push(`Test failed: ${results.error}`);
-    return validation;
-  }
-  
-  // Basic validations for all tests
-  if (!results.researchContent || typeof results.researchContent !== 'string') {
-    validation.valid = false;
-    validation.errors.push('Missing or invalid research content');
-  } else if (results.researchContent.length < 100) {
-    validation.warnings.push('Research content is suspiciously short');
-  }
-  
-  if (!results.chartData || typeof results.chartData !== 'object') {
-    validation.valid = false;
-    validation.errors.push('Missing or invalid chart data');
-  }
-  
-  if (!results.plotlyConfig || typeof results.plotlyConfig !== 'object') {
-    validation.valid = false;
-    validation.errors.push('Missing or invalid Plotly configuration');
-  }
-  
-  // Check sources if available
-  if (!results.sources || !Array.isArray(results.sources) || results.sources.length === 0) {
-    validation.warnings.push('Missing or empty sources');
-  }
-  
-  // Expected responses validation (if available for this variant)
-  const expectedResponse = fixtures.expectedResponses[variant];
-  if (expectedResponse) {
-    // Check for expected content patterns
-    if (expectedResponse.contentPatterns) {
-      for (const pattern of expectedResponse.contentPatterns) {
-        const regex = new RegExp(pattern, 'i');
-        if (!regex.test(results.researchContent)) {
-          validation.warnings.push(`Expected content pattern not found: "${pattern}"`);
-        }
-      }
-    }
-    
-    // Check for chart type match
-    if (expectedResponse.chartType && results.plotlyConfig.data && results.plotlyConfig.data[0]) {
-      const chartType = results.plotlyConfig.data[0].type;
-      if (chartType !== expectedResponse.chartType) {
-        validation.warnings.push(`Chart type mismatch: expected "${expectedResponse.chartType}", got "${chartType}"`);
-      }
-    }
-  }
-  
-  return validation;
-}
-
-/**
- * Save test results to file
- * @param {object} results - Test results
- * @param {string} variant - Test variant
- */
-export async function saveTestResults(results, variant) {
-  try {
-    const timestamp = new Date().toISOString().replace(/[:\.]/g, '-');
-    const resultsFile = path.join(testResultsDir, `${variant}-${timestamp}.json`);
-    
-    await fs.writeFile(
-      resultsFile,
-      JSON.stringify(results, null, 2)
-    );
-    
-    console.log(`Results saved to ${resultsFile}`);
-    return true;
-  } catch (error) {
-    console.error('Error saving test results:', error);
-    return false;
-  }
-}
-
-/**
- * Format validation results for display
- * @param {object} validation - Validation results
- * @returns {string} Formatted results
- */
-export function formatValidationResults(validation) {
-  if (!validation) return 'No validation data available';
-  
-  let output = `Validation ${validation.valid ? 'PASSED' : 'FAILED'}\n`;
-  
-  if (validation.errors.length > 0) {
-    output += '\nErrors:\n';
-    validation.errors.forEach(err => {
-      output += `- ${err}\n`;
-    });
-  }
-  
-  if (validation.warnings.length > 0) {
-    output += '\nWarnings:\n';
-    validation.warnings.forEach(warn => {
-      output += `- ${warn}\n`;
-    });
-  }
-  
-  return output;
-}
-
-/**
- * Validate chart data structure
- * @param {object} chartData - Chart data to validate
- * @returns {object} Validation results
- */
-export function validateChartData(chartData) {
-  const validation = {
-    valid: true,
-    errors: [],
-    warnings: []
-  };
-  
-  if (!chartData) {
-    validation.valid = false;
-    validation.errors.push('Chart data is null or undefined');
-    return validation;
-  }
-  
-  if (typeof chartData !== 'object') {
-    validation.valid = false;
-    validation.errors.push(`Chart data is not an object, got: ${typeof chartData}`);
-    return validation;
-  }
-  
-  // Validate Plotly config structure
-  if (!chartData.data || !Array.isArray(chartData.data)) {
-    validation.valid = false;
-    validation.errors.push('Chart data is missing "data" array property');
-  } else if (chartData.data.length === 0) {
-    validation.warnings.push('Chart data array is empty');
-  } else {
-    // Check the first trace
-    const firstTrace = chartData.data[0];
-    if (!firstTrace.type) {
-      validation.warnings.push('Chart trace is missing "type" property');
-    }
-    
-    // Check for common trace properties based on type
-    if (firstTrace.type === 'bar' || firstTrace.type === 'scatter') {
-      if (!firstTrace.x || !Array.isArray(firstTrace.x)) {
-        validation.warnings.push(`Chart ${firstTrace.type} trace is missing "x" array`);
-      }
-      if (!firstTrace.y || !Array.isArray(firstTrace.y)) {
-        validation.warnings.push(`Chart ${firstTrace.type} trace is missing "y" array`);
-      }
-    } else if (firstTrace.type === 'pie') {
-      if (!firstTrace.values || !Array.isArray(firstTrace.values)) {
-        validation.warnings.push('Chart pie trace is missing "values" array');
-      }
-      if (!firstTrace.labels || !Array.isArray(firstTrace.labels)) {
-        validation.warnings.push('Chart pie trace is missing "labels" array');
-      }
-    }
-  }
-  
-  // Check for layout
-  if (!chartData.layout || typeof chartData.layout !== 'object') {
-    validation.warnings.push('Chart is missing "layout" object');
-  } else {
-    if (!chartData.layout.title) {
-      validation.warnings.push('Chart layout is missing "title"');
-    }
-  }
-  
-  return validation;
-}
-
-/**
- * Setup mocks for time-sensitive functions
+ * Setup time-related mocks to speed up tests
+ * @returns {Function} Function to restore original behavior
  */
 export function setupTimeMocks() {
-  // Mock setTimeout to speed up tests
-  vi.spyOn(global, 'setTimeout').mockImplementation((callback, timeout) => {
-    // Call the callback immediately for tests
+  // Store original implementations
+  const originalSetTimeout = global.setTimeout;
+  const originalSetInterval = global.setInterval;
+  const originalClearTimeout = global.clearTimeout;
+  const originalClearInterval = global.clearInterval;
+  const originalDate = global.Date;
+  
+  // Mock setTimeout to execute immediately
+  global.setTimeout = vi.fn((callback, delay, ...args) => {
     if (typeof callback === 'function') {
-      callback();
+      callback(...args);
     }
-    return 999; // Return a fake timer ID
+    return Math.floor(Math.random() * 1000000);
   });
   
-  // Restore the mock after tests
+  // Mock setInterval to execute once immediately
+  global.setInterval = vi.fn((callback, delay, ...args) => {
+    if (typeof callback === 'function') {
+      callback(...args);
+    }
+    return Math.floor(Math.random() * 1000000);
+  });
+  
+  // Mock clearTimeout and clearInterval as no-ops
+  global.clearTimeout = vi.fn();
+  global.clearInterval = vi.fn();
+  
+  // Function to restore original implementations
   return () => {
-    vi.restoreAllMocks();
+    global.setTimeout = originalSetTimeout;
+    global.setInterval = originalSetInterval;
+    global.clearTimeout = originalClearTimeout;
+    global.clearInterval = originalClearInterval;
+    global.Date = originalDate;
   };
+}
+
+/**
+ * Create promise that can be resolved/rejected externally
+ * @returns {Object} Object with promise, resolve, and reject functions
+ */
+export function createResolvablePromise() {
+  let resolve, reject;
+  const promise = new Promise((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  
+  return { promise, resolve, reject };
+}
+
+/**
+ * Wait for a specific number of milliseconds
+ * @param {number} ms - Milliseconds to wait
+ * @returns {Promise<void>} Promise that resolves after the delay
+ */
+export function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Create a mock function that returns a promise that resolves after a delay
+ * @param {any} returnValue - The value to return
+ * @param {number} delayMs - Delay before resolving in milliseconds
+ * @returns {Function} Mock function
+ */
+export function createDelayedMock(returnValue, delayMs = 100) {
+  return vi.fn().mockImplementation(() => {
+    return new Promise(resolve => {
+      setTimeout(() => resolve(returnValue), delayMs);
+    });
+  });
+}
+
+/**
+ * Create a mock function that fails a specified number of times before succeeding
+ * @param {any} successValue - The value to return on success
+ * @param {number} failureTimes - Number of times to fail
+ * @param {Error} error - Error to throw on failure
+ * @returns {Function} Mock function
+ */
+export function createRetryableMock(successValue, failureTimes = 2, error = new Error('Mock failure')) {
+  let attempts = 0;
+  
+  return vi.fn().mockImplementation(() => {
+    return new Promise((resolve, reject) => {
+      attempts++;
+      
+      if (attempts <= failureTimes) {
+        reject(error);
+      } else {
+        resolve(successValue);
+      }
+    });
+  });
+}
+
+/**
+ * Create a mock that alternates between success and failure
+ * @param {any} successValue - The value to return on success
+ * @param {Error} error - Error to throw on failure
+ * @returns {Function} Mock function
+ */
+export function createAlternatingMock(successValue, error = new Error('Mock failure')) {
+  let callCount = 0;
+  
+  return vi.fn().mockImplementation(() => {
+    return new Promise((resolve, reject) => {
+      callCount++;
+      
+      if (callCount % 2 === 0) {
+        resolve(successValue);
+      } else {
+        reject(error);
+      }
+    });
+  });
+}
+
+/**
+ * Create a mock function that times out after a specified delay
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @returns {Function} Mock function
+ */
+export function createTimeoutMock(timeoutMs = 1000) {
+  return vi.fn().mockImplementation(() => {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Operation timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+  });
+}
+
+/**
+ * Wait for a condition to be true
+ * @param {Function} conditionFn - Function that returns a boolean
+ * @param {object} options - Options
+ * @param {number} options.timeout - Maximum time to wait in milliseconds
+ * @param {number} options.interval - Interval between checks in milliseconds
+ * @returns {Promise<void>} Promise that resolves when condition is true
+ */
+export async function waitForCondition(conditionFn, options = {}) {
+  const { timeout = 5000, interval = 100 } = options;
+  const startTime = Date.now();
+  
+  while (Date.now() - startTime < timeout) {
+    if (await conditionFn()) {
+      return;
+    }
+    await wait(interval);
+  }
+  
+  throw new Error(`Condition not met within ${timeout}ms timeout`);
 }

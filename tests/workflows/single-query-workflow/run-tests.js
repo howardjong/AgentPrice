@@ -68,6 +68,23 @@ if (options.testFile === 'list') {
 // Set environment variable for real API tests
 if (options.useRealAPIs) {
   process.env.ENABLE_LIVE_API_TESTS = 'true';
+  
+  // Check if API credentials are available before running real API tests
+  try {
+    const { checkApiCredentials } = await import('./check-api-credentials.js');
+    const credentialsReady = await checkApiCredentials();
+    
+    if (!credentialsReady) {
+      console.error('\nError: Cannot run real API tests without proper credentials.');
+      console.error('Please configure the required API keys and try again.');
+      process.exit(1);
+    }
+    
+    console.log('\nAPI credentials verified. Proceeding with real API tests...\n');
+  } catch (error) {
+    console.error('Error checking API credentials:', error.message);
+    process.exit(1);
+  }
 }
 
 // Build vitest command

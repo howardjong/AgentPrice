@@ -44,18 +44,36 @@ export interface IStorage {
 /**
  * Factory function to create a storage instance based on environment configuration
  */
-export function createStorage(type: string = 'memory'): IStorage {
+export async function createStorage(type: string = 'memory'): Promise<IStorage> {
   if (type === 'postgres') {
     // Dynamic import to avoid circular dependencies
-    const { PostgresStorage } = require('./pg-storage');
-    const { db } = require('./db');
-    return new PostgresStorage(db);
+    const pgStorageModule = await import('./pg-storage.js');
+    const dbModule = await import('./db.js');
+    return new pgStorageModule.PostgresStorage(dbModule.db);
   } else {
     // Default to memory storage
-    const { MemoryStorage } = require('./memory-storage');
-    return new MemoryStorage();
+    const memoryModule = await import('./memory-storage.js');
+    return new memoryModule.MemoryStorage();
   }
 }
 
-// Default storage instance
-export const storage = createStorage(process.env.STORAGE_TYPE);
+// Create a temporary memory storage instance
+// This will be replaced with the proper instance once initialized
+import { MemoryStorage } from './memory-storage.js';
+export const storage = new MemoryStorage();
+
+// Initialize the proper storage asynchronously
+(async () => {
+  try {
+    const properStorage = await createStorage(process.env.STORAGE_TYPE);
+    // Replace all methods in the storage instance with the proper ones
+    Object.getOwnPropertyNames(Object.getPrototypeOf(properStorage))
+      .filter(prop => typeof properStorage[prop] === 'function' && prop !== 'constructor')
+      .forEach(method => {
+        storage[method] = properStorage[method].bind(properStorage);
+      });
+    console.log(`Storage initialized with type: ${process.env.STORAGE_TYPE || 'memory'}`);
+  } catch (error) {
+    console.error('Failed to initialize storage:', error);
+  }
+})();

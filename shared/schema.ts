@@ -158,3 +158,31 @@ export const insertResearchReportSchema = createInsertSchema(researchReports).om
 });
 export type InsertResearchReport = z.infer<typeof insertResearchReportSchema>;
 export type ResearchReport = typeof researchReports.$inferSelect;
+
+// ================== Custom API Schemas ==================
+
+// Chat message schema for API validation
+export const chatMessageSchema = z.object({
+  message: z.string().min(1),
+  conversationId: z.string().optional(),
+  service: z.enum(['claude', 'perplexity']).optional().default('claude')
+});
+
+// Visualization request schema
+export const visualizeSchema = z.object({
+  data: z.any(),
+  type: z.string(),
+  title: z.string().optional(),
+  description: z.string().optional()
+});
+
+// Deep research request schema
+export const deepResearchSchema = z.object({
+  query: z.string().min(1),
+  userId: z.string().optional(),
+  options: z.object({
+    maxDepth: z.number().optional(),
+    includeSources: z.boolean().optional(),
+    model: z.string().optional()
+  }).optional()
+});

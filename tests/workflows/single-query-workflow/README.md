@@ -1,144 +1,202 @@
-# Single Query Workflow Test Suite
+# Single Query Workflow Test Framework
 
-This directory contains a comprehensive test suite for the single-query workflow, which is a core component of the multi-LLM research system.
+A comprehensive testing framework for validating the multi-LLM research system's single-query workflow functionality. This framework provides both mock-based tests for CI/CD and real API tests for validation.
 
 ## Overview
 
-The single-query workflow consists of several stages:
+The single-query workflow consists of four major steps:
 
-1. **Query Clarification** (Claude): Refines the user query for better search results
-2. **Deep Research** (Perplexity): Performs in-depth research on the clarified query
-3. **Data Extraction** (Claude): Extracts structured data from the research results
-4. **Chart Generation** (Claude): Creates visualizations based on the extracted data
+1. **Query Clarification** (Claude): Refines user queries to make them more specific and searchable
+2. **Deep Research** (Perplexity): Performs comprehensive internet research on the clarified query
+3. **Data Extraction** (Claude): Analyzes research content to extract structured data for visualization
+4. **Chart Generation** (Claude): Creates Plotly chart configurations based on the extracted data
 
-This test suite validates the entire workflow end-to-end, as well as individual components.
+## Getting Started
 
-## Test Organization
+### Prerequisites
 
-The test suite is organized into:
+- Node.js 16+ and npm
+- Access to Anthropic Claude and Perplexity APIs (for real API tests)
+- API keys configured in Replit Secrets or .env file
 
-- **Test Variants**: Different test configurations (basic, performance, reliability, error-handling)
-- **Mock Services**: Simulated versions of the AI services (Claude, Perplexity)
-- **Fixtures**: Sample data for testing (queries, expected responses)
-- **Utilities**: Helper functions for running and validating tests
+### Installation
+
+Clone the repository and install dependencies:
+
+```bash
+# Install dependencies
+npm install
+```
 
 ## Running Tests
 
-### Using the Test Runner
+### Basic Mock-Based Tests
 
-The easiest way to run tests is with the provided test runner script:
+Run tests with mock services (default):
 
 ```bash
-node tests/workflows/single-query-workflow/run-tests.js [options]
-```
+# Run all tests with default mocks
+node tests/workflows/single-query-workflow/run-tests.js
 
-Options:
-- `--variant=NAME`: Test variant to run (basic, performance, reliability, errorHandling)
-- `--use-real-apis`: Use real APIs instead of mocks (requires API keys)
-- `--query="..."`: Custom query to test
-- `--test-file=FILE`: Specific test file to run
-- `--save-results`: Save test results to file
-
-Examples:
-```bash
-# Run basic test with mock services
+# Run specific test variant
 node tests/workflows/single-query-workflow/run-tests.js --variant=basic
+```
 
-# Run performance test with a custom query
-node tests/workflows/single-query-workflow/run-tests.js --variant=performance --query="What are the latest advances in fusion energy?"
+Available test variants:
+- `basic`: Core functionality test
+- `performance`: Measures execution time of each stage
+- `reliability`: Tests fault tolerance and recovery
+- `error-handling`: Verifies proper error handling
 
-# List available test variants
-node tests/workflows/single-query-workflow/run-tests.js --variant=list
+### Real API Tests
 
-# Run with real APIs (needs API keys in environment)
+To run tests with real APIs (requires API keys):
+
+```bash
+# Run with real APIs
 node tests/workflows/single-query-workflow/run-tests.js --use-real-apis
+
+# Specific variant with real APIs
+node tests/workflows/single-query-workflow/run-tests.js --variant=basic --use-real-apis
 ```
 
-### Using the Manual Test Script
+⚠️ **Important**: Real API tests will consume API credits and are subject to rate limits. Use them sparingly.
 
-For more detailed output, use the manual test script:
+### Custom Query Tests
+
+Test with a specific query:
 
 ```bash
-node tests/manual/test-single-query-workflow.js [variant] [options]
+node tests/workflows/single-query-workflow/run-tests.js --query="What are the environmental impacts of cryptocurrency mining?"
 ```
 
-Examples:
-```bash
-# Run basic test
-node tests/manual/test-single-query-workflow.js basic
+### Saving Test Results
 
-# Run reliability test with custom query
-node tests/manual/test-single-query-workflow.js reliability --query="How do neural networks work?"
-```
-
-### Using Vitest
-
-To run the tests with Vitest:
+To save test results to a file:
 
 ```bash
-# Run all tests
-npx vitest run tests/workflows/single-query-workflow/test-suite.js
-
-# Run specific test file
-npx vitest run tests/workflows/single-query-workflow/tests/basic.test.js
+node tests/workflows/single-query-workflow/run-tests.js --save-results
 ```
+
+Results will be saved to `test-results/single-query-workflow/` directory.
+
+## Test Architecture
+
+### Key Components
+
+1. **test-runner.js**: Core test execution engine
+2. **mock-services.js**: Mock implementations of Claude and Perplexity APIs
+3. **check-api-credentials.js**: Utility to verify API key availability
+4. **test-suite.js**: Collection of all tests
+5. **run-tests.js**: Command-line interface for running tests
+
+### Real API Integration
+
+For real API tests, the framework:
+
+1. Verifies API keys are available in environment
+2. Extends timeouts to accommodate API latency
+3. Implements proper error handling and retries
+4. Uses polling for Perplexity deep research
+
+### Socket Testing
+
+For testing Socket.IO integrations:
+
+1. Provides utilities for waiting for socket events
+2. Simulates connection/disconnection scenarios
+3. Validates event payloads against schemas
+4. Tests reconnection behavior
 
 ## Test Variants
 
 ### Basic Tests
 
-Basic end-to-end tests that verify the workflow functions correctly.
+Verify core functionality with simple queries and typical content:
+
+```javascript
+test('should complete the entire workflow with expected content', async () => {
+  const results = await runTest({ variant: 'basic' });
+  expect(results.success).toBe(true);
+  expect(results.clarifiedQuery).toBeDefined();
+  expect(results.researchContent).toBeDefined();
+  expect(results.extractedData).toBeDefined();
+  expect(results.plotlyConfig).toBeDefined();
+});
+```
 
 ### Performance Tests
 
-Tests focusing on performance metrics and response times. Runs multiple iterations and calculates statistics.
+Measure execution time of each workflow stage:
+
+```javascript
+test('should complete all stages within acceptable time limits', async () => {
+  const results = await runTest({ variant: 'performance' });
+  
+  expect(results.stageTiming.clarification.end - results.stageTiming.clarification.start).toBeLessThan(MAX_CLARIFICATION_TIME);
+  expect(results.stageTiming.research.end - results.stageTiming.research.start).toBeLessThan(MAX_RESEARCH_TIME);
+  // Additional timing checks...
+});
+```
 
 ### Reliability Tests
 
-Tests the workflow across different types of queries (factual, analytical, numeric, technical) to ensure consistent results.
+Test fault tolerance and recovery:
+
+```javascript
+test('should handle temporary service unavailability', async () => {
+  // Setup service with intermittent failures
+  mockServiceWithFailures();
+  
+  // Run test
+  const results = await runTest({ variant: 'reliability' });
+  
+  // Expect successful completion despite failures
+  expect(results.success).toBe(true);
+  expect(results.retryAttempts).toBeGreaterThan(0);
+});
+```
 
 ### Error Handling Tests
 
-Tests the system's response to various error conditions and validates fallback mechanisms.
+Verify proper error handling:
 
-## Mock Services
+```javascript
+test('should handle invalid API responses', async () => {
+  // Setup mock to return invalid data
+  mockInvalidResponses();
+  
+  // Run test (should still complete with fallbacks)
+  const results = await runTest({ variant: 'error-handling' });
+  
+  // Check that errors were handled
+  expect(results.success).toBe(true);
+  expect(results.fallback).toBeDefined();
+});
+```
 
-The test suite includes mock implementations of:
+## Environment Configuration
 
-- **Claude Service**: For query clarification, data extraction, and chart generation
-- **Perplexity Service**: For deep research with the Perplexity API
+Configure test behavior with environment variables:
 
-These mocks simulate the behavior of the real services without external dependencies, making tests reproducible and fast.
+- `ENABLE_LIVE_API_TESTS`: Set to 'true' to enable real API tests
+- `TEST_VARIANT`: Default test variant to run
+- `TEST_QUERY`: Custom query to use
+- `SAVE_TEST_RESULTS`: Set to 'true' to save results
 
-## Using Real APIs
+## Additional Documentation
 
-To test with real APIs:
+- [API Integration Guide](API_INTEGRATION.md): Details on integrating with real APIs
+- [Socket Testing Guide](SOCKET_TESTING.md): Best practices for testing Socket.IO
+- [Test Fixtures](fixtures/README.md): Description of test data and fixtures
 
-1. Ensure API keys are set in the environment:
-   - `ANTHROPIC_API_KEY` for Claude
-   - `PERPLEXITY_API_KEY` for Perplexity
+## Contributing
 
-2. Run tests with the `--use-real-apis` flag:
-   ```bash
-   node tests/workflows/single-query-workflow/run-tests.js --use-real-apis
-   ```
+1. Ensure all tests pass with `npm test`
+2. Add tests for new features
+3. Maintain high code coverage (target: >80%)
+4. Document API changes
 
-Note: Real API tests are rate-limited and may take longer to run.
+## License
 
-## Adding New Tests
-
-To add a new test:
-
-1. Create a new test file in the `tests/` directory
-2. Import the test utilities from `test-utils.js`
-3. Use the `runAndValidateTest` function to execute the workflow
-4. Add assertions to validate the results
-
-## Test Results
-
-Test results are saved in the `test-results/single-query-workflow/` directory by default. Each result file contains:
-
-- Query information
-- Full workflow results
-- Timing data for each stage
-- Validation results
+This project is licensed under the MIT License.

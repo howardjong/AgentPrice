@@ -1,10 +1,72 @@
 [
-  "What are the latest advancements in renewable energy storage?",
-  "Explain the concept of quantum computing in simple terms",
-  "What are the economic impacts of AI on employment?",
-  "What are the primary factors affecting climate change?",
-  "Compare the performance of leading cloud providers AWS, Azure, and GCP",
-  "What is the current state of fusion energy research?",
-  "How have smartphone designs evolved over the past decade?",
-  "What are the main challenges in developing autonomous vehicles?"
+  {
+    "id": "climate-change",
+    "text": "What are the latest developments in climate change research?",
+    "category": "science",
+    "complexity": 3,
+    "expectedTopics": ["temperature trends", "emissions data", "policy impacts"]
+  },
+  {
+    "id": "quantum-computing",
+    "text": "What are the latest advancements in quantum computing?",
+    "category": "technology",
+    "complexity": 4,
+    "expectedTopics": ["quantum supremacy", "error correction", "practical applications"]
+  },
+  {
+    "id": "renewable-energy",
+    "text": "What are global renewable energy adoption rates?",
+    "category": "energy",
+    "complexity": 3,
+    "expectedTopics": ["solar", "wind", "hydroelectric", "geothermal"]
+  },
+  {
+    "id": "ai-ethics",
+    "text": "What are the ethical concerns with artificial intelligence development?",
+    "category": "ethics",
+    "complexity": 4,
+    "expectedTopics": ["bias", "privacy", "job displacement", "regulation"]
+  },
+  {
+    "id": "cryptocurrency",
+    "text": "How are cryptocurrencies impacting traditional financial systems?",
+    "category": "finance",
+    "complexity": 3,
+    "expectedTopics": ["banking", "regulation", "adoption", "central bank digital currencies"]
+  },
+  {
+    "id": "remote-work",
+    "text": "What are the long-term impacts of remote work on productivity and wellbeing?",
+    "category": "business",
+    "complexity": 3,
+    "expectedTopics": ["productivity metrics", "mental health", "collaboration", "office space"]
+  },
+  {
+    "id": "electric-vehicles",
+    "text": "What is the current state of electric vehicle adoption worldwide?",
+    "category": "transportation",
+    "complexity": 2,
+    "expectedTopics": ["market share", "charging infrastructure", "battery technology", "government incentives"]
+  },
+  {
+    "id": "gene-editing",
+    "text": "What are the recent breakthroughs in CRISPR gene editing technology?",
+    "category": "biotechnology",
+    "complexity": 5,
+    "expectedTopics": ["clinical trials", "ethical considerations", "disease treatment", "technical improvements"]
+  },
+  {
+    "id": "space-exploration",
+    "text": "What are the major upcoming space exploration missions?",
+    "category": "astronomy",
+    "complexity": 2,
+    "expectedTopics": ["mars missions", "lunar exploration", "private companies", "deep space"]
+  },
+  {
+    "id": "mental-health",
+    "text": "How is technology being used to address mental health challenges?",
+    "category": "health",
+    "complexity": 3,
+    "expectedTopics": ["apps", "teletherapy", "AI diagnostics", "access improvements"]
+  }
 ]

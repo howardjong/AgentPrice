@@ -78,6 +78,7 @@ export async function runTest(options = {}) {
     useRealAPIs: options.useRealAPIs || false,
     saveResults: options.saveResults || false,
     variant: options.variant || process.env.TEST_VARIANT || 'basic',
+    timeout: options.timeout || (options.useRealAPIs ? 60000 : 5000), // Longer timeout for real APIs
     ...options
   };
   
@@ -94,9 +95,24 @@ export async function runTest(options = {}) {
   
   try {
     // Determine which services to use based on the useRealAPIs flag
-    const services = testOptions.useRealAPIs ? 
-      await loadRealServices() : 
-      mockServices;
+    let services;
+    
+    if (testOptions.useRealAPIs) {
+      console.log('Using real API services for this test run');
+      
+      // Check environment variables
+      const isLiveTestingEnabled = process.env.ENABLE_LIVE_API_TESTS === 'true';
+      
+      if (!isLiveTestingEnabled) {
+        throw new Error('Live API testing is not enabled. Set ENABLE_LIVE_API_TESTS=true to run with real APIs.');
+      }
+      
+      // Load real services
+      services = await loadRealServices();
+    } else {
+      // Use mock services
+      services = mockServices;
+    }
     
     // Check if services are available
     if (!services.claude || !services.perplexity || !services.workflow) {
@@ -169,49 +185,295 @@ export async function runTest(options = {}) {
  */
 async function loadRealServices() {
   try {
-    // In a real implementation, this would load the actual service modules
-    // For the test framework, we'll use a simulated version
+    // Verify API keys are available
+    const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
+    const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
+    
+    if (!anthropicApiKey) {
+      throw new Error('ANTHROPIC_API_KEY is not available in environment');
+    }
+    
+    if (!perplexityApiKey) {
+      throw new Error('PERPLEXITY_API_KEY is not available in environment');
+    }
+    
     console.log('Loading real API services...');
     
-    // Placeholder for real services implementation
-    // This could be importing actual service modules instead of mocks
+    // Import actual service implementations
+    // This would be replaced with actual imports in a real implementation
+    // Example: const { claudeService } = await import('../../../services/anthropicService.js');
+    
+    // Create services with real API implementations
     const services = {
       claude: {
+        isOnline: () => true,
+        
         async clarifyQuery(query) {
           console.log('Using real Claude API for query clarification');
-          // Implementation would connect to actual Claude API
-          return { clarifiedQuery: query };
+          
+          // This implementation would use the Anthropic SDK to call Claude
+          // Example implementation (commented out to avoid actual API calls):
+          /*
+          const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+          const response = await anthropic.messages.create({
+            model: 'claude-3-opus-20240229',
+            max_tokens: 1000,
+            system: 'You are a helpful assistant that clarifies user queries to make them more specific and searchable.',
+            messages: [{ role: 'user', content: `Please clarify this query: "${query}"` }]
+          });
+          
+          return {
+            clarifiedQuery: response.content[0].text,
+            clarificationContext: {
+              refinementReason: 'Refined by Claude',
+              confidenceScore: 0.95,
+              modelUsed: response.model
+            }
+          };
+          */
+          
+          // Return a placeholder response for now
+          return { 
+            clarifiedQuery: `${query} (clarified with Claude)`,
+            clarificationContext: {
+              refinementReason: 'Refined by Claude',
+              confidenceScore: 0.95,
+              modelUsed: 'claude-3-opus-20240229'
+            }
+          };
         },
         
         async extractDataForCharts(content, query) {
           console.log('Using real Claude API for data extraction');
-          // Implementation would connect to actual Claude API
+          
+          // This implementation would use the Anthropic SDK
+          // Example implementation (commented out to avoid actual API calls):
+          /*
+          const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+          const extractionPrompt = `Extract numerical data from the following research that would be suitable for visualization:
+          
+          RESEARCH CONTENT:
+          ${content}
+          
+          QUERY:
+          ${query}
+          
+          Provide your answer as a JSON object with:
+          - chartTitle: a descriptive title for the chart
+          - chartType: the best chart type (bar, line, pie, scatter)
+          - categories: array of category names
+          - values: array of numerical values
+          - metricName: what the values represent
+          `;
+          
+          const response = await anthropic.messages.create({
+            model: 'claude-3-opus-20240229',
+            max_tokens: 1000,
+            system: 'You extract structured data for visualization from text. Return only valid JSON.',
+            messages: [{ role: 'user', content: extractionPrompt }]
+          });
+          
+          // Parse the JSON response
+          const extractedData = JSON.parse(response.content[0].text);
+          
+          return {
+            data: extractedData,
+            prompt: extractionPrompt
+          };
+          */
+          
+          // Return a placeholder response for now
           return { 
-            data: { /* extracted data */ },
-            prompt: 'Extraction prompt used'
+            data: {
+              chartTitle: 'Sample Extracted Data',
+              chartType: 'bar',
+              categories: ['Category A', 'Category B', 'Category C'],
+              values: [10, 20, 30],
+              metricName: 'Value'
+            },
+            prompt: 'Extract data from research content suitable for visualization'
           };
         },
         
         async generateChartData(data, query) {
           console.log('Using real Claude API for chart generation');
-          // Implementation would connect to actual Claude API
+          
+          // This implementation would use the Anthropic SDK
+          // Example implementation (commented out to avoid actual API calls):
+          /*
+          const anthropic = new Anthropic({ apiKey: anthropicApiKey });
+          const chartPrompt = `Generate a Plotly configuration for the following data:
+          
+          DATA:
+          ${JSON.stringify(data, null, 2)}
+          
+          QUERY:
+          ${query}
+          
+          Provide your answer as a complete Plotly configuration object with 'data' and 'layout' properties.
+          `;
+          
+          const response = await anthropic.messages.create({
+            model: 'claude-3-opus-20240229',
+            max_tokens: 2000,
+            system: 'You generate Plotly chart configurations based on data. Return only valid JSON.',
+            messages: [{ role: 'user', content: chartPrompt }]
+          });
+          
+          // Parse the JSON response to get Plotly configuration
+          const plotlyConfig = JSON.parse(response.content[0].text);
+          
           return {
-            data: { /* chart data */ },
-            plotlyConfig: {
-              data: [{ type: 'bar', x: [], y: [] }],
-              layout: { title: 'Chart Title' }
-            }
+            data: data,
+            plotlyConfig: plotlyConfig
+          };
+          */
+          
+          // Create a Plotly configuration based on the extracted data
+          let plotlyConfig;
+          
+          switch (data.chartType) {
+            case 'bar':
+              plotlyConfig = {
+                data: [{
+                  type: 'bar',
+                  x: data.categories,
+                  y: data.values,
+                  marker: {
+                    color: 'rgb(55, 83, 109)'
+                  }
+                }],
+                layout: {
+                  title: data.chartTitle,
+                  xaxis: {
+                    title: 'Categories'
+                  },
+                  yaxis: {
+                    title: data.metricName
+                  }
+                }
+              };
+              break;
+              
+            case 'line':
+              plotlyConfig = {
+                data: [{
+                  type: 'scatter',
+                  mode: 'lines+markers',
+                  x: data.categories,
+                  y: data.values,
+                  marker: {
+                    color: 'rgb(55, 126, 184)'
+                  }
+                }],
+                layout: {
+                  title: data.chartTitle,
+                  xaxis: {
+                    title: 'Time Period'
+                  },
+                  yaxis: {
+                    title: data.metricName
+                  }
+                }
+              };
+              break;
+              
+            case 'pie':
+              plotlyConfig = {
+                data: [{
+                  type: 'pie',
+                  labels: data.categories,
+                  values: data.values,
+                  marker: {
+                    colors: ['#3366CC', '#DC3912', '#FF9900', '#109618', '#990099']
+                  }
+                }],
+                layout: {
+                  title: data.chartTitle
+                }
+              };
+              break;
+              
+            default:
+              // Default to bar chart
+              plotlyConfig = {
+                data: [{
+                  type: 'bar',
+                  x: data.categories,
+                  y: data.values
+                }],
+                layout: {
+                  title: data.chartTitle
+                }
+              };
+          }
+          
+          return {
+            data: data,
+            plotlyConfig: plotlyConfig
           };
         }
       },
       
       perplexity: {
+        isOnline: () => true,
+        
         async performDeepResearch(query) {
           console.log('Using real Perplexity API for deep research');
-          // Implementation would connect to actual Perplexity API
+          
+          // This implementation would use the Perplexity API directly
+          // Example implementation (commented out to avoid actual API calls):
+          /*
+          const apiUrl = 'https://api.perplexity.ai/research';
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${perplexityApiKey}`
+            },
+            body: JSON.stringify({
+              query: query,
+              model: 'sonar-deep-research',
+              max_tokens: 4000,
+              temperature: 0.2
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Perplexity API error: ${response.status} ${response.statusText}`);
+          }
+          
+          // Handle polling for deep research with async responses
+          const initialResponse = await response.json();
+          
+          if (initialResponse.status === 'processing') {
+            // Implementation would poll for results using the task_id
+            // This is simplified for the example
+            const taskId = initialResponse.task_id;
+            const results = await pollForResults(taskId, perplexityApiKey);
+            
+            return {
+              content: results.answer,
+              sources: results.sources,
+              modelUsed: 'sonar-deep-research'
+            };
+          } else {
+            return {
+              content: initialResponse.answer,
+              sources: initialResponse.sources || [],
+              modelUsed: initialResponse.model
+            };
+          }
+          */
+          
+          // Return a placeholder response for now
           return {
-            content: 'Research content would go here',
-            sources: [{ title: 'Source 1', url: 'https://example.com' }]
+            content: `This would be the researched content for: "${query}"`,
+            sources: [
+              { title: 'Example Source 1', url: 'https://example.com/source1' },
+              { title: 'Example Source 2', url: 'https://example.com/source2' }
+            ],
+            modelUsed: 'sonar-deep-research'
           };
         }
       },

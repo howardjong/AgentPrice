@@ -46,6 +46,22 @@ export const env = {
   // Authentication (for future implementation)
   JWT_SECRET: process.env.JWT_SECRET || 'dev_secret_not_for_production',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
+  
+  // API Keys
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
+  PERPLEXITY_API_KEY: process.env.PERPLEXITY_API_KEY || '',
 };
+
+/**
+ * Check if required API keys are available
+ * This function doesn't make API calls, just checks if keys are present
+ */
+export function checkApiKeys() {
+  return {
+    anthropicAvailable: !!env.ANTHROPIC_API_KEY,
+    perplexityAvailable: !!env.PERPLEXITY_API_KEY,
+    allKeysAvailable: !!env.ANTHROPIC_API_KEY && !!env.PERPLEXITY_API_KEY
+  };
+}
 
 export default env;
