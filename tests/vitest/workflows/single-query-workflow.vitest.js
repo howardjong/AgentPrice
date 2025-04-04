@@ -13,8 +13,159 @@ import fs from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
+import TestCircuitBreaker from '../../utils/test-circuit-breaker.js';
 
-// Import services to test
+// Mock CircuitBreaker for all tests (must be before service imports)
+vi.mock('../../../utils/circuitBreaker.js', () => {
+  return {
+    default: TestCircuitBreaker
+  };
+});
+
+// Hardcoded default mock data for initial test setup
+// This will be updated with actual MOCK_DATA values once that constant is loaded
+const DEFAULT_MOCK_DATA = {
+  optimizedQueryResponse: {
+    response: "Mock research prompt for testing"
+  }
+};
+
+// Create mock response objects for Claude API
+// This helper function creates properly formatted test responses
+const createClaudeResponse = (content) => {
+  // First create the raw Anthropic API response format that claudeService expects
+  const anthropicResponse = {
+    id: uuidv4(),
+    type: 'message',
+    role: 'assistant',
+    content: [
+      {
+        type: 'text',
+        text: typeof content === 'string' ? content : JSON.stringify(content)
+      }
+    ],
+    model: 'claude-3-7-sonnet-20250219',
+    usage: {
+      input_tokens: 500,
+      output_tokens: 800,
+      total_tokens: 1300
+    }
+  };
+  
+  // Then return the format expected by the service's response handlers
+  return {
+    content: anthropicResponse.content[0]?.text || '',
+    usage: anthropicResponse.usage,
+    model: anthropicResponse.model,
+    requestId: uuidv4(),
+    response: content // For backwards compatibility with some test cases
+  };
+};
+
+// Mock Claude Service (must be before importing)
+vi.mock('../../../services/claudeService.js', () => {
+  return {
+    default: {
+      processText: vi.fn().mockImplementation((prompt, options) => {
+        return Promise.resolve(createClaudeResponse("Mock response text"));
+      }),
+      
+      processConversation: vi.fn().mockImplementation((messages, options) => {
+        return Promise.resolve(createClaudeResponse(DEFAULT_MOCK_DATA.optimizedQueryResponse.response));
+      }),
+      
+      generateClarifyingQuestions: vi.fn().mockImplementation(() => {
+        // Return hardcoded test questions initially
+        // Will be overridden in the test setup
+        return Promise.resolve([
+          "What specific industry or market segment are you in?",
+          "What price range are you considering?",
+          "Who is your target customer demographic?", 
+          "Who are your main competitors?",
+          "What is your timeline for implementation?"
+        ]);
+      }),
+      
+      generateChartData: vi.fn().mockImplementation((content, chartType) => {
+        // Basic mock data for chart types
+        const mockData = {
+          data: { 
+            x_values: [1, 2, 3],
+            too_cheap: [0.1, 0.2, 0.3],
+            competitors: ["A", "B", "C"],
+            prices: [10, 20, 30],
+            attributes: ["X", "Y", "Z"],
+            importance: [0.5, 0.3, 0.2]
+          },
+          insights: ["Test insight 1", "Test insight 2"],
+          chart_config: {
+            title: "Test Chart"
+          }
+        };
+        return Promise.resolve(mockData);
+      }),
+      
+      getHealthStatus: vi.fn().mockReturnValue({
+        service: 'claude',
+        status: 'available',
+        circuitBreakerStatus: 'CLOSED',
+        defaultModel: 'mock-model'
+      })
+    }
+  };
+});
+
+// Mock Perplexity Service (must be before importing)
+vi.mock('../../../services/perplexityService.js', () => {
+  return {
+    default: {
+      processWebQuery: vi.fn().mockImplementation((query, options) => {
+        return Promise.resolve({
+          content: "Mock Perplexity web query response",
+          modelUsed: "llama-3.1-sonar-large-128k-online",
+          sources: [
+            {
+              title: "Test Source", 
+              url: "https://example.com/test",
+              snippet: "This is a mock source"
+            }
+          ]
+        });
+      }),
+      
+      processConversation: vi.fn().mockImplementation((messages, options) => {
+        return Promise.resolve({
+          content: "Mock Perplexity conversation response",
+          modelUsed: "llama-3.1-sonar-large-128k-online"
+        });
+      }),
+      
+      performDeepResearch: vi.fn().mockImplementation((query, options) => {
+        // Will be overridden in test setup with MOCK_DATA.perplexityResults
+        return Promise.resolve({
+          content: "Mock deep research response",
+          modelUsed: "llama-3.1-sonar-large-128k-online",
+          sources: [
+            {
+              title: "Test Source", 
+              url: "https://example.com/test",
+              snippet: "This is a mock source"
+            }
+          ]
+        });
+      }),
+      
+      getHealthStatus: vi.fn().mockReturnValue({
+        service: 'perplexity',
+        status: 'available',
+        circuitBreakerStatus: 'CLOSED',
+        defaultModel: 'llama-3.1-sonar-large-128k-online'
+      })
+    }
+  };
+});
+
+// Import services to test (these are now mocked)
 import claudeService from '../../../services/claudeService.js';
 import perplexityService from '../../../services/perplexityService.js';
 import logger from '../../../utils/logger.js';
@@ -310,22 +461,25 @@ describe('Single Query Workflow', () => {
       console.error(`Error creating output directory: ${error.message}`);
     }
     
+    // CircuitBreaker is already mocked at the top of the file
+    
     // Setup mocks if not using live APIs
     if (!USE_LIVE_APIS) {
-      // Mock Claude Service
-      // Mock the generateClarifyingQuestions function directly
-      vi.spyOn(claudeService, 'generateClarifyingQuestions').mockResolvedValue(MOCK_DATA.clarifyingQuestions);
+      // No need to create mock objects here, as they're already defined at the top of the file
+      // Set specific mock values based on our MOCK_DATA
+      // These operations update the mock implementation we defined earlier
+      claudeService.generateClarifyingQuestions.mockResolvedValue(MOCK_DATA.clarifyingQuestions);
       
-      // Mock the generateChartData function directly 
-      vi.spyOn(claudeService, 'generateChartData').mockImplementation((content, chartType) => {
+      claudeService.processConversation.mockImplementation((messages, options) => {
+        return Promise.resolve(createClaudeResponse(MOCK_DATA.optimizedQueryResponse.response));
+      });
+      
+      claudeService.generateChartData.mockImplementation((content, chartType) => {
         return Promise.resolve(MOCK_DATA.chartData[chartType] || MOCK_DATA.chartData.basic_bar);
       });
       
-      // Use processConversation for the optimized query generation
-      vi.spyOn(claudeService, 'processConversation').mockResolvedValue(MOCK_DATA.optimizedQueryResponse);
-      
-      // Mock Perplexity Service
-      vi.spyOn(perplexityService, 'performDeepResearch').mockResolvedValue(MOCK_DATA.perplexityResults);
+      // Update the Perplexity Service mock that we've already defined
+      perplexityService.performDeepResearch.mockResolvedValue(MOCK_DATA.perplexityResults);
       
       // Log the mock setup
       console.log('📢 Using mocked API calls for all external services');
