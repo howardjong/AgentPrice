@@ -17,8 +17,8 @@
  *   --log-level=LEVEL  Set logging level (debug, info, warn, error)
  */
 
-import { runWorkflowTest } from '../workflows/single-query-workflow/test-runner.js';
-import { testVariants as TEST_VARIANTS } from '../workflows/single-query-workflow/test-config.js';
+const { runWorkflowTest } = require('../workflows/single-query-workflow/test-runner.js');
+const { TEST_VARIANTS } = require('../workflows/single-query-workflow/test-config.js');
 
 // Parse command line arguments
 function parseArgs() {
