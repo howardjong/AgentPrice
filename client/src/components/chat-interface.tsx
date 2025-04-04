@@ -9,28 +9,42 @@ import { SwitchTransition } from "@/components/ui/switch-transition";
 import { Message } from "@shared/schema";
 import { useChat } from "@/hooks/use-chat";
 
+// Extended message type to handle the UI-specific fields
+interface UIMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  createdAt: string;
+  service?: string;
+  conversationId?: string;
+  visualizationData?: any;
+  citations?: string[];
+}
+
 interface ChatInterfaceProps {
   messages: Message[];
-  onSendMessage: (message: string, service: string) => Promise<void>;
+  onSendMessage: (message: string, service: string, deepResearch?: boolean) => Promise<void>;
   isLoading: boolean;
 }
 
 export function ChatInterface({ messages, onSendMessage, isLoading }: ChatInterfaceProps) {
   const [inputValue, setInputValue] = useState("");
   const [selectedService, setSelectedService] = useState("auto");
+  const [isDeepResearch, setIsDeepResearch] = useState(false);
   const { getServiceChangedMessage } = useChat();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim() && !isLoading) {
-      await onSendMessage(inputValue, selectedService);
+      await onSendMessage(inputValue, selectedService, isDeepResearch);
       setInputValue("");
+      setIsDeepResearch(false); // Reset deep research mode after sending
     }
   };
 
   // Transform the messages to include service switching indicators
   const processedMessages = React.useMemo(() => {
-    const result: (Message | { id: string; role: "system"; content: string; createdAt: string; service: "system" })[] = [];
+    const result: UIMessage[] = [];
     let lastService: string | null = null;
 
     messages.forEach((message, index) => {
@@ -45,7 +59,7 @@ export function ChatInterface({ messages, onSendMessage, isLoading }: ChatInterf
         });
       }
 
-      result.push(message);
+      result.push(message as unknown as UIMessage);
       
       if (message.role === "assistant") {
         lastService = message.service;
@@ -63,29 +77,50 @@ export function ChatInterface({ messages, onSendMessage, isLoading }: ChatInterf
       </CardHeader>
       
       <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-        <div className="flex items-center space-x-4">
-          <span className="text-sm font-medium text-gray-700">Service:</span>
+        <div className="flex flex-col space-y-2">
+          <div className="flex items-center space-x-4">
+            <span className="text-sm font-medium text-gray-700">Service:</span>
+            
+            <RadioGroup
+              value={selectedService}
+              onValueChange={setSelectedService}
+              className="flex items-center space-x-4"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="claude" id="claude" />
+                <Label htmlFor="claude" className="text-sm text-gray-700">Claude (Conversation)</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="perplexity" id="perplexity" />
+                <Label htmlFor="perplexity" className="text-sm text-gray-700">Perplexity (Web Research)</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="auto" id="auto" />
+                <Label htmlFor="auto" className="text-sm text-gray-700">Auto-Detect</Label>
+              </div>
+            </RadioGroup>
+          </div>
           
-          <RadioGroup
-            value={selectedService}
-            onValueChange={setSelectedService}
-            className="flex items-center space-x-4"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="claude" id="claude" />
-              <Label htmlFor="claude" className="text-sm text-gray-700">Claude (Conversation)</Label>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="perplexity" id="perplexity" />
-              <Label htmlFor="perplexity" className="text-sm text-gray-700">Perplexity (Web Research)</Label>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="auto" id="auto" />
-              <Label htmlFor="auto" className="text-sm text-gray-700">Auto-Detect</Label>
-            </div>
-          </RadioGroup>
+          <div className="flex items-center space-x-2 ml-3">
+            <input
+              type="checkbox"
+              id="deep-research"
+              checked={isDeepResearch}
+              onChange={() => setIsDeepResearch(!isDeepResearch)}
+              className="h-4 w-4 text-primary focus:ring-primary-light border-gray-300 rounded"
+            />
+            <Label htmlFor="deep-research" className="text-sm text-gray-700 flex items-center">
+              <span>Deep Research</span>
+              {isDeepResearch && (
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  <i className="ri-time-line mr-1 text-xs"></i>
+                  15-30 min
+                </span>
+              )}
+            </Label>
+          </div>
         </div>
       </div>
       

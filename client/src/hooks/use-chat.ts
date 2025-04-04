@@ -23,9 +23,77 @@ export function useChat() {
     setLogs(prev => [...prev, `[${timestamp}] ${message}`]);
   }, []);
 
+  // Start a deep research query
+  const { mutate: startDeepResearch, isPending: isStartingDeepResearch } = useMutation({
+    mutationFn: async ({ query, options }: { query: string, options?: any }) => {
+      addLog(`Starting deep research: "${query}"`);
+      
+      // Add the user message immediately to the UI
+      setMessages(prevMessages => [
+        ...prevMessages,
+        {
+          id: Date.now().toString(),
+          conversationId: conversationId || null,
+          role: 'user',
+          content: query,
+          service: 'system',
+          createdAt: new Date().toISOString(),
+          visualizationData: null,
+          citations: null
+        } as unknown as Message
+      ]);
+      
+      // Add a system message indicating research has started
+      setMessages(prevMessages => [
+        ...prevMessages,
+        {
+          id: `system-${Date.now()}`,
+          conversationId: conversationId || null,
+          role: 'system',
+          content: `Deep research task started for query: "${query}". This may take 15-30 minutes. You will be notified when results are available.`,
+          service: 'system',
+          createdAt: new Date().toISOString(),
+          visualizationData: null,
+          citations: null
+        } as unknown as Message
+      ]);
+      
+      const response = await apiRequest('POST', '/api/deep-research', { 
+        query, 
+        conversationId, 
+        options 
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      addLog(`Deep research job started: ${data.jobId}`);
+      setConversationId(data.conversationId);
+      
+      // Start polling for job status
+      // Note: In a real app, you would use WebSockets for real-time updates
+      toast({
+        title: "Deep Research Started",
+        description: `Your research query has been queued. Job ID: ${data.jobId}`,
+      });
+    },
+    onError: (error) => {
+      addLog(`Error starting deep research: ${error.message}`);
+      toast({
+        title: "Error starting deep research",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   // Send a chat message
   const { mutate: sendMessage, isPending: isSendingMessage } = useMutation({
-    mutationFn: async ({ message, service }: { message: string, service: string }) => {
+    mutationFn: async ({ message, service, deepResearch }: { message: string, service: string, deepResearch?: boolean }) => {
+      if (deepResearch) {
+        // If deep research is enabled, use the deep research endpoint instead
+        return startDeepResearch({ query: message });
+      }
+      
       addLog(`Sending message to ${service === 'auto' ? 'auto-detect' : service} service`);
       
       // Add the user message immediately to the UI
@@ -111,6 +179,8 @@ export function useChat() {
     isSendingMessage,
     generateVisualization,
     isGeneratingViz,
+    startDeepResearch,
+    isStartingDeepResearch,
     apiStatus,
     isLoadingStatus,
     logs,
