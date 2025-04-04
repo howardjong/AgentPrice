@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export function useChat() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [conversationId, setConversationId] = useState<number | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -32,8 +32,8 @@ export function useChat() {
       setMessages(prevMessages => [
         ...prevMessages,
         {
-          id: Date.now(), // Use timestamp as temporary ID
-          conversationId: conversationId || 0,
+          id: Date.now().toString(), // Use timestamp as string ID
+          conversationId: conversationId || null,
           role: 'user',
           content: message,
           service: 'system',

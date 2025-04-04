@@ -164,8 +164,8 @@ export type ResearchReport = typeof researchReports.$inferSelect;
 // Chat message schema for API validation
 export const chatMessageSchema = z.object({
   message: z.string().min(1),
-  conversationId: z.string().optional(),
-  service: z.enum(['claude', 'perplexity']).optional().default('claude')
+  conversationId: z.string().optional().nullable(),
+  service: z.enum(['claude', 'perplexity', 'auto']).optional().default('claude')
 });
 
 // Visualization request schema
