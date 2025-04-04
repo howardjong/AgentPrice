@@ -1,249 +1,235 @@
-
 /**
- * Metrics Collector for Workflow Testing
+ * Workflow Test Metrics Collector
  * 
- * Provides standardized metrics collection for workflow tests.
+ * This module collects and analyzes metrics from workflow test runs,
+ * providing consistent measurement across test variants and modes.
  */
 
-import { performance } from 'perf_hooks';
-import fs from 'fs/promises';
-import path from 'path';
-import os from 'os';
+const fs = require('fs').promises;
+const path = require('path');
+const os = require('os');
 
 class MetricsCollector {
   constructor(options = {}) {
     this.metrics = {
       test: {
+        startTime: Date.now(),
+        endTime: null,
+        duration: 0,
         variant: options.variant || 'basic',
-        variantName: options.variantName || 'Basic Test',
-        timestamp: new Date().toISOString(),
-        duration: 0
+        mode: options.useRealAPIs ? 'realAPI' : 'mock',
+        query: options.query || ''
       },
       stages: {},
-      system: {
-        platform: process.platform,
-        nodeVersion: process.version,
-        cpuCores: os.cpus().length,
-        memory: {
-          total: os.totalmem(),
-          free: os.freemem()
-        }
-      },
-      performance: {},
+      apiCalls: {},
+      memory: this.captureMemoryUsage(),
       errors: []
     };
-    
-    this.startTime = null;
-    this.currentStage = null;
-    this.stageStartTime = null;
-    this.options = options;
+
+    this.outputDir = options.outputDir || path.join(process.cwd(), 'test-results', 'single-query-workflow');
   }
-  
+
   /**
-   * Start the overall test timer
-   */
-  startTest() {
-    this.startTime = performance.now();
-    this.metrics.startTime = new Date().toISOString();
-    
-    // Capture initial memory usage
-    this.captureMemoryUsage('start');
-  }
-  
-  /**
-   * Record test completion
-   */
-  endTest() {
-    if (!this.startTime) return;
-    
-    const endTime = performance.now();
-    this.metrics.test.duration = endTime - this.startTime;
-    this.metrics.endTime = new Date().toISOString();
-    
-    // Capture final memory usage
-    this.captureMemoryUsage('end');
-  }
-  
-  /**
-   * Start timing a specific stage
-   * @param {string} stageName - Name of the stage (e.g., 'research', 'dataExtraction')
+   * Start timing a specific stage of the workflow
    */
   startStage(stageName) {
-    if (this.currentStage) {
-      this.endStage();
+    if (!this.metrics.stages[stageName]) {
+      this.metrics.stages[stageName] = {};
     }
-    
-    this.currentStage = stageName;
-    this.stageStartTime = performance.now();
-    
-    this.metrics.stages[stageName] = this.metrics.stages[stageName] || {
-      startTime: new Date().toISOString(),
-      count: 0,
-      duration: 0,
-      memory: {}
-    };
-    
-    this.metrics.stages[stageName].count++;
-    
-    // Capture memory at stage start
-    this.captureMemoryUsage(`stage:${stageName}:start`);
+
+    this.metrics.stages[stageName].start = Date.now();
+    return this;
   }
-  
+
   /**
-   * End timing the current stage
+   * End timing for a specific stage and calculate duration
    */
-  endStage() {
-    if (!this.currentStage || !this.stageStartTime) return;
-    
-    const stageName = this.currentStage;
-    const endTime = performance.now();
-    const duration = endTime - this.stageStartTime;
-    
-    this.metrics.stages[stageName].duration += duration;
-    this.metrics.stages[stageName].endTime = new Date().toISOString();
-    
-    // Capture memory at stage end
-    this.captureMemoryUsage(`stage:${stageName}:end`);
-    
-    this.currentStage = null;
-    this.stageStartTime = null;
+  endStage(stageName) {
+    if (this.metrics.stages[stageName]) {
+      this.metrics.stages[stageName].end = Date.now();
+      this.metrics.stages[stageName].duration = 
+        this.metrics.stages[stageName].end - this.metrics.stages[stageName].start;
+    }
+    return this;
   }
-  
+
   /**
-   * Record an API call
-   * @param {string} service - Service name (e.g., 'perplexity', 'claude')
-   * @param {string} operation - Operation name (e.g., 'query', 'deepResearch')
-   * @param {number} duration - Duration in milliseconds
-   * @param {object} details - Additional details about the call
+   * Record an API call to a specific service
    */
-  recordApiCall(service, operation, duration, details = {}) {
-    this.metrics.apiCalls = this.metrics.apiCalls || {};
-    this.metrics.apiCalls[service] = this.metrics.apiCalls[service] || {};
-    this.metrics.apiCalls[service][operation] = this.metrics.apiCalls[service][operation] || {
-      count: 0,
-      totalDuration: 0,
-      calls: []
-    };
-    
-    const call = {
-      timestamp: new Date().toISOString(),
-      duration,
-      ...details
-    };
-    
-    this.metrics.apiCalls[service][operation].count++;
-    this.metrics.apiCalls[service][operation].totalDuration += duration;
-    this.metrics.apiCalls[service][operation].calls.push(call);
+  recordApiCall(service, operation, details = {}) {
+    if (!this.metrics.apiCalls[service]) {
+      this.metrics.apiCalls[service] = {};
+    }
+
+    if (!this.metrics.apiCalls[service][operation]) {
+      this.metrics.apiCalls[service][operation] = {
+        count: 0,
+        totalDuration: 0,
+        details: []
+      };
+    }
+
+    const entry = this.metrics.apiCalls[service][operation];
+    entry.count++;
+
+    if (details.duration) {
+      entry.totalDuration += details.duration;
+    }
+
+    if (Object.keys(details).length > 0) {
+      entry.details.push({
+        timestamp: Date.now(),
+        ...details
+      });
+    }
+
+    return this;
   }
-  
+
   /**
-   * Record an error that occurred during the test
-   * @param {string} stage - Stage where the error occurred
-   * @param {Error} error - The error object
-   * @param {object} context - Additional context about the error
+   * Record an error that occurred during testing
    */
-  recordError(stage, error, context = {}) {
+  recordError(stage, error) {
     this.metrics.errors.push({
       stage,
-      timestamp: new Date().toISOString(),
-      message: error.message,
+      timestamp: Date.now(),
+      message: error.message || String(error),
       stack: error.stack,
-      ...context
+      code: error.code
     });
+    return this;
   }
-  
+
+  /**
+   * Record token usage for a specific API call
+   */
+  recordTokenUsage(service, model, promptTokens, completionTokens, cost = null) {
+    if (!this.metrics.tokenUsage) {
+      this.metrics.tokenUsage = [];
+    }
+
+    this.metrics.tokenUsage.push({
+      timestamp: Date.now(),
+      service,
+      model,
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      cost
+    });
+
+    return this;
+  }
+
   /**
    * Capture current memory usage
-   * @param {string} label - Label for the memory capture
    */
-  captureMemoryUsage(label) {
-    this.metrics.performance[label] = {
-      timestamp: new Date().toISOString(),
-      memory: process.memoryUsage()
+  captureMemoryUsage() {
+    const memoryUsage = process.memoryUsage();
+    return {
+      rss: memoryUsage.rss,              // Resident Set Size - total memory allocated
+      heapTotal: memoryUsage.heapTotal,  // Total size of allocated heap
+      heapUsed: memoryUsage.heapUsed,    // Actual memory used during execution
+      external: memoryUsage.external,    // Memory used by C++ objects bound to JS
+      arrayBuffers: memoryUsage.arrayBuffers // Memory used by ArrayBuffers and SharedArrayBuffers
     };
   }
-  
+
   /**
-   * Add custom metric
-   * @param {string} category - Metric category
-   * @param {string} name - Metric name
-   * @param {any} value - Metric value
+   * Update memory metrics at the end of the test
    */
-  addCustomMetric(category, name, value) {
-    this.metrics.custom = this.metrics.custom || {};
-    this.metrics.custom[category] = this.metrics.custom[category] || {};
-    this.metrics.custom[category][name] = value;
+  updateMemoryMetrics() {
+    this.metrics.memoryEnd = this.captureMemoryUsage();
+    this.metrics.memoryDelta = {
+      rss: this.metrics.memoryEnd.rss - this.metrics.memory.rss,
+      heapTotal: this.metrics.memoryEnd.heapTotal - this.metrics.memory.heapTotal,
+      heapUsed: this.metrics.memoryEnd.heapUsed - this.metrics.memory.heapUsed
+    };
+    return this;
   }
-  
+
   /**
-   * Save metrics to file
-   * @param {string} outputDir - Directory to save the metrics
-   * @param {string} filename - Optional filename override
+   * Complete metrics collection and calculate final results
    */
-  async saveMetrics(outputDir, filename) {
+  complete() {
+    this.metrics.test.endTime = Date.now();
+    this.metrics.test.duration = this.metrics.test.endTime - this.metrics.test.startTime;
+    this.updateMemoryMetrics();
+
+    // Calculate stage percentages of total time
+    const totalDuration = this.metrics.test.duration;
+    Object.keys(this.metrics.stages).forEach(stageName => {
+      const stage = this.metrics.stages[stageName];
+      if (stage.duration) {
+        stage.percentOfTotal = (stage.duration / totalDuration) * 100;
+      }
+    });
+
+    // Generate summary statistics
+    this.metrics.summary = {
+      totalDuration: this.metrics.test.duration,
+      stageCount: Object.keys(this.metrics.stages).length,
+      apiCallCount: this.getTotalApiCalls(),
+      errorCount: this.metrics.errors.length,
+      success: this.metrics.errors.length === 0,
+      timestamp: new Date().toISOString()
+    };
+
+    if (this.metrics.tokenUsage) {
+      this.metrics.summary.totalTokens = this.metrics.tokenUsage.reduce(
+        (sum, usage) => sum + usage.totalTokens, 0
+      );
+    }
+
+    return this.metrics;
+  }
+
+  /**
+   * Get total API calls across all services
+   */
+  getTotalApiCalls() {
+    let total = 0;
+
+    Object.keys(this.metrics.apiCalls).forEach(service => {
+      Object.keys(this.metrics.apiCalls[service]).forEach(operation => {
+        total += this.metrics.apiCalls[service][operation].count;
+      });
+    });
+
+    return total;
+  }
+
+  /**
+   * Save metrics to a file
+   */
+  async saveMetrics(customFilename = null) {
     try {
-      const timestamp = new Date().toISOString().replace(/:/g, '-');
+      // Ensure output directory exists
+      await fs.mkdir(this.outputDir, { recursive: true });
+
       const variant = this.metrics.test.variant;
-      const actualFilename = filename || `${variant}-test-metrics-${timestamp}.json`;
-      
-      await fs.mkdir(outputDir, { recursive: true });
-      const filePath = path.join(outputDir, actualFilename);
-      
-      await fs.writeFile(filePath, JSON.stringify(this.metrics, null, 2));
-      return filePath;
+      const mode = this.metrics.test.mode;
+      const timestamp = new Date().toISOString().replace(/:/g, '-');
+
+      const filename = customFilename || 
+        `${variant}-${mode}-${timestamp}.json`;
+
+      const filePath = path.join(this.outputDir, filename);
+
+      await fs.writeFile(
+        filePath,
+        JSON.stringify(this.metrics, null, 2)
+      );
+
+      return {
+        path: filePath,
+        filename
+      };
     } catch (error) {
       console.error('Failed to save metrics:', error);
       return null;
     }
   }
-  
-  /**
-   * Get a summary of the test metrics
-   */
-  getSummary() {
-    return {
-      variant: this.metrics.test.variant,
-      variantName: this.metrics.test.variantName,
-      duration: this.metrics.test.duration,
-      stages: Object.keys(this.metrics.stages).map(stage => ({
-        name: stage,
-        duration: this.metrics.stages[stage].duration,
-        count: this.metrics.stages[stage].count
-      })),
-      apiCalls: this.metrics.apiCalls ? this.summarizeApiCalls() : {},
-      errors: this.metrics.errors.length,
-      timestamp: this.metrics.startTime
-    };
-  }
-  
-  /**
-   * Create a summary of API calls
-   */
-  summarizeApiCalls() {
-    if (!this.metrics.apiCalls) return {};
-    
-    const summary = {};
-    Object.keys(this.metrics.apiCalls).forEach(service => {
-      summary[service] = {};
-      Object.keys(this.metrics.apiCalls[service]).forEach(operation => {
-        const data = this.metrics.apiCalls[service][operation];
-        summary[service][operation] = {
-          count: data.count,
-          totalDuration: data.totalDuration,
-          avgDuration: data.totalDuration / data.count
-        };
-      });
-    });
-    
-    return summary;
-  }
-  
-  /**
-   * Get full metrics data
-   */
-  getMetrics() {
-    return this.metrics;
-  }
 }
 
-export default MetricsCollector;
+module.exports = MetricsCollector;

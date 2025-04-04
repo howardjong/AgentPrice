@@ -100,3 +100,84 @@ async function runAllTests() {
 
 // Run all tests
 runAllTests().catch(console.error);
+/**
+ * Run All Workflow Tests
+ * 
+ * This script runs all the defined workflow test variants
+ * in mock mode to verify functionality.
+ */
+
+const { runWorkflowTest } = require('../workflows/single-query-workflow/test-runner');
+const { TEST_VARIANTS } = require('../workflows/single-query-workflow/test-config');
+
+async function runAllTests() {
+  console.log('======================================================');
+  console.log('  Running All Single-Query Workflow Test Variants');
+  console.log('======================================================');
+  
+  // Get list of all variants
+  const variants = Object.keys(TEST_VARIANTS);
+  const results = [];
+  
+  // Run each variant
+  for (const variant of variants) {
+    console.log(`\n[${results.length + 1}/${variants.length}] Running variant: ${variant}`);
+    console.log('---------------------------------------------------------');
+    
+    const startTime = Date.now();
+    
+    try {
+      // Run the test in mock mode
+      const result = await runWorkflowTest(variant, {
+        saveResults: true,
+        saveFullResults: true
+      });
+      
+      const duration = Date.now() - startTime;
+      
+      // Store basic results
+      results.push({
+        variant,
+        success: result.success,
+        duration,
+        sources: result.sources?.length || 0,
+        researchLength: result.researchContent?.length || 0,
+        insights: result.chartData?.insights?.length || 0,
+        error: result.error
+      });
+      
+      // Output basic information
+      console.log(`Status: ${result.success ? '✅ Success' : '❌ Failed'}`);
+      console.log(`Duration: ${duration}ms`);
+      
+      if (result.resultPath) {
+        console.log(`Results saved to: ${result.resultPath}`);
+      }
+      
+      if (result.metricsPath) {
+        console.log(`Metrics saved to: ${result.metricsPath}`);
+      }
+    } catch (error) {
+      console.error(`Error running variant ${variant}:`, error);
+      results.push({
+        variant,
+        success: false,
+        error: error.message
+      });
+    }
+  }
+  
+  // Display summary
+  console.log('\n======================================================');
+  console.log('                   SUMMARY');
+  console.log('======================================================');
+  console.log(`Total variants: ${variants.length}`);
+  console.log(`Successful: ${results.filter(r => r.success).length}`);
+  console.log(`Failed: ${results.filter(r => !r.success).length}`);
+  
+  console.log('\nResults by variant:');
+  console.table(results);
+}
+
+// Run the tests
+runAllTests().catch(console.error);

@@ -1,13 +1,12 @@
 /**
- * Mock Services for Single Query Workflow Testing
+ * Mock Services for Workflow Testing
  * 
- * This module provides mock implementations of the Claude and Perplexity
- * services for testing the single-query workflow without making actual API calls.
- * 
- * @module tests/workflows/single-query-workflow/mock-services
+ * This module provides mock implementations of Claude and Perplexity services
+ * for testing workflows without making real API calls.
  */
 
-import { v4 as uuidv4 } from 'uuid';
+const fs = require('fs').promises;
+const path = require('path');
 
 /**
  * Mock implementation of Claude service
@@ -15,131 +14,200 @@ import { v4 as uuidv4 } from 'uuid';
 const mockClaudeService = {
   /**
    * Generate chart data from research content
-   * @param {string} researchContent - Research content to extract data from
-   * @param {string} chartType - Type of chart to generate data for
-   * @returns {Promise<Object>} Chart data
    */
-  generateChartData: async (researchContent, chartType) => {
-    console.log(`[MOCK] Claude generating ${chartType} chart data from research content (${researchContent.length} chars)`);
-    
-    // Simulate processing time
-    const processingTime = Math.min(500 + researchContent.length / 100, 3000);
-    await new Promise(resolve => setTimeout(resolve, processingTime));
-    
-    // Return appropriate mock data based on chart type
+  async generateChartData(researchContent, chartType) {
+    console.log(`[Mock Claude] Generating ${chartType} chart data from research content...`);
+
+    // Add artificial delay to simulate API call
+    await delay(500);
+
+    let data = {};
+    let insights = [];
+
     switch (chartType) {
-      case 'van_westendorp':
-        return getMockVanWestendorpData(researchContent);
-        
-      case 'conjoint':
-        return getMockConjointData(researchContent);
-        
       case 'basic_bar':
-      default:
-        return getMockBarChartData(researchContent);
+        data = {
+          competitors: ['Company A', 'Company B', 'Company C', 'Company D', 'Company E'],
+          prices: [120, 145, 95, 156, 110],
+          units: 'USD'
+        };
+        insights = [
+          "Company D has the highest price point at $156",
+          "Company C offers the lowest price at $95, 39% lower than the highest competitor",
+          "The average price across competitors is $125.20"
+        ];
+        break;
+
+      case 'van_westendorp':
+        data = {
+          x_values: [20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120],
+          too_cheap: [0.95, 0.85, 0.70, 0.55, 0.40, 0.25, 0.15, 0.10, 0.05, 0.01, 0],
+          bargain: [0.05, 0.15, 0.35, 0.55, 0.70, 0.60, 0.40, 0.25, 0.15, 0.05, 0],
+          expensive: [0.01, 0.05, 0.15, 0.30, 0.45, 0.60, 0.75, 0.85, 0.90, 0.95, 0.99],
+          too_expensive: [0, 0.01, 0.05, 0.10, 0.20, 0.35, 0.55, 0.70, 0.85, 0.95, 0.99]
+        };
+        insights = [
+          "Optimal price point is approximately $65",
+          "Price stress begins at approximately $80",
+          "Acceptable price range is $45-$75"
+        ];
+        break;
+
+      case 'conjoint':
+        data = {
+          attributes: ['Battery Life', 'Camera Quality', 'Storage', 'Price', 'Brand'],
+          importance: [30, 25, 15, 20, 10],
+          part_worths: {
+            'Battery Life': {'48h': 30, '36h': 20, '24h': 10},
+            'Camera Quality': {'High': 25, 'Medium': 15, 'Low': 5},
+            'Storage': {'512GB': 15, '256GB': 10, '128GB': 5},
+            'Price': {'$699': 20, '$899': 10, '$1099': 5},
+            'Brand': {'Premium': 10, 'Mid-tier': 7, 'Budget': 3}
+          }
+        };
+        insights = [
+          "Battery life is the most important feature at 30% importance",
+          "Camera quality is the second most important feature at 25% importance",
+          "Brand name has the least impact on purchase decisions at 10% importance"
+        ];
+        break;
     }
+
+    return {
+      data,
+      insights,
+      model: 'claude-3-haiku-20240307',
+      usage: {
+        input_tokens: 1245,
+        output_tokens: 468,
+        cost: 0.0
+      }
+    };
   },
-  
+
   /**
    * Generate Plotly visualization configuration
-   * @param {Object} chartData - Data for the chart
-   * @param {string} chartType - Type of chart to generate
-   * @param {string} title - Chart title
-   * @param {string} description - Chart description
-   * @returns {Promise<Object>} Plotly configuration
    */
-  generatePlotlyVisualization: async (chartData, chartType, title, description) => {
-    console.log(`[MOCK] Claude generating ${chartType} Plotly visualization`);
-    
-    // Simulate processing time
-    const processingTime = Math.min(300 + JSON.stringify(chartData).length / 100, 2000);
-    await new Promise(resolve => setTimeout(resolve, processingTime));
-    
-    // Generate appropriate mock Plotly config
-    let plotlyConfig;
-    
+  async generatePlotlyVisualization(chartData, chartType, title, description) {
+    console.log(`[Mock Claude] Generating Plotly configuration for ${chartType}...`);
+
+    // Add artificial delay to simulate API call
+    await delay(300);
+
+    let config = {
+      data: [],
+      layout: {
+        title: title,
+        width: 800,
+        height: 500
+      },
+      config: {
+        responsive: true
+      }
+    };
+
     switch (chartType) {
-      case 'van_westendorp':
-        plotlyConfig = getMockVanWestendorpPlotlyConfig(chartData, title);
-        break;
-        
-      case 'conjoint':
-        plotlyConfig = getMockConjointPlotlyConfig(chartData, title);
-        break;
-        
       case 'basic_bar':
-      default:
-        plotlyConfig = getMockBarChartPlotlyConfig(chartData, title);
+        config.data = [{
+          x: chartData.competitors,
+          y: chartData.prices,
+          type: 'bar',
+          marker: {
+            color: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+          }
+        }];
+        config.layout.xaxis = { title: 'Competitors' };
+        config.layout.yaxis = { title: `Price (${chartData.units})` };
+        break;
+
+      case 'van_westendorp':
+        // Too cheap line
+        config.data.push({
+          x: chartData.x_values,
+          y: chartData.too_cheap,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'Too Cheap',
+          line: { color: '#1f77b4' }
+        });
+
+        // Bargain line
+        config.data.push({
+          x: chartData.x_values,
+          y: chartData.bargain,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'Bargain',
+          line: { color: '#2ca02c' }
+        });
+
+        // Expensive line
+        config.data.push({
+          x: chartData.x_values,
+          y: chartData.expensive,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'Expensive',
+          line: { color: '#ff7f0e' }
+        });
+
+        // Too expensive line
+        config.data.push({
+          x: chartData.x_values,
+          y: chartData.too_expensive,
+          type: 'scatter',
+          mode: 'lines',
+          name: 'Too Expensive',
+          line: { color: '#d62728' }
+        });
+
+        config.layout.xaxis = { title: 'Price ($)' };
+        config.layout.yaxis = { title: 'Cumulative Percentage', range: [0, 1] };
+        config.pricePoints = {
+          optimal: 65,
+          indifference: 55,
+          stress: 80
+        };
+        break;
+
+      case 'conjoint':
+        // Create bar chart for attribute importance
+        config.data.push({
+          x: chartData.attributes,
+          y: chartData.importance,
+          type: 'bar',
+          marker: {
+            color: ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+          },
+          name: 'Attribute Importance (%)'
+        });
+
+        config.layout.xaxis = { title: 'Attributes' };
+        config.layout.yaxis = { title: 'Importance (%)' };
+
+        // Calculate optimal combination
+        const optimalCombination = {};
+        Object.keys(chartData.part_worths).forEach(attribute => {
+          const levels = chartData.part_worths[attribute];
+          const bestLevel = Object.keys(levels).reduce((a, b) => 
+            levels[a] > levels[b] ? a : b
+          );
+          optimalCombination[attribute] = bestLevel;
+        });
+
+        config.optimalCombination = optimalCombination;
         break;
     }
-    
-    // Add common properties
-    plotlyConfig.modelUsed = 'claude-3-7-sonnet-20250219';
-    plotlyConfig.insights = chartData.insights || [
-      'First key insight about the data',
-      'Second key insight about the data',
-      'Third key insight about the data'
-    ];
-    
-    return plotlyConfig;
-  },
-  
-  /**
-   * Process text with Claude
-   * @param {string} prompt - Text prompt to process
-   * @returns {Promise<Object>} Claude response
-   */
-  processText: async (prompt) => {
-    console.log(`[MOCK] Claude processing text prompt (${prompt.length} chars)`);
-    
-    // Simulate processing time
-    const processingTime = Math.min(200 + prompt.length / 10, 2000);
-    await new Promise(resolve => setTimeout(resolve, processingTime));
-    
+
     return {
-      content: `Mock Claude response for prompt: "${prompt.substring(0, 50)}..."`,
-      usage: { total_tokens: Math.floor(prompt.length / 4) }
+      ...config,
+      model: 'claude-3-haiku-20240307',
+      usage: {
+        input_tokens: 752,
+        output_tokens: 1241,
+        cost: 0.0
+      }
     };
-  },
-  
-  /**
-   * Process a conversation with Claude
-   * @param {Array} messages - Conversation messages
-   * @returns {Promise<Object>} Claude response
-   */
-  processConversation: async (messages) => {
-    console.log(`[MOCK] Claude processing conversation with ${messages.length} messages`);
-    
-    // Simulate processing time
-    const processingTime = Math.min(300 + messages.length * 200, 2000);
-    await new Promise(resolve => setTimeout(resolve, processingTime));
-    
-    return {
-      content: 'Mock conversation response from Claude',
-      response: 'Mock conversation response from Claude',
-      usage: { total_tokens: messages.length * 50 }
-    };
-  },
-  
-  /**
-   * Generate clarifying questions
-   * @param {string} query - Initial query
-   * @returns {Promise<Array>} List of clarifying questions
-   */
-  generateClarifyingQuestions: async (query) => {
-    console.log(`[MOCK] Claude generating clarifying questions for: "${query}"`);
-    
-    // Simulate processing time
-    const processingTime = Math.min(200 + query.length * 5, 1500);
-    await new Promise(resolve => setTimeout(resolve, processingTime));
-    
-    return [
-      "What is your specific use case or application?",
-      "Are you looking for commercial or research-focused information?",
-      "Do you have any specific technical requirements or constraints?",
-      "What timeframe are you interested in (e.g., latest developments, future projections)?",
-      "Are you interested in a particular region or global perspectives?"
-    ];
   }
 };
 
@@ -148,355 +216,143 @@ const mockClaudeService = {
  */
 const mockPerplexityService = {
   /**
-   * Perform deep research with Perplexity
-   * @param {string} query - Research query
-   * @param {Object} options - Research options
-   * @returns {Promise<Object>} Research results
+   * Perform deep research on a query
    */
-  performDeepResearch: async (query, options = {}) => {
-    const requestId = options.requestId || uuidv4();
-    console.log(`[MOCK] Perplexity performing deep research [${requestId}]: "${query}"`);
-    console.log(`[MOCK] Research options:`, JSON.stringify(options));
-    
-    // Determine research content length based on options
-    const isDeepResearch = options.model?.includes('large') || options.model?.includes('huge');
-    const contentLength = isDeepResearch ? 12000 : 6000;
-    
-    // Simulate processing time - deep research takes longer
-    const processingTime = isDeepResearch 
-      ? Math.min(2000 + query.length * 10, 8000)
-      : Math.min(1000 + query.length * 5, 4000);
-      
-    await new Promise(resolve => setTimeout(resolve, processingTime));
-    
-    // Generate mock citations
-    const numCitations = isDeepResearch ? 12 : 6;
-    const citations = [];
-    for (let i = 1; i <= numCitations; i++) {
-      citations.push(`https://example.com/research-source-${i}`);
+  async performDeepResearch(query, options = {}) {
+    console.log(`[Mock Perplexity] Performing ${options.followupQuestions ? 'deep' : 'basic'} research: "${query}"`);
+
+    // Add artificial delay to simulate research
+    const baseDelay = options.followupQuestions ? 2000 : 1000;
+    await delay(baseDelay);
+
+    // Generate mock content based on query and options
+    const model = options.model || 'llama-3.1-sonar-small-128k-online';
+
+    // Load clarifying questions from the test fixture if available
+    let clarifyingQuestions = [];
+    try {
+      const questionsPath = path.join(__dirname, '..', '..', 'vitest', 'workflows', 'tests', 'output', 'clarifying-questions.json');
+      const questionsData = await fs.readFile(questionsPath, 'utf8');
+      clarifyingQuestions = JSON.parse(questionsData);
+    } catch (error) {
+      // If file not found, use default questions
+      clarifyingQuestions = [
+        "What specific aspects of this topic are you most interested in?",
+        "Are you looking for recent developments or a historical overview?",
+        "Would you like information specific to a particular region or country?",
+        "Are you interested in consumer applications or industrial use cases?",
+        "Would you like technical details or a more general overview?"
+      ];
     }
-    
-    // Return mock research results
+
+    // Generate paragraphs based on query keywords
+    const keywords = query.toLowerCase().split(' ');
+    let paragraphs = [];
+    let citations = [];
+
+    // Generate different content based on query type
+    if (keywords.includes('renewable') || keywords.includes('energy')) {
+      paragraphs = [
+        "Recent developments in renewable energy storage have focused on advanced battery technologies. Solid-state batteries represent one of the most promising frontiers, offering higher energy density, improved safety, and longer lifespans compared to traditional lithium-ion batteries. Companies like QuantumScape and Toyota have made significant progress in commercializing these technologies.",
+
+        "Grid-scale storage solutions have seen substantial growth, with flow batteries emerging as a viable option for longer-duration storage needs. These systems, which store energy in liquid electrolytes, can provide power for 8-10 hours compared to the 4-hour capacity typical of lithium-ion installations. Form Energy's iron-air batteries, which can deliver power for up to 100 hours, represent a breakthrough in this space.",
+
+        "Thermal energy storage has gained traction for industrial applications. Molten salt systems, already used in concentrated solar power plants, are being adapted for broader industrial use cases. Antora Energy and Rondo Energy have developed solid materials that can store heat at temperatures above 1000°C, enabling industrial processes to run on renewable electricity.",
+
+        "Mechanical storage solutions continue to evolve beyond traditional pumped hydro. Gravity-based systems from companies like Energy Vault use massive blocks raised and lowered to store and release energy, while compressed air energy storage is finding new implementations in underground caverns and purpose-built containers.",
+
+        "Hydrogen storage, particularly green hydrogen produced using renewable electricity, has seen increasing investment. Innovations in electrolyzers from companies like Nel Hydrogen and ITM Power have reduced costs, while advances in hydrogen storage materials address density and safety concerns."
+      ];
+
+      citations = [
+        { title: "Advances in Solid-State Battery Technology", url: "https://example.com/solid-state-batteries", publisher: "Energy Science Journal", date: "2025-01-15" },
+        { title: "Grid-Scale Storage: Flow Batteries and Beyond", url: "https://example.com/flow-batteries", publisher: "Renewable Energy Today", date: "2024-11-03" },
+        { title: "Thermal Energy Storage for Industrial Applications", url: "https://example.com/thermal-storage", publisher: "Industrial Electrification", date: "2025-02-22" },
+        { title: "Mechanical Energy Storage: New Approaches", url: "https://example.com/mechanical-storage", publisher: "Power Systems Quarterly", date: "2024-12-05" },
+        { title: "Green Hydrogen: Storage Solutions and Challenges", url: "https://example.com/hydrogen-storage", publisher: "Clean Energy Review", date: "2025-03-10" }
+      ];
+    } else if (keywords.includes('cloud') || keywords.includes('providers')) {
+      paragraphs = [
+        "The cloud computing market in 2025 continues to be dominated by three major players: Amazon Web Services (AWS), Microsoft Azure, and Google Cloud Platform (GCP). AWS maintains its market leadership with approximately 32% market share, though this represents a slight decrease from previous years as competitors gain ground.",
+
+        "Microsoft Azure has shown the strongest growth rate, increasing its market share to 25% in 2025. This growth has been fueled by Microsoft's strong enterprise relationships, comprehensive hybrid cloud offerings, and significant investments in AI and industry-specific solutions.",
+
+        "Google Cloud Platform holds approximately 12% of the market, continuing its steady growth trajectory. Google's strengths in data analytics, machine learning infrastructure, and open-source engagement have helped it gain traction, particularly among technology companies and organizations with advanced AI requirements.",
+
+        "Alibaba Cloud remains the dominant cloud provider in Asia with 6% global market share, though international expansion has proven challenging amidst regulatory concerns and geopolitical tensions. Its domestic position remains extremely strong, with over 40% of the Chinese cloud market.",
+
+        "Oracle Cloud and IBM Cloud have both found success through specialization. Oracle's focus on database and enterprise applications has secured it 4% market share, while IBM's concentration on hybrid cloud and regulated industries has maintained its 3% share, despite overall market growth."
+      ];
+
+      citations = [
+        { title: "Cloud Market Share Report 2025", url: "https://example.com/cloud-market-share", publisher: "Technology Market Analysis", date: "2025-03-01" },
+        { title: "Microsoft Azure: Growth Strategies and Market Position", url: "https://example.com/azure-growth", publisher: "Enterprise Tech Review", date: "2025-02-15" },
+        { title: "Google Cloud in 2025: Strengths and Challenges", url: "https://example.com/gcp-analysis", publisher: "Cloud Computing Insider", date: "2025-01-20" },
+        { title: "Alibaba Cloud: International Expansion Challenges", url: "https://example.com/alibaba-cloud", publisher: "Global Tech Monitor", date: "2024-12-10" },
+        { title: "Specialized Cloud Providers: Oracle and IBM Strategies", url: "https://example.com/specialized-cloud", publisher: "Enterprise IT Today", date: "2025-02-28" }
+      ];
+    } else {
+      // Generic content for other queries
+      paragraphs = [
+        "Research indicates significant developments in this field over the past two years. Multiple studies have demonstrated improved efficiency and reduced costs, making these technologies increasingly accessible for both commercial and consumer applications.",
+
+        "Major companies including Technological Innovations Inc. and Future Solutions LLC have invested heavily in research and development, resulting in next-generation products that address previous limitations in scalability and reliability.",
+
+        "Government policies, particularly in North America and Europe, have created favorable conditions for growth through tax incentives and regulatory frameworks that encourage adoption of these emerging technologies.",
+
+        "Consumer adoption has accelerated, with market penetration increasing by 37% since 2023. This trend is expected to continue as awareness grows and products become more user-friendly.",
+
+        "Challenges remain in infrastructure readiness and supply chain resilience, though industry consortiums have formed to address these issues collaboratively."
+      ];
+
+      citations = [
+        { title: "Industry Growth Report 2025", url: "https://example.com/industry-growth", publisher: "Market Research Quarterly", date: "2025-02-15" },
+        { title: "Next-Generation Technology Developments", url: "https://example.com/next-gen-tech", publisher: "Innovation Monitor", date: "2025-01-10" },
+        { title: "Policy Impacts on Technology Adoption", url: "https://example.com/policy-impacts", publisher: "Regulatory Affairs Journal", date: "2024-11-28" },
+        { title: "Consumer Technology Adoption Trends", url: "https://example.com/consumer-trends", publisher: "Digital Lifestyle Today", date: "2025-03-05" },
+        { title: "Infrastructure Challenges and Solutions", url: "https://example.com/infrastructure", publisher: "Technology Implementation Review", date: "2025-02-22" }
+      ];
+    }
+
+    // Generate follow-up content if enabled
+    let followUpContent = "";
+    if (options.followupQuestions) {
+      await delay(500);
+      followUpContent = "\n\nFurther investigation reveals additional important findings:\n\n" +
+        "1. Recent academic research from Stanford University and MIT has identified key efficiency improvements that could accelerate commercial viability.\n\n" +
+        "2. Regulatory changes in the EU, US, and China are creating divergent compliance requirements, increasing complexity for global operations.\n\n" +
+        "3. Venture capital investment in this sector reached $12.4 billion in 2024, a 28% increase over 2023, with particular focus on integration technologies.\n\n" +
+        "4. Consumer surveys indicate changing preferences, with 63% of respondents now prioritizing sustainability features over cost considerations.\n\n" +
+        "5. Supply chain innovations, including distributed manufacturing and advanced materials sourcing, are reducing production bottlenecks.";
+    }
+
+    // Combine content
+    const content = paragraphs.join("\n\n") + followUpContent;
+
+    // Mock standard response
     return {
-      content: getMockResearchContent(query, contentLength),
-      citations: citations,
-      followUpQuestions: [
-        `What are the challenges in implementing ${query.split(' ').slice(0, 3).join(' ')}?`,
-        `How do recent advances in ${query.split(' ').slice(-3).join(' ')} compare to previous approaches?`,
-        `What are the economic implications of ${query.split(' ').slice(0, 4).join(' ')}?`
-      ],
-      model: options.model || 'llama-3.1-sonar-small-128k-online',
-      requestId
-    };
-  },
-  
-  /**
-   * Get health status of the Perplexity service
-   * @returns {Object} Health status
-   */
-  getHealthStatus: () => {
-    return {
-      service: 'perplexity',
-      status: 'available',
-      circuitBreakerStatus: 'CLOSED',
-      defaultModel: 'llama-3.1-sonar-small-128k-online',
-      availableModels: {
-        small: 'llama-3.1-sonar-small-128k-online',
-        large: 'llama-3.1-sonar-large-128k-online',
-        huge: 'llama-3.1-sonar-huge-128k-online'
-      }
+      content,
+      citations,
+      model,
+      usage: {
+        prompt_tokens: 350,
+        completion_tokens: 1200,
+        total_tokens: 1550,
+        cost: 0.0
+      },
+      clarifyingQuestions
     };
   }
 };
 
 /**
- * Generate mock research content for testing
- * @param {string} query - Research query
- * @param {number} [length=6000] - Approximate length of content to generate
- * @returns {string} Mock research content
+ * Utility function to create a delay
  */
-function getMockResearchContent(query, length = 6000) {
-  // Extract keywords from query
-  const keywords = query.split(' ')
-    .filter(word => word.length > 3)
-    .map(word => word.replace(/[^a-zA-Z0-9]/g, ''));
-    
-  // Create content with sections based on query keywords
-  let content = `# Comprehensive Research on ${query}\n\n`;
-  
-  // Introduction
-  content += `## Introduction\n\n`;
-  content += `This research explores the latest developments and insights regarding ${query}. `;
-  content += `The following sections provide a detailed analysis of current trends, emerging technologies, and future prospects.\n\n`;
-  
-  // Generate sections based on keywords
-  for (let i = 0; i < Math.min(keywords.length, 4); i++) {
-    const keyword = keywords[i].charAt(0).toUpperCase() + keywords[i].slice(1);
-    content += `## ${keyword} Analysis\n\n`;
-    content += `Recent developments in ${keyword} demonstrate significant progress in this area. `;
-    content += `Multiple studies have shown that ${keyword}-related technologies have advanced substantially in the past year. `;
-    content += `Industry experts project continued growth and innovation in ${keyword} applications.\n\n`;
-    content += `Key findings regarding ${keyword}:\n\n`;
-    content += `- Finding 1 related to ${keyword}\n`;
-    content += `- Finding 2 related to ${keyword}\n`;
-    content += `- Finding 3 related to ${keyword}\n\n`;
-  }
-  
-  // Add statistical section for chart data
-  content += `## Statistical Analysis\n\n`;
-  content += `Statistical analysis reveals important trends in ${query}:\n\n`;
-  content += `1. Market share distribution shows Company A (34%), Company B (28%), Company C (22%), and others (16%)\n`;
-  content += `2. Growth rates vary from 12% to 28% annually depending on the specific technology\n`;
-  content += `3. Investment in research and development has increased by 45% over the past three years\n`;
-  content += `4. Consumer adoption rates show significant regional variations\n\n`;
-  
-  // Add conclusion
-  content += `## Conclusion\n\n`;
-  content += `In conclusion, ${query} continues to evolve rapidly with new breakthroughs and applications emerging regularly. `;
-  content += `The field presents both significant opportunities and challenges that will shape its development in the coming years. `;
-  content += `Continued research and innovation will be essential to address current limitations and unlock the full potential of these technologies.\n\n`;
-  
-  // Pad content if needed
-  while (content.length < length) {
-    content += `Additional analysis shows that further research is needed to fully understand the implications and applications of ${query}. `;
-    content += `Various stakeholders including researchers, industry leaders, and policymakers continue to explore this topic in depth. `;
-  }
-  
-  return content.substring(0, length);
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-/**
- * Generate mock Van Westendorp chart data
- * @param {string} researchContent - Research content
- * @returns {Object} Chart data
- */
-function getMockVanWestendorpData(researchContent) {
-  return {
-    data: {
-      x_values: [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-      too_cheap: [0.9, 0.8, 0.6, 0.4, 0.25, 0.15, 0.1, 0.05, 0.02, 0.01],
-      bargain: [0.05, 0.15, 0.35, 0.6, 0.75, 0.6, 0.4, 0.25, 0.15, 0.05],
-      expensive: [0.05, 0.1, 0.2, 0.35, 0.5, 0.7, 0.8, 0.9, 0.95, 0.98],
-      too_expensive: [0.01, 0.02, 0.05, 0.1, 0.2, 0.4, 0.6, 0.8, 0.9, 0.99],
-      optimal_price_point: 50,
-      indifference_price_point: 45,
-      price_range: { min: 40, max: 60 }
-    },
-    insights: [
-      "The optimal price point is approximately $50",
-      "The acceptable price range is between $40 and $60",
-      "Below $30, consumers begin to question product quality",
-      "Price sensitivity increases significantly above $70"
-    ],
-    chart_title: "Van Westendorp Price Sensitivity Model"
-  };
-}
-
-/**
- * Generate mock Conjoint Analysis chart data
- * @param {string} researchContent - Research content
- * @returns {Object} Chart data
- */
-function getMockConjointData(researchContent) {
-  return {
-    data: {
-      attributes: ["Price", "Quality", "Features", "Brand", "Support"],
-      importance: [0.35, 0.25, 0.20, 0.15, 0.05],
-      part_worths: {
-        "Price": { "Low": 0.8, "Medium": 0.5, "High": 0.2 },
-        "Quality": { "Low": 0.2, "Medium": 0.6, "High": 0.9 },
-        "Features": { "Basic": 0.3, "Standard": 0.6, "Advanced": 0.8 },
-        "Brand": { "Unknown": 0.3, "Known": 0.7, "Premium": 0.9 },
-        "Support": { "Email": 0.4, "Phone": 0.7, "24/7": 0.9 }
-      },
-      optimal_combination: { 
-        "Price": "Medium", 
-        "Quality": "High", 
-        "Features": "Standard", 
-        "Brand": "Known", 
-        "Support": "Phone" 
-      }
-    },
-    insights: [
-      "Price is the most important attribute at 35% importance",
-      "Quality is the second most important attribute at 25% importance",
-      "The optimal combination balances medium price with high quality",
-      "Support has minimal impact on consumer decisions"
-    ],
-    chart_title: "Conjoint Analysis of Consumer Preferences"
-  };
-}
-
-/**
- * Generate mock Bar Chart data
- * @param {string} researchContent - Research content
- * @returns {Object} Chart data
- */
-function getMockBarChartData(researchContent) {
-  return {
-    data: {
-      competitors: ["Company A", "Company B", "Your Company", "Company C", "Company D"],
-      prices: [49.99, 39.99, 44.99, 59.99, 34.99],
-      market_segments: ["Premium", "Mid-market", "Budget"],
-      segment_price_ranges: {
-        "Premium": { "min": 50.00, "max": 100.00 },
-        "Mid-market": { "min": 35.00, "max": 49.99 },
-        "Budget": { "min": 15.00, "max": 34.99 }
-      }
-    },
-    insights: [
-      "Company A is positioned in the mid-market segment with competitive pricing",
-      "Company D offers the lowest price point but lacks premium features",
-      "Your company's price point is near the upper end of the mid-market segment",
-      "There's a significant price gap in the premium segment above Company C"
-    ],
-    chart_title: "Competitive Pricing Analysis"
-  };
-}
-
-/**
- * Generate mock Plotly configuration for Van Westendorp chart
- * @param {Object} chartData - Chart data
- * @param {string} title - Chart title
- * @returns {Object} Plotly configuration
- */
-function getMockVanWestendorpPlotlyConfig(chartData, title) {
-  const data = chartData.data;
-  
-  return {
-    plotlyConfig: {
-      data: [
-        {
-          x: data.x_values,
-          y: data.too_cheap,
-          type: 'scatter',
-          mode: 'lines',
-          name: 'Too Cheap',
-          line: { color: 'blue' }
-        },
-        {
-          x: data.x_values,
-          y: data.bargain,
-          type: 'scatter',
-          mode: 'lines',
-          name: 'Bargain',
-          line: { color: 'green' }
-        },
-        {
-          x: data.x_values,
-          y: data.expensive,
-          type: 'scatter',
-          mode: 'lines',
-          name: 'Expensive',
-          line: { color: 'orange' }
-        },
-        {
-          x: data.x_values,
-          y: data.too_expensive,
-          type: 'scatter',
-          mode: 'lines',
-          name: 'Too Expensive',
-          line: { color: 'red' }
-        }
-      ],
-      layout: {
-        title: title || 'Van Westendorp Price Sensitivity Model',
-        xaxis: { title: 'Price ($)' },
-        yaxis: { title: 'Cumulative Percentage', range: [0, 1] },
-        legend: { x: 0, y: 1 },
-        height: 600,
-        width: 800
-      },
-      config: { responsive: true }
-    },
-    pricePoints: {
-      optimalPrice: data.optimal_price_point,
-      indifferencePrice: data.indifference_price_point,
-      pointOfMarginalExpensiveness: data.price_range.max,
-      pointOfMarginalCheapness: data.price_range.min
-    }
-  };
-}
-
-/**
- * Generate mock Plotly configuration for Conjoint Analysis chart
- * @param {Object} chartData - Chart data
- * @param {string} title - Chart title
- * @returns {Object} Plotly configuration
- */
-function getMockConjointPlotlyConfig(chartData, title) {
-  const data = chartData.data;
-  
-  return {
-    plotlyConfig: {
-      data: [
-        {
-          x: data.attributes,
-          y: data.importance,
-          type: 'bar',
-          marker: {
-            color: 'rgba(50, 171, 96, 0.7)',
-            line: {
-              color: 'rgba(50, 171, 96, 1.0)',
-              width: 2
-            }
-          }
-        }
-      ],
-      layout: {
-        title: title || 'Conjoint Analysis - Attribute Importance',
-        xaxis: { title: 'Attributes' },
-        yaxis: { title: 'Importance', range: [0, 1] },
-        bargap: 0.3,
-        bargroupgap: 0.1,
-        height: 500,
-        width: 700
-      },
-      config: { responsive: true }
-    },
-    optimalCombination: data.optimal_combination
-  };
-}
-
-/**
- * Generate mock Plotly configuration for Bar Chart
- * @param {Object} chartData - Chart data
- * @param {string} title - Chart title
- * @returns {Object} Plotly configuration
- */
-function getMockBarChartPlotlyConfig(chartData, title) {
-  const data = chartData.data;
-  
-  return {
-    plotlyConfig: {
-      data: [
-        {
-          x: data.competitors,
-          y: data.prices,
-          type: 'bar',
-          marker: {
-            color: ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A'],
-          }
-        }
-      ],
-      layout: {
-        title: title || 'Competitive Pricing Analysis',
-        xaxis: { title: 'Companies' },
-        yaxis: { title: 'Price ($)' },
-        bargap: 0.3,
-        height: 500,
-        width: 700
-      },
-      config: { responsive: true }
-    }
-  };
-}
-
-export {
+module.exports = {
   mockClaudeService,
-  mockPerplexityService,
-  getMockResearchContent,
-  getMockVanWestendorpData,
-  getMockConjointData,
-  getMockBarChartData
+  mockPerplexityService
 };
