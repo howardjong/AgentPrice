@@ -18,7 +18,7 @@
  */
 
 import { runWorkflowTest } from '../workflows/single-query-workflow/test-runner.js';
-import { TEST_VARIANTS } from '../workflows/single-query-workflow/test-config.js';
+import { testVariants as TEST_VARIANTS } from '../workflows/single-query-workflow/test-config.js';
 
 // Parse command line arguments
 function parseArgs() {
