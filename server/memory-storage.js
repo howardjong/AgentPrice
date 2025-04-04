@@ -77,6 +77,11 @@ export class MemoryStorage {
   async getConversationById(id) {
     return this.conversations.get(id) || null;
   }
+  
+  // Alias method for getConversationById
+  async getConversation(id) {
+    return this.getConversationById(id);
+  }
 
   async getConversationsByUserId(userId) {
     const result = [];

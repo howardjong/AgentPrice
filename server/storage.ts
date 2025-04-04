@@ -22,6 +22,7 @@ export interface IStorage {
   // Conversation operations
   createConversation(conversation: Partial<Conversation>): Promise<Conversation>;
   getConversationById(id: string): Promise<Conversation | null>;
+  getConversation(id: string): Promise<Conversation | null>; // Alias for getConversationById
   getConversationsByUserId(userId: string): Promise<Conversation[]>;
   updateConversation(id: string, updates: Partial<Conversation>): Promise<Conversation | null>;
   
