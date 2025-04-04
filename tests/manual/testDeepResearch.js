@@ -1,180 +1,214 @@
 /**
- * Manual test for Perplexity research functionality
- * Tests both quick research and deep research modes
- * Respects rate limit of 5 requests per minute for sonar-deep-research
+ * Deep Research Testing Script
+ * 
+ * This script focuses specifically on testing the Perplexity deep research 
+ * functionality in both mock and live API modes.
+ * 
+ * Usage:
+ *   node tests/manual/testDeepResearch.js [--use-real-apis] [--query="Your query"] [--model=model_name]
+ * 
+ * Options:
+ *   --use-real-apis     Use real APIs instead of mocks (requires API keys)
+ *   --query="..."       Custom research query
+ *   --model=...         Specific model to use (defaults to llama-3.1-sonar-large-128k-online)
+ *   --save-results      Save test results to file
+ *   --timeout=60000     Timeout in milliseconds (default: 60000 - 1 minute)
  */
 
-import perplexityService from '../../services/perplexityService.js';
+import fs from 'fs/promises';
+import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import logger from '../../utils/logger.js';
 
-// Rate limit configuration
-const REQUESTS_PER_MINUTE = 5;
-const MINUTE_IN_MS = 60 * 1000;
-const DELAY_BETWEEN_REQUESTS = Math.ceil(MINUTE_IN_MS / REQUESTS_PER_MINUTE);
+// Default output directory for test results
+const DEFAULT_OUTPUT_DIR = path.join(process.cwd(), 'test-results', 'deep-research');
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+// Parse command line arguments
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const options = {
+    useRealAPIs: args.includes('--use-real-apis'),
+    saveResults: args.includes('--save-results'),
+    model: 'llama-3.1-sonar-large-128k-online',
+    query: 'What are the most effective pricing strategies for SaaS products in 2025?',
+    timeout: 60000 // 1 minute default timeout
+  };
+  
+  // Parse query
+  const queryArg = args.find(arg => arg.startsWith('--query='));
+  if (queryArg) {
+    options.query = queryArg.substring('--query='.length);
+  }
+  
+  // Parse model
+  const modelArg = args.find(arg => arg.startsWith('--model='));
+  if (modelArg) {
+    options.model = modelArg.substring('--model='.length);
+  }
+  
+  // Parse timeout
+  const timeoutArg = args.find(arg => arg.startsWith('--timeout='));
+  if (timeoutArg) {
+    options.timeout = parseInt(timeoutArg.substring('--timeout='.length), 10);
+  }
+  
+  return options;
+}
 
+// Save test results to a file
+async function saveTestResults(results, outputDir) {
+  try {
+    // Create output directory if it doesn't exist
+    await fs.mkdir(outputDir, { recursive: true });
+    
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().replace(/:/g, '-');
+    const filename = `deep-research-results-${timestamp}.json`;
+    const outputPath = path.join(outputDir, filename);
+    
+    // Save results
+    await fs.writeFile(
+      outputPath,
+      JSON.stringify(results, null, 2)
+    );
+    
+    console.log(`Test results saved to: ${outputPath}`);
+    return outputPath;
+  } catch (error) {
+    console.error('Error saving test results:', error);
+    throw error;
+  }
+}
+
+// Main test function
 async function testDeepResearch() {
+  console.log('=================================================');
+  console.log('  Deep Research Test');
+  console.log('=================================================');
+  
   try {
-    console.log('=== Starting Deep Research Model Verification Test ===\n');
-
-    const testCases = [
-      {
-        query: 'What are the latest developments in quantum computing in 2025?',
-        wantsDeepResearch: true
-      },
-      {
-        query: 'Analyze the current state of renewable energy adoption globally',
-        wantsDeepResearch: false
-      },
-      {
-        query: 'What are the emerging trends in artificial intelligence and machine learning?',
-        wantsDeepResearch: true
-      }
-    ];
-
-    for (const testCase of testCases) {
-      const jobId = uuidv4();
-      console.log('\nTesting query:', testCase.query);
-      console.log('Job ID:', jobId);
-      console.log('Expects deep research:', testCase.wantsDeepResearch);
-
-      const startTime = Date.now();
-
+    const options = parseArgs();
+    const testId = uuidv4();
+    
+    console.log('Test Options:');
+    console.log(JSON.stringify(options, null, 2));
+    console.log('=================================================');
+    
+    let perplexityService;
+    
+    // Load appropriate service based on test mode
+    if (options.useRealAPIs) {
       try {
-        const results = await perplexityService.performDeepResearch(testCase.query, jobId);
-        const duration = Date.now() - startTime;
-
-        console.log(`\nResearch completed in ${(duration / 1000).toFixed(3)} seconds`);
-        console.log('Model verification:');
-        console.log(`- Requested model: ${results.requestedModel}`);
-        console.log(`- Actually used model: ${results.modelUsed}`);
-        console.log(`- Model match: ${results.requestedModel === results.modelUsed ? '✓' : '❌'}`);
-        console.log(`Content length: ${results.content.length}`);
-        console.log(`Number of sources: ${results.sources.length}\n`);
-
-        if (results.requestedModel !== results.modelUsed) {
-          console.error('WARNING: Model mismatch detected!');
-          console.error(`Expected ${results.requestedModel} but got ${results.modelUsed}`);
+        // Load environment variables
+        const { config } = await import('dotenv');
+        config();
+        console.log('Environment variables loaded from .env file');
+        
+        // Check for required API key
+        if (!process.env.PERPLEXITY_API_KEY) {
+          throw new Error('Missing PERPLEXITY_API_KEY environment variable');
         }
-
-        // Add delay between requests to respect rate limit
-        if (testCase.wantsDeepResearch) {
-          console.log(`\nWaiting ${DELAY_BETWEEN_REQUESTS}ms before next request to respect rate limit...`);
-          await delay(DELAY_BETWEEN_REQUESTS);
-        }
+        
+        // Import real service
+        perplexityService = (await import('../../services/perplexityService.js')).default;
       } catch (error) {
-        console.error(`Error in test:`, error.message);
+        console.error('Failed to initialize real service:', error);
+        process.exit(1);
       }
+    } else {
+      // Import mock service
+      const { mockPerplexityService } = await import('../workflows/single-query-workflow/mock-services.js');
+      perplexityService = mockPerplexityService;
     }
-
-    console.log('\n=== Deep Research Model Verification Test Completed ===\n');
-
+    
+    // Set up timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error(`Test timed out after ${options.timeout}ms`)), options.timeout);
+    });
+    
+    // Set up research promise
+    const researchPromise = (async () => {
+      const startTime = Date.now();
+      
+      console.log(`Starting deep research [${testId}]: "${options.query}"`);
+      console.log(`Using model: ${options.model}`);
+      
+      // Get service health status
+      const healthStatus = perplexityService.getHealthStatus 
+        ? perplexityService.getHealthStatus() 
+        : { status: 'unknown' };
+        
+      console.log('Service health status:', healthStatus);
+      
+      // Perform the research
+      const researchResults = await perplexityService.performDeepResearch(options.query, {
+        model: options.model,
+        requestId: testId,
+        enableChunking: true
+      });
+      
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+      
+      console.log(`Research completed in ${duration}ms`);
+      console.log(`Content length: ${researchResults.content.length} characters`);
+      console.log(`Sources: ${researchResults.citations?.length || 0}`);
+      
+      // Format test results
+      const results = {
+        testId,
+        query: options.query,
+        model: options.model,
+        duration,
+        contentLength: researchResults.content.length,
+        citations: researchResults.citations || [],
+        followUpQuestions: researchResults.followUpQuestions || [],
+        mode: options.useRealAPIs ? 'LIVE' : 'MOCK',
+        timestamp: new Date().toISOString(),
+        success: true
+      };
+      
+      // Save summary of the content (first 1000 chars) for debugging
+      results.contentSummary = researchResults.content.substring(0, 1000) + 
+        (researchResults.content.length > 1000 ? '...' : '');
+      
+      // Save full content if requested
+      if (options.saveResults) {
+        results.content = researchResults.content;
+        const resultPath = await saveTestResults(results, DEFAULT_OUTPUT_DIR);
+        results.resultPath = resultPath;
+      }
+      
+      return results;
+    })();
+    
+    // Run the test with timeout
+    try {
+      const results = await Promise.race([researchPromise, timeoutPromise]);
+      
+      console.log('=================================================');
+      console.log('✅ Test completed successfully');
+      
+      console.log('\nSummary:');
+      console.log(`- Mode: ${results.mode}`);
+      console.log(`- Query: "${results.query}"`);
+      console.log(`- Model: ${results.model}`);
+      console.log(`- Content length: ${results.contentLength} characters`);
+      console.log(`- Sources: ${results.citations.length}`);
+      console.log(`- Duration: ${results.duration}ms`);
+      
+      if (results.resultPath) {
+        console.log(`\nResults saved to: ${results.resultPath}`);
+      }
+      
+      console.log('=================================================');
+    } catch (error) {
+      console.error('❌ Test failed:', error.message);
+      console.log('=================================================');
+    }
   } catch (error) {
-    console.error('Test script error:', error);
-    process.exit(1);
+    console.error('Fatal error during setup:', error);
   }
 }
 
-
-async function testResearchModes() {
-  try {
-    console.log('=== Testing Perplexity Research Modes ===');
-    
-    // Check API key and service status
-    if (!process.env.PERPLEXITY_API_KEY) {
-      console.error('ERROR: PERPLEXITY_API_KEY is not set!');
-      return;
-    }
-    
-    const status = perplexityService.getStatus();
-    console.log('Service status:', status);
-    
-    if (!status.status === 'connected') {
-      console.error('ERROR: Perplexity service is not connected!');
-      return;
-    }
-
-    // Test queries
-    const testCases = [
-      {
-        query: 'What are the latest developments in quantum computing?',
-        wantsDeepResearch: false
-      },
-      {
-        query: 'What are the latest developments in quantum computing?',
-        wantsDeepResearch: true
-      }
-    ];
-
-    for (const testCase of testCases) {
-      const jobId = uuidv4();
-      const mode = testCase.wantsDeepResearch ? 'Deep Research' : 'Quick Research';
-      
-      console.log(`\n=== Testing ${mode} Mode ===`);
-      console.log(`Query: "${testCase.query}"`);
-      console.log('Job ID:', jobId);
-
-      if (testCase.wantsDeepResearch) {
-        console.log('User confirmed deep research, using sonar-deep-research model...');
-      } else {
-        console.log('Using default sonar model for quick research...');
-      }
-      
-      const startTime = Date.now();
-      
-      try {
-        const results = await perplexityService.performDeepResearch(testCase.query, jobId);
-        const duration = Date.now() - startTime;
-        
-        console.log(`\nResearch completed in ${(duration / 1000).toFixed(3)} seconds`);
-        console.log(`Model used: ${results.modelUsed}`);
-        console.log(`Content length: ${results.content.length}`);
-        console.log(`Number of sources: ${results.sources.length}\n`);
-        
-        // Show first 200 chars of content
-        console.log('First 200 characters of content:');
-        console.log(results.content.substring(0, 200) + '...\n');
-        
-        // Show sources
-        console.log('Sources:');
-        results.sources.forEach((source, i) => {
-          console.log(`${i + 1}. ${source}`);
-        });
-
-        // Validate correct model usage
-        const expectedModel = testCase.wantsDeepResearch ? 'sonar-deep-research' : 'sonar';
-        if (results.modelUsed === expectedModel) {
-          console.log(`✓ Correct model used: ${results.modelUsed}`);
-        } else {
-          console.log(`❌ Model mismatch - Expected: ${expectedModel}, Got: ${results.modelUsed}`);
-        }
-
-        // Add delay between requests to respect rate limit
-        if (testCase.wantsDeepResearch) {
-          console.log(`\nWaiting ${DELAY_BETWEEN_REQUESTS}ms before next request to respect rate limit...`);
-          await delay(DELAY_BETWEEN_REQUESTS);
-        }
-      } catch (error) {
-        console.error(`Error in ${mode} test:`, error.message);
-      }
-    }
-
-    console.log('\n=== Research Mode Test Completed ===\n');
-    
-  } catch (error) {
-    console.error('Test script error:', error);
-    process.exit(1);
-  }
-}
-
-// Run test when executed directly
-if (process.argv[1] === import.meta.url) {
-  Promise.all([testResearchModes(), testDeepResearch()]).then(()=>process.exit(0)).catch(error => {
-    console.error('Test failed:', error);
-    process.exit(1);
-  });
-}
-
-export { testResearchModes, testDeepResearch };
+// Run the test
+testDeepResearch();
