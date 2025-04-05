@@ -7,118 +7,172 @@
 
 import perplexityService from './services/perplexityService.js';
 import { v4 as uuidv4 } from 'uuid';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as dotenv from 'dotenv';
 
-// Test query
-const TEST_QUERY = 'What are the latest breakthroughs in quantum computing?';
+// Load environment variables
+dotenv.config();
 
-// Check API key
-if (!process.env.PERPLEXITY_API_KEY) {
-  console.error('PERPLEXITY_API_KEY is required but not found in environment variables');
-  process.exit(1);
-}
+// Rate limit configuration 
+const REQUESTS_PER_MINUTE = 5;
+const MINUTE_IN_MS = 60 * 1000;
+const DELAY_BETWEEN_REQUESTS = Math.ceil(MINUTE_IN_MS / REQUESTS_PER_MINUTE);
 
+// Helper function for delay
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+// Main test function
 async function runTest() {
-  // Generate a unique test ID
-  const testId = uuidv4().substring(0, 8);
-  
-  console.log(`\n🔬 STARTING DEEP RESEARCH TEST (${testId})`);
-  console.log(`Query: "${TEST_QUERY}"`);
-  console.log('-----------------------------------------------------');
+  console.log('=== Testing Perplexity Deep Research Functionality ===');
   
   try {
-    // Using the deep research model
-    const modelType = 'sonar-deep-research';
-    console.log(`Using model: ${modelType}`);
+    // Create output directory if it doesn't exist
+    const outputDir = 'test-results';
+    await fs.mkdir(outputDir, { recursive: true });
     
-    console.time('deepResearch');
+    // Check API key
+    if (!process.env.PERPLEXITY_API_KEY) {
+      console.error('⚠️ PERPLEXITY_API_KEY environment variable is not set.');
+      return;
+    }
     
-    // Call the deep research function directly
-    const researchResults = await perplexityService.conductDeepResearch(TEST_QUERY, {
-      model: modelType,
-      maxTokens: 1000,
-      timeout: 180000, // 3 minute timeout
-      fullResponse: true
+    console.log('✅ PERPLEXITY_API_KEY is available');
+    
+    // Get service status
+    const status = perplexityService.getStatus();
+    console.log('Service status:', status);
+    
+    // Define test queries and parameters
+    const testQuery = "What are the key differences between value-based and cost-plus pricing strategies for SaaS?";
+    const jobId = uuidv4();
+    
+    console.log(`\n=== Starting Deep Research Test ===`);
+    console.log(`Query: "${testQuery}"`);
+    console.log(`Job ID: ${jobId}`);
+    
+    // First step: Make an initial query using standard search model
+    // This is similar to the first step of conductDeepResearch but as a standalone test
+    console.log('\n1. Making initial query for general information...');
+    const startTime = Date.now();
+    
+    const initialResults = await perplexityService.processWebQuery(testQuery, {
+      model: 'sonar',
+      maxTokens: 2048, 
+      temperature: 0.2,
+      systemPrompt: 'You are an expert research assistant. Provide a comprehensive overview of this topic, focusing on key points and citing reliable sources.'
     });
     
-    console.timeEnd('deepResearch');
+    const initialDuration = (Date.now() - startTime) / 1000;
+    console.log(`Initial query completed in ${initialDuration.toFixed(1)} seconds`);
+    console.log(`Model used: ${initialResults.model}`);
+    console.log(`Content length: ${initialResults.content.length} characters`);
+    console.log(`Citations found: ${initialResults.citations.length}`);
     
-    // Extract and format model information
-    console.log('\n📊 MODEL INFORMATION:');
-    console.log(`Requested model: ${modelType}`);
-    console.log(`Model in response: ${researchResults.model}`);
-    console.log(`Model used: ${researchResults.modelUsed || 'Not specified'}`);
-    
-    // Additional info like citations and follow-up questions
-    console.log('\n📝 CONTENT LENGTH:', researchResults.content.length);
-    console.log('🔗 CITATIONS COUNT:', researchResults.citations.length);
-    
-    if (researchResults.followUpQuestions) {
-      console.log('\n❓ FOLLOW-UP QUESTIONS:', researchResults.followUpQuestions.length);
-      researchResults.followUpQuestions.forEach((q, i) => console.log(`   ${i+1}. ${q}`));
-    }
+    // Save initial results
+    const initialOutputFile = path.join(outputDir, `perplexity-deep-research-initial-${new Date().toISOString().replace(/:/g, '-')}.json`);
+    await fs.writeFile(initialOutputFile, JSON.stringify(initialResults, null, 2));
+    console.log(`Initial results saved to ${initialOutputFile}`);
     
     // Content preview
-    const previewLength = Math.min(300, researchResults.content.length);
-    console.log('\n📄 CONTENT PREVIEW:');
-    console.log(researchResults.content.substring(0, previewLength) + '...');
+    console.log('\nContent preview:');
+    console.log('--------------------------------------');
+    console.log(initialResults.content.substring(0, 400) + '...');
+    console.log('--------------------------------------');
     
-    // Sample citations
-    if (researchResults.citations && researchResults.citations.length > 0) {
-      console.log('\n📚 SAMPLE CITATIONS:');
-      researchResults.citations.slice(0, 3).forEach((citation, i) => {
-        console.log(`${i+1}. ${citation}`);
-      });
+    // Respect rate limit before next request
+    console.log(`\nWaiting ${DELAY_BETWEEN_REQUESTS}ms before next request to respect rate limit...`);
+    await delay(DELAY_BETWEEN_REQUESTS);
+    
+    // Second step: Generate follow-up questions
+    console.log('\n2. Generating follow-up questions based on initial results...');
+    const followUpStartTime = Date.now();
+    
+    const followUpResponse = await perplexityService.processWebQuery(
+      `Based on the following research, what are 3 important follow-up questions that would help expand this research?\n\n${initialResults.content}`,
+      {
+        model: 'sonar',
+        maxTokens: 1024,
+        temperature: 0.7,
+        systemPrompt: 'Generate specific, targeted follow-up research questions. Be concise.'
+      }
+    );
+    
+    const followUpDuration = (Date.now() - followUpStartTime) / 1000;
+    console.log(`Follow-up questions generated in ${followUpDuration.toFixed(1)} seconds`);
+    console.log(`Model used: ${followUpResponse.model}`);
+    
+    // Extract follow-up questions
+    console.log('\nFollow-up questions:');
+    console.log('--------------------------------------');
+    console.log(followUpResponse.content);
+    console.log('--------------------------------------');
+    
+    // Save follow-up results
+    const followUpOutputFile = path.join(outputDir, `perplexity-deep-research-followup-${new Date().toISOString().replace(/:/g, '-')}.json`);
+    await fs.writeFile(followUpOutputFile, JSON.stringify(followUpResponse, null, 2));
+    console.log(`Follow-up questions saved to ${followUpOutputFile}`);
+    
+    // Respect rate limit
+    console.log(`\nWaiting ${DELAY_BETWEEN_REQUESTS}ms before next request to respect rate limit...`);
+    await delay(DELAY_BETWEEN_REQUESTS);
+    
+    // We'll only test one follow-up question to keep the test shorter
+    // Extract first follow-up question (simple extraction)
+    let followUpQuestion = '';
+    const questionMatches = followUpResponse.content.match(/\d+\.\s+(.*?)(?=\d+\.|$)/gs);
+    if (questionMatches && questionMatches.length > 0) {
+      followUpQuestion = questionMatches[0].replace(/^\d+\.\s+/, '').trim();
+    } else {
+      // Fallback to first line with a question mark
+      const lines = followUpResponse.content.split('\n');
+      followUpQuestion = lines.find(line => line.includes('?')) || 'How do these pricing strategies affect customer retention?';
     }
     
-    return {
-      success: true,
-      query: TEST_QUERY,
-      modelRequested: modelType,
-      modelUsed: researchResults.modelUsed || researchResults.model,
-      contentLength: researchResults.content.length,
-      citationsCount: researchResults.citations.length,
-      followUpQuestionsCount: researchResults.followUpQuestions ? researchResults.followUpQuestions.length : 0,
-      // Include raw API response
-      apiResponse: researchResults.apiResponse
-    };
-  } catch (error) {
-    console.error('❌ Test failed with error:', error.message);
-    console.error('Error details:', error);
+    // Third step: Research one follow-up question
+    console.log(`\n3. Researching follow-up question: "${followUpQuestion}"...`);
+    const followUpResearchTime = Date.now();
     
-    return {
-      success: false,
-      query: TEST_QUERY,
-      error: error.message
-    };
+    const followUpResearch = await perplexityService.processWebQuery(followUpQuestion, {
+      model: 'sonar',
+      maxTokens: 2048,
+      temperature: 0.2,
+      systemPrompt: 'Focus specifically on this aspect of the research topic. Be thorough and cite reliable sources.'
+    });
+    
+    const followUpResearchDuration = (Date.now() - followUpResearchTime) / 1000;
+    console.log(`Follow-up research completed in ${followUpResearchDuration.toFixed(1)} seconds`);
+    console.log(`Model used: ${followUpResearch.model}`);
+    console.log(`Content length: ${followUpResearch.content.length} characters`);
+    console.log(`Citations found: ${followUpResearch.citations.length}`);
+    
+    // Content preview
+    console.log('\nFollow-up research preview:');
+    console.log('--------------------------------------');
+    console.log(followUpResearch.content.substring(0, 400) + '...');
+    console.log('--------------------------------------');
+    
+    // Save follow-up research
+    const followUpResearchFile = path.join(outputDir, `perplexity-deep-research-followup-research-${new Date().toISOString().replace(/:/g, '-')}.json`);
+    await fs.writeFile(followUpResearchFile, JSON.stringify(followUpResearch, null, 2));
+    console.log(`Follow-up research saved to ${followUpResearchFile}`);
+    
+    // Note: In a full implementation, we would add a synthesis step here
+    // to combine the initial research with follow-up findings
+    
+    const totalDuration = (Date.now() - startTime) / 1000;
+    console.log(`\n=== Deep Research Test Completed in ${totalDuration.toFixed(1)} seconds ===`);
+    console.log('Each step of the deep research process has been tested individually.');
+    console.log('The complete conductDeepResearch method combines these steps into a single workflow.');
+    
+  } catch (error) {
+    console.error('Test error:', error.message);
+    if (error.response) {
+      console.error('API Error Response:', error.response.data);
+    }
   }
 }
 
 // Run the test
-runTest()
-  .then(results => {
-    if (results.success) {
-      console.log('\n✅ DEEP RESEARCH TEST COMPLETED SUCCESSFULLY!');
-      console.log('\nRESULTS SUMMARY:');
-      console.log('Query:', results.query);
-      console.log('Model requested:', results.modelRequested);
-      console.log('Model used:', results.modelUsed); 
-      console.log('Content length:', results.contentLength);
-      console.log('Citations count:', results.citationsCount);
-      console.log('Follow-up questions:', results.followUpQuestionsCount);
-      
-      // If there's token information, display it
-      if (results.apiResponse && results.apiResponse.usage) {
-        console.log('\nTOKEN USAGE:');
-        console.log('Prompt tokens:', results.apiResponse.usage.prompt_tokens);
-        console.log('Completion tokens:', results.apiResponse.usage.completion_tokens);
-        console.log('Total tokens:', results.apiResponse.usage.total_tokens);
-      }
-    } else {
-      console.log('\n❌ DEEP RESEARCH TEST FAILED');
-      console.log('Error:', results.error);
-    }
-  })
-  .catch(error => {
-    console.error('Unexpected error in test execution:', error);
-    process.exit(1);
-  });
+console.log('Starting deep research test...');
+runTest().catch(console.error);

@@ -1,0 +1,13 @@
+{
+  "filename": "perplexity-test-1-2025-04-05T15-34-10.943Z.json",
+  "timestamp": "2025-04-05T15:39:39.932Z",
+  "modelInformation": {
+    "directModel": "sonar",
+    "rawResponseModel": "sonar"
+  },
+  "sourceInformation": {
+    "existingSources": 5,
+    "extractedSources": 5,
+    "match": true
+  }
+}

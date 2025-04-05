@@ -1,0 +1,79 @@
+
+=== Perplexity Research Test Results ===
+Query: What are the most common pricing models for SaaS products in 2024?
+Timestamp: 2025-04-05T15-43-06.273Z
+Model: llama-3.1-sonar-small-128k-online
+Token Usage: {"prompt_tokens":47,"completion_tokens":583,"total_tokens":630}
+
+=== Response Content ===
+In 2024, the most common pricing models for SaaS products include:
+
+1. **Tiered Pricing**:
+   - This model offers different plans at various price points, each with its own set of features. It is often referred to as the "Good, Better, Best" model, where each tier provides increasing value to the customer[2][4][5].
+   - **Example**: A basic plan with essential features, a mid-tier plan with additional functionality, and a premium plan with full access to all features and premium support[2].
+
+2. **Flat Rate Pricing**:
+   - This model involves setting a single price for all access to the product, with no tiers or add-ons. It provides clarity and predictability for customers, making it easier for them to budget[4][5].
+   - **Example**: AiSDR offers a flat rate of $900 per 1,000 emails with all features unlocked[5].
+
+3. **Per-User Pricing**:
+   - This model charges a set fee for each user who accesses the software, making it predictable and scalable for businesses as they grow[4][5].
+   - **Example**: Canva charges a flat rate per user, allowing businesses to control costs by adding or removing users as needed[4].
+
+4. **Usage-Based Pricing**:
+   - This model charges customers for what they use—nothing more, nothing less. It aligns pricing with the value users receive and is ideal for companies with fluctuating needs[4][5].
+   - **Example**: Amazon Web Services (AWS) effectively champions usage-based pricing, where customers pay strictly for what they use[5].
+
+5. **Feature-Based Pricing**:
+   - This model allows customers to pay only for the features they need, making it flexible and aligned with the value provided by the product. It is perfect for products with diverse use cases[4][5].
+   - **Example**: Notion offers a flexible approach where customers can mix and match features to build their perfect package[4].
+
+6. **Freemium Pricing**:
+   - This model offers a free version with limited features, allowing users to experience the value of the product before committing to a paid plan. It helps attract users and provides a clear upgrade path[2][5].
+   - **Example**: An image creation app that provides free access to basic templates but charges for premium features like high-resolution exports and AI-powered editing[2].
+
+7. **Hybrid Pricing**:
+   - This model combines different pricing models, such as subscriptions with pay-per-use components, to accommodate diverse usage patterns and potentially open the door to additional revenue as needs change[2][5].
+
+These pricing models are designed to cater to different customer segments and needs, ensuring that SaaS companies can effectively monetize their products while providing value to their customers.
+
+=== Citations (5) ===
+[1] https://www.pricingio.com/saas-pricing-models/
+[2] https://www.revenera.com/blog/software-monetization/saas-pricing-models-guide/
+[3] https://sbigrowth.com/hubfs/1-Research%20Reports/11.2024%20State%20of%20B2B%20SaaS%20Pricing%20Price%20Intelligently/SBI_StateofB2BSaaSPricing2024.pdf
+[4] https://instantly.ai/blog/saas-pricing-model/
+[5] https://aisdr.com/blog/common-saas-pricing-models/
+
+=== Raw Response ===
+{
+  "id": "3c9bdd09-0246-4a3d-994d-8d7139f3c6e9",
+  "model": "llama-3.1-sonar-small-128k-online",
+  "created": 1743867790,
+  "usage": {
+    "prompt_tokens": 47,
+    "completion_tokens": 583,
+    "total_tokens": 630
+  },
+  "citations": [
+    "https://www.pricingio.com/saas-pricing-models/",
+    "https://www.revenera.com/blog/software-monetization/saas-pricing-models-guide/",
+    "https://sbigrowth.com/hubfs/1-Research%20Reports/11.2024%20State%20of%20B2B%20SaaS%20Pricing%20Price%20Intelligently/SBI_StateofB2BSaaSPricing2024.pdf",
+    "https://instantly.ai/blog/saas-pricing-model/",
+    "https://aisdr.com/blog/common-saas-pricing-models/"
+  ],
+  "object": "chat.completion",
+  "choices": [
+    {
+      "index": 0,
+      "finish_reason": "stop",
+      "message": {
+        "role": "assistant",
+        "content": "In 2024, the most common pricing models for SaaS products include:\n\n1. **Tiered Pricing**:\n   - This model offers different plans at various price points, each with its own set of features. It is often referred to as the \"Good, Better, Best\" model, where each tier provides increasing value to the customer[2][4][5].\n   - **Example**: A basic plan with essential features, a mid-tier plan with additional functionality, and a premium plan with full access to all features and premium support[2].\n\n2. **Flat Rate Pricing**:\n   - This model involves setting a single price for all access to the product, with no tiers or add-ons. It provides clarity and predictability for customers, making it easier for them to budget[4][5].\n   - **Example**: AiSDR offers a flat rate of $900 per 1,000 emails with all features unlocked[5].\n\n3. **Per-User Pricing**:\n   - This model charges a set fee for each user who accesses the software, making it predictable and scalable for businesses as they grow[4][5].\n   - **Example**: Canva charges a flat rate per user, allowing businesses to control costs by adding or removing users as needed[4].\n\n4. **Usage-Based Pricing**:\n   - This model charges customers for what they use—nothing more, nothing less. It aligns pricing with the value users receive and is ideal for companies with fluctuating needs[4][5].\n   - **Example**: Amazon Web Services (AWS) effectively champions usage-based pricing, where customers pay strictly for what they use[5].\n\n5. **Feature-Based Pricing**:\n   - This model allows customers to pay only for the features they need, making it flexible and aligned with the value provided by the product. It is perfect for products with diverse use cases[4][5].\n   - **Example**: Notion offers a flexible approach where customers can mix and match features to build their perfect package[4].\n\n6. **Freemium Pricing**:\n   - This model offers a free version with limited features, allowing users to experience the value of the product before committing to a paid plan. It helps attract users and provides a clear upgrade path[2][5].\n   - **Example**: An image creation app that provides free access to basic templates but charges for premium features like high-resolution exports and AI-powered editing[2].\n\n7. **Hybrid Pricing**:\n   - This model combines different pricing models, such as subscriptions with pay-per-use components, to accommodate diverse usage patterns and potentially open the door to additional revenue as needs change[2][5].\n\nThese pricing models are designed to cater to different customer segments and needs, ensuring that SaaS companies can effectively monetize their products while providing value to their customers."
+      },
+      "delta": {
+        "role": "assistant",
+        "content": ""
+      }
+    }
+  ]
+}

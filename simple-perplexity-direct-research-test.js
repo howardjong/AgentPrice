@@ -5,128 +5,167 @@
  * without going through the full deep research workflow.
  */
 
-import axios from 'axios';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import axios from 'axios';
+import { fileURLToPath } from 'url';
+
+// Get current file directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
 dotenv.config();
 
-// Logger function
+// Constants
+const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
+const PERPLEXITY_MODEL = 'llama-3.1-sonar-small-128k-online';
+const OUTPUT_DIR = 'test-results';
+const TEST_QUERY = 'What are the most common pricing models for SaaS products in 2024?';
+
+// Helper functions
 function log(message) {
-  console.log(message);
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${message}`);
 }
 
-// Check if API key is available
 function checkApiKey() {
-  const apiKey = process.env.PERPLEXITY_API_KEY;
-  if (!apiKey) {
-    log('⚠️ PERPLEXITY_API_KEY environment variable is not set.');
-    return false;
+  if (!process.env.PERPLEXITY_API_KEY) {
+    log('⚠️ PERPLEXITY_API_KEY environment variable is not set');
+    process.exit(1);
   }
-  log('✅ PERPLEXITY_API_KEY is available');
-  return true;
+  log('✅ Perplexity API key is available');
 }
 
-// Query Perplexity API directly with a research query
 async function performResearch(query, options = {}) {
-  if (!checkApiKey()) {
-    throw new Error('API key is not available');
-  }
-
-  // Get API key
-  const apiKey = process.env.PERPLEXITY_API_KEY;
+  const { systemPrompt = '', temperature = 0.2, maxTokens = 2048 } = options;
   
-  // Prepare research-focused system message
-  const systemMessage = options.systemPrompt || 
-    'You are an expert research assistant. Conduct a comprehensive analysis of this topic. ' +
-    'Include key insights, varied perspectives, and cite your sources. Organize your findings ' +
-    'clearly with section headings. Focus on providing substantive, detailed, and accurate information.';
+  log(`Querying Perplexity with: "${query.substring(0, 100)}${query.length > 100 ? '...' : ''}"`);
   
-  // Prepare request based on latest Perplexity API docs
-  const requestData = {
-    model: options.model || 'sonar',
-    messages: [
-      { role: "system", content: systemMessage },
-      { role: "user", content: query }
-    ],
-    temperature: options.temperature || 0.2,
-    max_tokens: options.max_tokens || 2048
-  };
-  
-  log(`\nSending research request to Perplexity API (model: ${requestData.model}):`);
-  log(JSON.stringify(requestData.messages[0], null, 2));
-  
-  // Make API request
   try {
-    const response = await axios.post(
-      'https://api.perplexity.ai/chat/completions',
-      requestData,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        timeout: 30000 // 30 second timeout to avoid hanging
-      }
-    );
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`
+    };
     
-    return response.data;
+    const requestData = {
+      model: PERPLEXITY_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: query }
+      ],
+      max_tokens: maxTokens,
+      temperature: temperature
+    };
     
+    const startTime = Date.now();
+    const response = await axios.post(PERPLEXITY_API_URL, requestData, { headers });
+    const duration = (Date.now() - startTime) / 1000;
+    
+    log(`Query completed in ${duration.toFixed(2)} seconds`);
+    
+    // Extract and format result
+    const result = {
+      content: response.data.choices[0].message.content,
+      model: response.data.model || 'unknown',
+      citations: response.data.citations || [],
+      usage: response.data.usage || {},
+      rawResponse: response.data
+    };
+    
+    return result;
   } catch (error) {
-    log('❌ API request failed:');
+    log(`❌ Error querying Perplexity API: ${error.message}`);
     if (error.response) {
       log(`Status: ${error.response.status}`);
-      log('Response data:');
-      log(JSON.stringify(error.response.data, null, 2));
-    } else {
-      log(error.message);
+      log(`Response data: ${JSON.stringify(error.response.data, null, 2)}`);
     }
     throw error;
   }
 }
 
-// Main test function
 async function runDirectResearchTest() {
-  log('=== Running Direct Perplexity Research Test ===');
+  log('=== Starting Simple Direct Perplexity Research Test ===');
   
   try {
-    // Test with a simpler research query
-    const query = 'What are three key factors to consider in SaaS pricing?';
-    log(`\nExecuting research query: "${query}"`);
+    // Check API key
+    checkApiKey();
     
-    const response = await performResearch(query, {
-      model: 'sonar',  // Basic model
-      temperature: 0.2,  // Lower temperature for more focused/factual responses
-      max_tokens: 1024  // Shorter response to speed up the test
-    });
+    // Create output directory if it doesn't exist
+    await fs.mkdir(OUTPUT_DIR, { recursive: true });
     
-    log('\n✅ Research query successful!');
-    log(`\nModel used: ${response.model || 'unknown'}`);
-    
-    // Extract and display the response content
-    const content = response.choices[0]?.message?.content || 'No content returned';
-    log('\nResponse content:');
-    log('--------------------------------------');
-    log(content.substring(0, 500) + '...');
-    log('--------------------------------------');
-    
-    // Save the full response for analysis
-    const outputDir = 'test-results';
-    await fs.mkdir(outputDir, { recursive: true });
+    // Generate a timestamp for this test run
     const timestamp = new Date().toISOString().replace(/:/g, '-');
-    const outputFile = path.join(outputDir, `perplexity-research-${timestamp}.json`);
-    await fs.writeFile(outputFile, JSON.stringify(response, null, 2));
-    log(`\nFull response saved to ${outputFile}`);
+    const outputFile = path.join(OUTPUT_DIR, `perplexity-response-${timestamp}.txt`);
     
-    return { success: true, response };
+    // Perform research with system prompt
+    const systemPrompt = 'You are an expert business analyst and pricing strategist. Provide comprehensive research with specific examples, industry standards, and best practices. Cite credible sources when possible.';
+    
+    log('Performing research with system prompt...');
+    const researchResult = await performResearch(TEST_QUERY, { systemPrompt });
+    
+    // Log results
+    log(`Model used: ${researchResult.model}`);
+    log(`Response length: ${researchResult.content.length} characters`);
+    log(`Number of citations: ${researchResult.citations.length}`);
+    log(`Token usage: ${JSON.stringify(researchResult.usage)}`);
+    
+    // Preview content
+    log('\nResponse preview:');
+    log('--------------------------------------');
+    log(researchResult.content.substring(0, 500) + '...');
+    log('--------------------------------------');
+    
+    // Log citations
+    if (researchResult.citations.length > 0) {
+      log('\nCitations:');
+      researchResult.citations.forEach((citation, index) => {
+        log(`[${index + 1}] ${citation}`);
+      });
+    }
+    
+    // Save full response to file
+    const outputContent = `
+=== Perplexity Research Test Results ===
+Query: ${TEST_QUERY}
+Timestamp: ${timestamp}
+Model: ${researchResult.model}
+Token Usage: ${JSON.stringify(researchResult.usage)}
+
+=== Response Content ===
+${researchResult.content}
+
+=== Citations (${researchResult.citations.length}) ===
+${researchResult.citations.map((citation, index) => `[${index + 1}] ${citation}`).join('\n')}
+
+=== Raw Response ===
+${JSON.stringify(researchResult.rawResponse, null, 2)}
+`;
+    
+    await fs.writeFile(outputFile, outputContent);
+    log(`Full response saved to: ${outputFile}`);
+    
+    log('=== Test completed successfully ===');
+    return { success: true, outputFile };
     
   } catch (error) {
-    log(`\n❌ Test failed: ${error.message}`);
-    return { success: false, error };
+    log(`❌ Test failed: ${error.message}`);
+    return { success: false, error: error.message };
   }
 }
 
 // Run the test
-runDirectResearchTest();
+runDirectResearchTest()
+  .then(result => {
+    if (!result.success) {
+      process.exit(1);
+    }
+  })
+  .catch(error => {
+    log(`Unhandled error: ${error.message}`);
+    process.exit(1);
+  });
+
+// ES Module exports
+export { runDirectResearchTest, performResearch };
