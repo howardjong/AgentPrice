@@ -9,17 +9,64 @@ import Bull from 'bull';
 import logger from '../utils/logger.js';
 import * as mockJobManager from './mockJobManager.js';
 
-// Check if we should use the mock job manager
-const USE_MOCK_JOB_MANAGER = process.env.USE_MOCK_JOB_MANAGER === 'true' || 
-                             process.env.REDIS_MODE === 'memory' || 
-                             process.env.NODE_ENV === 'test';
+// We'll import the redis service dynamically later to get the current mode
+// This avoids circular dependencies and ensures we're using the same mode across the application
+let redisMode;
+let USE_MOCK_JOB_MANAGER;
+const nodeEnv = process.env.NODE_ENV;
 
-// Log the mode we're using
-if (USE_MOCK_JOB_MANAGER) {
-  logger.info('Using mock job manager for Bull queues due to REDIS_MODE=memory');
-} else {
-  logger.info('Using real Bull job manager with Redis');
+// Function to properly initialize job manager settings
+// This will be called before any other operations to ensure consistency with redisService
+async function initJobManagerSettings() {
+  // Import redisService dynamically to get the current mode
+  try {
+    const redisService = await import('./redisService.js');
+    
+    // Get Redis mode from the service to ensure consistency
+    // Use the static getter to access the current redis mode
+    if (redisService.default && redisService.RedisClient) {
+      redisMode = redisService.RedisClient.redisMode;
+      logger.info(`JobManager: Got Redis mode from RedisClient.redisMode: ${redisMode}`);
+    } else if (redisService.default) {
+      redisMode = redisService.default.redisMode;
+      logger.info(`JobManager: Got Redis mode from redisService.default.redisMode: ${redisMode}`);
+    } else {
+      redisMode = process.env.REDIS_MODE || 'memory';
+      logger.info(`JobManager: Using environment REDIS_MODE: ${redisMode}`);
+    }
+  } catch (error) {
+    logger.error(`Error importing redisService: ${error.message}`);
+    redisMode = process.env.REDIS_MODE || 'memory';
+    logger.info(`JobManager: Fallback to environment REDIS_MODE: ${redisMode}`);
+  }
+  
+  // Now handle USE_MOCK_JOB_MANAGER setting
+  const useMockJobManager = process.env.USE_MOCK_JOB_MANAGER;
+  
+  // First, explicitly check the USE_MOCK_JOB_MANAGER env variable value
+  if (useMockJobManager === 'true' || useMockJobManager === 'false') {
+    // If USE_MOCK_JOB_MANAGER is explicitly set, respect that setting
+    USE_MOCK_JOB_MANAGER = useMockJobManager === 'true';
+    logger.info(`JobManager: Using explicit USE_MOCK_JOB_MANAGER=${USE_MOCK_JOB_MANAGER}`);
+  } else {
+    // Otherwise fall back to checking environment and Redis mode
+    USE_MOCK_JOB_MANAGER = 
+      nodeEnv === 'test' ||
+      redisMode === 'memory' ||
+      !redisMode; // If REDIS_MODE is not specified, default to mock
+    logger.info(`JobManager: Determined USE_MOCK_JOB_MANAGER=${USE_MOCK_JOB_MANAGER} based on environment`);
+  }
+  
+  // Log final settings
+  logger.info(`JobManager initialized with: REDIS_MODE=${redisMode}, USE_MOCK_JOB_MANAGER=${USE_MOCK_JOB_MANAGER}, NODE_ENV=${nodeEnv}`);
 }
+
+// Initialize settings immediately, but don't wait for it
+// The settings will be ready by the time any queue operations are performed
+initJobManagerSettings();
+
+// We'll need to check mode after initialization
+// The createQueue and other functions will wait for initialization through getRedisUrl()
 
 // Cache for Bull queues
 const queues = new Map();
@@ -38,19 +85,63 @@ const defaultOptions = {
 };
 
 /**
+ * Get Redis URL from environment or import from redisService for Redis Memory Server
+ */
+async function getRedisUrl() {
+  // If we're using the memory Redis mode, we should get the URL from redisService
+  // to ensure we're connecting to the Redis Memory Server
+  if (redisMode === 'memory') {
+    try {
+      // Import our Redis service dynamically
+      const redisService = await import('./redisService.js');
+      
+      // Check if redisService has a method to get the Redis URL
+      if (redisService.default && redisService.default.getRedisUrl) {
+        logger.info('Getting Redis URL from redisService (Memory Server)');
+        return await redisService.default.getRedisUrl();
+      }
+    } catch (error) {
+      logger.error(`Error importing redisService: ${error.message}`);
+    }
+  }
+  
+  // For 'real' mode, we need to get the URL from the redisService which runs Redis Memory Server
+  if (redisMode === 'real') {
+    try {
+      const redisService = await import('./redisService.js');
+      if (redisService.default && redisService.default.getRedisUrl) {
+        logger.info('Getting Redis URL from redisService (Redis Memory Server)');
+        return await redisService.default.getRedisUrl();
+      }
+    } catch (error) {
+      logger.error(`Error importing redisService: ${error.message}`);
+    }
+  }
+  
+  // Fallback to environment variable or default
+  const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+  logger.info(`Using Redis URL from environment: ${redisUrl}`);
+  return redisUrl;
+}
+
+/**
  * Create or get a Bull queue
  * @param {string} name - Queue name
  * @param {Object} options - Queue options
  * @returns {Object} - Bull queue
  */
-function createQueue(name, options = {}) {
+async function createQueue(name, options = {}) {
   // Use cache if we already have this queue
   if (queues.has(name)) {
     return queues.get(name);
   }
   
-  // Create new queue
-  const queue = new Bull(name, { ...defaultOptions, ...options });
+  // Get Redis URL (potentially from Redis Memory Server)
+  const redisUrl = await getRedisUrl();
+  logger.info(`Using Redis URL for Bull queue ${name}: ${redisUrl}`);
+  
+  // Create new queue with specific Redis connection
+  const queue = new Bull(name, redisUrl, { ...defaultOptions, ...options });
   
   // Set up event handlers
   queue.on('error', (error) => {
@@ -81,15 +172,21 @@ function createQueue(name, options = {}) {
  * @returns {Promise<string>} - Job ID
  */
 async function enqueueJob(queueName, data, options = {}) {
+  // Log the current mode for debugging
+  logger.info(`enqueueJob: Using mode REDIS_MODE=${redisMode}, USE_MOCK_JOB_MANAGER=${USE_MOCK_JOB_MANAGER}`);
+  
   // If using mock job manager, delegate to it
   if (USE_MOCK_JOB_MANAGER) {
+    logger.info(`Delegating job to mock job manager for queue: ${queueName}`);
     return await mockJobManager.enqueueJob(queueName, data, options);
+  } else {
+    logger.info(`Using real Bull job manager for queue: ${queueName}`);
   }
   
   // Check for rate limiting requirement
   if (data.options && data.options.shouldRateLimit) {
     // Implement basic rate limiting for high-cost operations like deep research
-    const queue = createQueue(queueName);
+    const queue = await createQueue(queueName);
     const counts = await queue.getJobCounts();
     
     if (counts.active > 0) {
@@ -108,9 +205,10 @@ async function enqueueJob(queueName, data, options = {}) {
   }
   
   // Create queue and add job
-  const queue = createQueue(queueName);
+  const queue = await createQueue(queueName);
   const job = await queue.add(data, options);
   
+  logger.info(`Job added to ${queueName} queue with ID: ${job.id}`);
   return job.id;
 }
 
@@ -171,16 +269,16 @@ async function getJobStatus(jobId) {
  * @param {string} queueName - Queue name
  * @param {Function} processorFn - Processor function
  * @param {Object} options - Processor options
- * @returns {void}
+ * @returns {Promise<void>}
  */
-function registerProcessor(queueName, processorFn, options = {}) {
+async function registerProcessor(queueName, processorFn, options = {}) {
   // If using mock job manager, delegate to it
   if (USE_MOCK_JOB_MANAGER) {
     return mockJobManager.registerProcessor(queueName, processorFn, options);
   }
   
   // Create queue and register processor
-  const queue = createQueue(queueName);
+  const queue = await createQueue(queueName);
   const concurrency = options.concurrency || 1;
   
   queue.process(concurrency, processorFn);
@@ -200,7 +298,7 @@ async function getJobCounts(queueName) {
   }
   
   // Get queue
-  const queue = createQueue(queueName);
+  const queue = await createQueue(queueName);
   return await queue.getJobCounts();
 }
 
