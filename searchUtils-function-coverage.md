@@ -1,28 +1,22 @@
 
 # SearchUtils Function Coverage Report
 
-- Date: 2025-04-03
-- Total Functions: 14
-- Covered Functions: 14
+- Date: 2025-04-05
+- Total Functions: 8
+- Covered Functions: 8
 - Function Coverage: 100.00%
 - Coverage Target (80%): MET ✓
 
 ## Function Coverage Details
 
-- ✓ initialize
 - ✓ performTextSearch
+- ✓ processSearchResults
 - ✓ search
-- ✓ processResults
-- ✓ _performTextSearch
-- ✓ buildQuery
-- ✓ normalizeFilters
-- ✓ applyFilters
-- ✓ transformResults
-- ✓ calculateRelevanceScore
-- ✓ highlightMatchingText
-- ✓ formatDate
-- ✓ sortResults
-- ✓ paginateResults
+- ✓ filterResults
+- ✓ groupByCategory
+- ✓ sortByScore
+- ✓ transformForDisplay
+- ✓ extractKeywords
 
 ## Recommendation
 

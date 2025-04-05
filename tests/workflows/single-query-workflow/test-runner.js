@@ -564,7 +564,59 @@ async function saveTestResults(results) {
     );
     
     console.log(`Test results saved to: ${filename}`);
+    
+    // Add the path to the results
+    results.resultPath = path.join(testResultsDir, filename);
+    return results;
   } catch (error) {
     console.error('Error saving test results:', error);
+    return results;
   }
+}
+
+/**
+ * Wrapper function for the test runner that supports different test variants
+ * This is used by various test files including enhanced-single-query-workflow.vitest.js
+ * 
+ * @param {string} variant - The test variant to run (basic, performance, etc.)
+ * @param {object} options - Test options
+ * @returns {Promise<object>} - Test results
+ */
+export async function runWorkflowTest(variant, options = {}) {
+  console.log(`Running workflow test variant: ${variant}`);
+  
+  // Merge options with variant-specific defaults
+  const mergedOptions = {
+    variant,
+    saveResults: true,
+    ...options
+  };
+  
+  // Run the test with the provided options
+  const results = await runTest(mergedOptions);
+  
+  // Enhanced metrics for the wrapper
+  results.metrics = results.metrics || {};
+  results.metrics.stages = results.metrics.stages || {};
+  
+  // Add timing data from stageTiming to the metrics
+  Object.entries(results.stageTiming || {}).forEach(([stage, timing]) => {
+    if (timing.start && timing.end) {
+      results.metrics.stages[stage] = {
+        ...results.metrics.stages[stage],
+        duration: timing.end - timing.start,
+        start: timing.start,
+        end: timing.end
+      };
+    }
+  });
+  
+  // Add overall timing
+  results.metrics.performance = {
+    start: results.timestamp,
+    end: new Date().toISOString(),
+    duration: Date.now() - new Date(results.timestamp).getTime()
+  };
+  
+  return results;
 }

@@ -1,0 +1,114 @@
+{
+  "success": true,
+  "query": "What are the latest advancements in renewable energy storage?",
+  "variant": "noDeepResearch",
+  "useRealAPIs": false,
+  "timestamp": "2025-04-05T05:28:02.740Z",
+  "error": null,
+  "stageTiming": {
+    "clarification": {
+      "start": 1743830882740,
+      "end": 1743830882741
+    },
+    "research": {
+      "start": 1743830882741,
+      "end": 1743830882742
+    },
+    "extraction": {
+      "start": 1743830882742,
+      "end": 1743830882742
+    },
+    "charting": {
+      "start": 1743830882742,
+      "end": 1743830882742
+    }
+  },
+  "clarifiedQuery": "What are the most recent technological breakthroughs and implementations in renewable energy storage systems, focusing on developments from the past 2-3 years?",
+  "researchContent": "Recent advancements in renewable energy storage have been substantial, with several breakthrough technologies reaching commercial viability in the past 2-3 years.\n\nFor grid-scale storage:\n1. Flow batteries have seen significant improvements, with vanadium redox flow batteries now achieving 80-90% round-trip efficiency and 20+ year lifespans.\n\n2. Compressed air energy storage (CAES) has evolved with Hydrostor's Advanced Compressed Air Energy Storage (A-CAES) technology, which achieves 60-70% efficiency without fossil fuels.\n\n3. Gravity-based storage solutions like Energy Vault's crane and block system can store 35MWh of energy and discharge at 4MW, with 80-90% round-trip efficiency.\n\nFor residential storage:\n1. Lithium iron phosphate (LFP) batteries have become dominant due to improved safety and longevity.\n\n2. Solid-state batteries are beginning to enter the market with companies like QuantumScape making progress on commercial production.\n\n3. Salt (sodium-ion) batteries are emerging as a promising alternative to lithium-ion, with CATL announcing mass production.",
+  "sources": [
+    {
+      "title": "BloombergNEF Battery Price Survey 2023",
+      "url": "https://example.com/bnef-battery-survey-2023"
+    },
+    {
+      "title": "IEA Energy Storage Tracking Report 2023",
+      "url": "https://example.com/iea-storage-tracking-2023"
+    }
+  ],
+  "extractedData": {
+    "chartTitle": "Renewable Energy Storage Technologies Efficiency Comparison",
+    "chartType": "bar",
+    "categories": [
+      "Vanadium Flow Batteries",
+      "A-CAES",
+      "Gravity Storage",
+      "Lithium Iron Phosphate",
+      "Solid-State Batteries"
+    ],
+    "values": [
+      85,
+      65,
+      85,
+      90,
+      75
+    ],
+    "metricName": "Round-Trip Efficiency (%)"
+  },
+  "dataExtractionPrompt": "Extract data about storage efficiency from the research content for visualization",
+  "chartData": {
+    "chartTitle": "Renewable Energy Storage Technologies Efficiency Comparison",
+    "chartType": "bar",
+    "categories": [
+      "Vanadium Flow Batteries",
+      "A-CAES",
+      "Gravity Storage",
+      "Lithium Iron Phosphate",
+      "Solid-State Batteries"
+    ],
+    "values": [
+      85,
+      65,
+      85,
+      90,
+      75
+    ],
+    "metricName": "Round-Trip Efficiency (%)"
+  },
+  "plotlyConfig": {
+    "data": [
+      {
+        "type": "bar",
+        "x": [
+          "Vanadium Flow Batteries",
+          "A-CAES",
+          "Gravity Storage",
+          "Lithium Iron Phosphate",
+          "Solid-State Batteries"
+        ],
+        "y": [
+          85,
+          65,
+          85,
+          90,
+          75
+        ],
+        "marker": {
+          "color": "rgb(55, 83, 109)"
+        }
+      }
+    ],
+    "layout": {
+      "title": "Renewable Energy Storage Technologies Efficiency Comparison",
+      "xaxis": {
+        "title": "Storage Technology"
+      },
+      "yaxis": {
+        "title": "Round-Trip Efficiency (%)",
+        "range": [
+          0,
+          100
+        ]
+      }
+    }
+  }
+}

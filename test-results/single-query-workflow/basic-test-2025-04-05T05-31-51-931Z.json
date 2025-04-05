@@ -1,0 +1,9 @@
+{
+  "success": false,
+  "query": "What are the best practices for unit testing?",
+  "variant": "basic",
+  "useRealAPIs": true,
+  "timestamp": "2025-04-05T05:31:51.930Z",
+  "error": "Live API testing is not enabled. Set ENABLE_LIVE_API_TESTS=true to run with real APIs.",
+  "stageTiming": {}
+}

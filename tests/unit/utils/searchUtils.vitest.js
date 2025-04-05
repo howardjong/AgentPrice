@@ -103,6 +103,49 @@ describe('searchUtils', () => {
     });
   });
   
+  describe('processSearchResults', () => {
+    it('should perform text search on results with the query', () => {
+      // Test data
+      const mockResults = [
+        { id: '1', title: 'First Result', content: 'This is about artificial intelligence' },
+        { id: '2', title: 'Second Result', content: 'This is about natural language processing' }
+      ];
+      const query = 'artificial intelligence';
+      
+      // Use of performTextSearch is an implementation detail of processSearchResults
+      // We'll test the behavior, not the internal function call
+      const result = searchUtils.processSearchResults(mockResults, query);
+      
+      // Verify expected filtering (only first result should match)
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe('1');
+    });
+    
+    it('should return all results when query is empty', () => {
+      const mockResults = [
+        { id: '1', title: 'First Result' },
+        { id: '2', title: 'Second Result' }
+      ];
+      
+      const result = searchUtils.processSearchResults(mockResults, '');
+      
+      expect(result).toHaveLength(2);
+      expect(result).toEqual(mockResults);
+    });
+    
+    it('should handle empty results array', () => {
+      const result = searchUtils.processSearchResults([], 'query');
+      expect(result).toEqual([]);
+    });
+    
+    it('should handle undefined or null inputs', () => {
+      expect(searchUtils.processSearchResults(undefined, 'query')).toEqual([]);
+      expect(searchUtils.processSearchResults(null, 'query')).toEqual([]);
+      expect(searchUtils.processSearchResults([], undefined)).toEqual([]);
+      expect(searchUtils.processSearchResults([], null)).toEqual([]);
+    });
+  });
+  
   describe('search', () => {
     it('should search API with provided query and options', async () => {
       // Set up axios mock response
