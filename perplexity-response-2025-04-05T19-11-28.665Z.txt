@@ -1,0 +1,32 @@
+{
+  "id": "f5e6e7e3-2c8b-417b-ae70-83d9d05f1a6c",
+  "model": "llama-3.1-sonar-small-128k-online",
+  "created": 1743880288,
+  "usage": {
+    "prompt_tokens": 29,
+    "completion_tokens": 94,
+    "total_tokens": 123
+  },
+  "citations": [
+    "https://stripe.com/resources/more/saas-pricing-models-101",
+    "https://www.withorb.com/blog/how-to-price-saas",
+    "https://www.saasacademy.com/blog/saas-pricing-strategies",
+    "https://www.cloudzero.com/blog/pricing-decisions/",
+    "https://www.cobloom.com/blog/saas-pricing-models"
+  ],
+  "object": "chat.completion",
+  "choices": [
+    {
+      "index": 0,
+      "finish_reason": "stop",
+      "message": {
+        "role": "assistant",
+        "content": "The three most important factors in SaaS pricing strategy are:\n\n1. **Cost Analysis**: Ensuring the price covers costs and leaves room for a profit margin[1][2][4].\n2. **Value Assessment**: Understanding the perceived value to the customer, affecting what they are willing to pay[1][2][5].\n3. **Market Research**: Knowing competitors' pricing and market standards to set a competitive yet profitable price[1][3][5]."
+      },
+      "delta": {
+        "role": "assistant",
+        "content": ""
+      }
+    }
+  ]
+}

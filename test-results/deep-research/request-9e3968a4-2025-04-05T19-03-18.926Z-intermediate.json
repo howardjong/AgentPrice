@@ -1,0 +1,27 @@
+{
+  "requestId": "9e3968a4",
+  "timestamp": "2025-04-05T19-03-18.926Z",
+  "query": "What are the latest pricing strategies for SaaS companies in 2025, specifically focusing on value-based pricing models? Please include examples of successful implementation and case studies.",
+  "model": "sonar-deep-research",
+  "options": {
+    "temperature": 0.3,
+    "maxTokens": 4000,
+    "searchContext": "high"
+  },
+  "payload": {
+    "model": "sonar-deep-research",
+    "messages": [
+      {
+        "role": "system",
+        "content": "You are a knowledgeable research assistant with access to up-to-date information."
+      },
+      {
+        "role": "user",
+        "content": "What are the latest pricing strategies for SaaS companies in 2025, specifically focusing on value-based pricing models? Please include examples of successful implementation and case studies."
+      }
+    ],
+    "temperature": 0.3,
+    "max_tokens": 4000,
+    "search_context": "high"
+  }
+}

@@ -1,21 +1,26 @@
 #!/bin/bash
-# Run Deep Research in Background
-# This script initiates a deep research request and runs it in the background
 
-# Generate a timestamp
-TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
-LOG_FILE="perplexity-deep-research-job-$TIMESTAMP.log"
+# Run Deep Research Background Process
+# This script runs the deep research test in the background and logs outputs
 
-echo "Starting Perplexity deep research job at $TIMESTAMP"
-echo "Output will be logged to $LOG_FILE"
+echo "Starting deep research test in background mode..."
+echo "Output will be logged to perplexity-deep-research-job-*.log"
 
-# Run the deep research script in the background
-nohup node enhanced-polling-deep-research.js > "$LOG_FILE" 2>&1 &
+# Create directories for results if they don't exist
+mkdir -p test-results/deep-research
+mkdir -p test-results/deep-research-results
 
-# Capture the process ID
+# Execute the test script in the background
+node complete-perplexity-deep-research.cjs &
+
+# Store the process ID
 PID=$!
-echo "Process ID: $PID"
-echo "Process ID: $PID" >> "$LOG_FILE"
+echo "Process started with PID: $PID"
+echo "To check status, run: cat perplexity-deep-research-job-*.log | tail -50"
 
-echo "Job started in background. Check $LOG_FILE for progress."
-echo "You can also run 'check-deep-research-status.js' later to see the results."
+# Write PID to a file for later reference
+echo $PID > deep-research-process.pid
+
+echo "Deep research test is now running in the background."
+echo "It may take up to 30 minutes to complete."
+echo "View progress by checking the log file."

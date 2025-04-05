@@ -1,69 +1,101 @@
-# Perplexity Deep Research Integration
+# Perplexity Deep Research Implementation
 
-This document provides information about the Perplexity Deep Research integration in our application, which enables advanced AI-powered research capabilities with comprehensive sourcing.
+This document provides an overview of the Perplexity Deep Research implementation in our multi-LLM research project.
 
-## Overview
+## Current Status
 
-The Perplexity deep research integration uses the `sonar-deep-research` model to perform comprehensive research on complex topics with multiple sources. This model:
+As of April 5, 2025, we have:
 
-1. Searches the internet for up-to-date information
-2. Aggregates information from multiple credible sources
-3. Synthesizes findings into a coherent response
-4. Provides citations to the original sources
+- ✅ Successfully connected to the Perplexity API
+- ✅ Working implementation for the `llama-3.1-sonar-small-128k-online` model
+- ✅ Developed a robust polling mechanism for deep research
+- ⚠️ Encountered issues with the deep research capability
 
-## API Details
+## Implementation Notes
 
-- **Model Name**: `sonar-deep-research`
-- **Endpoint**: `https://api.perplexity.ai/chat/completions`
-- **Authentication**: Bearer token authentication with your Perplexity API key
-- **Response Format**: Responses include poll URLs for long-running research
-- **Polling Mechanism**: Research can take up to 30 minutes to complete
+### Working Components
 
-## Testing Scripts
+1. **Basic API Integration**
+   - Authentication via API key
+   - Error handling with retry logic
+   - Circuit breaker pattern for API stability
 
-Several scripts have been developed to test and verify the deep research capabilities:
+2. **Standard Research**
+   - Fast responses (seconds) using `llama-3.1-sonar-small-128k-online`
+   - Citation extraction and processing
+   - Content formatting
 
-1. `check-official-models.js` - Tests all Perplexity model names to verify which are available with current API key
-2. `check-deep-research-status.js` - Checks the status of ongoing research requests
-3. `enhanced-polling-deep-research.js` - Full implementation of deep research with polling mechanism
-4. `collect-deep-research-results.js` - Collects and organizes all deep research results
-5. `complete-perplexity-deep-research.cjs` - End-to-end solution for initiating and monitoring research
+3. **Deep Research Infrastructure**
+   - Request formatting with proper parameters
+   - Poll URL extraction mechanism
+   - Response processing logic
+   - Results storage and organization
 
-## Usage Example
+### Current Challenges
 
-To start a deep research query:
+The `sonar-deep-research` model appears to either:
+
+1. Not be available with our current API access
+2. Have changed naming conventions in recent API updates
+3. Require additional authentication or parameters
+
+### Next Steps
+
+1. **API Key Verification**
+   - Confirm our API key has proper permissions for deep research
+   - Request updated documentation on available models
+
+2. **Alternative Implementation**
+   - Use multiple standard research queries in sequence
+   - Implement client-side result aggregation
+   - Adapt the current polling mechanism for non-deep research requests
+
+3. **Testing Strategy**
+   - Continue testing with various model configurations
+   - Implement detailed logging of all API interactions
+   - Develop mock responses for testing without API access
+
+## Usage
+
+The `perplexityService.js` module provides:
+
+- `query()` - Standard research queries (fast, seconds)
+- `initiateDeepResearch()` - Start deep research (may take ~30min)
+- `pollForResults()` - Check status of ongoing research
+- `conductDeepResearch()` - End-to-end research with polling
+
+Example:
 
 ```javascript
-node complete-perplexity-deep-research.cjs "What are the latest SaaS pricing strategies in 2025?"
+const perplexityService = require('./services/perplexityService');
+
+// Quick standard query
+const result = await perplexityService.query(
+  "What are the latest pricing strategies for SaaS companies?",
+  { model: "llama-3.1-sonar-small-128k-online" }
+);
+
+// Deep research (if available)
+const deepResult = await perplexityService.conductDeepResearch(
+  "Provide a comprehensive analysis of SaaS pricing strategies across different market segments in 2025, including examples and comparative data."
+);
 ```
 
-This will:
-1. Submit the query to Perplexity's deep research model
-2. Store the poll URL for status checking
-3. Set up a background process to monitor completion
-4. Save results to the `test-results/deep-research` directory
+## Testing
 
-## Response Format
+To test the deep research functionality:
 
-Deep research responses include:
+1. Run the test script:
+   ```
+   ./run-deep-research-background.sh
+   ```
 
-- `model` - The model used for the research
-- `completion.text` - The comprehensive research result
-- `completion.links` - Array of citation sources with URLs
-- `completion.search_queries` - The search queries used to find information
+2. Monitor the logs:
+   ```
+   cat perplexity-deep-research-job-*.log | tail -50
+   ```
 
-## Limitations and Considerations
-
-1. **Processing Time**: Deep research requests can take 15-30 minutes to complete
-2. **API Limits**: There are rate limits on the number of deep research requests
-3. **Polling Required**: All deep research requests require polling for completion
-4. **Research Quality**: The quality depends on available sources for the topic
-5. **API Key Permissions**: Only specific API keys have access to deep research models
-
-## Development Notes
-
-- For production use, implement proper job queue management with Redis
-- Consider implementing webhook callbacks when available
-- Log and monitor all research requests for tracking
-- Implement proper error handling for long-running requests
-- Store intermediate results for research that exceeds timeout limits
+3. Check for completed results:
+   ```
+   ls -la test-results/deep-research-results/
+   ```
