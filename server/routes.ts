@@ -729,7 +729,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Chat Endpoint - Auto-routes between Claude and Perplexity
   app.post('/api/chat', async (req: Request, res: Response) => {
     try {
-      const { message, conversationId, service } = chatMessageSchema.parse(req.body);
+      const { message, conversationId, service, deepResearch } = chatMessageSchema.parse(req.body);
       const requestId = (req as any).id || crypto.randomUUID();
 
       // Broadcast that we've received the request
@@ -792,7 +792,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Route the message to appropriate service
-      const result = await serviceRouter.routeMessage(messageHistory, service);
+      // If deepResearch is true, pass it as an option to the router
+      const routeOptions = deepResearch ? { confirmDeepResearch: true } : undefined;
+      const result = await serviceRouter.routeMessage(messageHistory, service, routeOptions);
 
       // Broadcast that we've received a response
       broadcastMessage({

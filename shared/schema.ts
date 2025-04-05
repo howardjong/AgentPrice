@@ -168,7 +168,8 @@ export type ResearchReport = typeof researchReports.$inferSelect;
 export const chatMessageSchema = z.object({
   message: z.string().min(1),
   conversationId: z.string().optional().nullable(),
-  service: z.enum(['claude', 'perplexity', 'auto']).optional().default('claude')
+  service: z.enum(['claude', 'perplexity', 'auto']).optional().default('claude'),
+  deepResearch: z.boolean().optional().default(false)
 });
 
 // Visualization request schema
