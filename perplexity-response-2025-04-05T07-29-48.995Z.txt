@@ -1,0 +1,31 @@
+{
+  "id": "2b603160-3911-4249-9429-30bd17fdbd50",
+  "model": "sonar",
+  "created": 1743838191,
+  "usage": {
+    "prompt_tokens": 11,
+    "completion_tokens": 61,
+    "total_tokens": 72
+  },
+  "citations": [
+    "https://www.collinsdictionary.com/us/dictionary/english/life",
+    "https://en.wikipedia.org/wiki/Meaning_of_life",
+    "https://scottberkun.com/2013/what-is-the-meaning-of-life-and-why-do-people-keep-asking/",
+    "https://frankmartela.com/2017/12/22/the-meaning-of-life-what-makes-life-worth-living-in-one-sentence/"
+  ],
+  "object": "chat.completion",
+  "choices": [
+    {
+      "index": 0,
+      "finish_reason": "stop",
+      "message": {
+        "role": "assistant",
+        "content": "The meaning of life is a deeply subjective and multifaceted concept that varies significantly across different philosophical, cultural, and personal perspectives. It often involves seeking purpose, fulfillment, and significance through relationships, experiences, and personal achievements, with individuals deriving meaning from their unique life paths and choices[2][3]."
+      },
+      "delta": {
+        "role": "assistant",
+        "content": ""
+      }
+    }
+  ]
+}

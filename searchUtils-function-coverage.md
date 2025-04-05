@@ -1,23 +1,24 @@
-
 # SearchUtils Function Coverage Report
 
-- Date: 2025-04-05
-- Total Functions: 8
-- Covered Functions: 8
-- Function Coverage: 100.00%
-- Coverage Target (80%): MET ✓
+## Summary
+- **Total Functions**: 8
+- **Covered Functions**: 0
+- **Coverage Percentage**: 0%
 
 ## Function Coverage Details
 
-- ✓ performTextSearch
-- ✓ processSearchResults
-- ✓ search
-- ✓ filterResults
-- ✓ groupByCategory
-- ✓ sortByScore
-- ✓ transformForDisplay
-- ✓ extractKeywords
+| Function Name | Type | Covered |
+|--------------|------|---------|
+| search | exported | ❌ |
+| performTextSearch | exported | ❌ |
+| processSearchResults | exported | ❌ |
+| filterResults | exported | ❌ |
+| groupByCategory | exported | ❌ |
+| sortByScore | exported | ❌ |
+| transformForDisplay | exported | ❌ |
+| extractKeywords | exported | ❌ |
 
-## Recommendation
-
-Coverage target is met. Maintain this level with future updates.
+## Notes
+- This is a simplified function coverage report
+- A true coverage report should use proper instrumentation tools
+- Private functions may be incorrectly detected

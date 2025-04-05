@@ -6,72 +6,119 @@
  */
 
 import perplexityService from './services/perplexityService.js';
+import { v4 as uuidv4 } from 'uuid';
 
-// Define a query for deep research
-const query = 'What are the latest developments in quantum computing and their potential applications in cryptography?';
+// Test query
+const TEST_QUERY = 'What are the latest breakthroughs in quantum computing?';
 
-// Check if API key is available
+// Check API key
 if (!process.env.PERPLEXITY_API_KEY) {
-  console.error('PERPLEXITY_API_KEY is required but not found in environment variables.');
+  console.error('PERPLEXITY_API_KEY is required but not found in environment variables');
   process.exit(1);
 }
 
-console.log('Starting simple deep research test...');
-console.log('Query:', query);
-
 async function runTest() {
+  // Generate a unique test ID
+  const testId = uuidv4().substring(0, 8);
+  
+  console.log(`\n🔬 STARTING DEEP RESEARCH TEST (${testId})`);
+  console.log(`Query: "${TEST_QUERY}"`);
+  console.log('-----------------------------------------------------');
+  
   try {
-    console.time('deepResearch');
-    console.log('Using sonar-deep-research model with 5 minute timeout...');
+    // Using the deep research model
+    const modelType = 'sonar-deep-research';
+    console.log(`Using model: ${modelType}`);
     
-    const result = await perplexityService.performDeepResearch(query, {
-      model: 'sonar-deep-research',
-      timeout: 300000, // 5 minutes
-      maxTokens: 4096
+    console.time('deepResearch');
+    
+    // Call the deep research function directly
+    const researchResults = await perplexityService.conductDeepResearch(TEST_QUERY, {
+      model: modelType,
+      maxTokens: 1000,
+      timeout: 180000, // 3 minute timeout
+      fullResponse: true
     });
     
     console.timeEnd('deepResearch');
     
-    console.log('\nDEEP RESEARCH RESULTS:');
-    console.log('Model used:', result.modelUsed || 'sonar-deep-research');
-    console.log('Content length:', result.content.length);
-    console.log('Sources count:', (result.sources || []).length);
+    // Extract and format model information
+    console.log('\n📊 MODEL INFORMATION:');
+    console.log(`Requested model: ${modelType}`);
+    console.log(`Model in response: ${researchResults.model}`);
+    console.log(`Model used: ${researchResults.modelUsed || 'Not specified'}`);
     
-    console.log('\nFirst 500 characters of content:');
-    console.log(result.content.substring(0, 500) + '...');
+    // Additional info like citations and follow-up questions
+    console.log('\n📝 CONTENT LENGTH:', researchResults.content.length);
+    console.log('🔗 CITATIONS COUNT:', researchResults.citations.length);
     
-    if (result.sources && result.sources.length > 0) {
-      console.log('\nSources:');
-      result.sources.slice(0, 5).forEach((source, index) => {
-        console.log(`${index + 1}. ${source.title || 'Unnamed source'} - ${source.url || 'No URL'}`);
+    if (researchResults.followUpQuestions) {
+      console.log('\n❓ FOLLOW-UP QUESTIONS:', researchResults.followUpQuestions.length);
+      researchResults.followUpQuestions.forEach((q, i) => console.log(`   ${i+1}. ${q}`));
+    }
+    
+    // Content preview
+    const previewLength = Math.min(300, researchResults.content.length);
+    console.log('\n📄 CONTENT PREVIEW:');
+    console.log(researchResults.content.substring(0, previewLength) + '...');
+    
+    // Sample citations
+    if (researchResults.citations && researchResults.citations.length > 0) {
+      console.log('\n📚 SAMPLE CITATIONS:');
+      researchResults.citations.slice(0, 3).forEach((citation, i) => {
+        console.log(`${i+1}. ${citation}`);
       });
-      
-      if (result.sources.length > 5) {
-        console.log(`... and ${result.sources.length - 5} more sources`);
-      }
     }
     
-    console.log('\n✅ TEST COMPLETED SUCCESSFULLY!');
-    return true;
+    return {
+      success: true,
+      query: TEST_QUERY,
+      modelRequested: modelType,
+      modelUsed: researchResults.modelUsed || researchResults.model,
+      contentLength: researchResults.content.length,
+      citationsCount: researchResults.citations.length,
+      followUpQuestionsCount: researchResults.followUpQuestions ? researchResults.followUpQuestions.length : 0,
+      // Include raw API response
+      apiResponse: researchResults.apiResponse
+    };
   } catch (error) {
-    console.error('\n❌ TEST FAILED!');
-    console.error('Error:', error.message);
+    console.error('❌ Test failed with error:', error.message);
+    console.error('Error details:', error);
     
-    if (error.message.includes('timeout')) {
-      console.log('\nAPI TIMEOUT DETECTED - this is expected for deep research operations');
-      console.log('Consider increasing the timeout value beyond 5 minutes or using the model with a smaller context window');
-    }
-    
-    return false;
+    return {
+      success: false,
+      query: TEST_QUERY,
+      error: error.message
+    };
   }
 }
 
+// Run the test
 runTest()
-  .then(success => {
-    console.log('\nTest execution completed.');
-    process.exit(success ? 0 : 1);
+  .then(results => {
+    if (results.success) {
+      console.log('\n✅ DEEP RESEARCH TEST COMPLETED SUCCESSFULLY!');
+      console.log('\nRESULTS SUMMARY:');
+      console.log('Query:', results.query);
+      console.log('Model requested:', results.modelRequested);
+      console.log('Model used:', results.modelUsed); 
+      console.log('Content length:', results.contentLength);
+      console.log('Citations count:', results.citationsCount);
+      console.log('Follow-up questions:', results.followUpQuestionsCount);
+      
+      // If there's token information, display it
+      if (results.apiResponse && results.apiResponse.usage) {
+        console.log('\nTOKEN USAGE:');
+        console.log('Prompt tokens:', results.apiResponse.usage.prompt_tokens);
+        console.log('Completion tokens:', results.apiResponse.usage.completion_tokens);
+        console.log('Total tokens:', results.apiResponse.usage.total_tokens);
+      }
+    } else {
+      console.log('\n❌ DEEP RESEARCH TEST FAILED');
+      console.log('Error:', results.error);
+    }
   })
   .catch(error => {
-    console.error('Unexpected error:', error);
+    console.error('Unexpected error in test execution:', error);
     process.exit(1);
   });

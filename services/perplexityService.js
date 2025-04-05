@@ -336,6 +336,14 @@ async function conductDeepResearch(query, options = {}) {
   try {
     // For deep research, we'll make multiple API calls to get more comprehensive results
     
+    // Log research options for debugging
+    logger.info(`Deep research options [${requestId}]`, {
+      model,
+      maxTokens,
+      timeout,
+      fullResponseMode: options.fullResponse === true
+    });
+    
     // Initial broad query
     const initialResults = await processWebQuery(query, {
       model,
@@ -443,13 +451,52 @@ ${researchMaterial}`;
       processedFollowUpCount: followUpResearch.length
     });
     
-    return {
+    // Check if we should return the full raw API response (for debugging)
+    const shouldIncludeRawResponse = options.fullResponse === true;
+    
+    // Create the response object
+    const response = {
       content: synthesisResponse.content,
       citations: uniqueCitations,
       followUpQuestions,
       model,
+      modelUsed: synthesisResponse.model || model, // Use the actual model from the response if available
       requestId
     };
+    
+    // Include raw API response if requested (for debugging/testing)
+    if (shouldIncludeRawResponse) {
+      // Format sources in a more detailed way for API response debugging
+      const formattedSources = uniqueCitations.map((citation, index) => {
+        // Extract basic URL and title from citation strings
+        const urlMatch = citation.match(/https?:\/\/[^\s)]+/);
+        const titleMatch = citation.match(/"([^"]+)"/);
+        
+        return {
+          id: `source-${index + 1}`,
+          title: titleMatch ? titleMatch[1] : `Source ${index + 1}`,
+          url: urlMatch ? urlMatch[0] : null,
+          text: citation
+        };
+      });
+      
+      response.apiResponse = {
+        model: synthesisResponse.model,
+        id: synthesisResponse.requestId || `perplexity-${requestId}`,
+        usage: synthesisResponse.usage || {
+          prompt_tokens: 0,
+          completion_tokens: 0,
+          total_tokens: 0
+        },
+        choices: [{ message: { content: synthesisResponse.content }}],
+        sources: formattedSources
+      };
+      
+      // Also include the parsed sources in the main response
+      response.sources = formattedSources;
+    }
+    
+    return response;
   } catch (error) {
     logger.error(`Error conducting deep research [${requestId}]`, {
       error: error.message

@@ -1,0 +1,18 @@
+{
+  "success": false,
+  "query": "What are the latest advancements in quantum computing?",
+  "variant": "deep-research",
+  "useRealAPIs": true,
+  "timestamp": "2025-04-05T07:08:04.334Z",
+  "error": "Perplexity API error during deep research: Deep research failed: Perplexity web query failed: timeout of 300000ms exceeded",
+  "stageTiming": {
+    "clarification": {
+      "start": 1743836884547,
+      "end": 1743836884556
+    },
+    "research": {
+      "start": 1743836884556
+    }
+  },
+  "clarifiedQuery": "Error occurred, but returning mock data for test"
+}

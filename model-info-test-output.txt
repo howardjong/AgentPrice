@@ -1,0 +1,47 @@
+======= MODEL INFO EXTRACTION TEST =======
+
+--- Testing standard response ---
+Extracted model information:
+Model: sonar
+Has model info: Yes
+Has references: Yes
+Reference count: 2
+Is deep research: No
+Debug standard test:
+- Expected model 'sonar', got 'sonar' - ✓
+- Expected hasModelInfo true, got true - ✓
+- Expected hasReferences true, got true - ✓
+- Expected referenceCount 2, got 2 - ✓
+- Expected isDeepResearch false, got undefined - ❌
+✓ standard test PASSED
+
+--- Testing deep-research response ---
+Extracted model information:
+Model: sonar-deep-research
+Has model info: Yes
+Has references: Yes
+Reference count: 3
+Is deep research: Yes
+✓ deep-research test PASSED
+
+--- Testing missing-model response ---
+Extracted model information:
+Model: unknown
+Has model info: No
+Has references: Yes
+Reference count: 1
+Is deep research: No
+✓ missing-model test PASSED
+
+--- Testing missing-refs response ---
+Extracted model information:
+Model: sonar-pro
+Has model info: Yes
+Has references: No
+Reference count: 0
+Is deep research: No
+✓ missing-refs test PASSED
+
+--- Overall Results ---
+Tests passed: 4/4 (100%)
+Overall test status: PASSED

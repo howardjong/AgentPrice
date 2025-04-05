@@ -483,6 +483,7 @@ async function loadRealServices() {
         
         async performDeepResearch(query, options = {}) {
           console.log('Using real Perplexity API for deep research with sonar-deep-research model');
+          console.log('Options:', JSON.stringify(options, null, 2));
           
           try {
             // Pass a much longer timeout (5 minutes) for deep research operations
@@ -493,11 +494,37 @@ async function loadRealServices() {
               ...options
             });
             
-            return {
+            // Check if we should include the full API response for debugging
+            const includeFullResponse = options.fullResponse === true;
+            
+            console.log('Deep research completed successfully!');
+            console.log('Model used:', response.modelUsed || 'not reported');
+            console.log('Content length:', response.content ? response.content.length : 0);
+            console.log('Sources count:', response.sources ? response.sources.length : 0);
+            
+            // Log first source if available
+            if (response.sources && response.sources.length > 0) {
+              console.log('First source:', response.sources[0].title, '-', response.sources[0].url);
+            }
+            
+            // Capture the raw API response if available
+            const apiResponse = response.apiResponse || response.rawResponse || null;
+            if (apiResponse) {
+              console.log('Raw API response available with keys:', Object.keys(apiResponse).join(', '));
+            }
+            
+            const result = {
               content: response.content,
               sources: response.sources || [],
               modelUsed: response.modelUsed || 'sonar-deep-research'
             };
+            
+            // Include the full API response if requested
+            if (includeFullResponse && apiResponse) {
+              result.apiResponse = apiResponse;
+            }
+            
+            return result;
           } catch (error) {
             console.error('Error performing deep research with Perplexity:', error);
             // Add more context to the error to help with debugging
