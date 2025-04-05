@@ -1,0 +1,18 @@
+{
+  "success": false,
+  "query": "What are the best practices for unit testing?",
+  "variant": "basic",
+  "useRealAPIs": true,
+  "timestamp": "2025-04-05T06:50:23.994Z",
+  "error": "Perplexity API error during deep research: Deep research failed: Perplexity web query failed: timeout of 300000ms exceeded",
+  "stageTiming": {
+    "clarification": {
+      "start": 1743835824345,
+      "end": 1743835824358
+    },
+    "research": {
+      "start": 1743835824359
+    }
+  },
+  "clarifiedQuery": "Error occurred, but returning mock data for test"
+}
