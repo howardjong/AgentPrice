@@ -35,7 +35,7 @@ const robustPerplexityClient = new RobustAPIClient({
   apiKeyEnvVar: 'PERPLEXITY_API_KEY',
   onRetry: (error, attempt) => {
     logger.warn(`Retrying Perplexity API call (attempt ${attempt}): ${error.message}`);
-    
+
     // Special handling for rate limit errors
     if (error.response && error.response.status === 429) {
       logger.warn('Rate limit reached with Perplexity API, using exponential backoff');
@@ -75,14 +75,14 @@ async function processWebQuery(query, options = {}) {
   const temperature = options.temperature || 0.2; // Lower temperature for factual answers
   const recencyFilter = options.recencyFilter || 'month';
   const timeout = options.timeout || 30000; // Default to 30 seconds
-  
+
   logger.info(`Processing web query with Perplexity [${requestId}]`, { 
     model, 
     queryLength: query.length,
     maxTokens,
     recencyFilter
   });
-  
+
   const requestData = {
     model: model,
     messages: [
@@ -106,9 +106,9 @@ async function processWebQuery(query, options = {}) {
     presence_penalty: 0,
     frequency_penalty: 1
   };
-  
+
   const startTime = Date.now();
-  
+
   try {
     // Use the circuit breaker to protect against API failures
     const response = await circuitBreaker.execute(() => {
@@ -122,10 +122,10 @@ async function processWebQuery(query, options = {}) {
         });
       });
     });
-    
+
     const duration = Date.now() - startTime;
     const result = response.data;
-    
+
     // Track costs for the API call
     costTracker.recordUsage({
       service: 'perplexity',
@@ -135,7 +135,7 @@ async function processWebQuery(query, options = {}) {
       operation: 'web_query',
       requestId
     });
-    
+
     // Save response for debugging/analysis if enabled
     if (process.env.SAVE_PERPLEXITY_RESPONSES === 'true') {
       try {
@@ -149,13 +149,13 @@ async function processWebQuery(query, options = {}) {
         logger.warn('Failed to save Perplexity response', { error: error.message });
       }
     }
-    
+
     logger.info(`Perplexity web query completed [${requestId}]`, {
       duration,
       tokens: result.usage?.total_tokens || 'unknown',
       citationsCount: result.citations?.length || 0
     });
-    
+
     return {
       content: result.choices[0]?.message?.content || '',
       citations: result.citations || [],
@@ -167,19 +167,19 @@ async function processWebQuery(query, options = {}) {
     const duration = Date.now() - startTime;
     const statusCode = error.response?.status || 'unknown';
     const errorDetails = error.response?.data || {};
-    
+
     logger.error(`Error processing web query with Perplexity [${requestId}]`, {
       error: error.message,
       statusCode,
       errorDetails,
       duration
     });
-    
+
     // Specific error handling for common issues
     if (statusCode === 429) {
       throw new Error('Perplexity API rate limit exceeded. Please try again later.');
     }
-    
+
     throw new Error(`Perplexity web query failed: ${error.message}`);
   }
 }
@@ -203,11 +203,11 @@ async function processConversation(messages, options = {}) {
   const systemPrompt = options.systemPrompt || '';
   const enableWebSearch = options.webSearch !== false; // Enable by default for Perplexity
   const timeout = options.timeout || 30000; // Default to 30 seconds
-  
+
   if (!Array.isArray(messages)) {
     throw new Error('Messages must be an array of message objects');
   }
-  
+
   // Check that messages alternate properly
   let lastUserIndex = -1;
   for (let i = 0; i < messages.length; i++) {
@@ -218,17 +218,17 @@ async function processConversation(messages, options = {}) {
       lastUserIndex = i;
     }
   }
-  
+
   // Ensure last message is from user
   if (messages.length > 0 && messages[messages.length - 1].role !== 'user') {
     throw new Error('Last message must be from user');
   }
-  
+
   // Add system message if provided
   const conversationMessages = systemPrompt 
     ? [{ role: 'system', content: systemPrompt }, ...messages]
     : messages;
-    
+
   const requestData = {
     model: model,
     messages: conversationMessages,
@@ -243,16 +243,16 @@ async function processConversation(messages, options = {}) {
     presence_penalty: 0,
     frequency_penalty: 1
   };
-  
+
   logger.info(`Processing conversation with Perplexity [${requestId}]`, { 
     model, 
     messagesCount: messages.length,
     maxTokens,
     webSearch: enableWebSearch
   });
-  
+
   const startTime = Date.now();
-  
+
   try {
     // Use the circuit breaker to protect against API failures
     const response = await circuitBreaker.execute(() => {
@@ -266,10 +266,10 @@ async function processConversation(messages, options = {}) {
         });
       });
     });
-    
+
     const duration = Date.now() - startTime;
     const result = response.data;
-    
+
     // Track costs for the API call
     costTracker.recordUsage({
       service: 'perplexity',
@@ -279,13 +279,13 @@ async function processConversation(messages, options = {}) {
       operation: 'conversation',
       requestId
     });
-    
+
     logger.info(`Perplexity conversation completed [${requestId}]`, {
       duration,
       tokens: result.usage?.total_tokens || 'unknown',
       citationsCount: result.citations?.length || 0
     });
-    
+
     return {
       content: result.choices[0]?.message?.content || '',
       citations: result.citations || [],
@@ -627,23 +627,23 @@ function getHealthStatus() {
 //   const model = options.model || SONAR_MODELS.deepResearch;
 //   const maxTokens = options.maxTokens || 4096; // Larger token limit for deep research
 //   const timeout = options.timeout || 60000; // Longer timeout for deep research
-  
+
 //   // Create a more detailed system prompt for deep research
 //   const systemPrompt = options.systemPrompt || 
 //     'You are an expert research assistant. Conduct a comprehensive analysis of this topic. ' +
 //     'Include key insights, varied perspectives, and cite your sources. Organize your findings ' +
 //     'clearly with section headings. Focus on providing substantive, detailed, and accurate information.';
-    
+
 //   logger.info(`Starting deep research with Perplexity [${requestId}]`, { 
 //     model, 
 //     query,
 //     domainFilter: options.domainFilter || 'none', 
 //     recencyFilter: options.recencyFilter || 'month'
 //   });
-  
+
 //   try {
 //     // For deep research, we'll make multiple API calls to get more comprehensive results
-    
+
 //     // Log research options for debugging
 //     logger.info(`Deep research options [${requestId}]`, {
 //       model,
@@ -651,7 +651,7 @@ function getHealthStatus() {
 //       timeout,
 //       fullResponseMode: options.fullResponse === true
 //     });
-    
+
 //     // Initial broad query
 //     const initialResults = await processWebQuery(query, {
 //       model,
@@ -662,7 +662,7 @@ function getHealthStatus() {
 //       recencyFilter: options.recencyFilter || 'month',
 //       timeout // Pass timeout to processWebQuery
 //     });
-    
+
 //     // Generate follow-up questions based on initial results
 //     const followUpResponse = await processWebQuery(
 //       `Based on the following research, what are 3-5 important follow-up questions that would help expand and deepen the research?\n\n${initialResults.content}`,
@@ -674,11 +674,11 @@ function getHealthStatus() {
 //         timeout // Pass timeout
 //       }
 //     );
-    
+
 //     // Extract follow-up questions (simple extraction, could be improved with better parsing)
 //     const followUpContent = followUpResponse.content;
 //     let followUpQuestions = [];
-    
+
 //     // Basic extraction of numbered items
 //     const questionMatches = followUpContent.match(/\d+\.\s+(.*?)(?=\d+\.|$)/gs);
 //     if (questionMatches && questionMatches.length > 0) {
@@ -690,9 +690,9 @@ function getHealthStatus() {
 //         .map(line => line.trim())
 //         .slice(0, 3); // Limit to 3 questions
 //     }
-    
+
 //     logger.info(`Generated ${followUpQuestions.length} follow-up questions for deep research [${requestId}]`);
-    
+
 //     // Research follow-up questions (limited to 2 for cost/time efficiency)
 //     const followUpLimit = Math.min(2, followUpQuestions.length);
 //     const followUpResearch = await Promise.all(
@@ -717,7 +717,7 @@ function getHealthStatus() {
 //         }
 //       })
 //     );
-    
+
 //     // Synthesize all findings into a cohesive report
 //     const researchMaterial = [
 //       `Initial research on "${query}":\n${initialResults.content}`,
@@ -725,12 +725,12 @@ function getHealthStatus() {
 //         .filter(item => !item.error)
 //         .map(item => `Follow-up on "${item.question}":\n${item.result.content}`)
 //     ].join('\n\n');
-    
+
 //     const synthesisPrompt = `Synthesize the following research materials into a comprehensive report. 
 // Organize with clear section headings, maintain factual accuracy, and cite sources appropriately.
-    
+
 // ${researchMaterial}`;
-    
+
 //     const synthesisResponse = await processWebQuery(synthesisPrompt, {
 //       model,
 //       maxTokens: maxTokens,
@@ -738,7 +738,7 @@ function getHealthStatus() {
 //       systemPrompt: 'You are creating a final comprehensive research report. Organize the information logically, eliminate redundancy, and ensure all key insights are preserved with proper citation.',
 //       timeout // Pass timeout
 //     });
-    
+
 //     // Combine all citations from each step
 //     const allCitations = [
 //       ...initialResults.citations || [],
@@ -747,21 +747,21 @@ function getHealthStatus() {
 //         .flatMap(item => item.result.citations),
 //       ...synthesisResponse.citations || []
 //     ];
-    
+
 //     // Remove duplicate citations
 //     const uniqueCitations = allCitations.filter((citation, index, self) => 
 //       index === self.findIndex(c => c === citation)
 //     );
-    
+
 //     logger.info(`Deep research completed successfully [${requestId}]`, {
 //       citationsCount: uniqueCitations.length,
 //       followUpQuestionsCount: followUpQuestions.length,
 //       processedFollowUpCount: followUpResearch.length
 //     });
-    
+
 //     // Check if we should return the full raw API response (for debugging)
 //     const shouldIncludeRawResponse = options.fullResponse === true;
-    
+
 //     // Create the response object
 //     const response = {
 //       content: synthesisResponse.content,
@@ -771,7 +771,7 @@ function getHealthStatus() {
 //       modelUsed: synthesisResponse.model || model, // Use the actual model from the response if available
 //       requestId
 //     };
-    
+
 //     // Include raw API response if requested (for debugging/testing)
 //     if (shouldIncludeRawResponse) {
 //       // Format sources in a more detailed way for API response debugging
@@ -779,7 +779,7 @@ function getHealthStatus() {
 //         // Extract basic URL and title from citation strings
 //         const urlMatch = citation.match(/https?:\/\/[^\s)]+/);
 //         const titleMatch = citation.match(/"([^"]+)"/);
-        
+
 //         return {
 //           id: `source-${index + 1}`,
 //           title: titleMatch ? titleMatch[1] : `Source ${index + 1}`,
@@ -787,7 +787,7 @@ function getHealthStatus() {
 //           text: citation
 //         };
 //       });
-      
+
 //       response.apiResponse = {
 //         model: synthesisResponse.model,
 //         id: synthesisResponse.requestId || `perplexity-${requestId}`,
@@ -799,11 +799,11 @@ function getHealthStatus() {
 //         choices: [{ message: { content: synthesisResponse.content }}],
 //         sources: formattedSources
 //       };
-      
+
 //       // Also include the parsed sources in the main response
 //       response.sources = formattedSources;
 //     }
-    
+
 //     return response;
 //   } catch (error) {
 //     logger.error(`Error conducting deep research [${requestId}]`, {

@@ -162,3 +162,94 @@ verifyDeepResearchWorkflow()
     console.error('❌ Unexpected error during verification:', error);
     process.exit(1);
   });
+/**
+ * Verification script for deep research workflow
+ * Tests the entire deep research process from start to finish
+ */
+
+const perplexityService = require('../../services/perplexityService');
+const logger = require('../../utils/logger');
+const fs = require('fs').promises;
+const path = require('path');
+const util = require('util');
+
+// Configuration
+const TEST_QUERY = "What are the latest developments in quantum computing in 2025?";
+const OUTPUT_DIR = path.join(process.cwd(), 'tests', 'output');
+
+async function verifyDeepResearchWorkflow() {
+  console.log('=== Verifying Deep Research Workflow ===');
+  console.log(`Query: "${TEST_QUERY}"`);
+  
+  try {
+    // Ensure output directory exists
+    await fs.mkdir(OUTPUT_DIR, { recursive: true });
+    
+    // Step 1: Call Perplexity deep research API
+    console.log('\n1. Calling Perplexity Deep Research API...');
+    console.log('   Starting API call with sonar-deep-research model...');
+    
+    const startTime = Date.now();
+    const researchResults = await perplexityService.performDeepResearch(TEST_QUERY);
+    const duration = (Date.now() - startTime) / 1000;
+    
+    console.log(`\n✅ Research completed in ${duration.toFixed(2)} seconds`);
+    console.log(`   Model used: ${researchResults.modelUsed}`);
+    console.log(`   Content length: ${researchResults.content.length} characters`);
+    console.log(`   Sources found: ${researchResults.sources.length}`);
+    
+    // Save results to file for inspection
+    const outputPath = path.join(OUTPUT_DIR, 'deep-research-results.json');
+    await fs.writeFile(outputPath, JSON.stringify(researchResults, null, 2));
+    console.log(`\n   Results saved to: ${outputPath}`);
+    
+    // Display first 250 characters of content
+    console.log('\nContent preview:');
+    console.log(researchResults.content.substring(0, 250) + '...');
+    
+    // Display first 3 sources
+    if (researchResults.sources.length > 0) {
+      console.log('\nSample sources:');
+      for (let i = 0; i < Math.min(3, researchResults.sources.length); i++) {
+        console.log(`   ${i+1}. ${researchResults.sources[i]}`);
+      }
+    }
+    
+    console.log('\n=== Deep Research Verification Complete ===');
+    console.log('✅ The deep research workflow is functioning correctly!');
+    
+    return {
+      success: true,
+      modelUsed: researchResults.modelUsed,
+      contentLength: researchResults.content.length,
+      sourcesFound: researchResults.sources.length,
+      duration: duration
+    };
+  } catch (error) {
+    console.error('\n❌ Error during verification:', error.message);
+    console.error('Error details:', util.inspect(error, { depth: 2 }));
+    console.log('\n=== Deep Research Verification Failed ===');
+    
+    return {
+      success: false,
+      error: error.message,
+      details: error
+    };
+  }
+}
+
+// Run the verification if this file is executed directly
+if (require.main === module) {
+  verifyDeepResearchWorkflow()
+    .then(result => {
+      if (!result.success) {
+        process.exit(1);
+      }
+    })
+    .catch(error => {
+      console.error('Unhandled error during verification:', error);
+      process.exit(1);
+    });
+}
+
+module.exports = { verifyDeepResearchWorkflow };

@@ -3071,3 +3071,24 @@ args = "# Then run the verification test"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/verify-deep-research-workflow.js"
+
+[[workflows.workflow]]
+name = "Test Perplexity API"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First reset the circuit breaker to ensure clean state"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/reset-circuit-breaker.js perplexity"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then run our verification test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/verify-deep-research-workflow.js"
