@@ -1,112 +1,69 @@
-# Perplexity Deep Research System
+# Perplexity Deep Research Integration
 
-This system provides a robust, asynchronous deep research capability using Perplexity's API, specifically with the `sonar-deep-research` model that can take up to 30 minutes to complete a comprehensive research task.
+This document provides information about the Perplexity Deep Research integration in our application, which enables advanced AI-powered research capabilities with comprehensive sourcing.
 
 ## Overview
 
-The Deep Research System consists of multiple components that work together:
+The Perplexity deep research integration uses the `sonar-deep-research` model to perform comprehensive research on complex topics with multiple sources. This model:
 
-1. **Initial Request**: The `enhanced-polling-deep-research.js` script initiates deep research requests and stores intermediate state data.
-2. **Asynchronous Processing**: Deep research often takes 20-30 minutes to complete, so we use a shell script that runs in the background.
-3. **Status Checking**: The `check-deep-research-status.js` script allows you to check the status of ongoing research requests.
-4. **Results Collection**: The `collect-deep-research-results.js` script gathers all research results into a comprehensive report.
+1. Searches the internet for up-to-date information
+2. Aggregates information from multiple credible sources
+3. Synthesizes findings into a coherent response
+4. Provides citations to the original sources
 
-## Key Files
+## API Details
 
-- `enhanced-polling-deep-research.js`: Main script for initiating deep research requests
-- `check-deep-research-status.js`: Script to check the status of research requests
-- `collect-deep-research-results.js`: Script to collect and organize results
-- `run-perplexity-deep-research.sh`: Shell script to run the entire process asynchronously
+- **Model Name**: `sonar-deep-research`
+- **Endpoint**: `https://api.perplexity.ai/chat/completions`
+- **Authentication**: Bearer token authentication with your Perplexity API key
+- **Response Format**: Responses include poll URLs for long-running research
+- **Polling Mechanism**: Research can take up to 30 minutes to complete
 
-## Usage
+## Testing Scripts
 
-### Running a Deep Research Request
+Several scripts have been developed to test and verify the deep research capabilities:
 
-To initiate a new deep research request:
+1. `check-official-models.js` - Tests all Perplexity model names to verify which are available with current API key
+2. `check-deep-research-status.js` - Checks the status of ongoing research requests
+3. `enhanced-polling-deep-research.js` - Full implementation of deep research with polling mechanism
+4. `collect-deep-research-results.js` - Collects and organizes all deep research results
+5. `complete-perplexity-deep-research.cjs` - End-to-end solution for initiating and monitoring research
 
-```bash
-node enhanced-polling-deep-research.js
-```
+## Usage Example
 
-This will start a research request with the default query about SaaS pricing strategies.
+To start a deep research query:
 
-#### Command-line Options
-
-- `--skip-polling`: Initiate the request but don't wait for completion (useful for long research)
-- `--quick`: Use a simpler query for faster results
-- `--query="Your research question here"`: Specify a custom research question
-
-### Checking Research Status
-
-To check the status of ongoing research requests:
-
-```bash
-node check-deep-research-status.js
-```
-
-### Collecting Results
-
-To generate a report of all completed research:
-
-```bash
-node collect-deep-research-results.js
-```
-
-This will create a `deep-research-report.md` file that contains all the research results.
-
-### Running the Entire Process in Background
-
-To run the entire process asynchronously in the background:
-
-```bash
-./run-perplexity-deep-research.sh &
+```javascript
+node complete-perplexity-deep-research.cjs "What are the latest SaaS pricing strategies in 2025?"
 ```
 
 This will:
-1. Initiate a deep research request
-2. Wait 10 minutes
-3. Check the status
-4. Generate a report
+1. Submit the query to Perplexity's deep research model
+2. Store the poll URL for status checking
+3. Set up a background process to monitor completion
+4. Save results to the `test-results/deep-research` directory
 
-## Data Storage
+## Response Format
 
-All data is stored in the following locations:
+Deep research responses include:
 
-- `test-results/deep-research/`: Contains intermediate state data for research requests
-- `test-results/deep-research-results/`: Contains completed research results
-- `deep-research-report.md`: Final report with all research results
+- `model` - The model used for the research
+- `completion.text` - The comprehensive research result
+- `completion.links` - Array of citation sources with URLs
+- `completion.search_queries` - The search queries used to find information
 
-## Error Handling
+## Limitations and Considerations
 
-The system is designed to handle various errors:
+1. **Processing Time**: Deep research requests can take 15-30 minutes to complete
+2. **API Limits**: There are rate limits on the number of deep research requests
+3. **Polling Required**: All deep research requests require polling for completion
+4. **Research Quality**: The quality depends on available sources for the topic
+5. **API Key Permissions**: Only specific API keys have access to deep research models
 
-- API rate limiting
-- Network failures
-- Invalid model specifications
-- Long-running requests that exceed normal timeouts
+## Development Notes
 
-When errors occur, they are logged and saved to files for later inspection.
-
-## Log Files
-
-- `perplexity-deep-research-job-*.log`: Contains logs from the background job
-- `enhanced-deep-research-test.log`: Contains logs from the enhanced polling script
-- `perplexity-deep-research.log`: General logs about deep research operations
-
-## Dependencies
-
-- Node.js
-- Axios for API requests
-- UUID for generating unique request IDs
-- Dotenv for environment variable management
-- fs/promises for file operations
-
-## Environment Setup
-
-Make sure you have the Perplexity API key set in your environment:
-
-```
-PERPLEXITY_API_KEY=your_api_key_here
-```
-
-This can be set in the `.env` file or directly in the environment.
+- For production use, implement proper job queue management with Redis
+- Consider implementing webhook callbacks when available
+- Log and monitor all research requests for tracking
+- Implement proper error handling for long-running requests
+- Store intermediate results for research that exceeds timeout limits

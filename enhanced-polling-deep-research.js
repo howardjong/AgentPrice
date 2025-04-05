@@ -5,43 +5,40 @@
  * a polling mechanism to handle long-running research requests.
  */
 
+import axios from 'axios';
 import fs from 'fs/promises';
 import path from 'path';
-import axios from 'axios';
+import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 // Constants
-const MAX_POLLING_ATTEMPTS = 3; // Keep low for initial test, real polling happens in check-status
-const POLLING_INTERVAL_MS = 10000; // 10 seconds
-const TEST_RESULTS_DIR = 'test-results';
-const DEEP_RESEARCH_DIR = path.join(TEST_RESULTS_DIR, 'deep-research');
-const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
-
-// Command line arguments
-const args = process.argv.slice(2);
-const skipPolling = args.includes('--skip-polling');
-const quickMode = args.includes('--quick');
-const customQuery = args.find(arg => arg.startsWith('--query='))?.split('=')[1];
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const API_URL = 'https://api.perplexity.ai/chat/completions';
+const LOG_FILE = 'perplexity-deep-research-polled-test.log';
+const RESULTS_DIR = path.join(__dirname, 'test-results', 'deep-research');
+const MAX_POLLING_ATTEMPTS = 30;  // With 5 seconds delay, this is ~2.5 minutes of polling
+const POLLING_DELAY_MS = 5000;    // 5 seconds between polls
 
 function generateRequestId() {
-  return Math.random().toString(16).substring(2, 10);
+  return uuidv4();
 }
 
 async function log(message) {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ${message}`);
+  const logMessage = `[${timestamp}] ${message}`;
+  console.log(logMessage);
+  
+  await fs.appendFile(LOG_FILE, `${logMessage}\n`)
+    .catch(err => console.error(`Error writing to log: ${err.message}`));
 }
 
 async function checkApiKey() {
-  if (!PERPLEXITY_API_KEY) {
-    await log('❌ Error: PERPLEXITY_API_KEY environment variable is not set');
-    process.exit(1);
+  const apiKey = process.env.PERPLEXITY_API_KEY;
+  if (!apiKey) {
+    throw new Error('PERPLEXITY_API_KEY is not set');
   }
-  
-  await log('✅ Perplexity API key is available');
+  await log('✅ API key is available');
+  return apiKey;
 }
 
 /**
@@ -49,142 +46,91 @@ async function checkApiKey() {
  */
 async function initiateDeepResearch(query, options = {}) {
   const requestId = options.requestId || generateRequestId();
-  const model = options.model || 'sonar-deep-research';
-  const systemPrompt = options.systemPrompt || 'You are an expert business analyst and pricing strategist. Provide comprehensive research with specific examples, industry standards, and best practices. Cite credible sources when possible.';
-  const maxTokens = options.maxTokens || 4000;
-  const temperature = options.temperature || 0.2;
-  const searchContext = options.searchContext || 'high';
-  
-  await log(`Starting deep research [${requestId}] with query: "${query}"`);
+  await log(`Initiating deep research with request ID: ${requestId}`);
+  await log(`Query: ${query}`);
   
   try {
-    // Ensure the test results directory exists
-    await fs.mkdir(TEST_RESULTS_DIR, { recursive: true });
-    await fs.mkdir(DEEP_RESEARCH_DIR, { recursive: true });
+    const apiKey = await checkApiKey();
     
-    // Save intermediate request information
-    const intermediateData = {
-      requestId,
-      query,
-      options: {
-        model,
-        systemPrompt,
-        temperature,
-        maxTokens,
-        searchContext
-      },
-      status: 'starting',
-      startTime: new Date().toISOString()
+    // Ensure the results directory exists
+    await fs.mkdir(RESULTS_DIR, { recursive: true });
+    
+    const model = 'sonar-deep-research';
+    const requestData = {
+      model,
+      messages: [
+        { role: 'user', content: query }
+      ],
+      max_tokens: options.maxTokens || 2000,
+      temperature: options.temperature || 0.0,
+      stream: false
     };
     
-    const intermediateFilePath = path.join(
-      DEEP_RESEARCH_DIR,
-      `request-${requestId}-${intermediateData.startTime.replace(/:/g, '-')}-intermediate.json`
-    );
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    };
     
-    await fs.writeFile(intermediateFilePath, JSON.stringify(intermediateData, null, 2));
+    await log(`Sending request to Perplexity API (${model})...`);
+    const response = await axios.post(API_URL, requestData, {
+      headers,
+      timeout: 60000 // 60 second timeout
+    });
     
-    // Log the API request we're about to make
-    await log(`Sending request to https://api.perplexity.ai/chat/completions with model ${model}`);
+    const status = response.status;
+    await log(`Response status: ${status}`);
     
-    // Make the API request
-    const response = await axios.post(
-      'https://api.perplexity.ai/chat/completions',
-      {
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: query }
-        ],
-        max_tokens: maxTokens,
-        temperature,
-        stream: false
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
+    // Save initial response
+    const responseFile = path.join(RESULTS_DIR, `initial-response-${requestId}.json`);
+    await fs.writeFile(responseFile, JSON.stringify(response.data, null, 2));
+    await log(`Saved initial response to ${responseFile}`);
     
-    // Check for poll URL in the response
+    // Check for poll URL
     const pollUrl = extractPollUrl(response.data);
-    
     if (pollUrl) {
-      await log(`[${requestId}] Deep research started, polling URL received: ${pollUrl}`);
+      await log(`Received poll URL: ${pollUrl}`);
       
-      // Update intermediate data with poll URL
-      intermediateData.pollUrl = pollUrl;
-      intermediateData.status = 'in_progress';
-      intermediateData.initialResponseData = response.data;
-      await fs.writeFile(intermediateFilePath, JSON.stringify(intermediateData, null, 2));
+      // Save poll data for potential future use
+      const pollData = {
+        requestId,
+        pollUrl,
+        timestamp: new Date().toISOString(),
+        query
+      };
       
-      // Decide whether to poll or exit early
-      if (skipPolling) {
-        await log(`[${requestId}] Polling skipped due to --skip-polling flag`);
-        await log(`[${requestId}] Poll URL saved to ${intermediateFilePath}`);
-        await log(`[${requestId}] Run check-deep-research-status.js to check status later`);
-        return { pollUrl, status: 'in_progress', requestId };
-      } else {
-        // Do minimal polling to get an idea of the status
-        return await pollForCompletion(pollUrl, requestId);
-      }
+      const pollDataFile = path.join(RESULTS_DIR, `poll-data-${requestId}.json`);
+      await fs.writeFile(pollDataFile, JSON.stringify(pollData, null, 2));
+      await log(`Saved poll data to ${pollDataFile}`);
+      
+      return {
+        status: 'polling_required',
+        requestId,
+        pollUrl,
+        initialResponse: response.data
+      };
     } else {
-      // If there's no poll URL, this is likely a direct response
-      await log(`[${requestId}] No polling URL found, processing direct response`);
+      await log('No poll URL found - research completed synchronously');
       
-      // Save the response data
-      const responseFilePath = path.join(
-        TEST_RESULTS_DIR,
-        `standard-test-${Date.now()}.json`
-      );
+      // Extract model info from response
+      const modelInfo = extractModelInfo(response.data, model);
+      await log(`Model used: ${modelInfo}`);
       
-      await saveResponseToFile(response.data, responseFilePath);
-      
-      // Extract model info
-      const modelInfo = extractModelInfo(response.data);
-      await log(`[${requestId}] Using model: ${modelInfo}`);
-      
-      // Extract content
-      const content = extractContent(response.data);
-      const contentPreview = content.substring(0, 150) + (content.length > 150 ? '...' : '');
-      await log(`[${requestId}] Response preview: ${contentPreview}`);
-      
-      // Save content to a separate file
-      const contentFilePath = path.join(
-        TEST_RESULTS_DIR,
-        `quick-test-content-${Date.now()}.md`
-      );
-      
-      await fs.writeFile(contentFilePath, content);
-      await log(`[${requestId}] Saved content to ${contentFilePath}`);
-      
-      return { 
+      return {
         status: 'completed',
-        model: modelInfo,
-        content: contentPreview,
-        contentPath: contentFilePath,
-        responsePath: responseFilePath,
-        requestId
+        requestId,
+        response: response.data
       };
     }
-    
   } catch (error) {
-    await log(`[${requestId}] Error initiating deep research: ${error.message}`);
+    await log(`Error initiating deep research: ${error.message}`);
     
     if (error.response) {
-      await log(`[${requestId}] API Error Status: ${error.response.status}`);
-      await log(`[${requestId}] API Error Data: ${JSON.stringify(error.response.data)}`);
+      await log(`Status: ${error.response.status}`);
+      await log(`Response data: ${JSON.stringify(error.response.data)}`);
       
       // Save error response
-      const errorFilePath = path.join(
-        TEST_RESULTS_DIR,
-        `deep-research-error-initial-${requestId}.json`
-      );
-      
-      await fs.writeFile(errorFilePath, JSON.stringify(error.response.data, null, 2));
-      await log(`Saved response to ${errorFilePath}`);
+      const errorFile = path.join(RESULTS_DIR, `error-${requestId}.json`);
+      await fs.writeFile(errorFile, JSON.stringify(error.response.data, null, 2));
     }
     
     throw error;
@@ -195,119 +141,97 @@ async function initiateDeepResearch(query, options = {}) {
  * Poll for deep research completion
  */
 async function pollForCompletion(pollUrl, requestId, maxAttempts = MAX_POLLING_ATTEMPTS) {
-  await log(`[${requestId}] Starting polling for completion, max attempts: ${maxAttempts}`);
+  await log(`Starting polling for request ${requestId}`);
+  await log(`Max polling attempts: ${maxAttempts}`);
   
-  let attempts = 0;
-  
-  while (attempts < maxAttempts) {
-    attempts++;
-    await log(`[${requestId}] Polling attempt ${attempts} of ${maxAttempts}`);
+  try {
+    const apiKey = await checkApiKey();
     
-    try {
-      const response = await axios.get(pollUrl, {
-        headers: {
-          'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-          'Content-Type': 'application/json'
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      await log(`Polling attempt ${attempt}/${maxAttempts}...`);
+      
+      try {
+        const response = await axios.get(pollUrl, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`
+          },
+          timeout: 30000 // 30 second timeout
+        });
+        
+        // Save poll response
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const responseFile = path.join(RESULTS_DIR, `poll-response-${requestId}-${attempt}.json`);
+        await fs.writeFile(responseFile, JSON.stringify(response.data, null, 2));
+        
+        // Check if research is complete
+        const status = getResponseStatus(response.data);
+        await log(`Poll response status: ${status}`);
+        
+        if (status === 'completed') {
+          await log(`Research completed! Saving final response...`);
+          
+          // Save as completed response
+          const completeFile = path.join(RESULTS_DIR, `complete-response-${requestId}.json`);
+          await fs.writeFile(completeFile, JSON.stringify(response.data, null, 2));
+          
+          // Extract and log content
+          const content = extractContent(response.data);
+          await log(`Content received (${content.length} characters)`);
+          
+          // Extract and log model info
+          const modelInfo = extractModelInfo(response.data);
+          await log(`Model used: ${modelInfo}`);
+          
+          return {
+            status: 'completed',
+            requestId,
+            attempts: attempt,
+            response: response.data
+          };
         }
-      });
-      
-      // Extract response data
-      const status = getResponseStatus(response.data);
-      await log(`[${requestId}] Current status: ${status}`);
-      
-      // If research is complete, return the result
-      if (status === 'completed') {
-        const modelInfo = extractModelInfo(response.data);
-        const content = extractContent(response.data);
-        const contentPreview = content.substring(0, 150) + (content.length > 150 ? '...' : '');
         
-        await log(`[${requestId}] Research completed using model: ${modelInfo}`);
-        await log(`[${requestId}] Content preview: ${contentPreview}`);
+        // If still in progress, wait before next attempt
+        await log(`Research still in progress. Waiting ${POLLING_DELAY_MS/1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, POLLING_DELAY_MS));
         
-        // Save full response
-        const responseFilePath = path.join(
-          TEST_RESULTS_DIR,
-          `deep-research-complete-${requestId}-${Date.now()}.json`
-        );
+      } catch (error) {
+        await log(`Error during polling attempt ${attempt}: ${error.message}`);
         
-        await saveResponseToFile(response.data, responseFilePath);
+        if (error.response) {
+          await log(`Status: ${error.response.status}`);
+          await log(`Response data: ${JSON.stringify(error.response.data)}`);
+        }
         
-        // Save content to a separate file
-        const contentFilePath = path.join(
-          TEST_RESULTS_DIR,
-          `deep-research-content-${requestId}-${Date.now()}.md`
-        );
-        
-        await fs.writeFile(contentFilePath, content);
-        await log(`[${requestId}] Saved content to ${contentFilePath}`);
-        
-        return {
-          status: 'completed',
-          model: modelInfo,
-          content: contentPreview,
-          contentPath: contentFilePath,
-          responsePath: responseFilePath,
-          requestId
-        };
+        // Wait before retry
+        await log(`Waiting ${POLLING_DELAY_MS/1000} seconds before retry...`);
+        await new Promise(resolve => setTimeout(resolve, POLLING_DELAY_MS));
       }
-      
-      // Update the intermediate file with the latest polling data
-      const intermediateFiles = await fs.readdir(DEEP_RESEARCH_DIR);
-      const matchingFile = intermediateFiles.find(file => file.includes(requestId) && file.includes('intermediate'));
-      
-      if (matchingFile) {
-        const intermediateFilePath = path.join(DEEP_RESEARCH_DIR, matchingFile);
-        const dataContent = await fs.readFile(intermediateFilePath, 'utf8');
-        const data = JSON.parse(dataContent);
-        
-        data.latestPollingResponse = response.data;
-        data.latestPollingAttempt = attempts;
-        data.latestPollingTime = new Date().toISOString();
-        
-        await fs.writeFile(intermediateFilePath, JSON.stringify(data, null, 2));
-      }
-      
-      // If still in progress, wait before next attempt
-      if (status === 'in_progress' || status === 'processing') {
-        await log(`[${requestId}] Still in progress, waiting ${POLLING_INTERVAL_MS/1000} seconds before next attempt`);
-        await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS));
-      } else {
-        // Unknown status, log it and try again
-        await log(`[${requestId}] Unknown status: ${status}, response: ${JSON.stringify(response.data)}`);
-        await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS));
-      }
-      
-    } catch (error) {
-      await log(`[${requestId}] Error polling for completion (attempt ${attempts}): ${error.message}`);
-      
-      if (error.response) {
-        await log(`[${requestId}] API Error Status: ${error.response.status}`);
-        await log(`[${requestId}] API Error Data: ${JSON.stringify(error.response.data)}`);
-      }
-      
-      // Wait before retry
-      await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS));
     }
+    
+    // If we've exhausted all polling attempts
+    await log(`Reached maximum polling attempts (${maxAttempts}). Research may still be in progress.`);
+    return {
+      status: 'timeout',
+      requestId,
+      attempts: maxAttempts
+    };
+    
+  } catch (error) {
+    await log(`Fatal error in polling process: ${error.message}`);
+    throw error;
   }
-  
-  // If we reach here, polling is complete but research is still in progress
-  await log(`[${requestId}] Reached maximum polling attempts (${maxAttempts})`);
-  await log(`[${requestId}] Deep research is still in progress, you can check later using check-deep-research-status.js`);
-  
-  return {
-    status: 'in_progress',
-    requestId,
-    message: `Research still in progress after ${maxAttempts} polling attempts`
-  };
 }
 
 /**
  * Utility to save response data to a file
  */
 async function saveResponseToFile(response, filename) {
-  await fs.writeFile(filename, JSON.stringify(response, null, 2));
-  await log(`Saved response to ${filename}`);
-  return filename;
+  try {
+    await fs.writeFile(filename, JSON.stringify(response, null, 2));
+    await log(`Saved data to ${filename}`);
+  } catch (err) {
+    await log(`Error saving response: ${err.message}`);
+  }
 }
 
 /**
@@ -316,21 +240,24 @@ async function saveResponseToFile(response, filename) {
 function getResponseStatus(response) {
   if (!response) return 'unknown';
   
-  if (response.error) return 'error';
-  
-  // Check for content in the response which indicates completion
-  if (response.choices && response.choices[0] && response.choices[0].message && response.choices[0].message.content) {
-    return 'completed';
-  }
-  
-  // If there's a status field, use that
+  // Case 1: Direct status field (polling responses)
   if (response.status) {
     return response.status;
   }
   
-  // If there's a poll URL, it's still in progress
+  // Case 2: Poll URL indicates in-progress research (initial responses)
   if (response.poll_url) {
     return 'in_progress';
+  }
+  
+  // Case 3: Standard chat completion response
+  if (response.choices && response.choices[0] && response.choices[0].message) {
+    return 'completed';
+  }
+  
+  // Case 4: Completion object format (some deep research responses)
+  if (response.completion && response.completion.text) {
+    return 'completed';
   }
   
   return 'unknown';
@@ -340,9 +267,13 @@ function getResponseStatus(response) {
  * Extract poll URL from response
  */
 function extractPollUrl(response) {
-  if (response && response.poll_url) {
+  if (!response) return null;
+  
+  // Case 1: Direct poll_url field in response
+  if (response.poll_url) {
     return response.poll_url;
   }
+  
   return null;
 }
 
@@ -352,27 +283,14 @@ function extractPollUrl(response) {
 function extractModelInfo(response, defaultModel = "unknown") {
   if (!response) return defaultModel;
   
+  // Case 1: Direct model field in response
   if (response.model) {
     return response.model;
   }
   
-  if (response.choices && 
-      response.choices.length > 0 && 
-      response.choices[0].message && 
-      response.choices[0].message.role === 'assistant' && 
-      response.choices[0].message.tool_calls &&
-      response.choices[0].message.tool_calls.length > 0 &&
-      response.choices[0].message.tool_calls[0].function &&
-      response.choices[0].message.tool_calls[0].function.arguments) {
-    
-    try {
-      const args = JSON.parse(response.choices[0].message.tool_calls[0].function.arguments);
-      if (args.model) {
-        return args.model;
-      }
-    } catch (e) {
-      // Unable to parse arguments
-    }
+  // Case 2: Extract from completion.model if available
+  if (response.completion && response.completion.model) {
+    return response.completion.model;
   }
   
   return defaultModel;
@@ -384,97 +302,62 @@ function extractModelInfo(response, defaultModel = "unknown") {
 function extractContent(response) {
   if (!response) return '';
   
-  // Standard completion format
-  if (response.choices && 
-      response.choices.length > 0 && 
-      response.choices[0].message &&
-      response.choices[0].message.content) {
+  // Case 1: Standard chat completion format
+  if (response.choices && response.choices[0] && response.choices[0].message) {
     return response.choices[0].message.content;
   }
   
-  // Extended tool call format
-  if (response.choices && 
-      response.choices.length > 0 && 
-      response.choices[0].message && 
-      response.choices[0].message.tool_calls &&
-      response.choices[0].message.tool_calls.length > 0 &&
-      response.choices[0].message.tool_calls[0].function &&
-      response.choices[0].message.tool_calls[0].function.arguments) {
-    
-    try {
-      const args = JSON.parse(response.choices[0].message.tool_calls[0].function.arguments);
-      if (args.content) {
-        return args.content;
-      }
-    } catch (e) {
-      // Unable to parse arguments
-    }
+  // Case 2: Completion object format from polling response
+  if (response.completion && response.completion.text) {
+    return response.completion.text;
   }
   
-  // Fallback
-  if (response.content) {
-    return response.content;
-  }
-  
-  return JSON.stringify(response);
+  return '';
 }
 
 /**
  * Main test function which initiates deep research and polls for the result
  */
 async function runPolledDeepResearch(maxPollingTime = 2) {
-  await log(`=== Starting Enhanced Polling Deep Research Test ===`);
-  await checkApiKey();
+  const requestId = generateRequestId();
+  const query = 'What are the current best practices for SaaS pricing strategies in 2025? Please include specific examples of successful companies.';
   
-  // Define the query
-  let query = customQuery || "What are the most effective pricing strategies for SaaS startups in 2024, and how do they compare across different market segments and growth stages?";
-  
-  // If in quick mode, use a simpler query
-  if (quickMode) {
-    query = customQuery || "What are the top 5 pricing strategies for SaaS startups in 2024?";
-  }
-  
-  await log(`Testing deep research with query: "${query}"`);
+  await log('=== Starting Enhanced Deep Research Test with Polling ===');
   
   try {
-    // Set up options
-    const options = {
-      requestId: uuidv4().replace(/-/g, '').substring(0, 16),
-      model: 'sonar-deep-research', // Correct model name
-      maxTokens: quickMode ? 2000 : 4000,
-      searchContext: 'high'
-    };
+    // Initiate the deep research request
+    const initialResult = await initiateDeepResearch(query, { requestId });
     
-    // Execute the deep research query
-    const result = await initiateDeepResearch(query, options);
-    
-    // Report the result
-    if (result.status === 'completed') {
-      await log(`\n✅ Deep research completed successfully using model: ${result.model}`);
-      await log(`Content saved to: ${result.contentPath}`);
-      await log(`Full response saved to: ${result.responsePath}`);
-    } else if (result.status === 'in_progress') {
-      await log(`\n⏳ Deep research is still in progress`);
-      await log(`You can check the status later using check-deep-research-status.js`);
+    if (initialResult.status === 'polling_required') {
+      await log('Deep research requires polling. This is expected behavior.');
       
-      if (result.pollUrl) {
-        await log(`Poll URL: ${result.pollUrl}`);
+      // Start polling with appropriate settings
+      const maxAttempts = maxPollingTime * 60 / (POLLING_DELAY_MS / 1000); // Convert minutes to attempts
+      await log(`Setting up polling for ${maxPollingTime} minutes (${maxAttempts} attempts)`);
+      
+      const pollingResult = await pollForCompletion(
+        initialResult.pollUrl,
+        requestId,
+        maxAttempts
+      );
+      
+      if (pollingResult.status === 'completed') {
+        await log('✅ Deep research completed successfully!');
+        return pollingResult;
+      } else {
+        await log(`⏳ Polling timed out after ${maxPollingTime} minutes.`);
+        await log('The research request might still be processing on Perplexity\'s servers.');
+        await log('You can check the status later by running the check-deep-research-status.js script.');
+        return pollingResult;
       }
-    } else {
-      await log(`\n❓ Unknown status: ${result.status}`);
+    } else if (initialResult.status === 'completed') {
+      await log('✅ Deep research completed synchronously (unusual but possible)');
+      return initialResult;
     }
-    
-    return result;
-    
   } catch (error) {
-    await log(`\n❌ Error during deep research test: ${error.message}`);
-    
-    if (error.response) {
-      await log(`API Error Status: ${error.response.status}`);
-      await log(`API Error Data: ${JSON.stringify(error.response.data)}`);
-    }
-    
-    throw error;
+    await log(`❌ Error in deep research process: ${error.message}`);
+  } finally {
+    await log('=== Enhanced Deep Research Test Complete ===');
   }
 }
 
@@ -482,28 +365,9 @@ async function runPolledDeepResearch(maxPollingTime = 2) {
  * Test function with configurable options
  */
 async function runTest(options = {}) {
-  if (skipPolling) {
-    await log('Running test with polling skipped');
-  }
-  
-  if (quickMode) {
-    await log('Running in quick mode with simplified query');
-  }
-  
-  if (customQuery) {
-    await log(`Using custom query: "${customQuery}"`);
-  }
-  
-  try {
-    await runPolledDeepResearch(options.maxPollingTime || 2);
-  } catch (error) {
-    await log(`Test failed: ${error.message}`);
-    process.exit(1);
-  }
+  const maxPollingTime = options.maxPollingTime || 2; // Default 2 minutes of polling
+  return runPolledDeepResearch(maxPollingTime);
 }
 
-// Run the test with command line options
-runTest().catch(error => {
-  console.error('Unhandled error:', error);
-  process.exit(1);
-});
+// Run the test
+runTest({ maxPollingTime: 5 }); // Poll for up to 5 minutes

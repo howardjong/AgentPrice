@@ -8,44 +8,18 @@ import axios from 'axios';
 import fs from 'fs/promises';
 
 // Constants
-const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
-const TEST_QUERY = 'What day is it today?'; // Simple query
-const OUTPUT_FILE = 'perplexity-official-models-test.json';
-
-// Official models as of April 2025 
-// https://docs.perplexity.ai/docs/model-cards
-const OFFICIAL_MODELS = [
-  'pplx-7b-online',
-  'pplx-70b-online',
-  'pplx-7b-chat',
-  'pplx-70b-chat',
-  'llama-2-70b-chat',
-  'codellama-34b-instruct',
-  'mistral-medium-latest',
-  'mixtral-8x7b-instruct',
-  'command-r',
-  'command-r-plus',
-  'sonar-small-chat',
-  'sonar-small-online',
-  'sonar-medium-chat',
-  'sonar-medium-online',
-  'sonar-large-chat',
-  'claude-3-opus-20240229',
-  'claude-3-sonnet-20240229',
-  'claude-3-haiku-20240307',
-  'sonar-analytics',
-  'sonar-deep-research'
-];
+const API_URL = 'https://api.perplexity.ai/chat/completions';
+const LOG_FILE = 'perplexity-official-models-check.log';
 
 async function log(message) {
   const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ${message}`);
+  const logMessage = `[${timestamp}] ${message}`;
+  console.log(logMessage);
   
-  await fs.appendFile('perplexity-official-models-check.log', `[${timestamp}] ${message}\n`)
+  await fs.appendFile(LOG_FILE, `${logMessage}\n`)
     .catch(err => console.error(`Error writing to log: ${err.message}`));
 }
 
-// Make sure the API key is available
 function checkApiKey() {
   const apiKey = process.env.PERPLEXITY_API_KEY;
   if (!apiKey) {
@@ -54,19 +28,17 @@ function checkApiKey() {
   return apiKey;
 }
 
-// Test a specific model
 async function testModel(modelName) {
   try {
-    await log(`Testing model: ${modelName}`);
-    
     const apiKey = checkApiKey();
+    await log(`Testing model: ${modelName}`);
     
     const requestData = {
       model: modelName,
       messages: [
-        { role: 'user', content: TEST_QUERY }
+        { role: 'user', content: 'What is the capital of France?' }
       ],
-      max_tokens: 50,
+      max_tokens: 100,
       temperature: 0.0,
       stream: false
     };
@@ -76,146 +48,202 @@ async function testModel(modelName) {
       'Authorization': `Bearer ${apiKey}`
     };
     
-    // Make request with a 10 second timeout for standard models
-    const response = await axios.post(PERPLEXITY_API_URL, requestData, {
+    const response = await axios.post(API_URL, requestData, {
       headers,
-      timeout: 10000 // 10 second timeout
+      timeout: 15000 // 15 second timeout
     });
     
-    await log(`✅ Model ${modelName} is available!`);
+    const status = response.status;
+    await log(`Response status: ${status}`);
     
-    if (response.data.choices && response.data.choices[0]) {
-      const content = response.data.choices[0].message.content;
-      await log(`Response: "${content.trim().substring(0, 50)}..."`);
-    } else {
-      await log(`Unexpected response format: ${JSON.stringify(response.data)}`);
-    }
+    // Check if this is a valid model
+    await log(`Model ${modelName} is VALID and accessible`);
     
-    return { modelName, status: 'success', data: response.data };
+    // Save successful response
+    const responseFile = `${modelName}-success.json`;
+    await fs.writeFile(responseFile, JSON.stringify(response.data, null, 2));
+    
+    return {
+      model: modelName,
+      status: 'success',
+      httpStatus: status
+    };
+    
   } catch (error) {
-    if (error.response?.status === 400 && error.response?.data?.error?.type === 'invalid_model') {
-      await log(`❌ Model ${modelName} is not available: ${error.response.data.error.message}`);
-      return { modelName, status: 'invalid_model', error: error.response.data.error.message };
-    } else if (error.response) {
-      await log(`❌ Error with ${modelName}: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
-      return { modelName, status: 'error', error: `${error.response.status}: ${JSON.stringify(error.response.data)}` };
-    } else {
-      await log(`❌ Unknown error with ${modelName}: ${error.message}`);
-      return { modelName, status: 'error', error: error.message };
-    }
-  }
-}
-
-// Test deep research model specially
-async function testDeepResearch() {
-  try {
-    await log(`Testing deep research model...`);
+    await log(`Error with model ${modelName}: ${error.message}`);
     
-    const apiKey = checkApiKey();
+    let errorType = 'unknown';
+    let errorMessage = error.message;
+    let httpStatus = 500;
     
-    const requestData = {
-      model: 'sonar-deep-research',
-      messages: [
-        { role: 'user', content: 'What are the average prices of 5-star hotels in major European cities for April 2025?' }
-      ],
-      max_tokens: 1000,
-      temperature: 0.0,
-      stream: false
-    };
-    
-    const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`
-    };
-    
-    // Make request with a longer timeout
-    const response = await axios.post(PERPLEXITY_API_URL, requestData, {
-      headers,
-      timeout: 20000 // 20 second timeout
-    });
-    
-    await log(`✅ Deep research request successful!`);
-    await log(`Response status: ${response.data.status || 'unknown'}`);
-    
-    if (response.data.status === 'in_progress' && response.data.poll_url) {
-      await log(`Poll URL: ${response.data.poll_url}`);
+    if (error.response) {
+      httpStatus = error.response.status;
+      await log(`HTTP status: ${httpStatus}`);
+      
+      if (error.response.data && error.response.data.error) {
+        errorType = error.response.data.error.type || 'unknown';
+        errorMessage = error.response.data.error.message || error.message;
+      }
+      
+      await log(`Error type: ${errorType}`);
+      await log(`Error message: ${errorMessage}`);
+      
+      // Save error response
+      const errorFile = `${modelName}-error.json`;
+      await fs.writeFile(errorFile, JSON.stringify(error.response.data, null, 2));
     }
     
     return {
-      modelName: 'sonar-deep-research',
-      status: 'success',
-      responseStatus: response.data.status,
-      hasPollUrl: !!response.data.poll_url,
-      data: response.data
+      model: modelName,
+      status: 'error',
+      errorType,
+      errorMessage,
+      httpStatus
     };
-  } catch (error) {
-    if (error.response?.status === 400 && error.response?.data?.error?.type === 'invalid_model') {
-      await log(`❌ Deep research is not available: ${error.response.data.error.message}`);
-      return { modelName: 'sonar-deep-research', status: 'invalid_model', error: error.response.data.error.message };
-    } else if (error.response) {
-      await log(`❌ Error with deep research: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
-      return { modelName: 'sonar-deep-research', status: 'error', error: `${error.response.status}: ${JSON.stringify(error.response.data)}` };
-    } else if (error.code === 'ECONNABORTED') {
-      await log(`Deep research request timed out - this may be normal`);
-      return { modelName: 'sonar-deep-research', status: 'timeout', error: 'Request timed out' };
-    } else {
-      await log(`❌ Unknown error with deep research: ${error.message}`);
-      return { modelName: 'sonar-deep-research', status: 'error', error: error.message };
-    }
   }
 }
 
-// Main test function
-async function runModelCheck() {
+async function testDeepResearch() {
   try {
-    await log('=== Starting Official Perplexity Models Check ===');
+    const apiKey = checkApiKey();
+    const modelName = 'sonar-deep-research';
     
-    // First check if the API key exists
-    checkApiKey();
-    await log('✅ API key is available');
+    await log(`Testing deep research model: ${modelName}`);
     
-    const results = {
-      timestamp: new Date().toISOString(),
-      modelTests: [],
-      deepResearchTest: null
+    const requestData = {
+      model: modelName,
+      messages: [
+        { role: 'user', content: 'What are current SaaS pricing strategies in 2025?' }
+      ],
+      max_tokens: 500,
+      temperature: 0.0,
+      stream: false
     };
     
-    // Test standard models
-    for (const model of OFFICIAL_MODELS) {
-      if (model === 'sonar-deep-research') continue; // Skip for now
-      const result = await testModel(model);
-      results.modelTests.push(result);
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    };
+    
+    const response = await axios.post(API_URL, requestData, {
+      headers,
+      timeout: 30000 // 30 second timeout
+    });
+    
+    const status = response.status;
+    await log(`Response status: ${status}`);
+    
+    // Save response
+    const responseFile = `${modelName}-response.json`;
+    await fs.writeFile(responseFile, JSON.stringify(response.data, null, 2));
+    
+    // Check if this is a poll response (indicating deep research)
+    if (response.data && response.data.poll_url) {
+      await log(`Deep research model is working correctly! Found poll URL.`);
+      return {
+        model: modelName,
+        status: 'success',
+        isDeepResearch: true,
+        pollUrl: response.data.poll_url
+      };
+    } else {
+      await log(`Model ${modelName} returned a response but no poll URL found.`);
+      return {
+        model: modelName,
+        status: 'success',
+        isDeepResearch: false
+      };
     }
-    
-    // Test deep research model separately
-    results.deepResearchTest = await testDeepResearch();
-    
-    // Save all the results
-    await fs.writeFile(OUTPUT_FILE, JSON.stringify(results, null, 2));
-    await log(`Results saved to ${OUTPUT_FILE}`);
-    
-    // Summary
-    const workingModels = results.modelTests.filter(r => r.status === 'success').map(r => r.modelName);
-    
-    await log('=== Model Check Summary ===');
-    await log(`Total models tested: ${results.modelTests.length + 1}`);
-    await log(`Working models: ${workingModels.length}`);
-    if (workingModels.length > 0) {
-      await log(`Working model names: ${workingModels.join(', ')}`);
-    }
-    
-    await log(`Deep research model status: ${results.deepResearchTest?.status || 'not tested'}`);
-    
-    await log('=== Official Perplexity Models Check Complete ===');
     
   } catch (error) {
-    await log(`❌ Check failed: ${error.message}`);
+    await log(`Error with deep research model: ${error.message}`);
     
     if (error.response) {
       await log(`Status: ${error.response.status}`);
       await log(`Response data: ${JSON.stringify(error.response.data)}`);
+      
+      // Save error response
+      const errorFile = `sonar-deep-research-error.json`;
+      await fs.writeFile(errorFile, JSON.stringify(error.response.data, null, 2));
     }
+    
+    return {
+      model: 'sonar-deep-research',
+      status: 'error',
+      error: error.message
+    };
   }
+}
+
+async function runModelCheck() {
+  await log('=== Starting Official Perplexity Models Check ===');
+  
+  // List of models to test based on April 2025 documentation
+  const models = [
+    // Deep Research Model
+    // Test separately as it has special behavior
+    
+    // Online Models
+    'sonar-small-online',
+    'sonar-medium-online',
+    'sonar-large-online',
+    
+    // Chat Models
+    'sonar-small-chat',
+    'sonar-medium-chat',
+    'sonar-large-chat',
+    
+    // Multilingual models
+    'codellama-70b-instruct',
+    'mistral-7b-instruct',
+    'mixtral-8x7b-instruct',
+    'llama-3-70b-instruct',
+    'llama-3-8b-instruct'
+  ];
+  
+  const results = [];
+  
+  for (const model of models) {
+    const result = await testModel(model);
+    results.push(result);
+    
+    // Small delay between requests to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 2000));
+  }
+  
+  // Test deep research model separately
+  const deepResearchResult = await testDeepResearch();
+  results.push(deepResearchResult);
+  
+  // Summarize results
+  await log('=== Model Check Results ===');
+  
+  const validModels = results.filter(r => r.status === 'success');
+  const invalidModels = results.filter(r => r.status === 'error');
+  
+  await log(`Valid models (${validModels.length}):`);
+  for (const model of validModels) {
+    await log(`- ${model.model}`);
+  }
+  
+  await log(`Invalid models (${invalidModels.length}):`);
+  for (const model of invalidModels) {
+    await log(`- ${model.model}: ${model.errorMessage || 'Unknown error'}`);
+  }
+  
+  await log('=== Official Models Check Complete ===');
+  
+  // Write summary to file
+  const summary = {
+    timestamp: new Date().toISOString(),
+    validModels: validModels.map(m => m.model),
+    invalidModels: invalidModels.map(m => ({
+      model: m.model,
+      error: m.errorMessage || 'Unknown error'
+    }))
+  };
+  
+  await fs.writeFile('perplexity-models-summary.json', JSON.stringify(summary, null, 2));
 }
 
 // Run the check

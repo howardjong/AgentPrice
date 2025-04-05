@@ -1,0 +1,7 @@
+{
+  "error": {
+    "message": "Invalid model 'sonar-small-online'. Permitted models can be found in the documentation at https://docs.perplexity.ai/guides/model-cards.",
+    "type": "invalid_model",
+    "code": 400
+  }
+}

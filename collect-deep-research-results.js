@@ -7,10 +7,11 @@
 
 import fs from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Constants
-const TEST_RESULTS_DIR = 'test-results';
-const DEEP_RESEARCH_DIR = path.join(TEST_RESULTS_DIR, 'deep-research');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const RESULTS_DIR = path.join(__dirname, 'test-results', 'deep-research');
 const REPORT_FILE = 'deep-research-report.md';
 
 /**
@@ -19,149 +20,164 @@ const REPORT_FILE = 'deep-research-report.md';
 async function collectResults() {
   console.log('Collecting deep research results...');
   
-  // Initialize the report content
-  let reportContent = `# Perplexity Deep Research Test Report\n\n`;
-  reportContent += `Generated: ${new Date().toISOString()}\n\n`;
+  // Ensure directories exist
+  await fs.mkdir(RESULTS_DIR, { recursive: true });
   
   try {
-    // Ensure directories exist
-    await fs.mkdir(TEST_RESULTS_DIR, { recursive: true });
-    await fs.mkdir(DEEP_RESEARCH_DIR, { recursive: true });
+    // Get all files in the results directory
+    const files = await fs.readdir(RESULTS_DIR);
     
-    // Collect all files in test-results directory
-    const testResultsFiles = await fs.readdir(TEST_RESULTS_DIR);
+    // Group files by request ID
+    const requestGroups = {};
     
-    // Find deep research related files
-    const deepResearchFiles = testResultsFiles.filter(file => 
-      file.includes('deep-research') || 
-      file.includes('standard-test') || 
-      file.includes('quick-test')
-    );
-    
-    reportContent += `## Found ${deepResearchFiles.length} related files in test-results directory\n\n`;
-    
-    // Process each file
-    for (const file of deepResearchFiles) {
-      const filePath = path.join(TEST_RESULTS_DIR, file);
-      const stats = await fs.stat(filePath);
+    for (const file of files) {
+      // Extract request ID from filename
+      let requestId = 'unknown';
       
-      reportContent += `### ${file}\n`;
-      reportContent += `- Size: ${stats.size} bytes\n`;
-      reportContent += `- Modified: ${stats.mtime.toISOString()}\n\n`;
-      
-      // If it's a JSON file, parse and show summary
-      if (file.endsWith('.json')) {
-        try {
-          const content = await fs.readFile(filePath, 'utf8');
-          const data = JSON.parse(content);
-          
-          reportContent += '```json\n';
-          reportContent += JSON.stringify(data, null, 2).substring(0, 500);
-          if (JSON.stringify(data, null, 2).length > 500) {
-            reportContent += '\n... (truncated)';
+      if (file.startsWith('initial-response-')) {
+        requestId = file.replace('initial-response-', '').replace('.json', '');
+      } else if (file.startsWith('poll-data-')) {
+        requestId = file.replace('poll-data-', '').replace('.json', '');
+      } else if (file.startsWith('complete-response-')) {
+        requestId = file.replace('complete-response-', '').replace('.json', '');
+      } else if (file.startsWith('poll-response-')) {
+        // Format: poll-response-requestId-attempt.json
+        const parts = file.split('-');
+        if (parts.length >= 3) {
+          requestId = parts[2];
+          // Handle cases where request ID contains hyphens
+          if (file.includes('.json')) {
+            const beforeJson = file.split('.json')[0];
+            const attemptPart = beforeJson.split('-').pop();
+            if (!isNaN(attemptPart)) {
+              // Last part is the attempt number, reconstruct the ID
+              const requestParts = beforeJson.split('-');
+              requestParts.pop(); // Remove attempt number
+              requestParts.shift(); // Remove 'poll'
+              requestParts.shift(); // Remove 'response'
+              requestId = requestParts.join('-');
+            }
           }
-          reportContent += '\n```\n\n';
-        } catch (error) {
-          reportContent += `Error parsing JSON: ${error.message}\n\n`;
         }
-      } else if (file.endsWith('.md') || file.endsWith('.txt')) {
-        // If it's a text or markdown file, show preview
+      } else if (file.startsWith('error-')) {
+        requestId = file.replace('error-', '').replace('.json', '');
+      } else if (file.startsWith('request-')) {
+        // Format: request-requestId-timestamp-intermediate.json
+        const parts = file.split('-');
+        if (parts.length >= 2) {
+          requestId = parts[1];
+        }
+      }
+      
+      // Add to request group
+      if (requestId !== 'unknown') {
+        if (!requestGroups[requestId]) {
+          requestGroups[requestId] = [];
+        }
+        requestGroups[requestId].push(file);
+      }
+    }
+    
+    // Generate report
+    let report = '# Deep Research Test Results\n\n';
+    report += `Generated on ${new Date().toISOString()}\n\n`;
+    report += `Total requests found: ${Object.keys(requestGroups).length}\n\n`;
+    
+    // Process each request
+    for (const [requestId, files] of Object.entries(requestGroups)) {
+      report += `## Request: ${requestId}\n\n`;
+      
+      // Check for completed response
+      const completeFiles = files.filter(f => f.startsWith('complete-response-'));
+      const isComplete = completeFiles.length > 0;
+      
+      report += `Status: ${isComplete ? '✅ Complete' : '⏳ In Progress'}\n\n`;
+      
+      // Get initial query if available
+      const pollDataFiles = files.filter(f => f.startsWith('poll-data-'));
+      if (pollDataFiles.length > 0) {
         try {
-          const content = await fs.readFile(filePath, 'utf8');
+          const pollDataPath = path.join(RESULTS_DIR, pollDataFiles[0]);
+          const pollData = JSON.parse(await fs.readFile(pollDataPath, 'utf8'));
           
-          reportContent += '```\n';
-          reportContent += content.substring(0, 500);
-          if (content.length > 500) {
-            reportContent += '\n... (truncated)';
+          if (pollData.query) {
+            report += `**Query**: ${pollData.query}\n\n`;
           }
-          reportContent += '\n```\n\n';
-        } catch (error) {
-          reportContent += `Error reading file: ${error.message}\n\n`;
-        }
-      }
-    }
-    
-    // Check deep-research subfolder
-    const deepResearchSubFiles = await fs.readdir(DEEP_RESEARCH_DIR);
-    
-    reportContent += `## Found ${deepResearchSubFiles.length} files in deep-research directory\n\n`;
-    
-    // Process each file in the subfolder
-    for (const file of deepResearchSubFiles) {
-      const filePath = path.join(DEEP_RESEARCH_DIR, file);
-      const stats = await fs.stat(filePath);
-      
-      reportContent += `### ${file}\n`;
-      reportContent += `- Size: ${stats.size} bytes\n`;
-      reportContent += `- Modified: ${stats.mtime.toISOString()}\n\n`;
-      
-      // If it's a JSON file, parse and show summary
-      if (file.endsWith('.json')) {
-        try {
-          const content = await fs.readFile(filePath, 'utf8');
-          const data = JSON.parse(content);
           
-          reportContent += '```json\n';
-          reportContent += JSON.stringify(data, null, 2);
-          reportContent += '\n```\n\n';
+          if (pollData.timestamp) {
+            report += `**Started**: ${pollData.timestamp}\n\n`;
+          }
         } catch (error) {
-          reportContent += `Error parsing JSON: ${error.message}\n\n`;
+          console.error(`Error processing poll data: ${error.message}`);
         }
       }
-    }
-    
-    // Check for log files related to deep research
-    const rootFiles = await fs.readdir('.');
-    const logFiles = rootFiles.filter(file => 
-      (file.endsWith('.log') && 
-       (file.includes('deep-research') || 
-        file.includes('perplexity')))
-    );
-    
-    reportContent += `## Found ${logFiles.length} log files\n\n`;
-    
-    // Process each log file
-    for (const file of logFiles) {
-      try {
-        const stats = await fs.stat(file);
-        
-        reportContent += `### ${file}\n`;
-        reportContent += `- Size: ${stats.size} bytes\n`;
-        reportContent += `- Modified: ${stats.mtime.toISOString()}\n\n`;
-        
-        const content = await fs.readFile(file, 'utf8');
-        
-        // Only show the latest 50 lines of log files to keep the report manageable
-        const lines = content.split('\n');
-        const latestLines = lines.slice(Math.max(0, lines.length - 50));
-        
-        reportContent += '```\n';
-        reportContent += latestLines.join('\n');
-        reportContent += '\n```\n\n';
-      } catch (error) {
-        reportContent += `Error reading log file: ${error.message}\n\n`;
+      
+      // Count poll responses
+      const pollResponseFiles = files.filter(f => f.startsWith('poll-response-'));
+      report += `**Poll responses**: ${pollResponseFiles.length}\n\n`;
+      
+      // If complete, extract and show content
+      if (isComplete) {
+        try {
+          const completePath = path.join(RESULTS_DIR, completeFiles[0]);
+          const completeData = JSON.parse(await fs.readFile(completePath, 'utf8'));
+          
+          // Extract model info
+          let modelInfo = 'unknown';
+          if (completeData.model) {
+            modelInfo = completeData.model;
+          } else if (completeData.completion && completeData.completion.model) {
+            modelInfo = completeData.completion.model;
+          }
+          
+          report += `**Model**: ${modelInfo}\n\n`;
+          
+          // Extract content
+          let content = '';
+          if (completeData.choices && completeData.choices[0] && completeData.choices[0].message) {
+            content = completeData.choices[0].message.content;
+          } else if (completeData.completion && completeData.completion.text) {
+            content = completeData.completion.text;
+          }
+          
+          if (content) {
+            report += `### Response Content\n\n`;
+            report += `${content}\n\n`;
+          }
+          
+          // Extract citations if available
+          if (completeData.completion && completeData.completion.links) {
+            report += `### Citations\n\n`;
+            for (const link of completeData.completion.links) {
+              report += `- [${link.title || 'Link'}](${link.url})\n`;
+            }
+            report += '\n';
+          }
+          
+        } catch (error) {
+          console.error(`Error processing complete response: ${error.message}`);
+          report += `Error extracting content: ${error.message}\n\n`;
+        }
+      } else {
+        report += `*Research still in progress or incomplete*\n\n`;
       }
+      
+      // List all files for reference
+      report += `### Files\n\n`;
+      for (const file of files) {
+        report += `- \`${file}\`\n`;
+      }
+      report += '\n---\n\n';
     }
     
-    // Write the report
-    await fs.writeFile(REPORT_FILE, reportContent);
-    
-    console.log(`Report written to ${REPORT_FILE}`);
-    return REPORT_FILE;
+    // Write report
+    await fs.writeFile(REPORT_FILE, report);
+    console.log(`Report generated: ${REPORT_FILE}`);
     
   } catch (error) {
-    console.error('Error collecting results:', error);
-    return null;
+    console.error(`Error collecting results: ${error.message}`);
   }
 }
 
-// Run the collection process
-collectResults().then(reportFile => {
-  if (reportFile) {
-    console.log(`Complete! Report is available at: ${reportFile}`);
-  } else {
-    console.error('Failed to create report');
-  }
-}).catch(error => {
-  console.error('Unhandled error:', error);
-});
+// Run collection
+collectResults();
