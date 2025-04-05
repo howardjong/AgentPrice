@@ -1,5 +1,13 @@
 import axios from 'axios';
-import { ServiceStatus } from '@shared/schema';
+
+// Define ServiceStatus interface locally to avoid import issues
+interface ServiceStatus {
+  service: string;
+  status: string;
+  lastUsed: Date | null;
+  version?: string;
+  error?: string;
+}
 
 const MODELS = {
   basic: 'sonar',
@@ -19,6 +27,7 @@ export class PerplexityService {
 
   constructor(apiKey = API_KEY, model = DEFAULT_MODEL) {
     this.apiKey = apiKey;
+    // Initialize with the basic model, deepResearch model will be used specifically for deep research
     this.model = model;
     this.models = MODELS;
     
@@ -88,9 +97,17 @@ export class PerplexityService {
           `${currentQuery}\n\nPlease provide the most up-to-date information available as of the current date. I need CURRENT information.`;
       }
 
+      // Check if this is a deep research query based on message content
+      const lastUserMessage = messages.filter(m => m.role === 'user').pop()?.content || '';
+      const isDeepResearchQuery = 
+        lastUserMessage.toLowerCase().includes('deep research') || 
+        lastUserMessage.toLowerCase().includes('comprehensive research') ||
+        lastUserMessage.toLowerCase().includes('thorough research');
+      
       // Log the full request payload
       const requestPayload = {
-        model: this.model,
+        // Use deep research model for more complex queries
+        model: isDeepResearchQuery ? this.models.deepResearch : this.model,
         messages: messagesWithSystemInstruction,
         max_tokens: 1024,
         temperature: 0.2,
