@@ -22,7 +22,9 @@ async function initialize() {
     await fs.mkdir(RESEARCH_DIR, { recursive: true });
     
     // Register the processor for deep research jobs
+    // Register for both queue names to handle jobs from either
     jobManager.registerProcessor('deep-research', processResearchJob);
+    jobManager.registerProcessor('research', processResearchJob);
     
     logger.info('Research service initialized successfully', {
       researchDir: path.resolve(RESEARCH_DIR)

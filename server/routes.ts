@@ -600,10 +600,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Create a Bull job for the research task using the exported function
+      // Ensure we're using the deep research model
+      const enhancedOptions = {
+        ...options,
+        model: 'sonar-deep-research' // Force the deep research model
+      };
+      
       const jobId = await jobManager.enqueueJob('research', {
         query,
         conversationId: conversation?.id,
-        options
+        options: enhancedOptions
       });
       
       // Create a research job record in storage

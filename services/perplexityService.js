@@ -15,11 +15,12 @@ import * as fs from 'fs/promises';
 import path from 'path';
 
 // Default model configuration
-const DEFAULT_MODEL = 'llama-3.1-sonar-small-128k-online';
+const DEFAULT_MODEL = 'sonar'; // Use generic 'sonar' as default
 const SONAR_MODELS = {
-  small: 'llama-3.1-sonar-small-128k-online',
-  large: 'llama-3.1-sonar-large-128k-online', 
-  huge: 'llama-3.1-sonar-huge-128k-online'
+  default: 'sonar', // Standard model for regular searches
+  pro: 'sonar-pro', // Pro model with enhanced capabilities
+  large: 'sonar-large', // Fallback for large context
+  deepResearch: 'sonar-deep-research' // Specialized for deep research
 };
 const API_ENDPOINT = 'https://api.perplexity.ai/chat/completions';
 
@@ -314,8 +315,8 @@ async function processConversation(messages, options = {}) {
  */
 async function conductDeepResearch(query, options = {}) {
   const requestId = uuidv4();
-  // For deep research, we prefer the larger models
-  const model = options.model || SONAR_MODELS.large;
+  // For deep research, we use the specialized deep research model
+  const model = options.model || SONAR_MODELS.deepResearch;
   const maxTokens = options.maxTokens || 4096; // Larger token limit for deep research
   const timeout = options.timeout || 60000; // Longer timeout for deep research
   
@@ -350,7 +351,7 @@ async function conductDeepResearch(query, options = {}) {
     const followUpResponse = await processWebQuery(
       `Based on the following research, what are 3-5 important follow-up questions that would help expand and deepen the research?\n\n${initialResults.content}`,
       {
-        model: SONAR_MODELS.small, // Use smaller model for this intermediate step
+        model: SONAR_MODELS.default, // Use default model for this intermediate step
         maxTokens: 1024,
         temperature: 0.7, // Higher temperature for more diverse questions
         systemPrompt: 'Generate specific, targeted follow-up research questions. Be concise and focus on gaps in the initial research.',
