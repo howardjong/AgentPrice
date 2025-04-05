@@ -1591,30 +1591,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
   
-  // Setup Socket.io server for real-time updates with enhanced configuration for Replit environment
+  // Setup Socket.io server for real-time updates with EXTREME STABILITY configuration for Replit environment
   const io = new SocketIoServer(httpServer, {
     path: '/socket.io',
     cors: {
-      origin: '*',
+      origin: '*',  // Accept all origins
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
       credentials: true
     },
-    // Replit-optimized transport configuration with enhanced reliability
-    // Force polling first for reliability, then upgrade to websocket if possible
+    // CRITICAL: Replit-optimized transport configuration with maximum reliability
+    // POLLING MUST BE FIRST - this ensures connections can be established even with WebSocket issues
     transports: ['polling', 'websocket'],
     allowUpgrades: true,
-    upgradeTimeout: 30000, // Further increased upgrade timeout for Replit's environment
+    upgradeTimeout: 60000, // Doubled upgrade timeout (60 seconds) for extreme reliability in Replit
     
-    // More resilient connection parameters optimized for Replit
-    pingTimeout: 90000,    // Increased ping timeout to reduce disconnects in constrained environments
-    pingInterval: 25000,   // Balance between network saturation and connection monitoring
+    // Ultra-resilient connection parameters designed specifically for Replit's environment
+    pingTimeout: 120000,   // 2-minute ping timeout to prevent premature disconnects
+    pingInterval: 20000,   // Slightly more frequent pings (every 20 seconds) for connection monitoring
     
     // Resource constraints with values tuned for Replit's environment
     maxHttpBufferSize: 1e6, // 1MB to prevent large payloads
     
-    // Extended connection options for improved reliability
-    connectTimeout: 60000, // Significantly extended timeout for initial connection
+    // Extended connection options for maximum reliability
+    connectTimeout: 90000, // 90-second connection timeout for even more resilience
     
     // Handle reconnection on the client side instead
     // This allows custom reconnection logic with more aggressive incremental backoff
@@ -1623,7 +1623,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Transport layer options for better stability
     // @ts-ignore - Property exists at runtime but not in type definition
-    perMessageDeflate: false, // Disable for better stability
+    perMessageDeflate: false, // Disable compression for better stability
+    
+    // Additional stability options specific to unreliable environments
+    // @ts-ignore - Property exists at runtime but not in type definition
+    rememberUpgrade: false, // Don't remember transport upgrades
     
     // Enable detailed logging for debugging connection issues
     logger: {

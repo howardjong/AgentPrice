@@ -80,29 +80,30 @@ const SystemStatusMonitor: React.FC = () => {
       socketRef.current.disconnect();
     }
     
-    // Create new Socket.IO connection with Replit-optimized configuration
+    // Create new Socket.IO connection with extreme stability Replit-optimized configuration
     // Type cast as any to work around Socket.IO type limitations
     const socket = io('', {
       path: '/socket.io',
-      // Replit-specific transport configuration: force polling first for reliability
+      // Replit-specific transport configuration: ALWAYS force polling and only then upgrade to websocket
+      // This is critical - polling MUST come first on Replit to establish the initial connection
       transports: ['polling', 'websocket'],
-      // Enhanced reconnection settings for Replit's environment (with valid types)
+      // Extended connection timeouts to deal with Replit's environment
       // @ts-ignore - Socket.IO types are incomplete but these options work
       reconnection: true,
-      reconnectionAttempts: 15,       // More attempts
-      reconnectionDelay: 2000,        // Start with a longer delay
-      reconnectionDelayMax: 30000,    // Allow longer delays between attempts
-      randomizationFactor: 0.5,       // More randomization to avoid connection waves
-      timeout: 40000,                 // Longer timeout for slow connections
-      // Connection settings
+      reconnectionAttempts: 20,       // More aggressive reconnection attempts
+      reconnectionDelay: 1000,        // Start with a shorter initial delay (1 second)
+      reconnectionDelayMax: 40000,    // Allow even longer delays for problematic networks
+      randomizationFactor: 0.75,      // Maximum randomization to prevent connection waves
+      timeout: 60000,                 // Extreme timeout for very slow connections (60 seconds)
+      // Connection settings - autoConnect true ensures immediate connection attempt
       autoConnect: true,
-      forceNew: true,
-      // Disable some potentially problematic features in Replit's environment
+      forceNew: true,                 // Always get a fresh connection
+      // Disable potentially problematic features in Replit's environment
       // @ts-ignore - Socket.IO types are incomplete
-      upgrade: true,
-      rememberUpgrade: false,
-      // Connection test can block threads and cause issues, so disable
-      // @ts-ignore - Socket.IO type system doesn't correctly model all options but these work at runtime
+      upgrade: true,                  // Allow transport upgrades from polling to websocket
+      rememberUpgrade: false,         // Don't cache transport info, always start with polling
+      // Disable compression which can cause issues in memory-constrained environments
+      // @ts-ignore - Socket.IO type system doesn't correctly model all options
       perMessageDeflate: false
     });
     
