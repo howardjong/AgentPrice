@@ -35,6 +35,18 @@ export function performTextSearch(collection, searchText) {
 }
 
 /**
+ * Internal function to process search results with text filtering
+ * This function exists primarily to make testing easier
+ *
+ * @param {Array} results - The raw search results from API
+ * @param {string} query - The search query
+ * @returns {Array} - Text filtered results
+ */
+export function processSearchResults(results, query) {
+  return performTextSearch(results, query);
+}
+
+/**
  * Search the API for results
  * 
  * @param {string} query - The search query
@@ -52,7 +64,9 @@ export async function search(query, options = {}) {
       }
     });
     
-    return response.data.results;
+    // Use the dedicated function to process results
+    // This intermediary function makes testing easier
+    return processSearchResults(response.data.results, query);
   } catch (error) {
     console.error('Search API error:', error);
     return [];
@@ -189,6 +203,7 @@ export function extractKeywords(query) {
 export default {
   search,
   performTextSearch,
+  processSearchResults,
   filterResults,
   groupByCategory,
   sortByScore,
