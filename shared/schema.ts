@@ -191,3 +191,12 @@ export const deepResearchSchema = z.object({
     model: z.string().optional()
   }).optional()
 });
+
+// Service status interface for API services
+export interface ServiceStatus {
+  service: string;
+  status: 'connected' | 'disconnected' | 'rate_limited';
+  lastUsed: Date | null;
+  version: string;
+  error?: string;
+}

@@ -76,7 +76,28 @@ export class ServiceRouter {
       /tell me about ([a-z\s]+) in (\d{4}|\d{4}-\d{2}|\d{4}-\d{2}-\d{2})/i.test(lowercaseMessage);
     
     // For deep research queries, the test expects a confirmation flow
-    if (isResearchQuery || needsCurrentInfo) {
+    if (isResearchQuery || needsCurrentInfo || options?.confirmDeepResearch) {
+      // First check explicit deep research flag from options (via UI checkbox)
+      if (options?.confirmDeepResearch) {
+        console.log('Deep research explicitly requested via deepResearch flag');
+        return {
+          service: 'perplexity',
+          mode: 'deep',
+          estimatedTime: '15-30 minutes'
+        };
+      }
+      
+      // If the query contains specific deep research keywords, route to deep research immediately
+      if (message.toLowerCase().includes('deep research') || 
+          message.toLowerCase().includes('comprehensive research')) {
+        console.log('Deep research automatically detected via keywords in query');
+        return {
+          service: 'perplexity',
+          mode: 'deep',
+          estimatedTime: '15-30 minutes'
+        };
+      }
+      
       // If the query contains specific research keywords, suggest deep research confirmation
       if (message.toLowerCase().includes('search for the latest information')) {
         return {
@@ -119,6 +140,8 @@ export class ServiceRouter {
   
   /**
    * Route the message to the appropriate service
+   * When confirmDeepResearch is true, the first step is to ask clarifying questions with Claude
+   * Once the user responds, the full query will be sent to Perplexity for deep research
    */
   async routeMessage(messages: { role: string; content: string }[], service?: string, options?: { confirmDeepResearch?: boolean }): Promise<{
     response?: string;
