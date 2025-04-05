@@ -1,0 +1,102 @@
+{
+  "success": true,
+  "query": "What are the best practices for unit testing?",
+  "variant": "basic",
+  "useRealAPIs": false,
+  "timestamp": "2025-04-05T06:12:51.268Z",
+  "error": null,
+  "stageTiming": {
+    "clarification": {
+      "start": 1743833571269,
+      "end": 1743833571274
+    },
+    "research": {
+      "start": 1743833571274,
+      "end": 1743833571274
+    },
+    "extraction": {
+      "start": 1743833571274,
+      "end": 1743833571275
+    },
+    "charting": {
+      "start": 1743833571275,
+      "end": 1743833571275
+    }
+  },
+  "clarifiedQuery": "What are the best practices for unit testing? (with focus on recent developments and practical applications)",
+  "researchContent": "This is mock research content for the query: \"What are the best practices for unit testing? (with focus on recent developments and practical applications)\"\n\nRecent studies have shown significant advancements in this field. There are several key findings worth noting:\n\n1. The first major development is the discovery of new methodologies\n2. Secondly, implementation of these techniques has shown a 25% improvement\n3. Finally, industry adoption has reached 40% in Category A, 65% in Category B\n\nResearchers at leading institutions continue to explore applications.",
+  "sources": [
+    {
+      "title": "Recent Advancements in the Field",
+      "url": "https://example.com/source1"
+    },
+    {
+      "title": "Industry Implementation Report",
+      "url": "https://example.com/source2"
+    },
+    {
+      "title": "Comparative Analysis Study",
+      "url": "https://example.com/source3"
+    }
+  ],
+  "extractedData": {
+    "chartTitle": "Sample Extracted Data",
+    "chartType": "bar",
+    "categories": [
+      "Category A",
+      "Category B",
+      "Category C"
+    ],
+    "values": [
+      25,
+      40,
+      15
+    ],
+    "metricName": "Value"
+  },
+  "dataExtractionPrompt": "Extract data from research content suitable for visualization",
+  "chartData": {
+    "chartTitle": "Sample Extracted Data",
+    "chartType": "bar",
+    "categories": [
+      "Category A",
+      "Category B",
+      "Category C"
+    ],
+    "values": [
+      25,
+      40,
+      15
+    ],
+    "metricName": "Value"
+  },
+  "plotlyConfig": {
+    "data": [
+      {
+        "type": "bar",
+        "x": [
+          "Category A",
+          "Category B",
+          "Category C"
+        ],
+        "y": [
+          25,
+          40,
+          15
+        ],
+        "marker": {
+          "color": "rgb(55, 83, 109)"
+        }
+      }
+    ],
+    "layout": {
+      "title": "Sample Extracted Data",
+      "xaxis": {
+        "title": "Categories"
+      },
+      "yaxis": {
+        "title": "Value"
+      }
+    }
+  }
+}

@@ -252,10 +252,10 @@ async function loadRealServices() {
     console.log('Loading real API services...');
     
     // Import actual service implementations
-    // This would be replaced with actual imports in a real implementation
-    // Example: const { claudeService } = await import('../../../services/anthropicService.js');
+    const claudeService = await import('../../../services/claudeService.js').then(module => module.default);
+    const perplexityService = await import('../../../services/perplexityService.js').then(module => module.default);
     
-    // Create services with real API implementations
+    // Create adapter services to match the interface expected by our tests
     const services = {
       claude: {
         isOnline: () => true,
@@ -263,132 +263,129 @@ async function loadRealServices() {
         async clarifyQuery(query) {
           console.log('Using real Claude API for query clarification');
           
-          // This implementation would use the Anthropic SDK to call Claude
-          // Example implementation (commented out to avoid actual API calls):
-          /*
-          const anthropic = new Anthropic({ apiKey: anthropicApiKey });
-          const response = await anthropic.messages.create({
-            model: 'claude-3-opus-20240229',
-            max_tokens: 1000,
-            system: 'You are a helpful assistant that clarifies user queries to make them more specific and searchable.',
-            messages: [{ role: 'user', content: `Please clarify this query: "${query}"` }]
-          });
-          
-          return {
-            clarifiedQuery: response.content[0].text,
-            clarificationContext: {
-              refinementReason: 'Refined by Claude',
-              confidenceScore: 0.95,
-              modelUsed: response.model
-            }
-          };
-          */
-          
-          // Return a placeholder response for now
-          return { 
-            clarifiedQuery: `${query} (clarified with Claude)`,
-            clarificationContext: {
-              refinementReason: 'Refined by Claude',
-              confidenceScore: 0.95,
-              modelUsed: 'claude-3-opus-20240229'
-            }
-          };
+          try {
+            // Call Claude's processText to clarify the query
+            const extractionPrompt = `Please clarify this query to make it more specific and searchable: "${query}"`;
+            
+            const response = await claudeService.processText(extractionPrompt, {
+              model: 'claude-3-7-sonnet-20250219',
+              maxTokens: 1000,
+              temperature: 0.3
+            });
+            
+            return {
+              clarifiedQuery: response.content,
+              clarificationContext: {
+                refinementReason: 'Refined by Claude',
+                confidenceScore: 0.95,
+                modelUsed: response.model
+              }
+            };
+          } catch (error) {
+            console.error('Error clarifying query with Claude:', error);
+            throw new Error(`Claude API error during query clarification: ${error.message}`);
+          }
         },
         
         async extractDataForCharts(content, query) {
           console.log('Using real Claude API for data extraction');
           
-          // This implementation would use the Anthropic SDK
-          // Example implementation (commented out to avoid actual API calls):
-          /*
-          const anthropic = new Anthropic({ apiKey: anthropicApiKey });
-          const extractionPrompt = `Extract numerical data from the following research that would be suitable for visualization:
-          
-          RESEARCH CONTENT:
-          ${content}
-          
-          QUERY:
-          ${query}
-          
-          Provide your answer as a JSON object with:
-          - chartTitle: a descriptive title for the chart
-          - chartType: the best chart type (bar, line, pie, scatter)
-          - categories: array of category names
-          - values: array of numerical values
-          - metricName: what the values represent
-          `;
-          
-          const response = await anthropic.messages.create({
-            model: 'claude-3-opus-20240229',
-            max_tokens: 1000,
-            system: 'You extract structured data for visualization from text. Return only valid JSON.',
-            messages: [{ role: 'user', content: extractionPrompt }]
-          });
-          
-          // Parse the JSON response
-          const extractedData = JSON.parse(response.content[0].text);
-          
-          return {
-            data: extractedData,
-            prompt: extractionPrompt
-          };
-          */
-          
-          // Return a placeholder response for now
-          return { 
-            data: {
-              chartTitle: 'Sample Extracted Data',
-              chartType: 'bar',
-              categories: ['Category A', 'Category B', 'Category C'],
-              values: [10, 20, 30],
-              metricName: 'Value'
-            },
-            prompt: 'Extract data from research content suitable for visualization'
-          };
+          try {
+            // Create extraction prompt for chart data
+            const extractionPrompt = `Extract numerical data from the following research that would be suitable for visualization:
+            
+            RESEARCH CONTENT:
+            ${content}
+            
+            QUERY:
+            ${query}
+            
+            Provide your answer as a JSON object with:
+            - chartTitle: a descriptive title for the chart
+            - chartType: the best chart type (bar, line, pie, scatter)
+            - categories: array of category names
+            - values: array of numerical values
+            - metricName: what the values represent
+            `;
+            
+            const response = await claudeService.processText(extractionPrompt, {
+              model: 'claude-3-7-sonnet-20250219',
+              maxTokens: 1500,
+              temperature: 0.2
+            });
+            
+            // Extract JSON from the response
+            let data;
+            try {
+              // Look for JSON pattern in the content
+              const jsonMatch = response.content.match(/```json\n([\s\S]*?)\n```/) || 
+                                response.content.match(/```\n([\s\S]*?)\n```/) ||
+                                response.content.match(/\{[\s\S]*\}/);
+              
+              const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : response.content;
+              data = JSON.parse(jsonString);
+            } catch (parseError) {
+              console.error('Failed to parse JSON from Claude response:', parseError);
+              // Fallback to a default structure
+              data = {
+                chartTitle: 'Data from Research',
+                chartType: 'bar',
+                categories: ['Category A', 'Category B', 'Category C'],
+                values: [10, 20, 30],
+                metricName: 'Value'
+              };
+            }
+            
+            return {
+              data: data,
+              prompt: extractionPrompt
+            };
+          } catch (error) {
+            console.error('Error extracting data with Claude:', error);
+            throw new Error(`Claude API error during data extraction: ${error.message}`);
+          }
         },
         
         async generateChartData(data, query) {
           console.log('Using real Claude API for chart generation');
           
-          // This implementation would use the Anthropic SDK
-          // Example implementation (commented out to avoid actual API calls):
-          /*
-          const anthropic = new Anthropic({ apiKey: anthropicApiKey });
-          const chartPrompt = `Generate a Plotly configuration for the following data:
-          
-          DATA:
-          ${JSON.stringify(data, null, 2)}
-          
-          QUERY:
-          ${query}
-          
-          Provide your answer as a complete Plotly configuration object with 'data' and 'layout' properties.
-          `;
-          
-          const response = await anthropic.messages.create({
-            model: 'claude-3-opus-20240229',
-            max_tokens: 2000,
-            system: 'You generate Plotly chart configurations based on data. Return only valid JSON.',
-            messages: [{ role: 'user', content: chartPrompt }]
-          });
-          
-          // Parse the JSON response to get Plotly configuration
-          const plotlyConfig = JSON.parse(response.content[0].text);
-          
-          return {
-            data: data,
-            plotlyConfig: plotlyConfig
-          };
-          */
-          
-          // Create a Plotly configuration based on the extracted data
-          let plotlyConfig;
-          
-          switch (data.chartType) {
-            case 'bar':
+          try {
+            // Create a prompt for generating Plotly configuration
+            const chartPrompt = `Generate a Plotly configuration for the following data:
+            
+            DATA:
+            ${JSON.stringify(data, null, 2)}
+            
+            QUERY:
+            ${query}
+            
+            Provide your answer as a complete Plotly configuration object with 'data' and 'layout' properties.
+            `;
+            
+            // Use Claude to generate the Plotly configuration
+            const response = await claudeService.processText(chartPrompt, {
+              model: 'claude-3-7-sonnet-20250219',
+              maxTokens: 2000,
+              temperature: 0.2
+            });
+            
+            // Extract JSON from the response
+            let plotlyConfig;
+            try {
+              // Look for JSON pattern in the content
+              const jsonMatch = response.content.match(/```json\n([\s\S]*?)\n```/) || 
+                                response.content.match(/```\n([\s\S]*?)\n```/) ||
+                                response.content.match(/\{[\s\S]*\}/);
+              
+              const jsonString = jsonMatch ? jsonMatch[1] || jsonMatch[0] : response.content;
+              plotlyConfig = JSON.parse(jsonString);
+            } catch (parseError) {
+              console.error('Failed to parse JSON from Claude response:', parseError);
+              
+              // Fallback to a simple Plotly configuration
               plotlyConfig = {
                 data: [{
-                  type: 'bar',
+                  type: data.chartType || 'bar',
                   x: data.categories,
                   y: data.values,
                   marker: {
@@ -405,65 +402,16 @@ async function loadRealServices() {
                   }
                 }
               };
-              break;
-              
-            case 'line':
-              plotlyConfig = {
-                data: [{
-                  type: 'scatter',
-                  mode: 'lines+markers',
-                  x: data.categories,
-                  y: data.values,
-                  marker: {
-                    color: 'rgb(55, 126, 184)'
-                  }
-                }],
-                layout: {
-                  title: data.chartTitle,
-                  xaxis: {
-                    title: 'Time Period'
-                  },
-                  yaxis: {
-                    title: data.metricName
-                  }
-                }
-              };
-              break;
-              
-            case 'pie':
-              plotlyConfig = {
-                data: [{
-                  type: 'pie',
-                  labels: data.categories,
-                  values: data.values,
-                  marker: {
-                    colors: ['#3366CC', '#DC3912', '#FF9900', '#109618', '#990099']
-                  }
-                }],
-                layout: {
-                  title: data.chartTitle
-                }
-              };
-              break;
-              
-            default:
-              // Default to bar chart
-              plotlyConfig = {
-                data: [{
-                  type: 'bar',
-                  x: data.categories,
-                  y: data.values
-                }],
-                layout: {
-                  title: data.chartTitle
-                }
-              };
+            }
+            
+            return {
+              data: data,
+              plotlyConfig: plotlyConfig
+            };
+          } catch (error) {
+            console.error('Error generating chart with Claude:', error);
+            throw new Error(`Claude API error during chart generation: ${error.message}`);
           }
-          
-          return {
-            data: data,
-            plotlyConfig: plotlyConfig
-          };
         }
       },
       
@@ -473,60 +421,20 @@ async function loadRealServices() {
         async performDeepResearch(query) {
           console.log('Using real Perplexity API for deep research');
           
-          // This implementation would use the Perplexity API directly
-          // Example implementation (commented out to avoid actual API calls):
-          /*
-          const apiUrl = 'https://api.perplexity.ai/research';
-          const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${perplexityApiKey}`
-            },
-            body: JSON.stringify({
-              query: query,
-              model: 'sonar-deep-research',
-              max_tokens: 4000,
-              temperature: 0.2
-            })
-          });
-          
-          if (!response.ok) {
-            throw new Error(`Perplexity API error: ${response.status} ${response.statusText}`);
-          }
-          
-          // Handle polling for deep research with async responses
-          const initialResponse = await response.json();
-          
-          if (initialResponse.status === 'processing') {
-            // Implementation would poll for results using the task_id
-            // This is simplified for the example
-            const taskId = initialResponse.task_id;
-            const results = await pollForResults(taskId, perplexityApiKey);
+          try {
+            // Call the actual Perplexity service implementation
+            // The method exists directly on the service with the alias we need
+            const response = await perplexityService.performDeepResearch(query);
             
             return {
-              content: results.answer,
-              sources: results.sources,
-              modelUsed: 'sonar-deep-research'
+              content: response.content,
+              sources: response.sources || [],
+              modelUsed: response.modelUsed || 'sonar-deep-research'
             };
-          } else {
-            return {
-              content: initialResponse.answer,
-              sources: initialResponse.sources || [],
-              modelUsed: initialResponse.model
-            };
+          } catch (error) {
+            console.error('Error performing deep research with Perplexity:', error);
+            throw new Error(`Perplexity API error during deep research: ${error.message}`);
           }
-          */
-          
-          // Return a placeholder response for now
-          return {
-            content: `This would be the researched content for: "${query}"`,
-            sources: [
-              { title: 'Example Source 1', url: 'https://example.com/source1' },
-              { title: 'Example Source 2', url: 'https://example.com/source2' }
-            ],
-            modelUsed: 'sonar-deep-research'
-          };
         }
       },
       
