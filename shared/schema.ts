@@ -184,6 +184,7 @@ export const visualizeSchema = z.object({
 export const deepResearchSchema = z.object({
   query: z.string().min(1),
   userId: z.string().optional(),
+  conversationId: z.string().optional().nullable(),
   options: z.object({
     maxDepth: z.number().optional(),
     includeSources: z.boolean().optional(),

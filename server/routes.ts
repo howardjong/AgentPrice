@@ -495,7 +495,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Format messages for Claude
       const messageHistory = [
-        ...previousMessages.map(m => ({ role: m.role, content: m.content })),
+        ...previousMessages.map((m: any) => ({ role: m.role, content: m.content })),
         { role: 'user', content: message }
       ];
 
@@ -557,7 +557,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Format messages for Perplexity
       const messageHistory = [
-        ...previousMessages.map(m => ({ role: m.role, content: m.content })),
+        ...previousMessages.map((m: any) => ({ role: m.role, content: m.content })),
         { role: 'user', content: message }
       ];
 
@@ -777,7 +777,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Format messages for service router
       const messageHistory = [
-        ...previousMessages.map(m => ({ role: m.role, content: m.content })),
+        ...previousMessages.map((m: any) => ({ role: m.role, content: m.content })),
         { role: 'user', content: message }
       ];
 
@@ -1639,9 +1639,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Enable detailed logging for debugging connection issues
     logger: {
-      debug: (...args) => console.debug('[socket.io]', ...args),
-      info: (...args) => console.info('[socket.io]', ...args),
-      error: (...args) => console.error('[socket.io]', ...args),
+      debug: (...args: any[]) => console.debug('[socket.io]', ...args),
+      info: (...args: any[]) => console.info('[socket.io]', ...args),
+      error: (...args: any[]) => console.error('[socket.io]', ...args),
     },
     
     // Prevent memory leak from excessive socket reconnects
