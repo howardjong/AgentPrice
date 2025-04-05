@@ -3046,3 +3046,28 @@ args = "node tests/reset-circuit-breaker.js claude"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/test-workflow-integration.js"
+
+[[workflows.workflow]]
+name = "Verify Deep Research Workflow"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# First reset the circuit breaker for both services"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/reset-circuit-breaker.js perplexity"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/reset-circuit-breaker.js claude"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "# Then run the verification test"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/verify-deep-research-workflow.js"
