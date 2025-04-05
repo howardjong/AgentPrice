@@ -69,18 +69,9 @@ export class ClaudeService {
       }));
 
       // Define system prompts based on message context
+      // Default system prompt - no need for deep research detection here
+      // The router should route deep research queries to Perplexity
       let systemPrompt = "You are an AI assistant created by Anthropic. Please identify yourself accurately and transparently in your responses.";
-      
-      // Check if this is a deep research request by examining the last message
-      const lastMessage = messages[messages.length - 1];
-      const isDeepResearchQuery = lastMessage.role === 'user' && 
-        (lastMessage.content.toLowerCase().includes('deep research') || 
-         lastMessage.content.toLowerCase().includes('comprehensive research'));
-      
-      if (isDeepResearchQuery) {
-        // For deep research queries, Claude should only ask clarifying questions
-        systemPrompt = "You are a research clarification assistant. Your primary role is to ask clarifying questions ONLY. Do not provide answers. Instead, help refine the user's query by asking 1-3 targeted questions that will improve search results. Focus on clarifying: time frame, specific aspects of interest, preferred data sources, and required level of detail. Keep your response brief, friendly and focused solely on improving the query.";
-      }
       
       const response = await this.client.messages.create({
         model: this.model,

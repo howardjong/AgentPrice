@@ -89,12 +89,7 @@ export function useChat() {
   // Send a chat message
   const { mutate: sendMessage, isPending: isSendingMessage } = useMutation({
     mutationFn: async ({ message, service, deepResearch }: { message: string, service: string, deepResearch?: boolean }) => {
-      if (deepResearch) {
-        // If deep research is enabled, use the deep research endpoint instead
-        return startDeepResearch({ query: message });
-      }
-      
-      addLog(`Sending message to ${service === 'auto' ? 'auto-detect' : service} service`);
+      addLog(`Sending message to ${service === 'auto' ? 'auto-detect' : service} service${deepResearch ? ' with deep research' : ''}`);
       
       // Add the user message immediately to the UI
       setMessages(prevMessages => [
@@ -111,7 +106,12 @@ export function useChat() {
         } as unknown as Message
       ]);
       
-      const response = await apiRequest('POST', '/api/chat', { message, service, conversationId });
+      const response = await apiRequest('POST', '/api/chat', { 
+        message, 
+        service, 
+        conversationId,
+        deepResearch: deepResearch || false 
+      });
       return response.json();
     },
     onSuccess: (data) => {

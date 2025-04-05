@@ -26,8 +26,9 @@ export class ServiceRouter {
     'perplexity' | 
     { service: string; mode: string; estimatedTime?: string; suggestedAction?: string; message?: string } 
   {
-    // Special case for deep research confirmation
+    // Special case for deep research confirmation (via UI checkbox)
     if (options?.confirmDeepResearch) {
+      console.log('Deep research explicitly requested via UI checkbox (confirmDeepResearch=true)');
       return {
         service: 'perplexity',
         mode: 'deep',
@@ -76,16 +77,8 @@ export class ServiceRouter {
       /tell me about ([a-z\s]+) in (\d{4}|\d{4}-\d{2}|\d{4}-\d{2}-\d{2})/i.test(lowercaseMessage);
     
     // For deep research queries, the test expects a confirmation flow
-    if (isResearchQuery || needsCurrentInfo || options?.confirmDeepResearch) {
-      // First check explicit deep research flag from options (via UI checkbox)
-      if (options?.confirmDeepResearch) {
-        console.log('Deep research explicitly requested via deepResearch flag');
-        return {
-          service: 'perplexity',
-          mode: 'deep',
-          estimatedTime: '15-30 minutes'
-        };
-      }
+    if (isResearchQuery || needsCurrentInfo) {
+      // We've already checked for confirmDeepResearch option above, so we don't need to check again here
       
       // If the query contains specific deep research keywords, route to deep research immediately
       if (message.toLowerCase().includes('deep research') || 
