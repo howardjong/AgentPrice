@@ -83,7 +83,11 @@ export class ServiceRouter {
       // If the query contains specific deep research keywords, route to deep research immediately
       if (message.toLowerCase().includes('deep research') || 
           message.toLowerCase().includes('comprehensive research')) {
-        console.log('Deep research automatically detected via keywords in query');
+        console.log('[ServiceRouter] Deep research automatically detected via keywords in query:', {
+          messagePreview: message.substring(0, 100) + (message.length > 100 ? '...' : ''),
+          hasDeepResearch: message.toLowerCase().includes('deep research'),
+          hasComprehensiveResearch: message.toLowerCase().includes('comprehensive research')
+        });
         return {
           service: 'perplexity',
           mode: 'deep',
@@ -167,11 +171,29 @@ export class ServiceRouter {
     }
     
     const lastMessage = messages[messages.length - 1];
+    console.log(`[ServiceRouter] routeMessage called with options:`, { 
+      messagePreview: lastMessage.content.substring(0, 50) + (lastMessage.content.length > 50 ? '...' : ''),
+      explicitService: service,
+      deepResearch: options?.confirmDeepResearch
+    });
+    
     const result = this.determineService(lastMessage.content, service as any, options);
+    
+    // Log the routing decision
+    if (typeof result === 'object') {
+      console.log(`[ServiceRouter] Determined service:`, {
+        service: result.service,
+        mode: result.mode,
+        estimatedTime: result.estimatedTime
+      });
+    } else {
+      console.log(`[ServiceRouter] Determined service: ${result}`);
+    }
     
     // Handle the case when determineService returns an object (special routing)
     if (typeof result === 'object') {
       if (result.mode === 'deep') {
+        console.log(`[ServiceRouter] Routing to Perplexity for DEEP RESEARCH with estimatedTime: ${result.estimatedTime}`);
         // For deep research, we just return the service info and let the client decide what to do
         return {
           response: 'Deep research mode activated. This will take some time.',

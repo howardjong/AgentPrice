@@ -731,6 +731,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { message, conversationId, service, deepResearch } = chatMessageSchema.parse(req.body);
       const requestId = (req as any).id || crypto.randomUUID();
+      
+      // Log the chat request details
+      console.log('[Chat API] Received chat request:', {
+        messagePreview: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
+        conversationId: conversationId || 'new conversation',
+        service: service || 'auto',
+        deepResearch: !!deepResearch,
+        requestId
+      });
 
       // Broadcast that we've received the request
       broadcastMessage({
@@ -794,6 +803,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Route the message to appropriate service
       // If deepResearch is true, pass it as an option to the router
       const routeOptions = deepResearch ? { confirmDeepResearch: true } : undefined;
+      
+      // Log the routing options being sent to the service router
+      console.log('[Chat API] Sending to ServiceRouter with options:', {
+        messageCount: messageHistory.length,
+        lastMessagePreview: messageHistory[messageHistory.length - 1].content.substring(0, 50) + 
+                           (messageHistory[messageHistory.length - 1].content.length > 50 ? '...' : ''),
+        explicitService: service,
+        routeOptions: routeOptions ? JSON.stringify(routeOptions) : 'undefined',
+        deepResearchRequested: !!deepResearch
+      });
+      
       const result = await serviceRouter.routeMessage(messageHistory, service, routeOptions);
 
       // Broadcast that we've received a response
