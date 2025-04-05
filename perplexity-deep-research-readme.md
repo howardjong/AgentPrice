@@ -1,117 +1,112 @@
-# Perplexity Deep Research Testing Guide
+# Perplexity Deep Research System
 
-This document provides a comprehensive guide to testing the Perplexity deep research functionality with real API calls, using our job queue infrastructure.
+This system provides a robust, asynchronous deep research capability using Perplexity's API, specifically with the `sonar-deep-research` model that can take up to 30 minutes to complete a comprehensive research task.
 
 ## Overview
 
-The Perplexity deep research capability is implemented using the `sonar-deep-research` model with high search context settings. This mode can take up to 30 minutes to complete for complex queries, requiring special handling:
+The Deep Research System consists of multiple components that work together:
 
-1. **Asynchronous Processing**: Requests are queued and processed in the background using Bull job queues
-2. **Job Management**: Jobs are tracked, progress is monitored, and results are stored for retrieval
-3. **Polling Mechanism**: Long-running jobs are handled through polling to avoid timeout issues
+1. **Initial Request**: The `enhanced-polling-deep-research.js` script initiates deep research requests and stores intermediate state data.
+2. **Asynchronous Processing**: Deep research often takes 20-30 minutes to complete, so we use a shell script that runs in the background.
+3. **Status Checking**: The `check-deep-research-status.js` script allows you to check the status of ongoing research requests.
+4. **Results Collection**: The `collect-deep-research-results.js` script gathers all research results into a comprehensive report.
 
-## System Architecture
+## Key Files
 
-Our implementation consists of several key components:
+- `enhanced-polling-deep-research.js`: Main script for initiating deep research requests
+- `check-deep-research-status.js`: Script to check the status of research requests
+- `collect-deep-research-results.js`: Script to collect and organize results
+- `run-perplexity-deep-research.sh`: Shell script to run the entire process asynchronously
 
-- **perplexityService.js**: Core service for interacting with the Perplexity API, including the `conductDeepResearch` function that manages the multi-step research process
-- **researchService.js**: Manages research jobs, integrating with the job queue system and handling result storage
-- **jobManager.js**: Bull-based job queue system for processing background tasks
-- **mockJobManager.js**: In-memory implementation for testing without Redis dependencies
+## Usage
 
-## Testing With Real APIs
+### Running a Deep Research Request
 
-We have two main approaches for testing the deep research functionality:
+To initiate a new deep research request:
 
-### 1. Direct API Testing
-
-For testing the direct interaction with the Perplexity API:
-
-- `perplexity-deep-research-polled-test.js`: Tests the direct API calls with polling for completion
-- `simple-perplexity-deep-research-test.js`: A simplified test focusing on the core deep research workflow
-
-### 2. Full Workflow Testing
-
-For testing the complete system with our job infrastructure:
-
-- `test-deep-research-job-workflow.js`: Tests the entire workflow from job creation to result retrieval
-
-## Running the Tests
-
-### Prerequisites
-
-1. Set the Perplexity API key in your environment:
-   ```
-   export PERPLEXITY_API_KEY=your_api_key_here
-   ```
-
-2. Ensure Redis is available or set USE_MOCK_JOB_MANAGER=true to use the in-memory job manager:
-   ```
-   export USE_MOCK_JOB_MANAGER=true
-   ```
-
-### Running the Tests
-
-To test with direct API calls:
-```
-node perplexity-deep-research-polled-test.js
+```bash
+node enhanced-polling-deep-research.js
 ```
 
-To test the full workflow with job queues:
+This will start a research request with the default query about SaaS pricing strategies.
+
+#### Command-line Options
+
+- `--skip-polling`: Initiate the request but don't wait for completion (useful for long research)
+- `--quick`: Use a simpler query for faster results
+- `--query="Your research question here"`: Specify a custom research question
+
+### Checking Research Status
+
+To check the status of ongoing research requests:
+
+```bash
+node check-deep-research-status.js
 ```
-node test-deep-research-job-workflow.js
+
+### Collecting Results
+
+To generate a report of all completed research:
+
+```bash
+node collect-deep-research-results.js
 ```
 
-## Expected Results
+This will create a `deep-research-report.md` file that contains all the research results.
 
-A successful test will:
+### Running the Entire Process in Background
 
-1. Create a research job
-2. Process the job through the Perplexity API
-3. Poll for completion
-4. Retrieve and format results
-5. Save results to the `test-results/deep-research-workflow` directory
+To run the entire process asynchronously in the background:
 
-The results will include:
-- The original query
-- The research content
-- Citations from credible sources
-- Model information
-- Processing metadata
+```bash
+./run-perplexity-deep-research.sh &
+```
 
-## Troubleshooting
+This will:
+1. Initiate a deep research request
+2. Wait 10 minutes
+3. Check the status
+4. Generate a report
 
-Common issues and solutions:
+## Data Storage
 
-- **API Key Issues**: Ensure your Perplexity API key is valid and has access to the `sonar-deep-research` model
-- **Redis Connection**: For workflow testing, ensure Redis is available or use the mock job manager
-- **Rate Limiting**: The Perplexity API has a limit of 5 requests per minute; our implementation includes rate limiting
-- **Timeout Errors**: Deep research can take 20-30 minutes; ensure polling parameters are set appropriately
+All data is stored in the following locations:
 
-## Implementation Details
+- `test-results/deep-research/`: Contains intermediate state data for research requests
+- `test-results/deep-research-results/`: Contains completed research results
+- `deep-research-report.md`: Final report with all research results
 
-### Deep Research Workflow
+## Error Handling
 
-The deep research process consists of multiple steps:
+The system is designed to handle various errors:
 
-1. **Initial Research**: First pass research on the main query
-2. **Follow-up Questions**: Generation of follow-up questions to explore subtopics
-3. **Follow-up Research**: Research on each follow-up question
-4. **Synthesis**: Combining all research into a comprehensive answer
+- API rate limiting
+- Network failures
+- Invalid model specifications
+- Long-running requests that exceed normal timeouts
 
-This workflow is implemented in `perplexityService.js` in the `conductDeepResearch` function.
+When errors occur, they are logged and saved to files for later inspection.
 
-### Job Queue Integration
+## Log Files
 
-The job queue integration manages the long-running process:
+- `perplexity-deep-research-job-*.log`: Contains logs from the background job
+- `enhanced-deep-research-test.log`: Contains logs from the enhanced polling script
+- `perplexity-deep-research.log`: General logs about deep research operations
 
-1. `researchService.startResearchJob()` creates a job in the queue
-2. The job processor in `researchService.js` executes the deep research
-3. Progress is updated throughout the process (10%, 60%, 90%, etc.)
-4. Results are saved and returned upon completion
+## Dependencies
 
-## Performance Considerations
+- Node.js
+- Axios for API requests
+- UUID for generating unique request IDs
+- Dotenv for environment variable management
+- fs/promises for file operations
 
-- The `sonar-deep-research` model with high search context can take 20-30 minutes to complete
-- Rate limiting is essential to avoid API timeouts (5 requests per minute)
-- Results can be large, typically 4000-8000 tokens for comprehensive research
+## Environment Setup
+
+Make sure you have the Perplexity API key set in your environment:
+
+```
+PERPLEXITY_API_KEY=your_api_key_here
+```
+
+This can be set in the `.env` file or directly in the environment.

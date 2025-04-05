@@ -12,7 +12,7 @@ import crypto from 'crypto';
 
 // Constants
 const PERPLEXITY_API_URL = 'https://api.perplexity.ai/chat/completions';
-const DEEP_RESEARCH_MODEL = 'sonar-deep-research-online'; // Include '-online' suffix to ensure correct model
+const DEEP_RESEARCH_MODEL = 'sonar-deep-research'; // Correct model name based on perplexity-response logs
 const TEST_QUERY = 'What are the most effective pricing strategies for SaaS startups in 2024, and how do they compare across different market segments and growth stages?';
 const MAX_POLLING_ATTEMPTS = 90; // 90 attempts * 20 seconds = 30 minutes max
 const POLLING_INTERVAL_MS = 20000; // 20 seconds between polling attempts
