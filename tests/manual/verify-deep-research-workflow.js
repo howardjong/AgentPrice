@@ -5,9 +5,10 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
+import logger from '../../utils/logger.js';
 
 // Import services
-import * as perplexityService from '../../services/perplexityService.js';
+import perplexityService from '../../services/perplexityService.js';
 import promptManager from '../../services/promptManager.js';
 
 // Constants
@@ -23,144 +24,9 @@ const config = {
   }
 };
 
-// Run verification test
-async function verifyDeepResearchWorkflow(query = DEFAULT_QUERY) {
-  console.log('========== DEEP RESEARCH WORKFLOW VERIFICATION ==========');
-  console.log(`Query: "${query}"`);
-  console.log('Timestamp:', new Date().toISOString());
-  console.log('========================================================');
-
-  try {
-    // Generate unique job ID for this test
-    const jobId = uuidv4();
-    console.log(`Job ID: ${jobId}`);
-
-    // Step 1: Perform deep research with Perplexity
-    console.log('\n[1/3] Initiating deep research with Perplexity...');
-    console.log(`Using model: ${config.perplexity.model}`);
-
-    // Track start time for research
-    const researchStartTime = Date.now();
-
-    // Perform the research
-    console.log('Calling performDeepResearch()...');
-    const researchResults = await perplexityService.performDeepResearch(query, jobId, {
-      wantsDeepResearch: true,
-      modelOverride: config.perplexity.model
-    });
-
-    // Calculate duration
-    const researchDuration = ((Date.now() - researchStartTime) / 1000).toFixed(2);
-    console.log(`\n✓ Deep research completed in ${researchDuration} seconds`);
-    console.log(`Content length: ${researchResults.content.length} characters`);
-    console.log(`Number of sources: ${researchResults.sources ? researchResults.sources.length : 0}`);
-    console.log(`Model used: ${researchResults.modelUsed || 'unknown'}`);
-
-    // Log the first 200 characters of content
-    console.log('\nResearch content preview:');
-    console.log('---------------------------');
-    console.log(researchResults.content.substring(0, 200) + '...');
-    console.log('---------------------------');
-
-    // Save research results
-    const researchOutputPath = await saveResults(researchResults, 'deep-research-results');
-    console.log(`Research results saved to: ${researchOutputPath}`);
-
-    // Step 2: Generate chart data based on research
-    console.log('\n[2/3] Generating chart data from research...');
-
-    // Load chart prompts
-    const barChartPrompt = await promptManager.getPrompt('claude', 'chart_data', 'basic_bar');
-
-    // This step would normally call Claude to generate chart data
-    // For now, we'll create a simple mock result
-    const chartData = {
-      data: {
-        competitors: ['Product A', 'Product B', 'Product C', 'Product D', 'Product E'],
-        prices: [49, 99, 79, 129, 59]
-      },
-      insights: [
-        "Premium SaaS products in 2025 are increasingly using value-based pricing models",
-        "Monthly subscription prices cluster around $49-129 for premium offerings",
-        "Freemium models with feature-limited tiers remain popular for initial customer acquisition"
-      ]
-    };
-
-    // Save chart data
-    const chartDataPath = await saveResults(chartData, 'basic_bar-chart');
-    console.log(`Chart data saved to: ${chartDataPath}`);
-
-    // Step 3: Generate Plotly visualization config
-    console.log('\n[3/3] Generating Plotly visualization...');
-
-    // Create a simple Plotly bar chart configuration
-    const plotlyConfig = {
-      data: [{
-        x: chartData.data.competitors,
-        y: chartData.data.prices,
-        type: 'bar',
-        marker: {
-          color: 'rgb(55, 83, 109)'
-        }
-      }],
-      layout: {
-        title: `Premium SaaS Pricing Comparison (${new Date().getFullYear()})`,
-        xaxis: {
-          title: 'Products'
-        },
-        yaxis: {
-          title: 'Monthly Price ($)'
-        }
-      },
-      config: {
-        responsive: true
-      }
-    };
-
-    // Save Plotly config
-    const plotlyPath = await saveResults(plotlyConfig, 'bar_chart_plotly');
-    console.log(`Plotly configuration saved to: ${plotlyPath}`);
-
-    // Final verification summary
-    console.log('\n========== WORKFLOW VERIFICATION SUMMARY ==========');
-    console.log('✓ Deep research completed successfully');
-    console.log('✓ Chart data generated successfully');
-    console.log('✓ Plotly visualization generated successfully');
-    console.log(`Total workflow duration: ${((Date.now() - researchStartTime) / 1000).toFixed(2)} seconds`);
-    console.log('===================================================');
-
-    return {
-      success: true,
-      researchResults,
-      chartData,
-      plotlyConfig,
-      metrics: {
-        researchDuration: parseFloat(researchDuration),
-        totalDuration: (Date.now() - researchStartTime) / 1000
-      }
-    };
-
-  } catch (error) {
-    console.error('\n❌ WORKFLOW VERIFICATION FAILED');
-    console.error('Error:', error.message);
-    console.error('Stack trace:', error.stack);
-
-    // Try to get additional error context
-    if (error.response) {
-      console.error('API response error:');
-      console.error('Status:', error.response.status);
-      console.error('Data:', JSON.stringify(error.response.data, null, 2));
-    }
-
-    // Return error result
-    return {
-      success: false,
-      error: error.message,
-      stack: error.stack,
-      timestamp: new Date().toISOString()
-    };
-  }
-}
+// Enable debugging with DEBUG=perplexity:* environment variable
+const DEBUG = process.env.DEBUG || '';
+const IS_DEBUG = DEBUG.includes('perplexity:');
 
 /**
  * Save results to file
@@ -189,18 +55,72 @@ async function saveResults(results, filePrefix) {
   }
 }
 
-// Run test if executed directly
+async function verifyDeepResearchWorkflow() {
+  // Step 1: Generate a unique jobId
+  const jobId = uuidv4();
+  console.log(`Starting deep research workflow verification (jobId: ${jobId})`);
+
+  // Step 2: Define a research query
+  const query = process.argv[2] || "What are the latest developments in quantum computing?";
+  console.log(`Research query: "${query}"`);
+
+  try {
+    // Step 3: Perform deep research
+    console.log('Initiating deep research...');
+    const startTime = Date.now();
+
+    const researchResult = await perplexityService.performDeepResearch(query, jobId, {
+      enableChunking: true
+    });
+
+    const duration = (Date.now() - startTime) / 1000;
+    console.log(`\n✅ Deep research completed in ${duration.toFixed(2)} seconds`);
+
+    // Step 4: Log the results
+    console.log('\n=== Research Results ===');
+    console.log(`Model requested: ${researchResult.requestedModel}`);
+    console.log(`Model used: ${researchResult.modelUsed}`);
+    console.log(`Content length: ${researchResult.content.length} characters`);
+    console.log(`Number of sources: ${researchResult.sources.length}`);
+
+    if (IS_DEBUG) {
+      console.log('\n=== Content Preview ===');
+      console.log(researchResult.content.substring(0, 500) + '...');
+
+      console.log('\n=== Sources ===');
+      researchResult.sources.forEach((source, i) => {
+        console.log(`${i+1}. ${source}`);
+      });
+    }
+
+    // Step 5: Save the results to a file (optional)
+    const outputFile = await saveResults(researchResult, 'deep-research-results');
+    console.log(`\nResults saved to: ${outputFile}`);
+
+    return {
+      success: true,
+      result: researchResult
+    };
+  } catch (error) {
+    console.error(`\n❌ Deep research workflow failed: ${error.message}`);
+    console.error(error.stack);
+
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+// Execute if run directly
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const customQuery = process.argv[2] || DEFAULT_QUERY;
-  verifyDeepResearchWorkflow(customQuery)
-    .then(results => {
-      if (!results.success) {
-        process.exit(1);
-      }
-      process.exit(0);
+  verifyDeepResearchWorkflow()
+    .then(result => {
+      console.log('\n=== Workflow Verification Complete ===');
+      process.exit(result.success ? 0 : 1);
     })
     .catch(error => {
-      console.error('Unhandled error in test script:', error);
+      console.error('Unhandled error in verification script:', error);
       process.exit(1);
     });
 }

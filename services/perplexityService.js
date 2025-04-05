@@ -1,149 +1,257 @@
-// Perplexity Service
-// Handles interactions with the Perplexity API for research operations
 
-import { default as RobustAPIClient } from '../utils/apiClient.js';
+import RobustAPIClient from '../utils/apiClient.js';
 import CircuitBreaker from '../utils/circuitBreaker.js';
 import logger from '../utils/logger.js';
-import { v4 as uuidv4 } from 'uuid';
 import dotenv from 'dotenv';
+import { setTimeout } from 'timers/promises';
 
-// Load environment variables
 dotenv.config();
 
-// Constants
-const PERPLEXITY_API_URL = 'https://api.perplexity.ai';
-const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
-const POLLING_INTERVAL_MS = 2000;
-const MAX_POLLING_ATTEMPTS = 30;
+const API_KEY = process.env.PERPLEXITY_API_KEY;
+const BASE_URL = 'https://api.perplexity.ai';
 const DEFAULT_MODEL = 'sonar';
 const DEEP_RESEARCH_MODEL = 'sonar-deep-research';
+const MAX_POLLING_ATTEMPTS = 30;
+const POLLING_INTERVAL_MS = 2000;
+const DEFAULT_TIMEOUT_MS = 120000; // 2 minutes
 
-// Initialize circuit breaker
-const perplexityCircuitBreaker = new CircuitBreaker('perplexity', {
+// Initialize circuit breaker for Perplexity API
+const perplexityBreaker = new CircuitBreaker({
+  name: BASE_URL,
   failureThreshold: 3,
-  resetTimeout: 30000
+  resetTimeout: 30000,
+  maxRequestTimeout: DEFAULT_TIMEOUT_MS
 });
 
-// Initialize API client with circuit breaker
-const apiClient = new RobustAPIClient({
-  baseURL: PERPLEXITY_API_URL,
-  timeout: 60000,
-  headers: {
-    'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-    'Content-Type': 'application/json'
-  },
-  circuitBreaker: perplexityCircuitBreaker
-});
-
-/**
- * Extract model info from Perplexity API response
- * @param {Object} response - API response object
- * @returns {Object} - Model usage information
- */
-function extractModelInfo(response) {
-  try {
-    if (!response || !response.data) {
-      return { modelUsed: 'unknown' };
-    }
-
-    const modelUsed = response.data.model || 'unknown';
-    return { modelUsed };
-  } catch (error) {
-    logger.error('Error extracting model info:', error);
-    return { modelUsed: 'unknown' };
-  }
-}
-
-/**
- * Polls the Perplexity API for deep research results
- * @param {string} taskId - Task ID from initial request
- * @param {number} attempts - Number of attempts made (for recursion)
- * @returns {Promise<Object>} Research results
- */
-async function pollForResults(taskId, attempts = 0) {
-  if (attempts >= MAX_POLLING_ATTEMPTS) {
-    throw new Error(`Exceeded maximum polling attempts (${MAX_POLLING_ATTEMPTS})`);
+class PerplexityService {
+  constructor() {
+    this.apiClient = new RobustAPIClient({
+      baseURL: BASE_URL,
+      timeout: DEFAULT_TIMEOUT_MS,
+      headers: {
+        'Authorization': `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      circuitBreaker: perplexityBreaker
+    });
+    this.logger = logger;
+    this.isInitialized = !!API_KEY;
   }
 
-  try {
-    const response = await apiClient.get(`/api/tasks/status/${taskId}`);
-
-    if (response.data.status === 'completed') {
-      logger.info(`Research completed after ${attempts} polling attempts`);
-      return response.data;
-    } else if (response.data.status === 'failed') {
-      throw new Error(`Task failed: ${response.data.message || 'Unknown error'}`);
-    } else {
-      // Task still in progress, wait and poll again
-      logger.debug(`Task in progress, polling attempt ${attempts + 1}/${MAX_POLLING_ATTEMPTS}`);
-      await new Promise(resolve => setTimeout(resolve, POLLING_INTERVAL_MS));
-      return pollForResults(taskId, attempts + 1);
-    }
-  } catch (error) {
-    // Handle rate limiting and server errors with exponential backoff
-    if (error.response && (error.response.status === 429 || error.response.status >= 500)) {
-      const backoffTime = Math.min(POLLING_INTERVAL_MS * Math.pow(1.5, attempts), 30000);
-      logger.warn(`Rate limited or server error (${error.response.status}), backing off for ${backoffTime}ms`);
-      await new Promise(resolve => setTimeout(resolve, backoffTime));
-      return pollForResults(taskId, attempts + 1);
-    }
-
-    throw error;
+  getStatus() {
+    return {
+      status: this.isInitialized ? 'connected' : 'disconnected',
+      apiKey: !!API_KEY,
+      breakerStatus: perplexityBreaker.getState()
+    };
   }
-}
 
-/**
- * Performs deep research using Perplexity API
- * @param {string} query - The research query
- * @param {string} jobId - Optional job ID for tracking
- * @returns {Promise<Object>} Research results
- */
-async function performDeepResearch(query, jobId = uuidv4()) {
-  logger.info(`Starting deep research for job ${jobId}: "${query}"`);
+  /**
+   * Process a standard web query using Perplexity API
+   * @param {string} query - The query to process
+   * @param {Object} options - Options for the query
+   * @returns {Promise<Object>} The query result with content and sources
+   */
+  async processWebQuery(query, options = {}) {
+    if (!this.isInitialized) {
+      throw new Error('Perplexity service not initialized: API key missing');
+    }
 
-  // Select the model based on the depth of research required
-  const model = DEEP_RESEARCH_MODEL;
-  logger.info(`Using research model: ${model}`);
+    const model = options.model || DEFAULT_MODEL;
+    
+    try {
+      this.logger.info(`Processing web query with model ${model}`, { 
+        component: 'perplexityService', 
+        model,
+        queryLength: query.length
+      });
 
-  try {
-    // Step 1: Create the task
-    const createTaskResponse = await apiClient.post('/api/tasks', {
-      query,
-      model
+      const response = await this.apiClient.post('/query', {
+        model: model,
+        query: query,
+        max_tokens: options.maxTokens || 1000,
+        temperature: options.temperature || 0.7
+      });
+
+      return {
+        content: response.data.text || response.data.answer || '',
+        sources: this._extractSources(response.data),
+        modelUsed: response.data.model || model,
+        requestedModel: model
+      };
+    } catch (error) {
+      this.logger.error(`Error in processWebQuery: ${error.message}`, { 
+        component: 'perplexityService',
+        error: error.message,
+        model
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Performs deep research using Perplexity API's async task-based approach
+   * @param {string} query - The research query
+   * @param {string} jobId - Unique ID for this research job
+   * @param {Object} options - Options for the deep research
+   * @returns {Promise<Object>} The deep research results
+   */
+  async performDeepResearch(query, jobId, options = {}) {
+    if (!this.isInitialized) {
+      throw new Error('Perplexity service not initialized: API key missing');
+    }
+
+    const useDeepResearch = options.enableChunking !== false;
+    const model = useDeepResearch ? DEEP_RESEARCH_MODEL : DEFAULT_MODEL;
+    
+    this.logger.info(`Starting ${useDeepResearch ? 'deep' : 'standard'} research`, {
+      component: 'perplexityService',
+      jobId,
+      model,
+      queryLength: query.length
     });
 
-    const taskId = createTaskResponse.data.task_id;
-    logger.info(`Task created with ID: ${taskId}`);
+    try {
+      // For non-deep research, use the standard query endpoint
+      if (!useDeepResearch) {
+        return this.processWebQuery(query, { model: DEFAULT_MODEL, ...options });
+      }
 
-    // Step 2: Poll for results
-    const taskResult = await pollForResults(taskId);
+      // Create the deep research task
+      const createTaskResponse = await this.apiClient.post('/tasks', {
+        model: model,
+        query: query,
+        max_tokens: options.maxTokens || 2000,
+        temperature: options.temperature || 0.2
+      });
 
-    // Extract model info
-    const modelInfo = extractModelInfo({ data: taskResult });
+      const taskId = createTaskResponse.data.id;
+      this.logger.info(`Deep research task created: ${taskId}`, {
+        component: 'perplexityService',
+        taskId,
+        jobId
+      });
 
-    // Step 3: Process and format the response
-    const sources = taskResult.references || [];
+      // Poll for task completion
+      const result = await this._pollForTaskCompletion(taskId, jobId);
+      
+      return {
+        content: result.answer || result.text || '',
+        sources: this._extractSources(result),
+        modelUsed: result.model || model,
+        requestedModel: model,
+        taskId: taskId
+      };
+    } catch (error) {
+      this.logger.error(`Error in performDeepResearch: ${error.message}`, {
+        component: 'perplexityService',
+        jobId,
+        error: error.message
+      });
+      throw error;
+    }
+  }
 
-    // Create the final response object
-    const response = {
-      jobId,
-      taskId,
-      content: taskResult.response || '',
-      sources: sources.map(source => source.url || source.title || 'Unknown source'),
-      modelUsed: modelInfo.modelUsed,
-      requestedModel: model,
-      timestamp: new Date().toISOString()
-    };
+  /**
+   * Poll for task completion with a backoff strategy
+   * @private
+   * @param {string} taskId - The task ID to poll
+   * @param {string} jobId - Job identifier for logging
+   * @returns {Promise<Object>} The completed task result
+   */
+  async _pollForTaskCompletion(taskId, jobId) {
+    let attempts = 0;
+    let interval = POLLING_INTERVAL_MS;
 
-    logger.info(`Deep research completed for job ${jobId}, sources: ${response.sources.length}`);
-    return response;
+    while (attempts < MAX_POLLING_ATTEMPTS) {
+      attempts++;
+      
+      try {
+        const taskResponse = await this.apiClient.get(`/tasks/${taskId}`);
+        const { status, answer, text, model } = taskResponse.data;
+        
+        if (status === 'completed') {
+          this.logger.info(`Task completed successfully after ${attempts} polls`, {
+            component: 'perplexityService',
+            taskId,
+            jobId,
+            attempts
+          });
+          return taskResponse.data;
+        }
+        
+        if (status === 'failed') {
+          throw new Error(`Task failed: ${taskResponse.data.error || 'Unknown error'}`);
+        }
 
-  } catch (error) {
-    logger.error(`Deep research failed for job ${jobId}:`, error);
-    throw error;
+        // Implement exponential backoff with a maximum interval
+        interval = Math.min(interval * 1.5, 10000); // Max 10s between polls
+        this.logger.info(`Task in progress, polling again in ${interval}ms (attempt ${attempts}/${MAX_POLLING_ATTEMPTS})`, {
+          component: 'perplexityService',
+          taskId,
+          jobId,
+          status
+        });
+        
+        await setTimeout(interval);
+      } catch (error) {
+        if (error.response && error.response.status === 404) {
+          throw new Error(`Task ${taskId} not found`);
+        }
+        
+        // For other errors, retry a few times then give up
+        if (attempts > 3) {
+          throw error;
+        }
+        
+        this.logger.warn(`Error polling task (attempt ${attempts}), will retry: ${error.message}`, {
+          component: 'perplexityService',
+          taskId,
+          error: error.message
+        });
+        
+        await setTimeout(interval);
+      }
+    }
+    
+    throw new Error(`Task polling timed out after ${attempts} attempts`);
+  }
+
+  /**
+   * Extract sources from the API response
+   * @private
+   * @param {Object} data - API response data
+   * @returns {Array<string>} Array of source URLs
+   */
+  _extractSources(data) {
+    try {
+      if (data.sources && Array.isArray(data.sources)) {
+        return data.sources.map(source => 
+          source.url || source.title || source.name || 'Unknown source'
+        ).filter(Boolean);
+      }
+      
+      if (data.web_search_results && Array.isArray(data.web_search_results)) {
+        return data.web_search_results.map(result => 
+          result.url || result.title || 'Unknown source'
+        ).filter(Boolean);
+      }
+      
+      if (data.references && Array.isArray(data.references)) {
+        return data.references.map(ref => 
+          ref.url || ref.title || ref.text || 'Unknown reference'
+        ).filter(Boolean);
+      }
+      
+      return [];
+    } catch (error) {
+      this.logger.warn(`Error extracting sources: ${error.message}`, {
+        component: 'perplexityService'
+      });
+      return [];
+    }
   }
 }
 
-// Export functions
-export { performDeepResearch };
-export default { performDeepResearch };
+const perplexityService = new PerplexityService();
+export default perplexityService;
