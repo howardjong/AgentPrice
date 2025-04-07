@@ -1,4 +1,3 @@
-
 const fs = require('fs');
 const path = require('path');
 const geminiService = require('./src/geminiService');
@@ -8,47 +7,66 @@ async function testGeminiFolderReview() {
     // Specify the folder to review
     const folderPath = process.argv[2] || 'src';
     console.log(`🔍 Testing Gemini folder review with directory: ${folderPath}`);
-    
+
     // Read all files in the directory
     const files = await readDirectoryFiles(folderPath);
     console.log(`📂 Found ${files.length} files in the directory`);
-    
+
     // Combine files with markers
     const combinedContent = files.map(file => 
       `// FILE: ${file.path}\n${file.content}\n\n`
     ).join('');
-    
+
     console.log(`📦 Combined ${files.length} files with a total of ${combinedContent.length} characters`);
-    
+
     // Send to Gemini for review
     console.log('🚀 Sending to Gemini for review...');
-    
+
     const startTime = Date.now();
     // Set up a progress indicator
     const progressInterval = setInterval(() => {
       const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
       console.log(`⏳ Gemini review in progress... (${elapsedSeconds}s elapsed)`);
     }, 5000); // Show progress every 5 seconds
-    
-    // Process options from command line arguments
-    const model = process.argv[3] || 'gemini-1.5-flash'; // Allow model specification as 3rd arg
+
+    // Process model selection with better error handling
+    const modelArg = process.argv[3];
+    const isPro = modelArg === 'pro'; // Allow simple 'pro' option
+
+    // Model options
+    const standardModel = 'gemini-2.0-flash-thinking-exp-01-21';
+    const proModel = 'gemini-2.5-pro-preview-03-25';
+
+    // Select model with fallback options
+    let actualModel;
+    if (isPro) {
+      actualModel = proModel;
+      console.log(`🔍 Using Pro model: ${proModel}`);
+    } else if (modelArg && modelArg !== 'pro') {
+      actualModel = modelArg; // Use custom model if specified
+      console.log(`🔍 Using custom model: ${actualModel}`);
+    } else {
+      actualModel = standardModel; // Default to standard model
+      console.log(`🔍 Using standard model: ${standardModel}`);
+    }
+
     const version = process.argv[4] || '1.0'; // Allow version specification as 4th arg
-    
-    console.log(`📋 Using model: ${model}`);
+
+    console.log(`📋 Using model: ${actualModel}`);
     console.log(`📋 Review version: ${version}`);
-    
+
     let review;
     try {
       // Pass options to the reviewCode function
       review = await geminiService.reviewCode(combinedContent, {
-        model: model,
+        model: actualModel,
         saveToFile: true, 
         title: `Review-${folderPath}`,
         folder: folderPath,
         version: version,
         temperature: 0.4
       });
-      
+
       clearInterval(progressInterval);
       console.log(`✅ Gemini review completed in ${Math.floor((Date.now() - startTime) / 1000)}s`);
     } catch (error) {
@@ -56,12 +74,12 @@ async function testGeminiFolderReview() {
       console.error(`❌ Gemini review failed after ${Math.floor((Date.now() - startTime) / 1000)}s:`, error);
       throw error;
     }
-    
+
     // Print the review
     console.log('\n==== GEMINI CODE REVIEW RESULTS ====\n');
     console.log(review.text);
     console.log('\n==== END OF REVIEW ====\n');
-    
+
     // Success!
     console.log('✅ Test completed successfully!');
   } catch (error) {
@@ -74,18 +92,18 @@ async function testGeminiFolderReview() {
 async function readDirectoryFiles(dirPath, options = { maxDepth: 2, exclude: ['.git', 'node_modules'] }) {
   const files = [];
   const items = await fs.promises.readdir(dirPath);
-  
+
   for (const item of items) {
     const itemPath = path.join(dirPath, item);
-    
+
     // Skip excluded directories
     if (options.exclude.some(excluded => itemPath.includes(excluded))) {
       continue;
     }
-    
+
     try {
       const stats = await fs.promises.stat(itemPath);
-      
+
       if (stats.isDirectory()) {
         // Skip if we've reached max depth
         if (options.maxDepth > 0) {
@@ -114,7 +132,7 @@ async function readDirectoryFiles(dirPath, options = { maxDepth: 2, exclude: ['.
       console.warn(`⚠️ Error processing ${itemPath}: ${error.message}`);
     }
   }
-  
+
   return files;
 }
 
@@ -125,7 +143,7 @@ function isTextFile(filePath) {
     '.txt', '.py', '.java', '.c', '.cpp', '.h', '.php', '.rb', '.go', '.rs',
     '.sh', '.yml', '.yaml', '.toml', '.xml', '.svg', '.sql'
   ];
-  
+
   const ext = path.extname(filePath).toLowerCase();
   return textExtensions.includes(ext);
 }

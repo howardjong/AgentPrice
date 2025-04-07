@@ -36,10 +36,17 @@ async function loadPrompt(promptName) {
  */
 async function reviewCode(code, options = {}) {
   try {
-    const model = options.model || 'gemini-1.5-flash';
+    // Use newer Gemini models - standard and pro options
+    const model = options.model || 'gemini-2.0-flash-thinking-exp-01-21';
     const temperature = options.temperature || 0.4;
+    const isPro = model.includes('pro');
 
-    console.log(`Processing code review with Gemini [${model}]`);
+    console.log(`Processing code review with Gemini [${model}]${isPro ? ' (Pro model)' : ''}`);
+
+    // Additional logging for debugging
+    if (isPro) {
+      console.log('Using Pro model features with enhanced capabilities');
+    }
 
     // Get the Gemini model
     const geminiModel = genAI.getGenerativeModel({
