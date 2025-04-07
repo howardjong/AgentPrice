@@ -137,6 +137,62 @@ async function saveReviewToMarkdown(reviewText, title, options = {}) {
   }
 }
 
+/**
+ * Read file content
+ * @param {string} filePath - Path to the file
+ * @returns {Promise<string>} - Content of the file
+ */
+async function readFileContent(filePath) {
+  try {
+    return await fs.promises.readFile(filePath, 'utf8');
+  } catch (error) {
+    console.error(`Error reading file ${filePath}: ${error.message}`);
+    throw error;
+  }
+}
+
+
+async function reviewFolder(folderPath) {
+  console.log(`Starting code review of folder: ${folderPath}`);
+
+  try {
+    // Get all files in the folder
+    const files = await fs.promises.readdir(folderPath, { withFileTypes: true });
+
+    // Filter out directories and collect file contents
+    const fileContents = [];
+
+    for (const file of files) {
+      if (file.isFile()) {
+        const filePath = path.join(folderPath, file.name);
+        try {
+          const content = await readFileContent(filePath);
+          fileContents.push(content);
+        } catch (fileError) {
+          console.error(`Error reading file ${filePath}:`, fileError);
+          // Continue with other files
+        }
+      }
+    }
+
+    if (fileContents.length === 0) {
+      throw new Error(`No readable files found in folder: ${folderPath}`);
+    }
+
+    // Join all file contents with file markers
+    const allFilesContent = fileContents.join('\n\n');
+
+    // Review the code
+    const review = await reviewCode(allFilesContent);
+
+    return review;
+  } catch (error) {
+    console.error('Error reviewing folder:', error);
+    throw error;
+  }
+}
+
 module.exports = {
-  reviewCode
+  reviewCode,
+  reviewFolder
 };
