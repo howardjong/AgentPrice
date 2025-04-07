@@ -23,8 +23,25 @@ app.post('/api/review', async (req, res) => {
       return res.status(400).json({ error: 'No code provided for review' });
     }
 
-    const review = await geminiService.reviewCode(code, options);
-    return res.json(review);
+    console.log(`🔍 Starting Gemini code review (${new Date().toISOString()})`);
+    const startTime = Date.now();
+    
+    // Set up a progress indicator
+    const progressInterval = setInterval(() => {
+      const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+      console.log(`⏳ Gemini review in progress... (${elapsedSeconds}s elapsed)`);
+    }, 5000); // Show progress every 5 seconds
+    
+    try {
+      const review = await geminiService.reviewCode(code, options);
+      clearInterval(progressInterval);
+      console.log(`✅ Gemini review completed in ${Math.floor((Date.now() - startTime) / 1000)}s`);
+      return res.json(review);
+    } catch (error) {
+      clearInterval(progressInterval);
+      console.error(`❌ Gemini review failed after ${Math.floor((Date.now() - startTime) / 1000)}s:`, error);
+      return res.status(500).json({ error: error.message });
+    }
   } catch (error) {
     console.error('Error in review endpoint:', error);
     return res.status(500).json({ error: error.message });

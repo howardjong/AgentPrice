@@ -22,7 +22,24 @@ async function testGeminiFolderReview() {
     
     // Send to Gemini for review
     console.log('🚀 Sending to Gemini for review...');
-    const review = await geminiService.reviewCode(combinedContent);
+    
+    const startTime = Date.now();
+    // Set up a progress indicator
+    const progressInterval = setInterval(() => {
+      const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+      console.log(`⏳ Gemini review in progress... (${elapsedSeconds}s elapsed)`);
+    }, 5000); // Show progress every 5 seconds
+    
+    let review;
+    try {
+      review = await geminiService.reviewCode(combinedContent);
+      clearInterval(progressInterval);
+      console.log(`✅ Gemini review completed in ${Math.floor((Date.now() - startTime) / 1000)}s`);
+    } catch (error) {
+      clearInterval(progressInterval);
+      console.error(`❌ Gemini review failed after ${Math.floor((Date.now() - startTime) / 1000)}s:`, error);
+      throw error;
+    }
     
     // Print the review
     console.log('\n==== GEMINI CODE REVIEW RESULTS ====\n');
