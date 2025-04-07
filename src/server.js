@@ -108,3 +108,4 @@ app.get('/api/file', async (req, res) => {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Code reviewer server running on port ${PORT}`);
   });
+});
