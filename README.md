@@ -2,6 +2,19 @@
 
 A sophisticated multi-AI chatbot backend service with advanced conversational intelligence, focusing on intelligent routing and multi-service AI interactions with enhanced model selection capabilities.
 
+## Large Files Not Included in Repository
+
+The following large files and directories are excluded from the repository but may be necessary for the application to function properly:
+
+- **Test Output Files**: Large test result JSON files in `tests/output/` and `test-results/`
+- **Coverage Reports**: Coverage data in `coverage/`, `coverage-report/`, and `reports/coverage/`
+- **Log Files**: Application logs in `logs/` directory and any `*.log` files
+- **Uploaded Content**: Any files in `uploads/` and `content-uploads/` directories
+- **Attached Assets**: Reference files in `attached_assets/` directory
+- **Deep Research Results**: Generated in `deep-research-*.log` and `perplexity-*.log` files
+
+These files can be generated locally by running the appropriate tests and workflows.
+
 ## Technologies
 
 - Node.js with ESM support

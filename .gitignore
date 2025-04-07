@@ -1,6 +1,74 @@
-node_modules
-dist
-.DS_Store
-server/public
-vite.config.ts.*
+
+# Node.js dependencies
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Build outputs
+dist/
+build/
 *.tar.gz
+
+# Environment and configuration
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Cache directories
+.npm
+.eslintcache
+.cache
+.vite
+
+# Coverage and reports
+coverage/
+coverage-report/
+reports/coverage/
+lcov-report/
+*.lcov
+.nyc_output/
+
+# Logs
+logs/
+*.log
+combined.log
+error.log
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+.temp/
+temp/
+tmp/
+
+# Generated files
+test-results/
+test-reports/
+test-backups/
+tests/output/
+data/metrics/
+
+# Debug artifacts
+*.debug
+*.debug.json
+*.map
+
+# Large files and uploads
+uploads/
+content-uploads/
+attached_assets/
+
+# Test results and generated data
+deep-research-*.log
+perplexity-*.log
+*.pid
+*-response-*.json
+*-response-*.txt
