@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const geminiService = require('./geminiService');
@@ -93,19 +94,19 @@ app.get('/api/file', async (req, res) => {
 
       console.log(`Successfully read file: ${normalizedPath}`);
       res.json({ content });
-    } catch (error) {
-      console.error(`Error reading file ${filePath}:`, error.message);
-      res.status(404).json({ error: `File not found or cannot be read: ${error.message}` });
     }
-  });
+  } catch (error) {
+    console.error(`Error reading file ${filePath}:`, error.message);
+    res.status(404).json({ error: `File not found or cannot be read: ${error.message}` });
+  }
+});
 
-  // Health check endpoint
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', service: 'code-reviewer' });
-  });
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', service: 'code-reviewer' });
+});
 
-  // Start the server
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Code reviewer server running on port ${PORT}`);
-  });
+// Start the server
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Code reviewer server running on port ${PORT}`);
 });
