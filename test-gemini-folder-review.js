@@ -33,9 +33,9 @@ async function testGeminiFolderReview() {
     const modelArg = process.argv[3];
     const isPro = modelArg === 'pro'; // Allow simple 'pro' option
 
-    // Model options
-    const standardModel = 'gemini-2.0-flash-thinking-exp-01-21';
-    const proModel = 'gemini-2.5-pro-preview-03-25';
+    // Model options with rate limit info
+    const standardModel = 'gemini-2.0-flash-thinking-exp-01-21'; // 10 RPM, 1500 req/day
+    const proModel = 'gemini-2.5-pro-preview-03-25'; // 5 RPM, 25 req/dayreview-03-25';
 
     // Select model with fallback options
     let actualModel;
@@ -54,6 +54,13 @@ async function testGeminiFolderReview() {
 
     console.log(`📋 Using model: ${actualModel}`);
     console.log(`📋 Review version: ${version}`);
+    
+    // Display rate limit information
+    if (isPro) {
+      console.log(`⚠️ Rate limit warning: Pro model limited to 5 RPM and 25 requests/day`);
+    } else {
+      console.log(`ℹ️ Rate limit info: Standard model limited to 10 RPM and 1500 requests/day`);
+    }
 
     let review;
     try {

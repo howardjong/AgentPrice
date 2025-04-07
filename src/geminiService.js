@@ -34,6 +34,20 @@ async function loadPrompt(promptName) {
  * @param {number} options.temperature - Temperature for generation
  * @returns {Promise<Object>} - Gemini's response
  */
+// Rate limit constants for Gemini models
+const GEMINI_RATE_LIMITS = {
+  'gemini-2.5-pro-preview-03-25': {
+    requestsPerMinute: 5,
+    requestsPerDay: 25,
+    description: 'Pro model (5 RPM, 25 requests/day)'
+  },
+  'gemini-2.0-flash-thinking-exp-01-21': {
+    requestsPerMinute: 10,
+    requestsPerDay: 1500,
+    description: 'Flash Thinking model (10 RPM, 1500 requests/day)'
+  }
+};
+
 async function reviewCode(code, options = {}) {
   try {
     // Use newer Gemini models - standard and pro options
@@ -41,11 +55,16 @@ async function reviewCode(code, options = {}) {
     const temperature = options.temperature || 0.4;
     const isPro = model.includes('pro');
 
+    const rateLimitInfo = GEMINI_RATE_LIMITS[model] || 
+      {description: 'Unknown model (rate limits not defined)'};
+
     console.log(`Processing code review with Gemini [${model}]${isPro ? ' (Pro model)' : ''}`);
+    console.log(`Rate limits: ${rateLimitInfo.description}`);
 
     // Additional logging for debugging
     if (isPro) {
       console.log('Using Pro model features with enhanced capabilities');
+      console.log('Note: Pro model has stricter rate limits (5 RPM, 25 requests/day)');
     }
 
     // Get the Gemini model
