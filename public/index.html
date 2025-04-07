@@ -32,6 +32,31 @@
       width: 3rem;
       height: 3rem;
     }
+    .error-message {
+      color: red;
+      margin-bottom: 10px;
+    }
+    .directory-view {
+      margin: 20px 0;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+    }
+    .directory-view ul {
+      list-style-type: none;
+      padding-left: 10px;
+    }
+    .directory-view li {
+      margin: 5px 0;
+    }
+    .directory-view a {
+      text-decoration: none;
+      color: #0066cc;
+    }
+    .directory-view a:hover {
+      text-decoration: underline;
+    }
   </style>
 </head>
 <body>
@@ -268,6 +293,79 @@
         });
       }
     });
+
+    function fetchFileContent() {
+      const filePath = document.getElementById('filePath').value;
+      if (!filePath) {
+        alert('Please enter a file path');
+        return;
+      }
+
+      showLoading('Loading file content...');
+
+      fetch(`/api/file?path=${encodeURIComponent(filePath)}`)
+        .then(response => {
+          if (!response.ok) {
+            return response.json().then(err => {
+              throw new Error(err.error || 'Error loading file');
+            });
+          }
+          return response.json();
+        })
+        .then(data => {
+          hideLoading();
+          if (data.isDirectory) {
+            // Handle directory listing
+            const fileList = data.files.map(file =>
+              `<li><a href="#" onclick="document.getElementById('filePath').value='${data.path}/${file}'; fetchFileContent(); return false;">${file}</a></li>`
+            ).join('');
+
+            document.getElementById('codeInput').value = '';
+            document.getElementById('codeInput').style.display = 'none';
+            document.getElementById('reviewButton').style.display = 'none';
+
+            // Show directory contents
+            const directoryView = document.getElementById('directoryView') || createDirectoryView();
+            directoryView.innerHTML = `<h3>Directory: ${data.path}</h3><ul>${fileList}</ul>`;
+            directoryView.style.display = 'block';
+          } else {
+            // Handle file content
+            if (document.getElementById('directoryView')) {
+              document.getElementById('directoryView').style.display = 'none';
+            }
+            document.getElementById('codeInput').value = data.content;
+            document.getElementById('codeInput').style.display = 'block';
+            document.getElementById('reviewButton').style.display = 'block';
+          }
+        })
+        .catch(error => {
+          console.error('Error loading file:', error);
+          hideLoading();
+          showError(error.message);
+        });
+    }
+
+    function createDirectoryView() {
+      const directoryView = document.createElement('div');
+      directoryView.id = 'directoryView';
+      directoryView.className = 'directory-view';
+      document.getElementById('reviewButton').parentNode.insertBefore(directoryView, document.getElementById('reviewButton'));
+      return directoryView;
+    }
+
+    function showLoading(message) {
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      loadingIndicator.querySelector('p').textContent = message;
+      loadingIndicator.style.display = 'block';
+    }
+
+    function hideLoading() {
+      document.getElementById('loadingIndicator').style.display = 'none';
+    }
+
+    function showError(message) {
+      alert(message);
+    }
   </script>
 </body>
 </html>
