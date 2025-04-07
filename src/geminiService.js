@@ -63,15 +63,54 @@ async function reviewCode(code, options = {}) {
       systemInstruction: systemPrompt,
     });
 
-    // Extract and return the response
+    // Extract the response
     const response = result.response;
+    const reviewText = response.text();
+    
+    // Save the review as a markdown file if requested
+    if (options.saveToFile) {
+      await saveReviewToMarkdown(reviewText, options.title || 'code-review');
+    }
+    
     return {
-      text: response.text(),
+      text: reviewText,
       promptFeedback: response.promptFeedback
     };
   } catch (error) {
     console.error(`Error processing code review with Gemini: ${error.message}`);
     throw new Error(`Gemini code review failed: ${error.message}`);
+  }
+}
+
+/**
+ * Save a code review to a markdown file
+ * @param {string} reviewText - The code review text
+ * @param {string} title - Title for the review file
+ * @returns {Promise<string>} - Path to the saved file
+ */
+async function saveReviewToMarkdown(reviewText, title) {
+  try {
+    // Create reviews directory if it doesn't exist
+    const reviewsDir = path.join(__dirname, '..', 'reviews');
+    if (!fs.existsSync(reviewsDir)) {
+      await fs.promises.mkdir(reviewsDir, { recursive: true });
+    }
+    
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `${title.replace(/\s+/g, '-')}-${timestamp}.md`;
+    const filePath = path.join(reviewsDir, filename);
+    
+    // Add header to the markdown file
+    const content = `# Code Review: ${title}\n\nGenerated on: ${new Date().toLocaleString()}\n\n${reviewText}`;
+    
+    // Write to file
+    await fs.promises.writeFile(filePath, content, 'utf8');
+    console.log(`✅ Code review saved to: ${filePath}`);
+    return filePath;
+  } catch (error) {
+    console.error(`Error saving code review to markdown: ${error.message}`);
+    throw new Error(`Failed to save code review: ${error.message}`);
   }
 }
 

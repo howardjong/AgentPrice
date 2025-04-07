@@ -206,7 +206,7 @@
       const codeInput = document.getElementById('codeInput');
       const reviewOutput = document.getElementById('reviewOutput');
       const loadingIndicator = document.getElementById('loadingIndicator');
-      const modelSwitch = document.getElementById('modelSwitch');
+      const modelSwitch = document.getElementById('modelSwitch'); // Assuming this exists
 
       const code = codeInput.value.trim();
       if (!code) {
@@ -219,32 +219,42 @@
       reviewOutput.textContent = 'Generating review...';
 
       try {
+        // Determine title based on file path if available
+        const filePath = document.getElementById('filePath').value.trim();
+        const title = filePath ? `Review-${filePath.split('/').pop()}` : 'Code-Review';
+
+        // Submit code for review
         const response = await fetch('/api/review', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
+          body: JSON.stringify({ 
             code,
+            filePath,
             options: {
-              model: modelSwitch.checked ? 'gemini-1.5-pro' : 'gemini-1.5-flash',
-              temperature: 0.4
+              saveToFile: true,
+              title
             }
-          }),
+          })
         });
 
-        const result = await response.json();
+        // Hide loading indicator
+        loadingIndicator.style.display = 'none';
 
         if (response.ok) {
-          reviewOutput.textContent = result.text;
+          const data = await response.json();
+          reviewOutput.textContent = data.text;
+
+          // Show saved file info
+          const savedFileInfo = document.getElementById('savedFileInfo');
+          savedFileInfo.textContent = `Review saved to the reviews folder as a markdown file.`;
+          savedFileInfo.classList.remove('d-none');
         } else {
-          reviewOutput.textContent = `Error: ${result.error}`;
+          reviewOutput.textContent = `Error: ${data.error}`; // Assuming the response includes an error field
         }
       } catch (error) {
         reviewOutput.textContent = `Error: ${error.message}`;
-      } finally {
-        // Hide loading indicator
-        loadingIndicator.style.display = 'none';
       }
     });
 
@@ -255,6 +265,14 @@
       const filePathInput = document.getElementById('filePath');
       const codeInput = document.getElementById('codeInput');
       const reviewHeader = document.getElementById('reviewHeader');
+      let savedFilePath = null;
+
+      // Create a container for the saved file path information
+      const savedFileInfo = document.createElement('div');
+      savedFileInfo.className = 'alert alert-success mt-2 d-none';
+      savedFileInfo.id = 'savedFileInfo';
+      document.getElementById('loadingIndicator').after(savedFileInfo);
+
 
       if (submitPathBtn && filePathInput && codeInput && reviewHeader) {
         submitPathBtn.addEventListener('click', async function() {
@@ -279,7 +297,7 @@
               if (result.isDirectory) {
                   reviewHeader.textContent = `Folder Review: ${filePath} (${result.fileCount} files)`;
                   // Notify the user about what will happen
-                  alert(`Loaded ${result.fileCount} files from the directory. When you click "Review Code", Gemini will analyze all files together.`); review all files together. The file paths are included in the content.`);
+                  alert(`Loaded ${result.fileCount} files from the directory. When you click "Review Code", Gemini will analyze all files together.`);
               } else {
                 reviewHeader.textContent = `Code Review: ${filePath}`;
               }

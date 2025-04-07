@@ -1,4 +1,3 @@
-
 # Node.js dependencies
 node_modules/
 npm-debug.log
@@ -38,8 +37,7 @@ lcov-report/
 # Logs
 logs/
 *.log
-combined.log
-error.log
+reviews/
 
 # Temporary files
 *.tmp

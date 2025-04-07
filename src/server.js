@@ -33,7 +33,14 @@ app.post('/api/review', async (req, res) => {
     }, 5000); // Show progress every 5 seconds
     
     try {
-      const review = await geminiService.reviewCode(code, options);
+      // Add saveToFile option if not explicitly specified
+      const reviewOptions = {
+        ...options,
+        saveToFile: options.saveToFile !== false, // Default to true if not specified
+        title: options.title || (req.body.filePath ? `Review-${path.basename(req.body.filePath)}` : 'Code-Review')
+      };
+      
+      const review = await geminiService.reviewCode(code, reviewOptions);
       clearInterval(progressInterval);
       console.log(`✅ Gemini review completed in ${Math.floor((Date.now() - startTime) / 1000)}s`);
       return res.json(review);
