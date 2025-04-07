@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -38,7 +37,7 @@
 <body>
   <div class="container">
     <h1 class="mb-4">Gemini Code Reviewer</h1>
-    
+
     <div class="row">
       <div class="col-md-6 mb-3">
         <div class="card h-100">
@@ -47,10 +46,22 @@
           </div>
           <div class="card-body">
             <textarea id="codeInput" class="form-control code-input" placeholder="Paste your code here..."></textarea>
+            <div>
+              <button id="selectFileBtn" class="btn btn-sm btn-outline-primary">Select File</button>
+              <select id="fileSelector" class="form-select form-select-sm d-none" style="max-width: 200px;">
+                <option value="">-- Select a file --</option>
+                <option value="tests/e2e/single-query-flow-test.js">End-to-End Test</option>
+                <option value="src/server.js">Server Code</option>
+                <option value="src/geminiService.js">Gemini Service</option>
+              </select>
+            </div>
+            <div class="mt-2">
+              <input id="filePath" class="form-control form-control-sm" placeholder="Or enter file/folder path (e.g., src/ or utils/logger.js)" style="max-width: 300px;">
+            </div>
           </div>
         </div>
       </div>
-      
+
       <div class="col-md-6 mb-3">
         <div class="card h-100">
           <div class="card-header d-flex justify-content-between align-items-center">
@@ -66,36 +77,125 @@
         </div>
       </div>
     </div>
-    
+
     <div class="loading" id="loadingIndicator">
       <div class="spinner-border text-primary" role="status">
         <span class="visually-hidden">Loading...</span>
       </div>
       <p class="mt-2">Generating review... This may take a moment.</p>
     </div>
-    
+
     <div class="d-grid gap-2 col-md-6 mx-auto">
       <button id="reviewButton" class="btn btn-primary btn-lg">Review Code</button>
     </div>
   </div>
 
   <script>
+    // File selection functionality
+    document.getElementById('selectFileBtn').addEventListener('click', () => {
+      const fileSelector = document.getElementById('fileSelector');
+      fileSelector.classList.toggle('d-none');
+      if (!fileSelector.classList.contains('d-none')) {
+        fileSelector.focus();
+      }
+    });
+
+    document.getElementById('fileSelector').addEventListener('change', async (e) => {
+      const filePath = e.target.value;
+      if (!filePath) return;
+
+      try {
+        await loadFileOrDirectory(filePath);
+      } catch (error) {
+        alert(`Error: ${error.message}`);
+      }
+    });
+
+    // Add event listener for the file path input field (Enter key)
+    document.getElementById('filePath').addEventListener('keypress', async (e) => {
+      if (e.key === 'Enter') {
+        const filePath = e.target.value.trim();
+        if (!filePath) return;
+
+        try {
+          await loadFileOrDirectory(filePath);
+        } catch (error) {
+          alert(`Error: ${error.message}`);
+        }
+      }
+    });
+
+    // Function to load a file or directory
+    async function loadFileOrDirectory(path) {
+      try {
+        const response = await fetch(`/api/file?path=${encodeURIComponent(path)}`);
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || response.statusText);
+        }
+
+        // Check content type to determine if it's JSON (directory) or text (file)
+        const contentType = response.headers.get('content-type');
+
+        if (contentType && contentType.includes('application/json')) {
+          // It's a directory
+          const data = await response.json();
+
+          if (data.isDirectory && data.files && data.files.length > 0) {
+            // Combine all files into a single code review
+            const allFileContents = [];
+
+            // Limit to max 10 files to prevent too large requests
+            const filesToProcess = data.files.slice(0, 10);
+
+            for (const file of filesToProcess) {
+              try {
+                const fileResponse = await fetch(`/api/file?path=${encodeURIComponent(file)}`);
+                if (fileResponse.ok) {
+                  const content = await fileResponse.text();
+                  allFileContents.push(`\n// FILE: ${file}\n${content}`);
+                }
+              } catch (fileError) {
+                console.error(`Error loading file ${file}:`, fileError);
+              }
+            }
+
+            if (allFileContents.length > 0) {
+              document.getElementById('codeInput').value = allFileContents.join('\n\n');
+              console.log(`Loaded ${allFileContents.length} files from directory: ${path}`);
+            } else {
+              throw new Error('No readable files found in directory');
+            }
+          }
+        } else {
+          // It's a single file
+          const fileContent = await response.text();
+          document.getElementById('codeInput').value = fileContent;
+          console.log(`Loaded file: ${path}`);
+        }
+      } catch (error) {
+        console.error('Error loading file or directory:', error);
+        throw error;
+      }
+    }
+
     document.getElementById('reviewButton').addEventListener('click', async () => {
       const codeInput = document.getElementById('codeInput');
       const reviewOutput = document.getElementById('reviewOutput');
       const loadingIndicator = document.getElementById('loadingIndicator');
       const modelSwitch = document.getElementById('modelSwitch');
-      
+
       const code = codeInput.value.trim();
       if (!code) {
         alert('Please enter code to review');
         return;
       }
-      
+
       // Show loading indicator
       loadingIndicator.style.display = 'block';
       reviewOutput.textContent = 'Generating review...';
-      
+
       try {
         const response = await fetch('/api/review', {
           method: 'POST',
@@ -110,9 +210,9 @@
             }
           }),
         });
-        
+
         const result = await response.json();
-        
+
         if (response.ok) {
           reviewOutput.textContent = result.text;
         } else {

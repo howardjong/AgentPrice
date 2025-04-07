@@ -41,7 +41,10 @@ async function reviewCode(code, options = {}) {
       "Analyze the code for bugs, performance issues, security vulnerabilities, " +
       "and adherence to best practices. Provide specific, constructive feedback " +
       "with examples of how to improve the code. Format your response with " +
-      "clear sections: 'Critical Issues', 'Improvements', and 'Positive Aspects'.";
+      "clear sections: 'Critical Issues', 'Improvements', and 'Positive Aspects'." +
+      "\n\nIf the provided code contains file path indicators like '// FILE: path/to/file.js', " +
+      "treat this as a multi-file review. In this case, organize your response by file " +
+      "and provide file-specific feedback for each file, followed by overall project feedback.";
     
     // Generate content with Gemini
     const result = await geminiModel.generateContent({
