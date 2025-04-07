@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 const geminiService = require('./geminiService');
@@ -15,11 +16,11 @@ app.use(express.static('public'));
 app.post('/api/review', async (req, res) => {
   try {
     const { code, options } = req.body;
-
+    
     if (!code) {
       return res.status(400).json({ error: 'No code provided for review' });
     }
-
+    
     const review = await geminiService.reviewCode(code, options);
     return res.json(review);
   } catch (error) {
@@ -27,24 +28,6 @@ app.post('/api/review', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
-
-// API endpoint for code refactoring
-app.post('/api/refactor', async (req, res) => {
-  try {
-    const { code, instructions, options } = req.body; // Added options for consistency
-
-    if (!code) {
-      return res.status(400).json({ error: 'No code provided for refactoring' });
-    }
-
-    const refactoring = await geminiService.refactorCode(code, instructions, options);
-    return res.json(refactoring);
-  } catch (error) {
-    console.error('Error in refactor endpoint:', error);
-    return res.status(500).json({ error: error.message });
-  }
-});
-
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
