@@ -53,11 +53,12 @@
                 <option value="tests/e2e/single-query-flow-test.js">End-to-End Test</option>
                 <option value="src/server.js">Server Code</option>
                 <option value="src/geminiService.js">Gemini Service</option>
-              </select>
+                <option value="tests/manual/apiCallOptimization.js">API Call Optimization Test</option> </select>
             </div>
             <div class="mt-2">
               <input id="filePath" class="form-control form-control-sm" placeholder="Or enter file/folder path (e.g., src/ or utils/logger.js)" style="max-width: 300px;">
             </div>
+            <button id="submitPathBtn" class="btn btn-primary mt-2">Submit Path</button>
           </div>
         </div>
       </div>
@@ -223,6 +224,44 @@
       } finally {
         // Hide loading indicator
         loadingIndicator.style.display = 'none';
+      }
+    });
+
+
+    // Add event listener for the file path submit button
+    document.addEventListener('DOMContentLoaded', function() {
+      const submitPathBtn = document.getElementById('submitPathBtn');
+      const filePathInput = document.getElementById('filePath');
+      const codeInput = document.getElementById('codeInput');
+
+      if (submitPathBtn && filePathInput && codeInput) {
+        submitPathBtn.addEventListener('click', async function() {
+          const filePath = filePathInput.value.trim();
+          if (!filePath) {
+            alert('Please enter a file path');
+            return;
+          }
+
+          try {
+            const response = await fetch(`/api/file?path=${encodeURIComponent(filePath)}`);
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(errorData.error || response.statusText);
+            }
+            const data = await response.text(); // Assuming it's text content
+
+            if (response.ok) {
+              codeInput.value = data;
+              console.log(`Loaded file: ${filePath}`);
+            } else {
+              alert(`Error: ${data.error}`);
+              console.error('Error loading file:', data.error);
+            }
+          } catch (error) {
+            alert(`Failed to load file: ${error.message}`);
+            console.error('Failed to load file:', error);
+          }
+        });
       }
     });
   </script>
