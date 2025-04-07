@@ -1,11 +1,10 @@
-
 const express = require('express');
 const cors = require('cors');
 const geminiService = require('./geminiService');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors());
@@ -16,11 +15,11 @@ app.use(express.static('public'));
 app.post('/api/review', async (req, res) => {
   try {
     const { code, options } = req.body;
-    
+
     if (!code) {
       return res.status(400).json({ error: 'No code provided for review' });
     }
-    
+
     const review = await geminiService.reviewCode(code, options);
     return res.json(review);
   } catch (error) {
