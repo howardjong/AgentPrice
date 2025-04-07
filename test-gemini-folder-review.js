@@ -64,14 +64,16 @@ async function testGeminiFolderReview() {
 
     let review;
     try {
-      // Pass options to the reviewCode function
+      // Pass options to the reviewCode function with retry configuration
       review = await geminiService.reviewCode(combinedContent, {
         model: actualModel,
         saveToFile: true, 
         title: `Review-${folderPath}`,
         folder: folderPath,
         version: version,
-        temperature: 0.4
+        temperature: 0.4,
+        maxRetries: 3,         // Allow up to 3 retries for overloaded model
+        initialBackoff: 3000   // Start with 3 second backoff
       });
 
       clearInterval(progressInterval);
@@ -79,6 +81,15 @@ async function testGeminiFolderReview() {
     } catch (error) {
       clearInterval(progressInterval);
       console.error(`❌ Gemini review failed after ${Math.floor((Date.now() - startTime) / 1000)}s:`, error);
+      
+      // Provide more helpful error guidance
+      if (error.message && error.message.includes('model is overloaded')) {
+        console.log('\n📋 Model Overload Guidance:');
+        console.log('  - The Gemini model is currently experiencing high traffic');
+        console.log('  - Try again later when traffic may be reduced');
+        console.log('  - Consider using a different model if available');
+      }
+      
       throw error;
     }
 
