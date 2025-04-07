@@ -3135,3 +3135,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node test-gemini-folder-review.js tests/manual gemini-2.0-flash-thinking-exp-01-21 prompts/gemini/versions/code_review_v2.txt"
+
+[[workflows.workflow]]
+name = "Test Folder with Gemini v2"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node test-gemini-folder-review.js src/geminiService prompts/gemini/versions/code_review_v2.txt"
