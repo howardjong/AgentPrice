@@ -1,0 +1,130 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini Code Reviewer</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      padding-top: 2rem;
+      background-color: #f8f9fa;
+    }
+    .code-input {
+      font-family: monospace;
+      min-height: 300px;
+    }
+    .review-output {
+      font-family: system-ui, -apple-system, sans-serif;
+      min-height: 300px;
+      background-color: white;
+      padding: 1rem;
+      border-radius: 4px;
+      border: 1px solid #dee2e6;
+      white-space: pre-wrap;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      margin: 1rem 0;
+    }
+    .spinner-border {
+      width: 3rem;
+      height: 3rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="mb-4">Gemini Code Reviewer</h1>
+    
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <div class="card h-100">
+          <div class="card-header">
+            <h5 class="mb-0">Your Code</h5>
+          </div>
+          <div class="card-body">
+            <textarea id="codeInput" class="form-control code-input" placeholder="Paste your code here..."></textarea>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-6 mb-3">
+        <div class="card h-100">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Code Review</h5>
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="modelSwitch">
+              <label class="form-check-label" for="modelSwitch">Use Pro Model</label>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="reviewOutput" class="review-output">Review will appear here...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="loading" id="loadingIndicator">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="mt-2">Generating review... This may take a moment.</p>
+    </div>
+    
+    <div class="d-grid gap-2 col-md-6 mx-auto">
+      <button id="reviewButton" class="btn btn-primary btn-lg">Review Code</button>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('reviewButton').addEventListener('click', async () => {
+      const codeInput = document.getElementById('codeInput');
+      const reviewOutput = document.getElementById('reviewOutput');
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const modelSwitch = document.getElementById('modelSwitch');
+      
+      const code = codeInput.value.trim();
+      if (!code) {
+        alert('Please enter code to review');
+        return;
+      }
+      
+      // Show loading indicator
+      loadingIndicator.style.display = 'block';
+      reviewOutput.textContent = 'Generating review...';
+      
+      try {
+        const response = await fetch('/api/review', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            code,
+            options: {
+              model: modelSwitch.checked ? 'gemini-1.5-pro' : 'gemini-1.5-flash',
+              temperature: 0.4
+            }
+          }),
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          reviewOutput.textContent = result.text;
+        } else {
+          reviewOutput.textContent = `Error: ${result.error}`;
+        }
+      } catch (error) {
+        reviewOutput.textContent = `Error: ${error.message}`;
+      } finally {
+        // Hide loading indicator
+        loadingIndicator.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
