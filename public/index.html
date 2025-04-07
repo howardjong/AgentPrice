@@ -277,9 +277,9 @@
 
               // Update UI to indicate directory review if applicable
               if (result.isDirectory) {
-                reviewHeader.textContent = `Folder Review: ${filePath} (${result.fileCount} files)`;
-                // Notify the user about what will happen
-                alert(`Loaded ${result.fileCount} files from the directory. When you click "Review Code", Gemini will review all files together. The file paths are included in the content.`);
+                  reviewHeader.textContent = `Folder Review: ${filePath} (${result.fileCount} files)`;
+                  // Notify the user about what will happen
+                  alert(`Loaded ${result.fileCount} files from the directory. When you click "Review Code", Gemini will analyze all files together.`); review all files together. The file paths are included in the content.`);
               } else {
                 reviewHeader.textContent = `Code Review: ${filePath}`;
               }

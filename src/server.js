@@ -45,14 +45,47 @@ app.get('/api/file', async (req, res) => {
     // First check if the path exists
     const stats = await fs.promises.stat(normalizedPath);
 
-    // If it's a directory, return a list of files
+    // If it's a directory, read all files and prepare them for code review
     if (stats.isDirectory()) {
       console.log(`Reading directory: ${normalizedPath}`);
       const files = await fs.promises.readdir(normalizedPath);
+      
+      // Process files in the directory
+      const fileContents = [];
+      let fileCount = 0;
+      
+      for (const file of files) {
+        const filePath = path.join(normalizedPath, file);
+        try {
+          const fileStats = await fs.promises.stat(filePath);
+          
+          // Skip subdirectories and non-text files
+          if (!fileStats.isDirectory()) {
+            try {
+              const content = await fs.promises.readFile(filePath, 'utf8');
+              fileContents.push(`// FILE: ${filePath}\n${content}\n\n`);
+              fileCount++;
+            } catch (fileError) {
+              console.error(`Error reading file ${filePath}:`, fileError.message);
+              // Continue with other files even if one fails
+            }
+          }
+        } catch (statError) {
+          console.error(`Error checking file stats for ${filePath}:`, statError.message);
+          // Continue with other files
+        }
+      }
+      
+      // Combine all file contents with file markers for Gemini to process
+      const combinedContent = fileContents.join('');
+      
+      console.log(`Loaded ${fileCount} files from directory: ${normalizedPath}`);
       return res.json({ 
         isDirectory: true, 
         path: normalizedPath,
-        files: files
+        fileCount: fileCount,
+        files: files,
+        content: combinedContent
       });
     }
 
