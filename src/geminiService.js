@@ -1,4 +1,3 @@
-
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 const path = require('path');
@@ -39,80 +38,22 @@ async function reviewCode(code, options = {}) {
   try {
     const model = options.model || 'gemini-1.5-flash';
     const temperature = options.temperature || 0.4;
-    
+
     console.log(`Processing code review with Gemini [${model}]`);
-    
+
     // Get the Gemini model
     const geminiModel = genAI.getGenerativeModel({
       model,
       generationConfig: {
         temperature,
-
-/**
- * Save a code review to a markdown file with versioning
- * @param {string} reviewText - The review text
- * @param {string} title - Base title for the review
- * @param {Object} options - Additional options
- * @returns {Promise<string>} - Path to the saved file
- */
-async function saveReviewToMarkdown(reviewText, title, options = {}) {
-  try {
-    const fs = require('fs').promises;
-    const path = require('path');
-    
-    // Create reviews directory if it doesn't exist
-    const reviewsDir = path.join(process.cwd(), 'reviews');
-    await fs.mkdir(reviewsDir, { recursive: true });
-    
-    // Format timestamp for filename
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    
-    // Get model name from options or use default
-    const model = options.model || 'gemini-1.5-flash';
-    
-    // Create a sanitized title (remove special chars)
-    const safeTitle = title.replace(/[^a-zA-Z0-9-_]/g, '-');
-    
-    // Generate filename with timestamp and model
-    const filename = `${safeTitle}_${model}_${timestamp}.md`;
-    const filePath = path.join(reviewsDir, filename);
-    
-    // Add metadata header to review
-    const metadata = {
-      title: title,
-      timestamp: new Date().toISOString(),
-      model: model,
-      folder: options.folder || 'unknown',
-      version: options.version || '1.0',
-      comparison: options.comparison || false
-    };
-    
-    // Format the metadata as YAML front matter
-    const metadataStr = '---\n' + 
-      Object.entries(metadata)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join('\n') + 
-      '\n---\n\n';
-    
-    // Write the file with metadata and review content
-    await fs.writeFile(filePath, metadataStr + reviewText);
-    
-    console.log(`✅ Review saved to: ${filePath}`);
-    return filePath;
-  } catch (error) {
-    console.error('Error saving review:', error);
-    throw error;
-  }
-}
-
         topP: 0.8,
         topK: 40,
       },
     });
-    
+
     // Load the system prompt from file
     const systemPrompt = await loadPrompt('code_review');
-    
+
     // Generate content with Gemini
     const result = await geminiModel.generateContent({
       contents: [
@@ -124,12 +65,12 @@ async function saveReviewToMarkdown(reviewText, title, options = {}) {
     // Extract the response
     const response = result.response;
     const reviewText = response.text();
-    
+
     // Save the review as a markdown file if requested
     if (options.saveToFile) {
-      await saveReviewToMarkdown(reviewText, options.title || 'code-review');
+      await saveReviewToMarkdown(reviewText, options.title || 'code-review', options);
     }
-    
+
     return {
       text: reviewText,
       promptFeedback: response.promptFeedback
@@ -141,34 +82,58 @@ async function saveReviewToMarkdown(reviewText, title, options = {}) {
 }
 
 /**
- * Save a code review to a markdown file
- * @param {string} reviewText - The code review text
- * @param {string} title - Title for the review file
+ * Save a code review to a markdown file with versioning
+ * @param {string} reviewText - The review text
+ * @param {string} title - Base title for the review
+ * @param {Object} options - Additional options
  * @returns {Promise<string>} - Path to the saved file
  */
-async function saveReviewToMarkdown(reviewText, title) {
+async function saveReviewToMarkdown(reviewText, title, options = {}) {
   try {
     // Create reviews directory if it doesn't exist
-    const reviewsDir = path.join(__dirname, '..', 'reviews');
+    const reviewsDir = path.join(process.cwd(), 'reviews');
     if (!fs.existsSync(reviewsDir)) {
       await fs.promises.mkdir(reviewsDir, { recursive: true });
     }
-    
-    // Generate filename with timestamp
+
+    // Format timestamp for filename
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `${title.replace(/\s+/g, '-')}-${timestamp}.md`;
+
+    // Get model name from options or use default
+    const model = options.model || 'gemini-1.5-flash';
+
+    // Create a sanitized title (remove special chars)
+    const safeTitle = title.replace(/[^a-zA-Z0-9-_]/g, '-');
+
+    // Generate filename with timestamp and model
+    const filename = `${safeTitle}_${model}_${timestamp}.md`;
     const filePath = path.join(reviewsDir, filename);
-    
-    // Add header to the markdown file
-    const content = `# Code Review: ${title}\n\nGenerated on: ${new Date().toLocaleString()}\n\n${reviewText}`;
-    
-    // Write to file
-    await fs.promises.writeFile(filePath, content, 'utf8');
-    console.log(`✅ Code review saved to: ${filePath}`);
+
+    // Add metadata header to review
+    const metadata = {
+      title: title,
+      timestamp: new Date().toISOString(),
+      model: model,
+      folder: options.folder || 'unknown',
+      version: options.version || '1.0',
+      comparison: options.comparison || false
+    };
+
+    // Format the metadata as YAML front matter
+    const metadataStr = '---\n' + 
+      Object.entries(metadata)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('\n') + 
+      '\n---\n\n';
+
+    // Write the file with metadata and review content
+    await fs.writeFile(filePath, metadataStr + reviewText);
+
+    console.log(`✅ Review saved to: ${filePath}`);
     return filePath;
   } catch (error) {
-    console.error(`Error saving code review to markdown: ${error.message}`);
-    throw new Error(`Failed to save code review: ${error.message}`);
+    console.error('Error saving review:', error);
+    throw error;
   }
 }
 
