@@ -47,6 +47,64 @@ async function reviewCode(code, options = {}) {
       model,
       generationConfig: {
         temperature,
+
+/**
+ * Save a code review to a markdown file with versioning
+ * @param {string} reviewText - The review text
+ * @param {string} title - Base title for the review
+ * @param {Object} options - Additional options
+ * @returns {Promise<string>} - Path to the saved file
+ */
+async function saveReviewToMarkdown(reviewText, title, options = {}) {
+  try {
+    const fs = require('fs').promises;
+    const path = require('path');
+    
+    // Create reviews directory if it doesn't exist
+    const reviewsDir = path.join(process.cwd(), 'reviews');
+    await fs.mkdir(reviewsDir, { recursive: true });
+    
+    // Format timestamp for filename
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    
+    // Get model name from options or use default
+    const model = options.model || 'gemini-1.5-flash';
+    
+    // Create a sanitized title (remove special chars)
+    const safeTitle = title.replace(/[^a-zA-Z0-9-_]/g, '-');
+    
+    // Generate filename with timestamp and model
+    const filename = `${safeTitle}_${model}_${timestamp}.md`;
+    const filePath = path.join(reviewsDir, filename);
+    
+    // Add metadata header to review
+    const metadata = {
+      title: title,
+      timestamp: new Date().toISOString(),
+      model: model,
+      folder: options.folder || 'unknown',
+      version: options.version || '1.0',
+      comparison: options.comparison || false
+    };
+    
+    // Format the metadata as YAML front matter
+    const metadataStr = '---\n' + 
+      Object.entries(metadata)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join('\n') + 
+      '\n---\n\n';
+    
+    // Write the file with metadata and review content
+    await fs.writeFile(filePath, metadataStr + reviewText);
+    
+    console.log(`✅ Review saved to: ${filePath}`);
+    return filePath;
+  } catch (error) {
+    console.error('Error saving review:', error);
+    throw error;
+  }
+}
+
         topP: 0.8,
         topK: 40,
       },

@@ -30,9 +30,25 @@ async function testGeminiFolderReview() {
       console.log(`⏳ Gemini review in progress... (${elapsedSeconds}s elapsed)`);
     }, 5000); // Show progress every 5 seconds
     
+    // Process options from command line arguments
+    const model = process.argv[3] || 'gemini-1.5-flash'; // Allow model specification as 3rd arg
+    const version = process.argv[4] || '1.0'; // Allow version specification as 4th arg
+    
+    console.log(`📋 Using model: ${model}`);
+    console.log(`📋 Review version: ${version}`);
+    
     let review;
     try {
-      review = await geminiService.reviewCode(combinedContent);
+      // Pass options to the reviewCode function
+      review = await geminiService.reviewCode(combinedContent, {
+        model: model,
+        saveToFile: true, 
+        title: `Review-${folderPath}`,
+        folder: folderPath,
+        version: version,
+        temperature: 0.4
+      });
+      
       clearInterval(progressInterval);
       console.log(`✅ Gemini review completed in ${Math.floor((Date.now() - startTime) / 1000)}s`);
     } catch (error) {
