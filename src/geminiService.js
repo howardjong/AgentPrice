@@ -127,7 +127,7 @@ async function saveReviewToMarkdown(reviewText, title, options = {}) {
       '\n---\n\n';
 
     // Write the file with metadata and review content
-    await fs.writeFile(filePath, metadataStr + reviewText);
+    await fs.promises.writeFile(filePath, metadataStr + reviewText);
 
     console.log(`✅ Review saved to: ${filePath}`);
     return filePath;
