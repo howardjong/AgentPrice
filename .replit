@@ -75,7 +75,7 @@ localPort = 45365
 externalPort = 8000
 
 [workflows]
-runButton = "Run Optimized Server"
+runButton = "Run Code Reviewer"
 
 [[workflows.workflow]]
 name = "Project"
@@ -3117,3 +3117,12 @@ args = "# Then run the verification test"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/verify-deep-research-workflow.js"
+
+[[workflows.workflow]]
+name = "Run Code Reviewer"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node start.js"
