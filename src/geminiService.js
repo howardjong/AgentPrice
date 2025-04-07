@@ -1,5 +1,7 @@
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 // API key validation
@@ -9,6 +11,21 @@ if (!process.env.GEMINI_API_KEY) {
 
 // Initialize Gemini client
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+/**
+ * Load a prompt from file
+ * @param {string} promptName - Name of the prompt file
+ * @returns {Promise<string>} - Content of the prompt file
+ */
+async function loadPrompt(promptName) {
+  try {
+    const promptPath = path.join(__dirname, '..', 'prompts', 'gemini', `${promptName}.txt`);
+    return await fs.promises.readFile(promptPath, 'utf8');
+  } catch (error) {
+    console.error(`Error loading prompt ${promptName}: ${error.message}`);
+    throw new Error(`Failed to load ${promptName} prompt: ${error.message}`);
+  }
+}
 
 /**
  * Get a code review from Gemini AI
@@ -35,16 +52,8 @@ async function reviewCode(code, options = {}) {
       },
     });
     
-    // Create the system prompt
-    const systemPrompt = 
-      "You are a senior developer conducting a thorough code review. " +
-      "Analyze the code for bugs, performance issues, security vulnerabilities, " +
-      "and adherence to best practices. Provide specific, constructive feedback " +
-      "with examples of how to improve the code. Format your response with " +
-      "clear sections: 'Critical Issues', 'Improvements', and 'Positive Aspects'." +
-      "\n\nIf the provided code contains file path indicators like '// FILE: path/to/file.js', " +
-      "treat this as a multi-file review. In this case, organize your response by file " +
-      "and provide file-specific feedback for each file, followed by overall project feedback.";
+    // Load the system prompt from file
+    const systemPrompt = await loadPrompt('code_review');
     
     // Generate content with Gemini
     const result = await geminiModel.generateContent({
