@@ -65,12 +65,8 @@
 
       <div class="col-md-6 mb-3">
         <div class="card h-100">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Code Review</h5>
-            <div class="form-check form-switch">
-              <input class="form-check-input" type="checkbox" id="modelSwitch">
-              <label class="form-check-label" for="modelSwitch">Use Pro Model</label>
-            </div>
+          <div class="card-header">
+            <h5 id="reviewHeader" class="mb-0">Code Review</h5>
           </div>
           <div class="card-body">
             <div id="reviewOutput" class="review-output">Review will appear here...</div>
@@ -233,12 +229,13 @@
       const submitPathBtn = document.getElementById('submitPathBtn');
       const filePathInput = document.getElementById('filePath');
       const codeInput = document.getElementById('codeInput');
+      const reviewHeader = document.getElementById('reviewHeader');
 
-      if (submitPathBtn && filePathInput && codeInput) {
+      if (submitPathBtn && filePathInput && codeInput && reviewHeader) {
         submitPathBtn.addEventListener('click', async function() {
           const filePath = filePathInput.value.trim();
           if (!filePath) {
-            alert('Please enter a file path');
+            alert('Please enter a file or folder path');
             return;
           }
 
@@ -248,14 +245,21 @@
               const errorData = await response.json();
               throw new Error(errorData.error || response.statusText);
             }
-            const data = await response.text(); // Assuming it's text content
+            const result = await response.json();
 
             if (response.ok) {
-              codeInput.value = data;
-              console.log(`Loaded file: ${filePath}`);
+              codeInput.value = result.content;
+
+              // Update UI to indicate directory review if applicable
+              if (result.isDirectory) {
+                reviewHeader.textContent = `Folder Review: ${filePath} (${result.fileCount} files)`;
+                // Notify the user about what will happen
+                alert(`Loaded ${result.fileCount} files from the directory. When you click "Review Code", Gemini will review all files together. The file paths are included in the content.`);
+              } else {
+                reviewHeader.textContent = `Code Review: ${filePath}`;
+              }
             } else {
-              alert(`Error: ${data.error}`);
-              console.error('Error loading file:', data.error);
+              alert(`Error: ${result.error}`);
             }
           } catch (error) {
             alert(`Failed to load file: ${error.message}`);
