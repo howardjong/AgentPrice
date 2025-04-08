@@ -1,7 +1,14 @@
 // Redis client implementation with in-memory fallback and Redis Memory Server option
 import logger from '../utils/logger.js';
 import Redis from 'ioredis';
-import { RedisMemoryServer } from 'redis-memory-server';
+// Use dynamic import for redis-memory-server to make it optional
+let RedisMemoryServer;
+try {
+  const module = await import('redis-memory-server');
+  RedisMemoryServer = module.default || module.RedisMemoryServer;
+} catch (error) {
+  console.warn('Redis memory server not available, using standard Redis connection');
+}
 
 // In-memory store for fallback mode
 export class InMemoryStore {
