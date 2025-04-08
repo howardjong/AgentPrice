@@ -1,7 +1,0 @@
-recordSuccess
-recordFailure
-isOpen
-forceState
-getState
-getStats
-transitionTo

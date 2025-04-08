@@ -1,5 +1,0 @@
-[2025-04-05T18:12:43.041Z] Starting status check for all deep research requests...
-[2025-04-05T18:12:43.053Z] Found 4 research requests to check
-[2025-04-05T18:12:43.054Z] Checking status for: request-056ff74b-2025-04-05T16-57-12.709Z-intermediate.json
-[2025-04-05T18:12:43.056Z] No poll URL or response data found for 056ff74b
-[2025-04-05T18:12:43.056Z] Making initial API request for 056ff74b

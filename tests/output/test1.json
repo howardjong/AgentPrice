@@ -1,1 +1,0 @@
-{"plotlyConfig":{"data":[{"type":"bar","x":[1,2,3],"y":[10,20,30]}],"layout":{"title":"Test Chart"},"config":{"responsive":true}},"insights":["Test insight 1","Test insight 2"]}

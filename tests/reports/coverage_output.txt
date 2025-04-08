@@ -1,5 +1,0 @@
-npm error Missing script: "test:coverage"
-npm error
-npm error To see a list of scripts, run:
-npm error   npm run
-npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2025-03-31T14_16_30_015Z-debug-0.log

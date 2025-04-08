@@ -1,6 +1,0 @@
-{
-  "error": "No valid chart data found in response",
-  "modelMismatch": false,
-  "requestedModel": "claude-3-7-sonnet-20250219",
-  "actualModel": "claude-3-7-sonnet-20250219"
-}
