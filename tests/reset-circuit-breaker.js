@@ -34,7 +34,7 @@ const claudeBreaker = new CircuitBreaker({
 
 // Reset specified circuit breaker
 if (serviceName === 'all' || serviceName === 'perplexity') {
-  perplexityBreaker.resetBreaker(); // Use resetBreaker instead of reset
+  perplexityBreaker.resetBreaker(); // Using the correct method name
   logger.info('Reset perplexity-api circuit breaker');
 
   if (!skipTest) {
