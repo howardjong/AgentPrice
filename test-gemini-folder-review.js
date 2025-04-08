@@ -1,171 +1,148 @@
-
 import fs from 'fs';
 import path from 'path';
 import geminiService from './src/geminiService.js';
 
 async function testGeminiFolderReview() {
   try {
-    // Specify the folder to review
-    const folderPath = process.argv[2] || 'src';
-    console.log(`🔍 Testing Gemini folder review with directory: ${folderPath}`);
+    // Get command line arguments
+    const [, , targetFolder, modelName, promptFilePath] = process.argv;
 
-    // Read all files in the directory
-    const files = await readDirectoryFiles(folderPath);
-    console.log(`📂 Found ${files.length} files in the directory`);
+    if (!targetFolder || !promptFilePath) {
+      console.error('Usage: node test-gemini-folder-review.js <folder-path> [model-name] <prompt-file-path>');
+      console.error('Example: node test-gemini-folder-review.js ./src gemini-1.5-pro prompts/gemini/versions/code_review_v2.txt');
+      process.exit(1);
+    }
 
-    // Combine files with markers
-    const combinedContent = files.map(file => 
-      `// FILE: ${file.path}\n${file.content}\n\n`
-    ).join('');
+    // Set default model if not provided
+    const model = modelName || 'gemini-1.5-pro';
 
-    console.log(`📦 Combined ${files.length} files with a total of ${combinedContent.length} characters`);
+    console.log(`Target folder: ${targetFolder}`);
+    console.log(`Using model: ${model}`);
+    console.log(`Prompt file: ${promptFilePath}`);
 
-    // Send to Gemini for review
-    console.log('🚀 Sending to Gemini for review...');
+    // Check if target folder exists
+    if (!fs.existsSync(targetFolder)) {
+      console.error(`Error: Target folder "${targetFolder}" does not exist`);
+      process.exit(1);
+    }
 
+    // Check if prompt file exists
+    if (!fs.existsSync(promptFilePath)) {
+      console.error(`Error: Prompt file "${promptFilePath}" does not exist`);
+      process.exit(1);
+    }
+
+    // Read all files in the target folder
+    const files = await readFilesRecursively(targetFolder);
+
+    if (files.length === 0) {
+      console.error(`No files found in "${targetFolder}"`);
+      process.exit(1);
+    }
+
+    console.log(`Found ${files.length} files to analyze`);
+
+    // Format code for review with file markers
+    const formattedCode = formatFilesForReview(files);
+
+    // Start the timer
     const startTime = Date.now();
-    // Set up a progress indicator
-    const progressInterval = setInterval(() => {
-      const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
-      console.log(`⏳ Gemini review in progress... (${elapsedSeconds}s elapsed)`);
-    }, 5000); // Show progress every 5 seconds
 
-    // Process model selection with better error handling
-    const modelArg = process.argv[3];
-    const isPro = modelArg === 'pro'; // Allow simple 'pro' option
-
-    // Model options with rate limit info
-    const standardModel = 'gemini-2.0-flash-thinking-exp-01-21'; // 10 RPM, 1500 req/day
-    const proModel = 'gemini-2.5-pro-preview-03-25'; // 5 RPM, 25 req/dayreview-03-25';
-
-    // Select model with fallback options
-    let actualModel;
-    if (isPro) {
-      actualModel = proModel;
-      console.log(`🔍 Using Pro model: ${proModel}`);
-    } else if (modelArg && modelArg !== 'pro') {
-      actualModel = modelArg; // Use custom model if specified
-      console.log(`🔍 Using custom model: ${actualModel}`);
-    } else {
-      actualModel = standardModel; // Default to standard model
-      console.log(`🔍 Using standard model: ${standardModel}`);
-    }
-
-    const version = process.argv[4] || '1.0'; // Allow version specification as 4th arg
-
-    console.log(`📋 Using model: ${actualModel}`);
-    console.log(`📋 Review version: ${version}`);
-    
-    // Display rate limit information
-    if (isPro) {
-      console.log(`⚠️ Rate limit warning: Pro model limited to 5 RPM and 25 requests/day`);
-    } else {
-      console.log(`ℹ️ Rate limit info: Standard model limited to 10 RPM and 1500 requests/day`);
-    }
-
-    let review;
     try {
-      // Pass options to the reviewCode function with retry configuration
-      review = await geminiService.reviewCode(combinedContent, {
-        model: actualModel,
-        saveToFile: true, 
-        title: `Review-${folderPath}`,
-        folder: folderPath,
-        version: version,
-        temperature: 0.4,
-        maxRetries: 3,         // Allow up to 3 retries for overloaded model
-        initialBackoff: 3000   // Start with 3 second backoff
-      });
+      // Send to Gemini for review
+      const review = await geminiService.reviewCode(
+        formattedCode,
+        promptFilePath,
+        model
+      );
 
-      clearInterval(progressInterval);
-      console.log(`✅ Gemini review completed in ${Math.floor((Date.now() - startTime) / 1000)}s`);
-    } catch (error) {
-      clearInterval(progressInterval);
-      console.error(`❌ Gemini review failed after ${Math.floor((Date.now() - startTime) / 1000)}s:`, error);
-      
-      // Provide more helpful error guidance
-      if (error.message && error.message.includes('model is overloaded')) {
-        console.log('\n📋 Model Overload Guidance:');
-        console.log('  - The Gemini model is currently experiencing high traffic');
-        console.log('  - Try again later when traffic may be reduced');
-        console.log('  - Consider using a different model if available');
+      // Calculate time taken
+      const timeInSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`✅ Gemini review completed in ${timeInSeconds}s`);
+
+      // Create output directory if it doesn't exist
+      const outputDir = './reviews';
+      if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
       }
-      
-      throw error;
+
+      // Save review to file
+      const timestamp = new Date().toISOString().replace(/:/g, '-');
+      const outputFile = path.join(outputDir, `code-review-${timestamp}.md`);
+      fs.writeFileSync(outputFile, review);
+
+      console.log(`Review saved to: ${outputFile}`);
+
+      // Display the review in the console
+      console.log('\n==== CODE REVIEW ====\n');
+      console.log(review);
+      console.log('\n==== END REVIEW ====\n');
+
+    } catch (error) {
+      const timeInSeconds = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.error(`❌ Gemini review failed after ${timeInSeconds}s:`, error);
+      console.error('❌ Error during test:', error.message);
+      process.exit(1);
     }
 
-    // Print the review
-    console.log('\n==== GEMINI CODE REVIEW RESULTS ====\n');
-    console.log(review.text);
-    console.log('\n==== END OF REVIEW ====\n');
-
-    // Success!
-    console.log('✅ Test completed successfully!');
   } catch (error) {
-    console.error('❌ Error during test:', error.message);
-    console.error(error);
+    console.error('Error:', error);
+    process.exit(1);
   }
 }
 
-// Function to read all files in a directory recursively
-async function readDirectoryFiles(dirPath, options = { maxDepth: 2, exclude: ['.git', 'node_modules'] }) {
-  const files = [];
-  const items = await fs.promises.readdir(dirPath);
+/**
+ * Read files recursively from a directory
+ * @param {string} dir - Directory path
+ * @param {Array} fileList - List to store found files
+ * @returns {Promise<Array>} List of file info objects
+ */
+async function readFilesRecursively(dir, fileList = []) {
+  // Get all files in the directory
+  const files = fs.readdirSync(dir);
 
-  for (const item of items) {
-    const itemPath = path.join(dirPath, item);
+  for (const file of files) {
+    const filePath = path.join(dir, file);
+    const stat = fs.statSync(filePath);
 
-    // Skip excluded directories
-    if (options.exclude.some(excluded => itemPath.includes(excluded))) {
+    // Skip node_modules, .git, and other non-code directories
+    if (stat.isDirectory()) {
+      if (!['node_modules', '.git', 'coverage', 'dist'].includes(file)) {
+        await readFilesRecursively(filePath, fileList);
+      }
       continue;
     }
 
-    try {
-      const stats = await fs.promises.stat(itemPath);
-
-      if (stats.isDirectory()) {
-        // Skip if we've reached max depth
-        if (options.maxDepth > 0) {
-          const subDirFiles = await readDirectoryFiles(itemPath, { 
-            ...options, 
-            maxDepth: options.maxDepth - 1 
-          });
-          files.push(...subDirFiles);
-        }
-      } else if (stats.isFile()) {
-        // Only include text files
-        if (isTextFile(itemPath)) {
-          try {
-            const content = await fs.promises.readFile(itemPath, 'utf8');
-            files.push({ 
-              path: itemPath,
-              content,
-              size: stats.size
-            });
-          } catch (error) {
-            console.warn(`⚠️ Could not read file ${itemPath}: ${error.message}`);
-          }
-        }
-      }
-    } catch (error) {
-      console.warn(`⚠️ Error processing ${itemPath}: ${error.message}`);
+    // Only include code files
+    const ext = path.extname(file).toLowerCase();
+    if (['.js', '.jsx', '.ts', '.tsx', '.css', '.html', '.json', '.md'].includes(ext)) {
+      const content = fs.readFileSync(filePath, 'utf8');
+      fileList.push({
+        path: filePath,
+        content: content
+      });
     }
   }
 
-  return files;
+  return fileList;
 }
 
-// Determine if a file is likely a text file based on extension
-function isTextFile(filePath) {
-  const textExtensions = [
-    '.js', '.jsx', '.ts', '.tsx', '.html', '.css', '.scss', '.json', '.md', 
-    '.txt', '.py', '.java', '.c', '.cpp', '.h', '.php', '.rb', '.go', '.rs',
-    '.sh', '.yml', '.yaml', '.toml', '.xml', '.svg', '.sql'
-  ];
+/**
+ * Format files for code review
+ * @param {Array} files - List of file info objects
+ * @returns {string} Formatted code
+ */
+function formatFilesForReview(files) {
+  let result = '';
 
-  const ext = path.extname(filePath).toLowerCase();
-  return textExtensions.includes(ext);
+  for (const file of files) {
+    // Add file separator and path
+    result += `\n// FILE: ${file.path}\n`;
+    result += `${file.content}\n`;
+  }
+
+  return result;
 }
 
-// Run the test
+// Run the script
 testGeminiFolderReview();
