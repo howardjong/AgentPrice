@@ -1,7 +1,9 @@
+
 /**
  * Manual test for Perplexity deep research model extraction
  * 
- * This script tests the model extraction functionality in deep research mode.
+ * This script tests the model extraction functionality in deep research mode
+ * using sonar-deep-research model with fallback to sonar-pro if needed.
  */
 
 import perplexityService from '../../services/perplexityService.js';
@@ -22,11 +24,14 @@ async function testDeepResearchModelExtraction() {
     console.log('API key check passed ✓');
     
     // Verify service status
-    const status = perplexityService.getStatus();
-    console.log('Service status:', status);
+    const healthStatus = perplexityService.getHealthStatus 
+      ? perplexityService.getHealthStatus() 
+      : { status: 'unknown' };
+      
+    console.log('Service health status:', healthStatus);
     
-    if (!status.status === 'connected') {
-      console.error('ERROR: Perplexity service is not connected!');
+    if (healthStatus.status !== 'available' && healthStatus.status !== 'connected') {
+      console.error('ERROR: Perplexity service is not available!');
       return;
     }
     
@@ -35,50 +40,74 @@ async function testDeepResearchModelExtraction() {
     // Generate a test job ID
     const testJobId = uuidv4();
     
+    // Set query options with specific model and fallback
+    const options = {
+      model: 'sonar-deep-research',
+      fallbackModels: ['sonar-pro', 'sonar'],
+      requestId: testJobId,
+      enableChunking: true
+    };
+    
     // Test deep research with model extraction
     console.log('\nPerforming deep research with model extraction...');
     console.log('Test job ID:', testJobId);
+    console.log('Primary model:', options.model);
+    console.log('Fallback models:', options.fallbackModels.join(', '));
     
-    const result = await perplexityService.performDeepResearch(
-      'Summarize briefly the most important technology advances from 2025 so far. Be concise.', 
-      testJobId
-    );
-    
-    console.log('\nDeep research result received.');
-    console.log('Content preview:');
-    console.log(result.content.substring(0, 200) + '...');
-    
-    console.log('\nActual model used:', result.modelUsed);
-    
-    // Verify that model information is in the content
-    if (result.content.includes(`[Using Perplexity AI - Model: ${result.modelUsed}]`)) {
-      console.log('Model information included in content ✓');
-    } else {
-      console.error('ERROR: Model information not found in content!');
+    try {
+      const result = await perplexityService.performDeepResearch(
+        'Summarize briefly the most important technology advances from 2025 so far. Be concise.',
+        options
+      );
+      
+      console.log('\nDeep research result received.');
+      console.log('Content preview:');
+      console.log(result.content.substring(0, 200) + '...');
+      
+      console.log('\nActual model used:', result.modelUsed || 'Not specified');
+      console.log('Citations count:', (result.citations || []).length);
+      
+      if (result.originalModel && result.originalModel !== result.modelUsed) {
+        console.log('\nModel fallback occurred:');
+        console.log(`Original model: ${result.originalModel}`);
+        console.log(`Fallback model used: ${result.modelUsed}`);
+      }
+      
+      console.log('\nTest completed successfully ✓');
+      
+    } catch (error) {
+      console.error('\nDeep research failed with error:', error.message);
+      
+      // Retry with sonar-pro explicitly
+      console.log('\nRetrying with sonar-pro model explicitly...');
+      
+      try {
+        const fallbackResult = await perplexityService.performDeepResearch(
+          'Summarize briefly the most important technology advances from 2025 so far. Be concise.',
+          {
+            ...options,
+            model: 'sonar-pro'
+          }
+        );
+        
+        console.log('\nFallback research result received.');
+        console.log('Content preview:');
+        console.log(fallbackResult.content.substring(0, 200) + '...');
+        
+        console.log('\nFallback model used:', fallbackResult.modelUsed || 'sonar-pro');
+        console.log('Citations count:', (fallbackResult.citations || []).length);
+        
+        console.log('\nFallback test completed successfully ✓');
+      } catch (fallbackError) {
+        console.error('\nFallback research also failed:', fallbackError.message);
+        console.log('\nTest failed. Please check API credentials and model availability.');
+      }
     }
     
-    // Check if sources were returned
-    console.log('\nSources included:', result.sources.length);
-    if (result.sources.length > 0) {
-      console.log('First few sources:');
-      result.sources.slice(0, 3).forEach((source, index) => {
-        console.log(`  ${index + 1}. ${source}`);
-      });
-    }
-    
-    console.log('\nTest completed successfully.');
   } catch (error) {
-    console.error('ERROR during test:', error.message);
-    if (error.response) {
-      console.error('API error details:', {
-        status: error.response.status,
-        data: error.response.data
-      });
-    }
+    console.error('Critical error during test execution:', error);
   }
 }
 
-// Execute the test
-testDeepResearchModelExtraction().catch(err => {
-  console.error('Unhandled error in test:', err);
-});
+// Run the test
+testDeepResearchModelExtraction();

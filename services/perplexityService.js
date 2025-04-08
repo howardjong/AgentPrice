@@ -11,9 +11,13 @@ const logger = require('../utils/logger');
 const fs = require('fs').promises;
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const axios = require('axios'); // Added axios for API calls
+
 
 // Configuration
 const PERPLEXITY_API_ENDPOINT = 'https://api.perplexity.ai/chat/completions';
+const API_URL = process.env.PERPLEXITY_API_URL || PERPLEXITY_API_ENDPOINT; // Use environment variable if available
+const API_KEY = process.env.PERPLEXITY_API_KEY; // Added API key variable
 const RESULTS_DIR = path.join('test-results', 'deep-research');
 const COMPLETED_DIR = path.join('test-results', 'deep-research-results');
 const POLL_INTERVAL = 30000; // 30 seconds between poll attempts
@@ -63,9 +67,9 @@ async function query(query, options = {}) {
   const systemPrompt = options.systemPrompt || 'You are a knowledgeable research assistant with access to up-to-date information.';
   const temperature = options.temperature || 0.7;
   const maxTokens = options.maxTokens || 1000;
-  
+
   logger.debug(`[${requestId}] Sending standard query to Perplexity API using model ${model}`);
-  
+
   const payload = {
     model,
     messages: [
@@ -81,12 +85,12 @@ async function query(query, options = {}) {
     temperature,
     max_tokens: maxTokens
   };
-  
+
   // Add search context if specified
   if (options.searchContext) {
     payload.search_context = options.searchContext;
   }
-  
+
   try {
     const response = await apiClient.post(
       PERPLEXITY_API_ENDPOINT,
@@ -98,16 +102,16 @@ async function query(query, options = {}) {
         }
       }
     );
-    
+
     logger.debug(`[${requestId}] Received response from Perplexity API (model: ${model})`);
-    
+
     // Save result if requested
     if (options.saveResult) {
       const resultFile = path.join(RESULTS_DIR, `request-${requestId}-${Date.now()}.json`);
       await fs.writeFile(resultFile, JSON.stringify(response.data, null, 2));
       logger.debug(`[${requestId}] Saved result to ${resultFile}`);
     }
-    
+
     return {
       success: true,
       requestId,
@@ -116,15 +120,15 @@ async function query(query, options = {}) {
       content: extractContent(response.data),
       citations: extractCitations(response.data)
     };
-    
+
   } catch (error) {
     logger.error(`[${requestId}] Error querying Perplexity API (model: ${model}): ${error.message}`);
-    
+
     if (error.response) {
       logger.error(`[${requestId}] API Error Status: ${error.response.status}`);
       logger.error(`[${requestId}] API Error Data: ${JSON.stringify(error.response.data)}`);
     }
-    
+
     return {
       success: false,
       requestId,
@@ -148,9 +152,9 @@ async function initiateDeepResearch(query, options = {}) {
     'You are a research assistant with expertise in business strategy and pricing models. Provide detailed, well-structured answers with specific examples and data points.';
   const temperature = options.temperature || 0.7;
   const maxTokens = options.maxTokens || 4000;
-  
+
   logger.info(`[${requestId}] Initiating deep research: "${query.substring(0, 50)}..."`);
-  
+
   const payload = {
     model: 'sonar-deep-research',
     messages: [
@@ -167,7 +171,7 @@ async function initiateDeepResearch(query, options = {}) {
     max_tokens: maxTokens,
     search_context: 'high'
   };
-  
+
   try {
     const response = await apiClient.post(
       PERPLEXITY_API_ENDPOINT,
@@ -179,21 +183,21 @@ async function initiateDeepResearch(query, options = {}) {
         }
       }
     );
-    
+
     const responseData = response.data;
     logger.info(`[${requestId}] Successfully initiated deep research`);
-    
+
     // Save intermediate result
     const resultFile = path.join(RESULTS_DIR, `request-${requestId}-${Date.now()}-intermediate.json`);
     await fs.writeFile(resultFile, JSON.stringify(responseData, null, 2));
     logger.debug(`[${requestId}] Saved intermediate result to ${resultFile}`);
-    
+
     // Check if this is a polling response or a direct completion
     const pollUrl = extractPollUrl(responseData);
-    
+
     if (pollUrl) {
       logger.info(`[${requestId}] Deep research requires polling. Poll URL: ${pollUrl}`);
-      
+
       return {
         success: true,
         requestId,
@@ -204,12 +208,12 @@ async function initiateDeepResearch(query, options = {}) {
       };
     } else if (isCompletedResponse(responseData)) {
       logger.info(`[${requestId}] Deep research completed immediately (no polling required)`);
-      
+
       // Save to completed directory
       const completedFile = path.join(COMPLETED_DIR, `request-${requestId}-${Date.now()}-completed.json`);
       await fs.writeFile(completedFile, JSON.stringify(responseData, null, 2));
       logger.debug(`[${requestId}] Saved completed result to ${completedFile}`);
-      
+
       return {
         success: true,
         requestId,
@@ -221,7 +225,7 @@ async function initiateDeepResearch(query, options = {}) {
       };
     } else {
       logger.warn(`[${requestId}] Unclear response status. No poll URL found and response doesn't appear to be complete.`);
-      
+
       return {
         success: true,
         requestId,
@@ -230,14 +234,14 @@ async function initiateDeepResearch(query, options = {}) {
         requiresPolling: false
       };
     }
-    
+
   } catch (error) {
     logger.error(`[${requestId}] Error initiating deep research: ${error.message}`);
-    
+
     if (error.response) {
       logger.error(`[${requestId}] API Error Status: ${error.response.status}`);
       logger.error(`[${requestId}] API Error Data: ${JSON.stringify(error.response.data)}`);
-      
+
       // Save error information
       const errorFile = path.join(RESULTS_DIR, `request-${requestId}-error-${Date.now()}.json`);
       await fs.writeFile(errorFile, JSON.stringify({
@@ -247,7 +251,7 @@ async function initiateDeepResearch(query, options = {}) {
       }, null, 2));
       logger.debug(`[${requestId}] Saved error details to ${errorFile}`);
     }
-    
+
     return {
       success: false,
       requestId,
@@ -276,35 +280,35 @@ async function pollForResults(pollUrl, requestId, maxAttempts = MAX_POLL_ATTEMPT
       error: 'No poll URL provided'
     };
   }
-  
+
   logger.info(`[${requestId}] Starting to poll for results: ${pollUrl}`);
-  
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     logger.debug(`[${requestId}] Poll attempt ${attempt}/${maxAttempts}`);
-    
+
     try {
       const response = await apiClient.get(pollUrl, {
         headers: {
           'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}`
         }
       });
-      
+
       const responseData = response.data;
-      
+
       // Save intermediate polling result
       const resultFile = path.join(RESULTS_DIR, `request-${requestId}-poll-${attempt}-${Date.now()}.json`);
       await fs.writeFile(resultFile, JSON.stringify(responseData, null, 2));
       logger.debug(`[${requestId}] Saved poll result ${attempt} to ${resultFile}`);
-      
+
       // Check if research is completed
       if (isCompletedResponse(responseData)) {
         logger.info(`[${requestId}] ✅ Deep research completed after ${attempt} poll attempts`);
-        
+
         // Save completed result
         const completedFile = path.join(COMPLETED_DIR, `request-${requestId}-completed-${Date.now()}.json`);
         await fs.writeFile(completedFile, JSON.stringify(responseData, null, 2));
         logger.info(`[${requestId}] Saved completed result to ${completedFile}`);
-        
+
         return {
           success: true,
           requestId,
@@ -315,18 +319,18 @@ async function pollForResults(pollUrl, requestId, maxAttempts = MAX_POLL_ATTEMPT
           pollAttempts: attempt
         };
       }
-      
+
       logger.debug(`[${requestId}] Research still in progress, waiting ${POLL_INTERVAL/1000} seconds before next poll`);
       await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
-      
+
     } catch (error) {
       logger.error(`[${requestId}] Error during poll attempt ${attempt}: ${error.message}`);
-      
+
       if (error.response) {
         logger.error(`[${requestId}] Poll Error Status: ${error.response.status}`);
         logger.error(`[${requestId}] Poll Error Data: ${JSON.stringify(error.response.data)}`);
       }
-      
+
       // If this is not the last attempt, wait and continue
       if (attempt < maxAttempts) {
         const backoffTime = Math.min(POLL_INTERVAL * Math.pow(1.5, attempt - 1), 5 * 60 * 1000); // Max 5 minutes
@@ -344,7 +348,7 @@ async function pollForResults(pollUrl, requestId, maxAttempts = MAX_POLL_ATTEMPT
       }
     }
   }
-  
+
   logger.error(`[${requestId}] Polling timed out without completion`);
   return {
     success: false,
@@ -364,24 +368,24 @@ async function pollForResults(pollUrl, requestId, maxAttempts = MAX_POLL_ATTEMPT
  */
 async function conductDeepResearch(query, options = {}) {
   const requestId = options.requestId || uuidv4();
-  
+
   logger.info(`[${requestId}] Starting complete deep research process for query: "${query.substring(0, 50)}..."`);
-  
+
   // Initiate the research
   const initiateResult = await initiateDeepResearch(query, {
     ...options,
     requestId
   });
-  
+
   if (!initiateResult.success) {
     logger.error(`[${requestId}] Failed to initiate deep research: ${initiateResult.error}`);
     return initiateResult;
   }
-  
+
   // Check if we need to poll for results
   if (initiateResult.requiresPolling && initiateResult.pollUrl) {
     logger.info(`[${requestId}] Initiating polling phase for deep research`);
-    
+
     return await pollForResults(
       initiateResult.pollUrl, 
       requestId,
@@ -404,10 +408,10 @@ async function conductDeepResearch(query, options = {}) {
  */
 function isCompletedResponse(response) {
   if (!response) return false;
-  
+
   // Check if response has citations (usually indicates completion)
   if (response.citations && response.citations.length > 0) return true;
-  
+
   // Check if choices exist and have content
   if (response.choices && 
       response.choices[0] && 
@@ -415,10 +419,10 @@ function isCompletedResponse(response) {
       response.choices[0].message.content) {
     return true;
   }
-  
+
   // Check for specific status field
   if (response.status === 'completed') return true;
-  
+
   return false;
 }
 
@@ -430,23 +434,23 @@ function isCompletedResponse(response) {
  */
 function extractPollUrl(response) {
   if (!response) return null;
-  
+
   // Check common formats for poll URLs
   if (response.poll_url) return response.poll_url;
   if (response.poll) return response.poll;
-  
+
   // Check inside choices array
   if (response.choices && response.choices[0]) {
     const choice = response.choices[0];
     if (choice.poll_url) return choice.poll_url;
     if (choice.message && choice.message.poll_url) return choice.message.poll_url;
   }
-  
+
   // Check metadata
   if (response.metadata && response.metadata.poll_url) {
     return response.metadata.poll_url;
   }
-  
+
   return null;
 }
 
@@ -458,7 +462,7 @@ function extractPollUrl(response) {
  */
 function extractContent(response) {
   if (!response) return null;
-  
+
   // Try to find content in different response formats
   if (response.choices && 
       response.choices[0] && 
@@ -466,9 +470,9 @@ function extractContent(response) {
       response.choices[0].message.content) {
     return response.choices[0].message.content;
   }
-  
+
   if (response.content) return response.content;
-  
+
   return null;
 }
 
@@ -480,10 +484,10 @@ function extractContent(response) {
  */
 function extractCitations(response) {
   if (!response) return [];
-  
+
   // Try to find citations in different response formats
   if (response.citations) return response.citations;
-  
+
   // Some responses include citations in the message
   if (response.choices && 
       response.choices[0] && 
@@ -491,7 +495,7 @@ function extractCitations(response) {
       response.choices[0].message.citations) {
     return response.choices[0].message.citations;
   }
-  
+
   return [];
 }
 
@@ -504,12 +508,182 @@ function extractCitations(response) {
  */
 function extractModelInfo(response, defaultModel = 'unknown') {
   if (!response) return defaultModel;
-  
+
   // Try various paths where model info might be found
   if (response.model) return response.model;
-  
+
   return defaultModel;
 }
+
+
+/**
+ * Perform deep research using Perplexity's specialized deep research model
+ * 
+ * @param {string} query - The research query
+ * @param {Object} options - Additional options
+ * @param {string} options.model - The model to use (defaults to sonar-deep-research)
+ * @param {string[]} options.fallbackModels - Array of models to try if primary model fails
+ * @param {boolean} options.enableChunking - Whether to enable query chunking
+ * @param {string} options.requestId - Optional request ID for tracking
+ * @returns {Promise<Object>} Research results
+ */
+async function performDeepResearch(query, options = {}) {
+  // Extract options with defaults
+  const requestId = typeof options === 'string' ? options : (options.requestId || uuidv4().substring(0, 8));
+  const primaryModel = options.model || 'sonar-deep-research';
+  const fallbackModels = options.fallbackModels || ['sonar-pro']; // Added sonar-pro as fallback
+  const enableChunking = options.enableChunking || false;
+
+  logger.info(`Starting deep research with model: ${primaryModel} [${requestId}]`);
+
+  // Store original model for tracking fallbacks
+  const originalModel = primaryModel;
+  let modelUsed = primaryModel;
+  let modelAttempts = [primaryModel];
+
+  try {
+    // Try with primary model first
+    const result = await executeDeepResearch(query, {
+      ...options,
+      model: primaryModel,
+      requestId
+    });
+
+    return {
+      ...result,
+      originalModel,
+      modelUsed: result.modelUsed || primaryModel
+    };
+  } catch (primaryError) {
+    logger.warn(`Primary model ${primaryModel} failed: ${primaryError.message} [${requestId}]`);
+
+    // If fallback models are specified, try them in sequence
+    if (fallbackModels && fallbackModels.length > 0) {
+      for (const fallbackModel of fallbackModels) {
+        try {
+          logger.info(`Trying fallback model: ${fallbackModel} [${requestId}]`);
+          modelAttempts.push(fallbackModel);
+
+          const fallbackResult = await executeDeepResearch(query, {
+            ...options,
+            model: fallbackModel,
+            requestId
+          });
+
+          modelUsed = fallbackModel;
+          logger.info(`Fallback to model ${fallbackModel} succeeded [${requestId}]`);
+
+          return {
+            ...fallbackResult,
+            originalModel,
+            modelUsed: fallbackResult.modelUsed || fallbackModel,
+            fallbackUsed: true,
+            modelAttempts
+          };
+        } catch (fallbackError) {
+          logger.warn(`Fallback model ${fallbackModel} also failed: ${fallbackError.message} [${requestId}]`);
+        }
+      }
+    }
+
+    // If we've tried all fallbacks and nothing worked, throw the original error
+    logger.error(`All models failed for deep research [${requestId}]`);
+    throw primaryError;
+  }
+}
+
+/**
+ * Execute the deep research query with a specific model
+ * This is an internal function used by performDeepResearch
+ */
+async function executeDeepResearch(query, options = {}) {
+  const requestId = options.requestId || uuidv4().substring(0, 8);
+  const model = options.model || 'sonar-deep-research';
+  const context = options.context || '';
+  const maxCitations = options.maxCitations || 15;
+  const enableChunking = options.enableChunking || false;
+
+  logger.info(`Executing deep research with model: ${model} [${requestId}]`);
+
+  // If chunking is enabled and the query is long, use chunked processing
+  if (enableChunking && query.length > 2000) {
+    logger.info(`Query length ${query.length} exceeds threshold, using chunked processing [${requestId}]`);
+    return processChunkedDeepResearch(query, options);
+  }
+
+  // Create a message array with the user query
+  const messages = [
+    {
+      role: 'system',
+      content: 'You are a research assistant with deep internet search capabilities. Your task is to conduct comprehensive research on the topic provided and synthesize a detailed report with multiple relevant sources. ALWAYS search the web extensively before responding. Include ALL relevant citations.'
+    },
+    {
+      role: 'user',
+      content: context 
+        ? `${context}\n\nWith that context in mind, please research: ${query}`
+        : `Please conduct deep, comprehensive research on the following topic: ${query}\n\nI need detailed information with recent sources. This research should be thorough and include comprehensive citations.`
+    }
+  ];
+
+  // Create request with specified model and high search context
+  const requestPayload = {
+    model: model,
+    messages,
+    max_tokens: options.maxTokens || 4000,
+    temperature: options.temperature || 0.1,
+    top_p: options.topP || 0.95,
+    search_recency_filter: options.recencyFilter || "day",
+    stream: false,
+    frequency_penalty: options.frequencyPenalty || 0.5,
+    search_domain_filter: [], // Allow searching all domains
+    top_k: maxCitations,
+    search_context_mode: options.searchContextMode || "high"
+  };
+
+  logger.info(`Sending deep research request with model: ${model} [${requestId}]`);
+
+  try {
+    const response = await axios.post(
+      API_URL,
+      requestPayload,
+      {
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: options.timeout || 180000 // 3 minutes timeout by default
+      }
+    );
+
+    logger.info(`Deep research response received for model: ${model} [${requestId}]`);
+
+    // Extract citations and content
+    const citations = response.data.citations || [];
+    const content = response.data.choices[0].message.content;
+
+    // Add model information to the content
+    const responseModel = response.data.model || model;
+    const modelInfo = `[Using Perplexity AI - Deep Research Model: ${responseModel}]\n\n`;
+    const enhancedContent = modelInfo + content;
+
+    return {
+      content: enhancedContent,
+      citations,
+      modelUsed: responseModel,
+      requestId
+    };
+  } catch (error) {
+    logger.error(`Error with model ${model} for deep research [${requestId}]: ${error.message}`);
+    throw error;
+  }
+}
+
+// Placeholder function -  Needs implementation if chunking is used
+async function processChunkedDeepResearch(query, options) {
+  // Implement logic for handling chunked deep research queries here
+  throw new Error("Chunked deep research not yet implemented");
+}
+
 
 // Export the service functions
 module.exports = {
@@ -518,7 +692,9 @@ module.exports = {
   initiateDeepResearch,
   pollForResults,
   conductDeepResearch,
-  
+  performDeepResearch, // Added performDeepResearch
+  executeDeepResearch, //Added executeDeepResearch
+
   // Helper functions
   isCompletedResponse,
   extractPollUrl,
