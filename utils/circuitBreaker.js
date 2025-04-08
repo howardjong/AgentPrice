@@ -31,53 +31,53 @@ class CircuitBreaker {
       successThreshold: 2,
       ...options
     };
-    
+
     this.name = options.name || 'CircuitBreaker';
-    
+
     // Initialize state
     this.state = STATE.CLOSED;
     this.failureCount = 0;
     this.successCount = 0;
     this.nextAttempt = Date.now();
-    
+
     // Track historical state changes
     this.stateHistory = [{
       timestamp: Date.now(),
       state: this.state,
       reason: 'Initialized'
     }];
-    
+
     logger.info(`${this.name}: Circuit breaker initialized in ${this.state} state`, {
       component: 'circuitBreaker'
     });
   }
-  
+
   /**
    * Records a successful operation, potentially closing the circuit
    */
   recordSuccess() {
     this.failureCount = 0;
-    
+
     if (this.state === STATE.HALF_OPEN) {
       this.successCount++;
-      
+
       if (this.successCount >= this.options.successThreshold) {
         this.transitionTo(STATE.CLOSED, 'Success threshold reached');
       }
     }
   }
-  
+
   /**
    * Records a failed operation, potentially opening the circuit
    */
   recordFailure() {
     this.failureCount++;
     this.successCount = 0;
-    
+
     if (this.state === STATE.CLOSED && 
         this.failureCount >= this.options.failureThreshold) {
       this.transitionTo(STATE.OPEN, 'Failure threshold reached');
-      
+
       // Schedule the circuit to half-open after the reset timeout
       this.nextAttempt = Date.now() + this.options.resetTimeout;
     } else if (this.state === STATE.HALF_OPEN) {
@@ -85,7 +85,7 @@ class CircuitBreaker {
       this.nextAttempt = Date.now() + this.options.resetTimeout;
     }
   }
-  
+
   /**
    * Checks if the circuit is open and requests should be blocked
    * @returns {boolean} - True if circuit is open and requests should be blocked
@@ -97,10 +97,10 @@ class CircuitBreaker {
         this.transitionTo(STATE.HALF_OPEN, 'Reset timeout elapsed');
       }
     }
-    
+
     return this.state === STATE.OPEN;
   }
-  
+
   /**
    * Forces the circuit to a specific state
    * @param {string} state - The state to transition to (use STATE constants)
@@ -109,11 +109,11 @@ class CircuitBreaker {
   forceState(state, reason = 'Manually forced') {
     if (Object.values(STATE).includes(state)) {
       this.transitionTo(state, reason);
-      
+
       // Reset counters
       this.failureCount = 0;
       this.successCount = 0;
-      
+
       if (state === STATE.OPEN) {
         this.nextAttempt = Date.now() + this.options.resetTimeout;
       }
@@ -123,7 +123,7 @@ class CircuitBreaker {
       });
     }
   }
-  
+
   /**
    * Gets the current state of the circuit
    * @returns {string} - The current state (OPEN, CLOSED, or HALF_OPEN)
@@ -131,7 +131,7 @@ class CircuitBreaker {
   getState() {
     return this.state;
   }
-  
+
   /**
    * Gets statistics about this circuit breaker
    * @returns {Object} - Circuit breaker statistics
@@ -145,7 +145,7 @@ class CircuitBreaker {
       stateHistory: this.stateHistory.slice(-10) // Last 10 state changes
     };
   }
-  
+
   /**
    * Executes a function within the circuit breaker's protection
    * If the circuit is open, throws an error without calling the function
@@ -160,27 +160,27 @@ class CircuitBreaker {
       error.code = 'CIRCUIT_OPEN';
       throw error;
     }
-    
+
     try {
       // Execute the function
       const result = await fn();
-      
+
       // Record success
       this.recordSuccess();
-      
+
       return result;
     } catch (error) {
       // Record failure
       this.recordFailure();
-      
+
       // Add circuit breaker context to error
       error.circuitBreakerState = this.state;
-      
+
       // Re-throw the original error
       throw error;
     }
   }
-  
+
   /**
    * Helper to transition between states
    * @param {string} newState - The new state
@@ -192,22 +192,22 @@ class CircuitBreaker {
       logger.info(`${this.name}: Circuit state change from ${this.state} to ${newState} (${reason})`, {
         component: 'circuitBreaker'
       });
-      
+
       // Update state
       this.state = newState;
-      
+
       // Record state change in history
       this.stateHistory.push({
         timestamp: Date.now(),
         state: newState,
         reason
       });
-      
+
       // Keep history at a reasonable size
       if (this.stateHistory.length > 100) {
         this.stateHistory = this.stateHistory.slice(-100);
       }
-      
+
       // Reset success count on any transition except to HALF_OPEN
       if (newState !== STATE.HALF_OPEN) {
         this.successCount = 0;
@@ -216,5 +216,4 @@ class CircuitBreaker {
   }
 }
 
-export { CircuitBreaker };
 export default CircuitBreaker;

@@ -1,124 +1,137 @@
 
 /**
- * Test script for improved deep research flow
- * This script tests the updated Perplexity deep research implementation
- * with better error handling and fallback mechanisms
+ * Test Improved Deep Research Functionality
+ * 
+ * This test verifies the Perplexity deep research functionality with proper model fallback
+ * from sonar-deep-research to sonar-pro if needed.
  */
 
+import 'dotenv/config';
 import perplexityService from '../../services/perplexityService.js';
 import logger from '../../utils/logger.js';
-import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs/promises';
+import path from 'path';
 
-async function testImprovedDeepResearch() {
+// Configure test
+const TEST_QUERY = process.argv[2] || 
+  "What are the latest developments in AI alignment research and how are leading AI labs addressing safety concerns?";
+
+const OUTPUT_DIR = path.join('test-results', 'deep-research-tests');
+
+// Make sure the output directory exists
+async function ensureOutputDir() {
   try {
-    console.log('Testing improved Perplexity deep research implementation...');
-    
-    // Check if the API key is configured
-    if (!process.env.PERPLEXITY_API_KEY) {
-      console.error('ERROR: PERPLEXITY_API_KEY is not set in environment variables!');
-      console.log('Please set the environment variable and try again.');
-      return;
-    }
-    
-    console.log('API key check passed ✓');
-    
-    // Generate a test job ID
-    const testJobId = uuidv4();
-    
-    // Set query options with specific model and fallback
-    const options = {
-      model: 'sonar-deep-research',
-      fallbackModels: ['sonar-pro', 'sonar'],
-      requestId: testJobId,
-      enableChunking: true,
-      saveResult: true,
-      maxRetries: 2
-    };
-    
-    // Test query
-    const testQuery = 'Summarize the most effective pricing strategies for SaaS products in 2025. Be concise.';
-    
-    // Test deep research with model extraction
-    console.log('\nPerforming deep research with improved fallback mechanism...');
-    console.log('Test job ID:', testJobId);
-    console.log('Primary model:', options.model);
-    console.log('Fallback models:', options.fallbackModels.join(', '));
-    console.log('Query:', testQuery);
+    await fs.mkdir(OUTPUT_DIR, { recursive: true });
+    console.log(`Created output directory: ${OUTPUT_DIR}`);
+  } catch (error) {
+    console.error(`Error creating output directory: ${error.message}`);
+  }
+}
+
+// Main test function
+async function runDeepResearchTest() {
+  const testId = Date.now().toString().substring(6);
+  console.log(`\n======================================`);
+  console.log(`IMPROVED DEEP RESEARCH TEST #${testId}`);
+  console.log(`======================================\n`);
+  
+  console.log(`Query: "${TEST_QUERY.substring(0, 100)}${TEST_QUERY.length > 100 ? '...' : ''}"\n`);
+  
+  try {
+    console.log(`Testing performDeepResearch with sonar-deep-research (fallback to sonar-pro)...`);
     
     const startTime = Date.now();
+    const result = await perplexityService.performDeepResearch(TEST_QUERY, {
+      model: 'sonar-deep-research',
+      fallbackModels: ['sonar-pro', 'sonar'],
+      requestId: `test-${testId}`,
+      saveResult: true
+    });
     
-    try {
-      const result = await perplexityService.performDeepResearch(testQuery, options);
-      
-      const endTime = Date.now();
-      const duration = (endTime - startTime) / 1000;
-      
-      console.log(`\nDeep research completed in ${duration.toFixed(1)} seconds.`);
-      console.log('Content preview:');
-      console.log(result.content.substring(0, 200) + '...');
-      
-      console.log('\nActual model used:', result.modelUsed || 'Not specified');
-      console.log('Citations count:', (result.citations || []).length);
-      
-      if (result.fallbackUsed) {
-        console.log('\nModel fallback occurred:');
-        console.log(`Original model: ${result.originalModel}`);
-        console.log(`Fallback model used: ${result.modelUsed}`);
-        console.log(`Fallback reason: ${result.fallbackReason || 'Primary model failed'}`);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`\n✅ Deep research completed in ${duration} seconds`);
+    console.log(`Model used: ${result.modelUsed || 'unknown'}`);
+    
+    if (result.fallbackUsed) {
+      console.log(`⚠️ Fallback was used: ${result.fallbackReason}`);
+      console.log(`Model attempts: ${result.modelAttempts.join(' -> ')}`);
+    }
+    
+    console.log(`\nContent length: ${result.content?.length || 0} characters`);
+    console.log(`Citations: ${result.citations?.length || 0}`);
+    
+    // Save successful result
+    const outputFile = path.join(OUTPUT_DIR, `deep-research-result-${testId}.json`);
+    await fs.writeFile(outputFile, JSON.stringify({
+      query: TEST_QUERY,
+      result,
+      testInfo: {
+        timestamp: new Date().toISOString(),
+        duration: `${duration} seconds`,
+        modelUsed: result.modelUsed,
+        fallbackUsed: result.fallbackUsed || false
       }
-      
-      // Log citation examples if available
-      if (result.citations && result.citations.length > 0) {
-        console.log('\nCitation examples:');
-        result.citations.slice(0, 3).forEach((citation, index) => {
-          console.log(`${index+1}. ${citation.title || 'Untitled'} - ${citation.url || 'No URL'}`);
-        });
-      }
-      
-      console.log('\nTest completed successfully ✓');
-      
-    } catch (error) {
-      console.error('\nDeep research failed with error:', error.message);
-      
-      if (error.type) {
-        console.error('Error type:', error.type);
-      }
-      
-      if (error.model) {
-        console.error('Failed model:', error.model);
-      }
-      
-      console.error('\nTrying explicit sonar-pro model as fallback...');
-      
-      try {
-        const fallbackResult = await perplexityService.performDeepResearch(
-          testQuery,
-          {
-            ...options,
-            model: 'sonar-pro'
-          }
-        );
-        
-        console.log('\nFallback research result received.');
-        console.log('Content preview:');
-        console.log(fallbackResult.content.substring(0, 200) + '...');
-        
-        console.log('\nFallback model used:', fallbackResult.modelUsed || 'sonar-pro');
-        console.log('Citations count:', (fallbackResult.citations || []).length);
-        
-        console.log('\nManual fallback test completed successfully ✓');
-      } catch (fallbackError) {
-        console.error('\nEven fallback to sonar-pro failed:', fallbackError.message);
-        console.error('Test failed ✗');
+    }, null, 2));
+    
+    console.log(`\nSaved result to ${outputFile}`);
+    
+    // Print first 500 characters of content
+    if (result.content) {
+      console.log(`\nContent preview:\n${'-'.repeat(40)}\n${result.content.substring(0, 500)}...\n${'-'.repeat(40)}`);
+    }
+    
+    // Print citations if available
+    if (result.citations && result.citations.length > 0) {
+      console.log(`\nCitations preview:`);
+      result.citations.slice(0, 3).forEach((citation, index) => {
+        console.log(`[${index + 1}] ${citation.title || 'Untitled'}: ${citation.url || 'No URL'}`);
+      });
+      if (result.citations.length > 3) {
+        console.log(`...and ${result.citations.length - 3} more citations`);
       }
     }
     
   } catch (error) {
-    console.error('Unhandled error in test:', error);
+    console.error(`\n❌ Error testing deep research:`);
+    console.error(`Error message: ${error.message}`);
+    
+    if (error.stack) {
+      console.error(`\nStack trace:\n${error.stack.split('\n').slice(0, 3).join('\n')}`);
+    }
+    
+    // Save error information
+    const errorFile = path.join(OUTPUT_DIR, `deep-research-error-${testId}.json`);
+    await fs.writeFile(errorFile, JSON.stringify({
+      query: TEST_QUERY,
+      error: {
+        message: error.message,
+        type: error.type || 'unknown',
+        model: error.model || 'unknown',
+        stack: error.stack?.split('\n').slice(0, 10).join('\n'),
+        timestamp: new Date().toISOString()
+      }
+    }, null, 2));
+    
+    console.error(`\nSaved error details to ${errorFile}`);
+  } finally {
+    console.log(`\n======================================`);
+    console.log(`TEST COMPLETED`);
+    console.log(`======================================\n`);
   }
 }
 
 // Run the test
-testImprovedDeepResearch().catch(err => {
-  console.error('Unhandled error in test:', err);
+async function main() {
+  await ensureOutputDir();
+  await runDeepResearchTest();
+  
+  // Give time for logs to flush
+  setTimeout(() => {
+    process.exit(0);
+  }, 1000);
+}
+
+main().catch(error => {
+  console.error('Unhandled error in main:', error);
+  process.exit(1);
 });

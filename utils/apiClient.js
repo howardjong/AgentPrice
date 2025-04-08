@@ -30,25 +30,25 @@ class RobustAPIClient {
       circuitBreakerResetTimeout: 30000,
       ...options
     };
-    
+
     // Create axios instance with default configuration
     this.axios = axios.create({
       baseURL: options.baseURL,
       headers: options.headers || {},
       timeout: this.options.timeout
     });
-    
+
     // Setup circuit breaker
     this.circuitBreaker = new CircuitBreaker({
       failureThreshold: this.options.circuitBreakerThreshold,
       resetTimeout: this.options.circuitBreakerResetTimeout,
       name: options.baseURL || options.name || 'apiClient'
     });
-    
+
     // Internal state
     this.name = options.name || 'API Client';
   }
-  
+
   /**
    * Make a request with retry logic and circuit breaking
    * @param {Object} config - Axios request configuration
@@ -63,10 +63,10 @@ class RobustAPIClient {
       });
       throw new Error(`Circuit breaker open for ${this.name}`);
     }
-    
+
     let lastError = null;
     let attempt = 0;
-    
+
     while (attempt <= this.options.maxRetries) {
       try {
         // Make the request
@@ -74,41 +74,41 @@ class RobustAPIClient {
           ...config,
           validateStatus: null  // Don't throw on non-2xx responses
         });
-        
+
         // Validate response format
         if (!response) {
           throw new Error('Unexpected response format');
         }
-        
+
         if (typeof response.status === 'undefined') {
           throw new Error('Invalid response format: missing status code');
         }
-        
+
         // Check if the response is successful
         if (response.status >= 200 && response.status < 300) {
           // Success - record the success and return the data
           this.circuitBreaker.recordSuccess();
           return response.data;
         }
-        
+
         // Handle specific error statuses
         if (response.status === 429) {
           // Rate limit error - calculate backoff
           const retryAfter = this.parseRetryAfterHeader(response.headers['retry-after']) ||
             this.calculateBackoff(attempt);
-            
+
           logger.warn(`${this.name}: Rate limit exceeded, retrying in ${retryAfter}ms`, {
             component: 'apiClient',
             url: config.url,
             attempt: attempt + 1
           });
-          
+
           // Wait before retrying
           await this.delay(retryAfter);
           attempt++;
           continue;
         }
-        
+
         // For other error statuses, handle as failures
         const error = new Error(`HTTP error ${response.status}: ${response.statusText || 'Unknown error'}`);
         error.response = response;
@@ -120,21 +120,21 @@ class RobustAPIClient {
         } else {
           lastError = error;
         }
-        
+
         // Record the failure in the circuit breaker
         this.circuitBreaker.recordFailure();
-        
+
         // Check if we should retry
         if (this.shouldRetry(error) && attempt < this.options.maxRetries) {
           const backoff = this.calculateBackoff(attempt);
-          
+
           logger.warn(`${this.name}: Request failed, retrying in ${backoff}ms`, {
             component: 'apiClient',
             url: config.url,
             attempt: attempt + 1,
             error: error.message || 'Unknown error'
           });
-          
+
           // Wait before retrying
           await this.delay(backoff);
           attempt++;
@@ -144,17 +144,17 @@ class RobustAPIClient {
         }
       }
     }
-    
+
     // All retries failed, throw the last error
     logger.error(`${this.name}: All retries failed`, {
       component: 'apiClient',
       url: config.url,
       error: lastError
     });
-    
+
     throw lastError;
   }
-  
+
   /**
    * Parse the Retry-After header value
    * @param {string} retryAfter - The value of the Retry-After header
@@ -164,19 +164,19 @@ class RobustAPIClient {
     if (!retryAfter) {
       return null;
     }
-    
+
     // Try parsing as a number of seconds
     const seconds = parseFloat(retryAfter);
     if (!isNaN(seconds)) {
       return Math.ceil(seconds * 1000); // Convert to milliseconds and round up
     }
-    
+
     // Try parsing as an HTTP date
     try {
       const retryDate = new Date(retryAfter);
       const now = Date.now();
       const delay = retryDate.getTime() - now;
-      
+
       // Ensure minimum delay of 100ms to avoid immediate retry
       return Math.max(delay, 100);
     } catch (e) {
@@ -187,7 +187,7 @@ class RobustAPIClient {
       return null;
     }
   }
-  
+
   /**
    * Helper to calculate exponential backoff
    * @param {number} attempt - The current attempt number (starting from 0)
@@ -197,18 +197,18 @@ class RobustAPIClient {
     // Exponential backoff with jitter
     const baseDelay = this.options.retryDelay;
     const maxDelay = 60000; // Cap at 1 minute
-    
+
     // Calculate exponential delay: base * 2^attempt
     let delay = baseDelay * Math.pow(2, attempt);
-    
+
     // Add jitter (up to 30% random variance)
     const jitter = delay * 0.3 * Math.random();
     delay += jitter;
-    
+
     // Cap the delay
     return Math.min(delay, maxDelay);
   }
-  
+
   /**
    * Helper to decide if a request should be retried
    * @param {Error} error - The error that occurred
@@ -219,9 +219,9 @@ class RobustAPIClient {
     if (!error.response) {
       return true;
     }
-    
+
     const status = error.response.status;
-    
+
     // Retry for certain status codes
     return (
       status === 408 || // Request Timeout
@@ -232,7 +232,7 @@ class RobustAPIClient {
       status === 504    // Gateway Timeout
     );
   }
-  
+
   /**
    * Helper to create a delay promise
    * @param {number} ms - Time to delay in milliseconds
@@ -241,7 +241,7 @@ class RobustAPIClient {
   delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
-  
+
   /**
    * Convenience method for GET requests
    * @param {string} url - The URL to request
@@ -255,7 +255,7 @@ class RobustAPIClient {
       url
     });
   }
-  
+
   /**
    * Convenience method for POST requests
    * @param {string} url - The URL to request
@@ -271,7 +271,7 @@ class RobustAPIClient {
       data
     });
   }
-  
+
   /**
    * Convenience method for PUT requests
    * @param {string} url - The URL to request
@@ -287,7 +287,7 @@ class RobustAPIClient {
       data
     });
   }
-  
+
   /**
    * Convenience method for DELETE requests
    * @param {string} url - The URL to request
@@ -301,7 +301,7 @@ class RobustAPIClient {
       url
     });
   }
-  
+
   /**
    * Convenience method for PATCH requests
    * @param {string} url - The URL to request
@@ -317,7 +317,7 @@ class RobustAPIClient {
       data
     });
   }
-  
+
   /**
    * Executes a function with circuit breaker protection
    * 
@@ -333,19 +333,19 @@ class RobustAPIClient {
       });
       throw new Error(`Circuit breaker open for ${this.name}`);
     }
-    
+
     try {
       // Execute the function
       const result = await fn();
-      
+
       // Record success in circuit breaker
       this.circuitBreaker.recordSuccess();
-      
+
       return result;
     } catch (error) {
       // Record failure in circuit breaker
       this.circuitBreaker.recordFailure();
-      
+
       // Rethrow the error with context
       if (error instanceof Error) {
         // Add circuit breaker context to error

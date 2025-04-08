@@ -5,13 +5,13 @@
  * including both standard and deep research capabilities.
  */
 
-const RobustAPIClient = require('../utils/apiClient');
-const CircuitBreaker = require('../utils/circuitBreaker');
-const logger = require('../utils/logger');
-const fs = require('fs').promises;
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const axios = require('axios'); // Added axios for API calls
+import RobustAPIClient from '../utils/apiClient.js';
+import CircuitBreaker from '../utils/circuitBreaker.js';
+import logger from '../utils/logger.js';
+import { promises as fs } from 'fs';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import axios from 'axios'; // Added axios for API calls
 
 
 // Configuration
@@ -814,7 +814,7 @@ async function processChunkedDeepResearch(query, options) {
 
 
 // Export the service functions
-module.exports = {
+export default {
   // Main API functions
   query,
   initiateDeepResearch,

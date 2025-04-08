@@ -75,7 +75,7 @@ localPort = 45365
 externalPort = 8000
 
 [workflows]
-runButton = "Run ESM Server"
+runButton = "Test Improved Deep Research"
 
 [[workflows.workflow]]
 name = "Project"
