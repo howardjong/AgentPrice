@@ -19,6 +19,12 @@ import axios from 'axios'; // Used for HTTP requests
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Ensure REPL_SLUG is defined for Replit environments
+if (!process.env.REPL_SLUG && process.env.REPL_ID) {
+  process.env.REPL_SLUG = process.env.REPL_ID || 'default-repl';
+  process.env.REPLIT_HOSTED = 'true';
+}
+
 async function checkSystemHealth() {
   console.log('======================================');
   console.log('       SYSTEM HEALTH CHECK');
@@ -315,10 +321,14 @@ async function checkSystemHealth() {
   // Add an API health section to our status
   healthStatus.apiHealth = { ok: true, issues: [] };
   
+  // Define the base URL to use for API endpoints
+  const baseUrl = process.env.REPLIT_HOSTED ? `https://${process.env.REPL_SLUG}.replit.dev` : 'http://localhost:5000';
+  console.log(`- Using base URL for API calls: ${baseUrl}`);
+  
   // Test the assistant health endpoint
   try {
     console.log('- Testing /api/assistant/health endpoint...');
-    const assistantHealthResponse = await axios.get('http://localhost:5000/api/assistant/health');
+    const assistantHealthResponse = await axios.get(`${baseUrl}/api/assistant/health`);
     
     if (assistantHealthResponse.status === 200) {
       console.log('- ✅ Assistant health endpoint is accessible');
@@ -363,7 +373,8 @@ async function checkSystemHealth() {
   // Test the full health endpoint
   try {
     console.log('- Testing /api/health endpoint...');
-    const fullHealthResponse = await axios.get('http://localhost:5000/api/health');
+    // Use the same baseUrl as defined earlier
+    const fullHealthResponse = await axios.get(`${baseUrl}/api/health`);
     
     if (fullHealthResponse.status === 200) {
       console.log('- ✅ Full health endpoint is accessible');

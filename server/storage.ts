@@ -41,6 +41,10 @@ export interface IStorage {
   createResearchReport(report: Partial<ResearchReport>): Promise<ResearchReport>;
   getResearchReportById(id: string): Promise<ResearchReport | null>;
   getResearchReportsByJobId(jobId: string): Promise<ResearchReport[]>;
+  
+  // API status operations
+  updateServiceStatus(service: string, status: any): Promise<boolean>;
+  getApiStatus(): Promise<any>;
 }
 
 /**

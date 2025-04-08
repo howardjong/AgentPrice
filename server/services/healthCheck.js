@@ -9,20 +9,49 @@
  */
 
 import logger from '../../utils/logger.js';
+import { storage } from '../storage.js';
 
 /**
  * Check the overall system health and return a status report
  * @returns {Object} System health status
  */
-export function checkSystemHealth() {
+export async function checkSystemHealth() {
+  // Get API status from storage
+  let apiStatus;
+  try {
+    apiStatus = await storage.getApiStatus();
+  } catch (error) {
+    logger.error(`Error getting API status: ${error.message}`);
+    apiStatus = {
+      claude: { status: 'unknown', lastChecked: new Date().toISOString() },
+      perplexity: { status: 'unknown', lastChecked: new Date().toISOString() },
+      server: { status: 'running', version: '1.0.0' }
+    };
+  }
+
+  // Check if API keys are present
+  const hasAnthropicKey = process.env.ANTHROPIC_API_KEY !== undefined;
+  const hasPerplexityKey = process.env.PERPLEXITY_API_KEY !== undefined; 
+
   const status = {
     lastUpdate: Date.now(),
     health: 'healthy', // Default state is healthy until proven otherwise
     services: {
-      claude: { status: 'connected', healthy: true },
-      perplexity: { status: 'connected', healthy: true },
+      claude: { 
+        status: apiStatus?.claude?.status || 'unknown', 
+        healthy: apiStatus?.claude?.status === 'connected' 
+      },
+      perplexity: { 
+        status: apiStatus?.perplexity?.status || 'unknown', 
+        healthy: apiStatus?.perplexity?.status === 'connected'
+      },
       redis: { status: 'connected', healthy: true },
       server: { status: 'running', healthy: true }
+    },
+    apiKeys: {
+      allKeysPresent: hasAnthropicKey && hasPerplexityKey,
+      anthropic: hasAnthropicKey,
+      perplexity: hasPerplexityKey
     },
     memory: {
       usagePercent: getMemoryUsage(),
@@ -79,8 +108,8 @@ export function checkServiceHealth(serviceName) {
  * Get detailed system metrics
  * @returns {Object} Detailed metrics about the system
  */
-export function getDetailedMetrics() {
-  const baseHealth = checkSystemHealth();
+export async function getDetailedMetrics() {
+  const baseHealth = await checkSystemHealth();
   
   return {
     ...baseHealth,

@@ -11,6 +11,11 @@ import { v4 as uuidv4 } from 'uuid';
 export class PostgresStorage {
   constructor(db) {
     this.db = db;
+    this.apiStatus = {
+      claude: { status: 'unknown', lastChecked: new Date().toISOString() },
+      perplexity: { status: 'unknown', lastChecked: new Date().toISOString() },
+      server: { status: 'running', version: '1.0.0' }
+    };
     console.log('PostgreSQL storage initialized');
   }
 
@@ -276,6 +281,61 @@ export class PostgresStorage {
     
     const result = await this.db.query(query, [jobId]);
     return result.rows.map(row => this.toCamelCase(row));
+  }
+
+  // API status operations
+  async updateServiceStatus(service, status) {
+    try {
+      // Update the in-memory status
+      if (this.apiStatus[service]) {
+        this.apiStatus[service] = {
+          ...this.apiStatus[service],
+          ...status,
+          lastChecked: new Date().toISOString()
+        };
+        
+        // In a production implementation, you would also update a database table
+        // For example:
+        // const query = `
+        //   INSERT INTO api_status (service, status, last_checked)
+        //   VALUES ($1, $2, NOW())
+        //   ON CONFLICT (service) DO UPDATE
+        //   SET status = $2, last_checked = NOW()
+        // `;
+        // await this.db.query(query, [service, JSON.stringify(status)]);
+        
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error(`Error updating service status for ${service}:`, error);
+      return false;
+    }
+  }
+
+  async getApiStatus() {
+    try {
+      // In a production implementation, you would retrieve this from a database
+      // For example:
+      // const query = `SELECT * FROM api_status`;
+      // const result = await this.db.query(query);
+      // const status = {};
+      // result.rows.forEach(row => {
+      //   status[row.service] = JSON.parse(row.status);
+      // });
+      // return status;
+      
+      // For now, just return the in-memory status
+      return { ...this.apiStatus };
+    } catch (error) {
+      console.error('Error getting API status:', error);
+      // Return a default status in case of errors
+      return {
+        claude: { status: 'unknown', lastChecked: new Date().toISOString() },
+        perplexity: { status: 'unknown', lastChecked: new Date().toISOString() },
+        server: { status: 'running', version: '1.0.0' }
+      };
+    }
   }
 
   // Utility methods for handling snake_case <-> camelCase conversion
