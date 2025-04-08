@@ -531,8 +531,9 @@ async function performDeepResearch(query, options = {}) {
   // Extract options with defaults
   const requestId = typeof options === 'string' ? options : (options.requestId || uuidv4().substring(0, 8));
   const primaryModel = options.model || 'sonar-deep-research';
-  const fallbackModels = options.fallbackModels || ['sonar-pro']; // Added sonar-pro as fallback
+  const fallbackModels = options.fallbackModels || ['sonar-pro', 'sonar']; // Multiple fallbacks in priority order
   const enableChunking = options.enableChunking || false;
+  const maxRetries = options.maxRetries || 2;
 
   logger.info(`Starting deep research with model: ${primaryModel} [${requestId}]`);
 
@@ -540,24 +541,46 @@ async function performDeepResearch(query, options = {}) {
   const originalModel = primaryModel;
   let modelUsed = primaryModel;
   let modelAttempts = [primaryModel];
+  let lastError = null;
 
+  // First try with the primary model
   try {
-    // Try with primary model first
-    const result = await executeDeepResearch(query, {
-      ...options,
-      model: primaryModel,
-      requestId
-    });
+    logger.info(`Attempting deep research with primary model: ${primaryModel} [${requestId}]`);
+    
+    // Add retry logic for the primary model
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const result = await executeDeepResearch(query, {
+          ...options,
+          model: primaryModel,
+          requestId
+        });
 
-    return {
-      ...result,
-      originalModel,
-      modelUsed: result.modelUsed || primaryModel
-    };
+        logger.info(`Deep research successful with model: ${primaryModel} (attempt ${attempt}) [${requestId}]`);
+        
+        return {
+          ...result,
+          originalModel,
+          modelUsed: result.modelUsed || primaryModel,
+          attempt
+        };
+      } catch (error) {
+        if (attempt < maxRetries) {
+          logger.warn(`Primary model ${primaryModel} failed on attempt ${attempt}: ${error.message}. Retrying... [${requestId}]`);
+          // Wait briefly before retrying
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } else {
+          // Last attempt failed, store the error and continue to fallbacks
+          lastError = error;
+          throw error;
+        }
+      }
+    }
   } catch (primaryError) {
-    logger.warn(`Primary model ${primaryModel} failed: ${primaryError.message} [${requestId}]`);
+    logger.warn(`All attempts with primary model ${primaryModel} failed: ${primaryError.message} [${requestId}]`);
+    lastError = primaryError;
 
-    // If fallback models are specified, try them in sequence
+    // Try fallback models in sequence
     if (fallbackModels && fallbackModels.length > 0) {
       for (const fallbackModel of fallbackModels) {
         try {
@@ -578,17 +601,25 @@ async function performDeepResearch(query, options = {}) {
             originalModel,
             modelUsed: fallbackResult.modelUsed || fallbackModel,
             fallbackUsed: true,
-            modelAttempts
+            modelAttempts,
+            fallbackReason: lastError ? lastError.message : 'Primary model failed'
           };
         } catch (fallbackError) {
-          logger.warn(`Fallback model ${fallbackModel} also failed: ${fallbackError.message} [${requestId}]`);
+          logger.warn(`Fallback model ${fallbackModel} failed: ${fallbackError.message} [${requestId}]`);
+          lastError = fallbackError;
         }
       }
     }
 
-    // If we've tried all fallbacks and nothing worked, throw the original error
-    logger.error(`All models failed for deep research [${requestId}]`);
-    throw primaryError;
+    // If we've tried all fallbacks and nothing worked, provide a detailed error
+    const errorMessage = `All models failed for deep research. Last error: ${lastError?.message || 'Unknown error'}`;
+    logger.error(`${errorMessage} [${requestId}]`, { 
+      modelAttempts, 
+      originalModel,
+      lastError: lastError?.stack || lastError?.message
+    });
+    
+    throw new Error(errorMessage);
   }
 }
 
@@ -611,11 +642,21 @@ async function executeDeepResearch(query, options = {}) {
     return processChunkedDeepResearch(query, options);
   }
 
+  // Create a system prompt tailored to the specific model
+  let systemPrompt = 'You are a research assistant with deep internet search capabilities. Your task is to conduct comprehensive research on the topic provided and synthesize a detailed report with multiple relevant sources. ALWAYS search the web extensively before responding. Include ALL relevant citations.';
+  
+  // Add model-specific prompt adjustments
+  if (model === 'sonar-deep-research') {
+    systemPrompt += ' Utilize your deep research capabilities to provide the most comprehensive answer possible.';
+  } else if (model === 'sonar-pro') {
+    systemPrompt += ' Provide thorough research using all available online sources.';
+  }
+
   // Create a message array with the user query
   const messages = [
     {
       role: 'system',
-      content: 'You are a research assistant with deep internet search capabilities. Your task is to conduct comprehensive research on the topic provided and synthesize a detailed report with multiple relevant sources. ALWAYS search the web extensively before responding. Include ALL relevant citations.'
+      content: systemPrompt
     },
     {
       role: 'user',
@@ -640,7 +681,13 @@ async function executeDeepResearch(query, options = {}) {
     search_context_mode: options.searchContextMode || "high"
   };
 
-  logger.info(`Sending deep research request with model: ${model} [${requestId}]`);
+  // Log detailed request for debugging
+  logger.info(`Sending deep research request with model: ${model} [${requestId}]`, {
+    modelName: model,
+    messageCount: messages.length,
+    maxTokens: requestPayload.max_tokens,
+    searchContextMode: requestPayload.search_context_mode
+  });
 
   try {
     const response = await axios.post(
@@ -657,24 +704,105 @@ async function executeDeepResearch(query, options = {}) {
 
     logger.info(`Deep research response received for model: ${model} [${requestId}]`);
 
+    // Ensure response has the expected structure
+    if (!response.data || !response.data.choices || !response.data.choices[0]) {
+      logger.error(`Unexpected response structure from Perplexity API [${requestId}]`, { 
+        responseData: JSON.stringify(response.data).substring(0, 500) + '...' 
+      });
+      throw new Error('Unexpected response structure from Perplexity API');
+    }
+
     // Extract citations and content
     const citations = response.data.citations || [];
-    const content = response.data.choices[0].message.content;
+    const content = response.data.choices[0].message?.content;
+    
+    if (!content) {
+      logger.error(`No content in response from Perplexity API [${requestId}]`);
+      throw new Error('No content in response from Perplexity API');
+    }
 
     // Add model information to the content
     const responseModel = response.data.model || model;
     const modelInfo = `[Using Perplexity AI - Deep Research Model: ${responseModel}]\n\n`;
     const enhancedContent = modelInfo + content;
 
+    // Log successful response details
+    logger.info(`Deep research successful with model: ${responseModel} [${requestId}]`, {
+      citationsCount: citations.length,
+      contentLength: content.length,
+      finishReason: response.data.choices[0].finish_reason || 'unknown'
+    });
+
+    // Save successful response for future reference if requested
+    if (options.saveResult) {
+      const resultFile = path.join(RESULTS_DIR, `request-${requestId}-${Date.now()}-completed.json`);
+      await fs.writeFile(resultFile, JSON.stringify({
+        query,
+        model: responseModel,
+        response: response.data,
+        enhancedContent,
+        citations
+      }, null, 2));
+      logger.debug(`[${requestId}] Saved successful result to ${resultFile}`);
+    }
+
     return {
       content: enhancedContent,
       citations,
       modelUsed: responseModel,
-      requestId
+      requestId,
+      usage: response.data.usage || null
     };
   } catch (error) {
-    logger.error(`Error with model ${model} for deep research [${requestId}]: ${error.message}`);
-    throw error;
+    // Enhance error handling with specific error types
+    let errorMessage = `Error with model ${model} for deep research: ${error.message}`;
+    let errorType = 'unknown';
+    
+    if (error.response) {
+      // Extract API error details
+      const statusCode = error.response.status;
+      const errorData = error.response.data;
+      
+      // Categorize errors for better handling
+      if (statusCode === 400) {
+        errorType = 'bad_request';
+        errorMessage = `Bad request to Perplexity API: ${JSON.stringify(errorData)}`;
+      } else if (statusCode === 401) {
+        errorType = 'authentication';
+        errorMessage = 'Authentication error: Invalid API key';
+      } else if (statusCode === 404) {
+        errorType = 'model_not_found';
+        errorMessage = `Model not found: ${model}`;
+      } else if (statusCode === 429) {
+        errorType = 'rate_limit';
+        errorMessage = 'Rate limit exceeded for Perplexity API';
+      } else if (statusCode >= 500) {
+        errorType = 'service_error';
+        errorMessage = `Perplexity service error (${statusCode})`;
+      }
+      
+      logger.error(`${errorType} error with model ${model} [${requestId}]: ${errorMessage}`, {
+        statusCode,
+        errorData: JSON.stringify(errorData).substring(0, 500)
+      });
+    } else if (error.code === 'ECONNABORTED') {
+      errorType = 'timeout';
+      errorMessage = `Request timed out after ${options.timeout || 180000}ms`;
+      logger.error(`Timeout error with model ${model} [${requestId}]: ${errorMessage}`);
+    } else {
+      logger.error(`Error with model ${model} for deep research [${requestId}]: ${error.message}`, {
+        stack: error.stack
+      });
+    }
+    
+    // Create enhanced error object
+    const enhancedError = new Error(errorMessage);
+    enhancedError.type = errorType;
+    enhancedError.model = model;
+    enhancedError.originalError = error;
+    enhancedError.requestId = requestId;
+    
+    throw enhancedError;
   }
 }
 
