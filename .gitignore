@@ -79,7 +79,33 @@ tests/reports/assets/
 deep-research-*.log
 perplexity-*.log
 test-results/
-perplexity-*.log
 *.pid
 *-response-*.json
 *-response-*.txt
+
+# Output and results files
+*output.txt
+*output-*.txt
+*-output.txt
+curl-response.json
+*-results.json
+memory-profile-results.json
+*-result-*.json
+
+# Reports and logs
+*.log
+*-report.md
+*-report-*.md
+*validation-report.md
+*-summary.md
+status-check-output.txt
+coverage-*.txt
+coverage_*.txt
+*-test-output.txt
+*test-output.txt
+
+# Images and screenshots
+*.png
+*.jpg
+*.jpeg
+*.gif
