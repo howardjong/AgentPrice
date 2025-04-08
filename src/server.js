@@ -137,6 +137,7 @@ app.get('/api/file', async (req, res) => {
 // Import the storage module using dynamic imports to avoid ESM issues
 let storage;
 let checkSystemHealth;
+let memoryOptimization;
 
 (async function loadDependencies() {
   try {
@@ -145,7 +146,19 @@ let checkSystemHealth;
     
     const healthCheckModule = await import('../server/services/healthCheck.js');
     checkSystemHealth = healthCheckModule.checkSystemHealth;
-    console.log('Successfully loaded storage and health check modules');
+    
+    // Load memory optimization module
+    const memoryOptModule = await import('../server/memory-optimization.js');
+    memoryOptimization = memoryOptModule.default;
+    
+    // Initialize memory optimization with moderate settings
+    memoryOptimization.initializeMemoryOptimization({
+      lowMemoryMode: true,
+      gcInterval: 300000, // 5 minutes
+      monitoringInterval: 60000 // 1 minute
+    });
+    
+    console.log('Successfully loaded storage, health check, and memory optimization modules');
   } catch (error) {
     console.error('Error loading dependencies:', error);
   }
@@ -170,6 +183,16 @@ app.get('/api/health', async (req, res) => {
     // Get API status from storage
     const apiStatus = await storage.getApiStatus();
     
+    // Get memory optimization status if available
+    let memoryOptStatus = null;
+    if (memoryOptimization) {
+      try {
+        memoryOptStatus = memoryOptimization.getMemoryStatus();
+      } catch (error) {
+        console.error('Error getting memory optimization status:', error);
+      }
+    }
+
     // Create a comprehensive response that matches expected structure in system-health-check.js
     const healthData = {
       status: healthStatus.health,
@@ -177,7 +200,15 @@ app.get('/api/health', async (req, res) => {
       timestamp: new Date().toISOString(),
       memory: {
         usagePercent: healthStatus.memory.usagePercent,
-        healthy: healthStatus.memory.healthy
+        healthy: healthStatus.memory.healthy,
+        // Add detailed memory information if available
+        details: memoryOptStatus ? {
+          heapUsedMB: memoryOptStatus.currentUsage?.heapUsedMB,
+          heapTotalMB: memoryOptStatus.currentUsage?.heapTotalMB,
+          rssMB: memoryOptStatus.currentUsage?.rssMB,
+          optimizationActive: true,
+          optimizationStatus: memoryOptStatus.optimization?.status
+        } : null
       },
       apiServices: {
         claude: {
@@ -205,7 +236,16 @@ app.get('/api/health', async (req, res) => {
         anthropic: process.env.ANTHROPIC_API_KEY !== undefined,
         perplexity: process.env.PERPLEXITY_API_KEY !== undefined,
         gemini: process.env.GEMINI_API_KEY !== undefined
-      }
+      },
+      // Add resource management information
+      resourceManagement: memoryOptStatus ? {
+        active: true,
+        connectionPools: memoryOptStatus.resourceManager?.connectionPoolCount || 0,
+        connections: {
+          total: memoryOptStatus.resourceManager?.totalConnections || 0,
+          active: memoryOptStatus.resourceManager?.activeConnections || 0
+        }
+      } : null
     };
     
     // Determine HTTP status code based on health
@@ -247,6 +287,21 @@ app.get('/api/assistant/health', async (req, res) => {
     // Use the health check service to check system health
     const healthStatus = await checkSystemHealth();
     
+    // Get memory optimization status if available
+    let memoryOptInfo = null;
+    if (memoryOptimization) {
+      try {
+        const memStatus = memoryOptimization.getMemoryStatus();
+        memoryOptInfo = {
+          active: true,
+          heapUsedMB: memStatus.currentUsage?.heapUsedMB,
+          status: memStatus.optimization?.status
+        };
+      } catch (error) {
+        console.error('Error getting memory optimization status for assistant health:', error);
+      }
+    }
+    
     // Create a simplified response focused on what assistants need
     const responseBody = {
       status: healthStatus.health,
@@ -256,7 +311,8 @@ app.get('/api/assistant/health', async (req, res) => {
       system: {
         memory: {
           usagePercent: Math.round(healthStatus.memory.usagePercent * 100) / 100,
-          healthy: healthStatus.memory.healthy
+          healthy: healthStatus.memory.healthy,
+          optimization: memoryOptInfo || { active: false }
         },
         fileSystem: true
       },
@@ -270,6 +326,81 @@ app.get('/api/assistant/health', async (req, res) => {
       status: 'error',
       message: `Health check failed: ${error.message}`,
       timestamp: new Date().toISOString() 
+    });
+  }
+});
+
+// Memory relief endpoint - triggers immediate memory optimization
+app.post('/api/system/memory-relief', async (req, res) => {
+  try {
+    // Check if memory optimization is available
+    if (!memoryOptimization) {
+      return res.status(503).json({
+        status: 'error',
+        message: 'Memory optimization not available',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    const aggressive = req.body.aggressive === true;
+    console.log(`Performing ${aggressive ? 'aggressive' : 'standard'} memory relief`);
+    
+    // Perform memory relief operations
+    const result = await memoryOptimization.performMemoryRelief(aggressive);
+    
+    // Return success response
+    res.status(200).json({
+      status: 'success',
+      message: `Memory relief operations completed successfully`,
+      details: result,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Memory relief error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: `Memory relief failed: ${error.message}`,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Memory status endpoint - provides detailed memory usage information
+app.get('/api/system/memory-status', async (req, res) => {
+  try {
+    // Check if memory optimization is available
+    if (!memoryOptimization) {
+      // Provide basic information even if the module isn't loaded
+      const memUsage = process.memoryUsage();
+      return res.status(200).json({
+        status: 'limited',
+        memory: {
+          heapUsedMB: Math.round(memUsage.heapUsed / 1024 / 1024),
+          heapTotalMB: Math.round(memUsage.heapTotal / 1024 / 1024),
+          rssMB: Math.round(memUsage.rss / 1024 / 1024)
+        },
+        optimization: {
+          active: false
+        },
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Get detailed memory status
+    const memoryStatus = memoryOptimization.getMemoryStatus();
+    
+    // Return success with memory information
+    res.status(200).json({
+      status: 'success',
+      ...memoryStatus,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Memory status error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: `Failed to get memory status: ${error.message}`,
+      timestamp: new Date().toISOString()
     });
   }
 });
