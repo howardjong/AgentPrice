@@ -405,6 +405,91 @@ app.get('/api/system/memory-status', async (req, res) => {
   }
 });
 
+// Memory threshold configuration endpoint - allows updating memory threshold settings
+app.post('/api/system/memory-thresholds', async (req, res) => {
+  try {
+    // Check if memory optimization is available
+    if (!memoryOptimization || !memoryOptimization.updateThresholds) {
+      return res.status(503).json({
+        status: 'error',
+        message: 'Memory threshold management is not available',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Extract threshold settings from request body
+    const { warning, action, critical } = req.body;
+    
+    // Validate threshold values
+    if (warning === undefined && action === undefined && critical === undefined) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No threshold values provided. Please specify at least one threshold (warning, action, or critical)',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Convert to numeric values
+    const thresholds = {};
+    if (warning !== undefined) thresholds.WARNING = parseInt(warning, 10);
+    if (action !== undefined) thresholds.ACTION = parseInt(action, 10);
+    if (critical !== undefined) thresholds.CRITICAL = parseInt(critical, 10);
+    
+    // Validate numeric values
+    for (const [key, value] of Object.entries(thresholds)) {
+      if (isNaN(value) || value < 0 || value > 100) {
+        return res.status(400).json({
+          status: 'error',
+          message: `Invalid ${key.toLowerCase()} threshold: ${value}. Thresholds must be between 0 and 100.`,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+    
+    // Ensure thresholds are in the correct order
+    if (thresholds.WARNING && thresholds.ACTION && thresholds.WARNING >= thresholds.ACTION) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Warning threshold must be lower than action threshold',
+        timestamp: new Date().toISOString()
+      });
+    }
+    if (thresholds.ACTION && thresholds.CRITICAL && thresholds.ACTION >= thresholds.CRITICAL) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Action threshold must be lower than critical threshold',
+        timestamp: new Date().toISOString()
+      });
+    }
+    if (thresholds.WARNING && thresholds.CRITICAL && thresholds.WARNING >= thresholds.CRITICAL) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Warning threshold must be lower than critical threshold',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    // Update thresholds
+    console.log(`Updating memory thresholds:`, thresholds);
+    const updatedThresholds = await memoryOptimization.updateThresholds(thresholds);
+    
+    // Return the updated thresholds
+    res.status(200).json({
+      status: 'success',
+      message: 'Memory thresholds updated successfully',
+      thresholds: updatedThresholds,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Memory threshold update error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: `Failed to update memory thresholds: ${error.message}`,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Start the server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Code reviewer server running on port ${PORT}`);

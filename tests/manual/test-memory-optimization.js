@@ -5,7 +5,10 @@
  * by making requests to the memory endpoints.
  */
 
+// Using ES module syntax
 import axios from 'axios';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 // Configuration
 const BASE_URL = 'http://localhost:5000';

@@ -8,6 +8,10 @@
 import resourceManager from '../utils/resourceManager.js';
 import memoryLeakDetector from '../utils/memoryLeakDetector.js';
 import logger from '../utils/logger.js';
+import MemoryThresholdManager from './memoryThresholdManager.js';
+
+// Store the threshold manager instance
+let thresholdManager = null;
 
 /**
  * Initialize memory optimization tools
@@ -20,14 +24,17 @@ export function initializeMemoryOptimization(options = {}) {
     gcInterval = 300000, // 5 minutes
     monitoringInterval = 60000, // 1 minute
     memoryThreshold = 70, // 70MB
-    heapDumpOnLeak = false
+    heapDumpOnLeak = false,
+    autoOptimize = true, // Whether to enable automatic memory optimization
+    memoryThresholds = null // Custom memory thresholds
   } = options;
   
   logger.info('Initializing memory optimization', {
     aggressive: enableAggressive,
     lowMemoryMode,
     gcInterval: `${gcInterval / 1000}s`,
-    monitoringInterval: `${monitoringInterval / 1000}s`
+    monitoringInterval: `${monitoringInterval / 1000}s`,
+    autoOptimize
   });
   
   // Configure resource manager
@@ -59,11 +66,47 @@ export function initializeMemoryOptimization(options = {}) {
   resourceManager.start();
   memoryLeakDetector.start();
   
+  // Initialize threshold-based memory management if auto-optimize is enabled
+  if (autoOptimize) {
+    // Define default thresholds based on memory mode
+    const defaultThresholds = {
+      WARNING: lowMemoryMode ? 65 : 70,  // Warning threshold
+      ACTION: lowMemoryMode ? 75 : 80,   // Action threshold (trigger optimization)
+      CRITICAL: lowMemoryMode ? 85 : 90  // Critical threshold (aggressive optimization)
+    };
+    
+    // Use custom thresholds if provided
+    const thresholds = memoryThresholds || defaultThresholds;
+    
+    // Create and start the threshold manager
+    thresholdManager = new MemoryThresholdManager(
+      { performMemoryRelief },
+      {
+        checkIntervalMs: monitoringInterval,
+        logIntervalMs: monitoringInterval * 5,
+        useSystemMemory: false,
+        autoOptimize: true,
+        thresholds,
+        debugMode: options.debug || false,
+        minTimeBetweenActionMs: gcInterval / 3
+      }
+    );
+    
+    thresholdManager.start();
+    
+    logger.info('Memory threshold monitoring started', {
+      warning: `${thresholds.WARNING}%`,
+      action: `${thresholds.ACTION}%`,
+      critical: `${thresholds.CRITICAL}%`
+    });
+  }
+  
   logger.info('Memory optimization initialized');
   
   return {
     resourceManager,
-    memoryLeakDetector
+    memoryLeakDetector,
+    thresholdManager
   };
 }
 
@@ -131,13 +174,25 @@ export function getMemoryStatus() {
   const resourceStatus = resourceManager.getStatus();
   const leakDetectorStatus = memoryLeakDetector.getStatus();
   
+  // Get threshold manager stats if available
+  let thresholdStats = null;
+  if (thresholdManager) {
+    try {
+      thresholdStats = thresholdManager.getStats();
+    } catch (error) {
+      logger.error('Failed to get threshold manager stats', { error: error.message });
+    }
+  }
+  
+  const usagePercent = Math.round((heapUsedMB / heapTotalMB) * 100);
+  
   return {
     currentUsage: {
       heapUsedMB,
       heapTotalMB,
       rssMB,
       externalMB: Math.round((memUsage.external || 0) / 1024 / 1024),
-      usagePercent: Math.round((heapUsedMB / heapTotalMB) * 100)
+      usagePercent
     },
     resourceManager: {
       isActive: resourceStatus.isActive,
@@ -150,10 +205,23 @@ export function getMemoryStatus() {
       leaksDetected: leakDetectorStatus.leaksDetected || 0,
       lastCheckAt: leakDetectorStatus.lastCheckAt
     },
+    thresholdManager: thresholdStats ? {
+      isActive: thresholdStats.isRunning,
+      thresholds: thresholdStats.thresholds,
+      stats: {
+        warningCount: thresholdStats.warningCount,
+        actionCount: thresholdStats.actionCount,
+        criticalCount: thresholdStats.criticalCount,
+        lastAction: thresholdStats.lastActionAt
+      }
+    } : null,
     optimization: {
-      status: heapUsedMB > 100 ? 'critical' : heapUsedMB > 70 ? 'warning' : 'normal',
+      status: usagePercent > 90 ? 'critical' : 
+              usagePercent > 80 ? 'warning' : 
+              usagePercent > 70 ? 'elevated' : 'normal',
       uptime: process.uptime(),
-      gcAvailable: typeof global.gc === 'function'
+      gcAvailable: typeof global.gc === 'function',
+      autoOptimizeEnabled: thresholdManager !== null
     }
   };
 }
@@ -236,8 +304,27 @@ export async function performMemoryRelief(aggressive = false) {
   };
 }
 
+/**
+ * Update memory threshold settings
+ * @param {Object} newThresholds - New threshold values
+ * @returns {Object} Updated thresholds
+ */
+export function updateThresholds(newThresholds) {
+  if (!thresholdManager) {
+    throw new Error('Threshold manager is not initialized');
+  }
+  
+  logger.info('Updating memory thresholds', newThresholds);
+  
+  // Update thresholds in the threshold manager
+  const updatedThresholds = thresholdManager.updateThresholds(newThresholds);
+  
+  return updatedThresholds;
+}
+
 export default {
   initializeMemoryOptimization,
   getMemoryStatus,
-  performMemoryRelief
+  performMemoryRelief,
+  updateThresholds
 };

@@ -5,12 +5,18 @@
  * 
  * This script offers a command-line interface to trigger memory optimization
  * and view memory usage statistics.
+ * 
+ * Uses ES module syntax for compatibility with the project's module system.
  */
 
 import fetch from 'node-fetch';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs';
+
+// Get the directory name using ES module standard pattern
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // Configuration with localhost fallback
 const SERVER_URL = process.env.SERVER_URL || 'http://localhost:5000';
