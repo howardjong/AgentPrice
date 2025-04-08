@@ -517,56 +517,61 @@ function extractModelInfo(response, defaultModel = 'unknown') {
 
 
 /**
- * Perform deep research using Perplexity's specialized deep research model
- * 
- * @param {string} query - The research query
- * @param {Object} options - Additional options
- * @param {string} options.model - The model to use (defaults to sonar-deep-research)
- * @param {string[]} options.fallbackModels - Array of models to try if primary model fails
- * @param {boolean} options.enableChunking - Whether to enable query chunking
- * @param {string} options.requestId - Optional request ID for tracking
- * @returns {Promise<Object>} Research results
+ * Perform deep research using Perplexity API
+ * @param {string} query - The query to research
+ * @param {Object} options - Options for the deep research request
+ * @param {string} options.requestId - Custom request ID
+ * @param {string} options.model - Model to use for research
+ * @param {string[]} options.fallbackModels - Fallback models if primary fails
+ * @param {string} options.systemPrompt - System prompt to use
+ * @param {boolean} options.saveResult - Whether to save results to disk
+ * @param {Function} options.onThinking - Callback for think process updates
+ * @param {boolean} options.debugThinking - Enable additional thinking debug logs
+ * @returns {Promise<Object>} - Research result
  */
 async function performDeepResearch(query, options = {}) {
-  // Extract options with defaults
-  const requestId = typeof options === 'string' ? options : (options.requestId || uuidv4().substring(0, 8));
-  const primaryModel = options.model || 'sonar-deep-research';
-  const fallbackModels = options.fallbackModels || ['sonar-pro', 'sonar']; // Multiple fallbacks in priority order
-  const enableChunking = options.enableChunking || false;
-  const maxRetries = options.maxRetries || 2;
+  const requestId = options.requestId || `dr-${uuidv4().substring(0, 8)}`;
+  const model = options.model || 'sonar-deep-research';
+  const fallbackModels = options.fallbackModels || ['sonar-pro', 'sonar'];
+  const systemPrompt = options.systemPrompt || '';
+  const saveResult = options.saveResult || false;
+  const onThinking = options.onThinking || null;
+  const debugThinking = options.debugThinking || false;
 
-  logger.info(`Starting deep research with model: ${primaryModel} [${requestId}]`);
+  logger.info(`Starting deep research with model: ${model} [${requestId}]`);
 
   // Store original model for tracking fallbacks
-  const originalModel = primaryModel;
-  let modelUsed = primaryModel;
-  let modelAttempts = [primaryModel];
+  const originalModel = model;
+  let modelUsed = model;
+  let modelAttempts = [model];
   let lastError = null;
 
   // First try with the primary model
   try {
-    logger.info(`Attempting deep research with primary model: ${primaryModel} [${requestId}]`);
-    
+    logger.info(`Attempting deep research with primary model: ${model} [${requestId}]`);
+
     // Add retry logic for the primary model
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         const result = await executeDeepResearch(query, {
           ...options,
-          model: primaryModel,
-          requestId
+          model,
+          requestId,
+          onThinking,
+          debugThinking
         });
 
-        logger.info(`Deep research successful with model: ${primaryModel} (attempt ${attempt}) [${requestId}]`);
-        
+        logger.info(`Deep research successful with model: ${model} (attempt ${attempt}) [${requestId}]`);
+
         return {
           ...result,
           originalModel,
-          modelUsed: result.modelUsed || primaryModel,
+          modelUsed: result.modelUsed || model,
           attempt
         };
       } catch (error) {
-        if (attempt < maxRetries) {
-          logger.warn(`Primary model ${primaryModel} failed on attempt ${attempt}: ${error.message}. Retrying... [${requestId}]`);
+        if (attempt < 2) {
+          logger.warn(`Primary model ${model} failed on attempt ${attempt}: ${error.message}. Retrying... [${requestId}]`);
           // Wait briefly before retrying
           await new Promise(resolve => setTimeout(resolve, 2000));
         } else {
@@ -577,7 +582,7 @@ async function performDeepResearch(query, options = {}) {
       }
     }
   } catch (primaryError) {
-    logger.warn(`All attempts with primary model ${primaryModel} failed: ${primaryError.message} [${requestId}]`);
+    logger.warn(`All attempts with primary model ${model} failed: ${primaryError.message} [${requestId}]`);
     lastError = primaryError;
 
     // Try fallback models in sequence
@@ -590,7 +595,9 @@ async function performDeepResearch(query, options = {}) {
           const fallbackResult = await executeDeepResearch(query, {
             ...options,
             model: fallbackModel,
-            requestId
+            requestId,
+            onThinking,
+            debugThinking
           });
 
           modelUsed = fallbackModel;
@@ -618,7 +625,7 @@ async function performDeepResearch(query, options = {}) {
       originalModel,
       lastError: lastError?.stack || lastError?.message
     });
-    
+
     throw new Error(errorMessage);
   }
 }
@@ -634,6 +641,8 @@ async function executeDeepResearch(query, options = {}) {
   const maxCitations = options.maxCitations || 15;
   const enableChunking = options.enableChunking || false;
   const onThinking = options.onThinking || null; // Add callback for thinking updates
+  const debugThinking = options.debugThinking || false;
+
 
   logger.info(`Executing deep research with model: ${model} [${requestId}]`);
 
@@ -645,7 +654,7 @@ async function executeDeepResearch(query, options = {}) {
 
   // Create a system prompt tailored to the specific model
   let systemPrompt = 'You are a research assistant with deep internet search capabilities. Your task is to conduct comprehensive research on the topic provided and synthesize a detailed report with multiple relevant sources. ALWAYS search the web extensively before responding. Include ALL relevant citations.';
-  
+
   // Add model-specific prompt adjustments
   if (model === 'sonar-deep-research') {
     systemPrompt += ' Utilize your deep research capabilities to provide the most comprehensive answer possible.';
@@ -716,7 +725,7 @@ async function executeDeepResearch(query, options = {}) {
     // Extract citations and content
     const citations = response.data.citations || [];
     const content = response.data.choices[0].message?.content;
-    
+
     if (!content) {
       logger.error(`No content in response from Perplexity API [${requestId}]`);
       throw new Error('No content in response from Perplexity API');
@@ -729,10 +738,62 @@ async function executeDeepResearch(query, options = {}) {
 
     // Extract thinking content if available
     let thinkingContent = '';
-    if (response.data.choices[0]?.message?.thinking) {
-      thinkingContent = response.data.choices[0].message.thinking;
-      // Call the thinking callback if provided
-      if (onThinking && typeof onThinking === 'function') {
+    if (response.data.choices[0]?.message?.content) {
+      const content = response.data.choices[0].message.content;
+
+      // Debug the raw response if debug mode is enabled
+      if (debugThinking) {
+        logger.debug(`Raw message content structure for thinking extraction [${requestId}]:`, {
+          contentLength: content.length,
+          contentSnippet: content.substring(0, 100) + '...',
+          hasThinkTags: content.includes('<think>')
+        });
+      }
+
+      // First check for think tags in the standard format
+      const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/);
+
+      if (thinkMatch && thinkMatch[1] && onThinking) {
+        // We found thinking content
+        if (debugThinking) {
+          logger.debug(`Found thinking content in standard format [${requestId}]`, {
+            thinkingLength: thinkMatch[1].length
+          });
+        }
+        thinkingContent = thinkMatch[1];
+        onThinking(thinkingContent);
+      } 
+      // Alternative format detection - some models use different formats
+      else if (content.includes('thinking:') && onThinking) {
+        const altThinkMatch = content.match(/thinking:([\s\S]*?)(?:\n\n|$)/);
+        if (altThinkMatch && altThinkMatch[1]) {
+          if (debugThinking) {
+            logger.debug(`Found thinking content in alternative format [${requestId}]`);
+          }
+          thinkingContent = altThinkMatch[1];
+          onThinking(thinkingContent);
+        }
+      }
+      // Extended thinking format detection
+      else if (content.includes('<think') && onThinking) {
+        // Some variations might use attributes or different closing tags
+        const extendedThinkMatch = content.match(/<think[^>]*>([\s\S]*?)<\/think>/);
+        if (extendedThinkMatch && extendedThinkMatch[1]) {
+          if (debugThinking) {
+            logger.debug(`Found thinking content in extended format [${requestId}]`);
+          }
+          thinkingContent = extendedThinkMatch[1];
+          onThinking(thinkingContent);
+        }
+      }
+      // Raw content passage for very long responses
+      else if (onThinking && content.length > 1000) {
+        // For very long responses without explicit think tags, send the raw content
+        // This is a fallback to see what we're getting in the raw response
+        if (debugThinking) {
+          logger.debug(`No explicit thinking tags found, sending raw content [${requestId}]`);
+        }
+        thinkingContent = `RAW CONTENT (no explicit thinking tags):\n${content.substring(0, 500)}...`;
         onThinking(thinkingContent);
       }
     }
@@ -770,12 +831,12 @@ async function executeDeepResearch(query, options = {}) {
     // Enhance error handling with specific error types
     let errorMessage = `Error with model ${model} for deep research: ${error.message}`;
     let errorType = 'unknown';
-    
+
     if (error.response) {
       // Extract API error details
       const statusCode = error.response.status;
       const errorData = error.response.data;
-      
+
       // Categorize errors for better handling
       if (statusCode === 400) {
         errorType = 'bad_request';
@@ -793,7 +854,7 @@ async function executeDeepResearch(query, options = {}) {
         errorType = 'service_error';
         errorMessage = `Perplexity service error (${statusCode})`;
       }
-      
+
       logger.error(`${errorType} error with model ${model} [${requestId}]: ${errorMessage}`, {
         statusCode,
         errorData: JSON.stringify(errorData).substring(0, 500)
@@ -807,14 +868,14 @@ async function executeDeepResearch(query, options = {}) {
         stack: error.stack
       });
     }
-    
+
     // Create enhanced error object
     const enhancedError = new Error(errorMessage);
     enhancedError.type = errorType;
     enhancedError.model = model;
     enhancedError.originalError = error;
     enhancedError.requestId = requestId;
-    
+
     throw enhancedError;
   }
 }

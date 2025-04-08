@@ -61,18 +61,29 @@ async function runDeepResearchTest() {
       }
     };
 
-    const thinkContentWatcher = (content) => {
-      if (content && content !== thinkingContent) {
-        stopThinkingIndicator();
-        thinkingContent = content;
-        console.log('\n📝 Model thinking process:');
-        console.log('-------------------------------------------');
-        console.log(content);
-        console.log('-------------------------------------------');
-        startThinkingIndicator();
+    // Enhanced think content watcher with raw data logging
+   const thinkContentWatcher = (content) => {
+      if (content) {
+        // Log raw thinking data for debugging
+        console.log('\n🔍 Raw thinking data type:', typeof content);
+        
+        if (content !== thinkingContent) {
+          stopThinkingIndicator();
+          thinkingContent = content;
+          console.log('\n📝 Model thinking process:');
+          console.log('-------------------------------------------');
+          console.log(content);
+          console.log('-------------------------------------------');
+          startThinkingIndicator();
+        }
+      } else {
+        // Log when no thinking content received
+        console.log('\n⚠️ No thinking content received in callback');
       }
     };
 
+    // Log initial connection attempt
+    console.log('\n🔄 Starting deep research with thinking monitoring...');
 
     const startTime = Date.now();
     const result = await perplexityService.performDeepResearch(TEST_QUERY, {
@@ -80,7 +91,8 @@ async function runDeepResearchTest() {
       fallbackModels: ['sonar-pro', 'sonar'],
       requestId: `test-${testId}`,
       saveResult: true,
-      onThinking: thinkContentWatcher
+      onThinking: thinkContentWatcher,
+      debugThinking: true // Add debugging flag to enable full thinking process logging
     });
 
     stopThinkingIndicator();
