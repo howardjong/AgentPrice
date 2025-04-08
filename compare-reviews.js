@@ -1,207 +1,134 @@
-
-/**
- * Compare Reviews CLI Tool
- * 
- * This script lets you compare code reviews of the same folder across different models
- * or different versions/times.
- */
-const reviewManager = require('./review-manager');
-const fs = require('fs').promises;
+const fs = require('fs');
 const path = require('path');
 
-async function compareReviews() {
-  try {
-    // Initialize review manager
-    await reviewManager.initialize();
-    
-    // Parse command line arguments
-    const args = process.argv.slice(2);
-    
-    if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
-      printHelp();
-      return;
+class ReviewManager {
+  constructor() {
+    this.reviews = {};
+  }
+
+  loadReview(filePath) {
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      return {
+        filePath,
+        content,
+        timestamp: this.extractTimestamp(filePath)
+      };
+    } catch (error) {
+      console.error(`Error loading review from ${filePath}:`, error.message);
+      return null;
     }
-    
-    // Handle different commands
-    const command = args[0];
-    
-    switch (command) {
-      case 'list':
-        await listReviews();
-        break;
-      case 'compare':
-        if (args.length < 3) {
-          console.log('❌ Error: Missing review IDs for comparison');
-          printHelp();
-          return;
-        }
-        await compareReviewsById(args[1], args[2]);
-        break;
-      case 'folder':
-        if (args.length < 2) {
-          console.log('❌ Error: Missing folder path');
-          printHelp();
-          return;
-        }
-        await listReviewsForFolder(args[1]);
-        break;
-      case 'models':
-        if (args.length < 3) {
-          console.log('❌ Error: Missing folder path and/or model names');
-          printHelp();
-          return;
-        }
-        await compareByModels(args[1], args[2], args[3]);
-        break;
-      case 'latest':
-        if (args.length < 2) {
-          console.log('❌ Error: Missing folder path');
-          printHelp();
-          return;
-        }
-        await showLatestReview(args[1], args[2]);
-        break;
-      default:
-        console.log(`❌ Unknown command: ${command}`);
-        printHelp();
+  }
+
+  extractTimestamp(filePath) {
+    const filename = path.basename(filePath);
+    const match = filename.match(/(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)/);
+    return match ? match[1] : null;
+  }
+
+  compareReviews(reviewPath1, reviewPath2) {
+    const review1 = this.loadReview(reviewPath1);
+    const review2 = this.loadReview(reviewPath2);
+
+    if (!review1 || !review2) {
+      throw new Error(`Could not load one or both review files`);
     }
-  } catch (error) {
-    console.error('Error:', error);
+
+    // Compare reviews and generate a comparison report
+    const comparisonReport = this.generateComparisonReport(review1, review2);
+
+    // Save the comparison to a file
+    const comparisonFilename = `Comparison_${path.basename(review1.filePath)}_vs_${path.basename(review2.filePath)}`;
+    const comparisonPath = path.join('reviews', comparisonFilename);
+
+    fs.writeFileSync(comparisonPath, comparisonReport);
+    console.log(`Comparison saved to ${comparisonPath}`);
+
+    return comparisonPath;
+  }
+
+  generateComparisonReport(review1, review2) {
+    // Create a markdown document comparing the two reviews
+    return `# Code Review Comparison
+
+## Review 1: ${path.basename(review1.filePath)}
+**Timestamp:** ${review1.timestamp || 'Unknown'}
+
+## Review 2: ${path.basename(review2.filePath)}
+**Timestamp:** ${review2.timestamp || 'Unknown'}
+
+## Key Differences
+
+### Content Length
+- Review 1: ${review1.content.length} characters
+- Review 2: ${review2.content.length} characters
+${review1.content.length > review2.content.length 
+  ? '- Review 1 is more detailed' 
+  : '- Review 2 is more detailed'}
+
+### Full Content Comparison
+
+<details>
+<summary>Review 1 Content</summary>
+
+\`\`\`markdown
+${review1.content}
+\`\`\`
+</details>
+
+<details>
+<summary>Review 2 Content</summary>
+
+\`\`\`markdown
+${review2.content}
+\`\`\`
+</details>
+
+`;
   }
 }
 
-function printHelp() {
-  console.log(`
-📋 Code Review Comparison Tool
+// Function to handle command line arguments
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const command = args[0];
 
-Usage:
-  node compare-reviews.js <command> [options]
+  if (command === 'compare' && args.length === 3) {
+    return {
+      command: 'compare',
+      reviewPath1: args[1],
+      reviewPath2: args[2]
+    };
+  }
 
-Commands:
-  list                     List all available reviews
-  folder <path>            List reviews for a specific folder
-  compare <id1> <id2>      Compare two reviews by their IDs
-  models <folder> <m1> <m2> Compare the latest reviews of two models for a folder
-  latest <folder> [model]  Show the latest review for a folder (optionally by model)
-
-Examples:
-  node compare-reviews.js list
-  node compare-reviews.js folder src
-  node compare-reviews.js compare abc123 def456
-  node compare-reviews.js models src gemini-1.5-pro gemini-1.5-flash
-  node compare-reviews.js latest src
-  `);
+  console.log('Usage: node compare-reviews.js compare <review1_path> <review2_path>');
+  process.exit(1);
 }
 
-async function listReviews() {
-  const reviewList = await reviewManager.listReviews();
-  
-  console.log('\n📊 Reviews Summary');
-  console.log(`Total reviews: ${reviewList.total}`);
-  
-  console.log('\n📁 Reviews by folder:');
-  for (const [folderId, folder] of Object.entries(reviewList.folders)) {
-    console.log(`- ${folder.path} (${folder.reviews.length} reviews)`);
-  }
-  
-  console.log('\n🤖 Reviews by model:');
-  for (const [modelId, model] of Object.entries(reviewList.models)) {
-    console.log(`- ${model.name} (${model.reviews.length} reviews)`);
-  }
-  
-  console.log('\n🔢 Reviews by version:');
-  for (const [versionId, version] of Object.entries(reviewList.versions)) {
-    console.log(`- ${version.version} (${version.reviews.length} reviews)`);
-  }
+function compareReviewsById(id1, id2) {
+  const reviewManager = new ReviewManager();
+  return reviewManager.compareReviews(id1, id2);
 }
 
-async function listReviewsForFolder(folderPath) {
-  const reviews = await reviewManager.findReviewsByFolder(folderPath);
-  
-  if (reviews.length === 0) {
-    console.log(`ℹ️ No reviews found for folder: ${folderPath}`);
-    return;
-  }
-  
-  console.log(`\n📁 Reviews for folder: ${folderPath}`);
-  console.log(`Found ${reviews.length} reviews\n`);
-  
-  // Group by model
-  const byModel = {};
-  for (const review of reviews) {
-    if (!byModel[review.model]) {
-      byModel[review.model] = [];
-    }
-    byModel[review.model].push(review);
-  }
-  
-  // Display grouped by model, sorted by date
-  for (const [model, modelReviews] of Object.entries(byModel)) {
-    console.log(`\n🤖 Model: ${model}`);
-    
-    // Sort by timestamp descending
-    modelReviews.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-    
-    for (const review of modelReviews) {
-      const date = new Date(review.timestamp).toLocaleString();
-      console.log(`- ${review.id}: ${review.title} (${date})`);
+function compareReviews() {
+  const args = parseArgs();
+  if (args.command === 'compare') {
+    try {
+      const reviewManager = new ReviewManager();
+      reviewManager.compareReviews(args.reviewPath1, args.reviewPath2);
+    } catch (error) {
+      console.error('Error:', error.message);
+      process.exit(1);
     }
   }
 }
 
-async function compareReviewsById(id1, id2) {
-  console.log(`🔍 Comparing reviews ${id1} and ${id2}...`);
-  
-  const comparison = await reviewManager.compareReviews(id1, id2);
-  
-  console.log(`✅ Comparison created: ${comparison.path}`);
+// If this script is executed directly
+if (require.main === module) {
+  compareReviews();
 }
 
-async function compareByModels(folderPath, model1, model2) {
-  console.log(`🔍 Comparing latest reviews for ${folderPath} between ${model1} and ${model2}...`);
-  
-  const review1 = await reviewManager.findLatestReview(folderPath, model1);
-  const review2 = await reviewManager.findLatestReview(folderPath, model2);
-  
-  if (!review1) {
-    console.log(`❌ No reviews found for folder ${folderPath} with model ${model1}`);
-    return;
-  }
-  
-  if (!review2) {
-    console.log(`❌ No reviews found for folder ${folderPath} with model ${model2}`);
-    return;
-  }
-  
-  const comparison = await reviewManager.compareReviews(review1.id, review2.id);
-  
-  console.log(`✅ Comparison created: ${comparison.path}`);
-}
-
-async function showLatestReview(folderPath, model = null) {
-  const latestReview = await reviewManager.findLatestReview(folderPath, model);
-  
-  if (!latestReview) {
-    console.log(`ℹ️ No reviews found for folder: ${folderPath}${model ? ` with model ${model}` : ''}`);
-    return;
-  }
-  
-  console.log(`\n📄 Latest review for folder: ${folderPath}`);
-  console.log(`ID: ${latestReview.id}`);
-  console.log(`Title: ${latestReview.title}`);
-  console.log(`Model: ${latestReview.model}`);
-  console.log(`Date: ${new Date(latestReview.timestamp).toLocaleString()}`);
-  console.log(`Path: ${latestReview.path}`);
-  
-  // Show the content
-  try {
-    const content = await fs.readFile(path.join(process.cwd(), latestReview.path), 'utf8');
-    console.log('\n--- Review Content ---\n');
-    console.log(content);
-  } catch (error) {
-    console.error(`Error reading review file: ${error.message}`);
-  }
-}
-
-// Run the script
-compareReviews().catch(console.error);
+module.exports = {
+  compareReviewsById,
+  compareReviews
+};
