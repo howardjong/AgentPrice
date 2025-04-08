@@ -1,3 +1,4 @@
+
 /**
  * disableLlmCalls.js
  * 
@@ -10,5 +11,13 @@
  */
 
 const disableLlmCalls = false;
+
+/**
+ * Function to check if LLM API calls are disabled
+ * @returns {boolean} True if LLM API calls are disabled, false otherwise
+ */
+export function areLlmCallsDisabled() {
+  return disableLlmCalls;
+}
 
 export default disableLlmCalls;
