@@ -119,36 +119,18 @@ class RedisClient {
   constructor() {
     this.client = null;
     this.redisServer = null;
-    this.redisUrl = null;
-    this.logger = logger;
-    
-    // Get Redis mode from environment variable
-    // Make this a static property so it can be accessed without creating a new instance
-    // This is important for avoiding circular dependencies when other modules need to check the mode
-    RedisClient.redisMode = process.env.REDIS_MODE || 'memory'; // Default to memory if not specified
-    
-    // Instance property for internal use
-    this.redisMode = RedisClient.redisMode;
-    
-    // Log Redis mode for debugging
-    logger.info(`Redis client initialized with REDIS_MODE=${this.redisMode}`);
-    
-    // Initialize based on redisMode
-    this.useInMemoryStore = this.redisMode === 'memory';
-    this.useRedisMemoryServer = this.redisMode === 'real';
-    
-    // Initialize with in-memory store immediately if set to memory mode
-    if (this.useInMemoryStore) {
-      logger.info('Initializing in-memory Redis store');
-      this.client = new InMemoryStore();
-    }
+    this.redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+    this._redisMode = process.env.REDIS_MODE || 'normal';
   }
-  
-  // Static getter to allow other modules to access the Redis mode without circular dependencies
-  static get redisMode() {
-    return RedisClient.redisMode || process.env.REDIS_MODE || 'memory';
+
+  get redisMode() {
+    return this._redisMode;
   }
-  
+
+  set redisMode(value) {
+    this._redisMode = value;
+  }
+
   /**
    * Get the Redis URL for connecting to the Redis server
    * This method is used by other services like Bull queues to get the Redis connection URL
@@ -157,18 +139,18 @@ class RedisClient {
   async getRedisUrl() {
     // Log current state for debugging
     logger.info(`getRedisUrl: redisMode=${this.redisMode}, useRedisMemoryServer=${this.useRedisMemoryServer}, useInMemoryStore=${this.useInMemoryStore}`);
-    
+
     // If we already have a Redis URL, return it
     if (this.redisUrl) {
       logger.info(`Using cached Redis URL: ${this.redisUrl}`);
       return this.redisUrl;
     }
-    
+
     // If using 'real' REDIS_MODE, start a Redis Memory Server 
     // This allows us to use a real Redis server in memory for testing
     if (this.redisMode === 'real') {
       logger.info('REDIS_MODE=real: Starting Redis Memory Server');
-      
+
       // If we don't have a Redis Memory Server yet, start one
       if (!this.redisServer) {
         this.redisUrl = await this.startRedisMemoryServer();
@@ -178,14 +160,14 @@ class RedisClient {
         }
       }
     }
-    
+
     // If we're using the in-memory store (memory mode), we don't need a real Redis URL
     // But we need to return something that Bull will accept
     if (this.redisMode === 'memory') {
       logger.info('Using in-memory Redis mode - returning localhost URL for compatibility');
       return 'redis://localhost:6379';
     }
-    
+
     // Default to environment variable or localhost
     const defaultUrl = process.env.REDIS_URL || 'redis://localhost:6379';
     logger.info(`Using default Redis URL: ${defaultUrl}`);
@@ -200,19 +182,19 @@ class RedisClient {
           port: 6379, // Use the default Redis port
         }
       });
-      
+
       // Start the Redis server
       const host = await this.redisServer.getHost();
       const port = await this.redisServer.getPort();
-      
+
       // Build the Redis URL
       this.redisUrl = `redis://${host}:${port}`;
-      
+
       logger.info(`Redis Memory Server started at ${host}:${port}`);
-      
+
       // Set environment variable so other processes can use it
       process.env.REDIS_URL = this.redisUrl;
-      
+
       // Return connection string
       return this.redisUrl;
     } catch (error) {
@@ -226,10 +208,10 @@ class RedisClient {
     if (this.client) {
       return this.client;
     }
-    
+
     // Log current state for debugging
     logger.info(`connect: redisMode=${this.redisMode}, useRedisMemoryServer=${this.useRedisMemoryServer}, useInMemoryStore=${this.useInMemoryStore}`);
-    
+
     // Handle based on instance redisMode to ensure consistency with getRedisUrl
     if (this.redisMode === 'memory') {
       // Memory mode - use in-memory store implementation
@@ -242,16 +224,16 @@ class RedisClient {
       try {
         // Start a Redis Memory Server instance
         const redisUrl = await this.startRedisMemoryServer();
-        
+
         if (!redisUrl) {
           logger.warn('Failed to start Redis Memory Server, falling back to in-memory store');
           this.client = new InMemoryStore();
           this.useInMemoryStore = true;
           return this.client;
         }
-        
+
         logger.info(`Connecting to Redis Memory Server at ${redisUrl}`);
-        
+
         this.client = new Redis(redisUrl, {
           maxRetriesPerRequest: 3,
           retryStrategy(times) {
@@ -263,15 +245,15 @@ class RedisClient {
           connectTimeout: 10000,
           keepAlive: 10000
         });
-        
+
         // Set up event listeners
         this.client.on('connect', () => {
           logger.info('Connected to Redis Memory Server');
         });
-        
+
         this.client.on('error', (err) => {
           logger.error(`Redis connection error: ${err.message}`);
-          
+
           // If Redis is unavailable, fallback to in-memory
           if (!this.useInMemoryStore) {
             logger.warn('Falling back to in-memory Redis store due to connection error');
@@ -279,7 +261,7 @@ class RedisClient {
             this.useInMemoryStore = true;
           }
         });
-        
+
         // Initial connection test
         await this.client.ping();
         logger.info('Redis server is responsive');
@@ -296,7 +278,7 @@ class RedisClient {
       this.client = new InMemoryStore();
       this.useInMemoryStore = true;
     }
-    
+
     return this.client;
   }
 
@@ -381,7 +363,7 @@ class RedisClient {
         await this.client.quit();
         this.client = null;
         logger.info('Redis connection closed');
-        
+
         // Stop Redis Memory Server if it's running
         if (this.redisServer) {
           await this.redisServer.stop();
