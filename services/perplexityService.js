@@ -633,6 +633,7 @@ async function executeDeepResearch(query, options = {}) {
   const context = options.context || '';
   const maxCitations = options.maxCitations || 15;
   const enableChunking = options.enableChunking || false;
+  const onThinking = options.onThinking || null; // Add callback for thinking updates
 
   logger.info(`Executing deep research with model: ${model} [${requestId}]`);
 
@@ -726,11 +727,22 @@ async function executeDeepResearch(query, options = {}) {
     const modelInfo = `[Using Perplexity AI - Deep Research Model: ${responseModel}]\n\n`;
     const enhancedContent = modelInfo + content;
 
+    // Extract thinking content if available
+    let thinkingContent = '';
+    if (response.data.choices[0]?.message?.thinking) {
+      thinkingContent = response.data.choices[0].message.thinking;
+      // Call the thinking callback if provided
+      if (onThinking && typeof onThinking === 'function') {
+        onThinking(thinkingContent);
+      }
+    }
+
     // Log successful response details
     logger.info(`Deep research successful with model: ${responseModel} [${requestId}]`, {
       citationsCount: citations.length,
       contentLength: content.length,
-      finishReason: response.data.choices[0].finish_reason || 'unknown'
+      finishReason: response.data.choices[0].finish_reason || 'unknown',
+      hasThinking: !!thinkingContent
     });
 
     // Save successful response for future reference if requested
@@ -751,7 +763,8 @@ async function executeDeepResearch(query, options = {}) {
       citations,
       modelUsed: responseModel,
       requestId,
-      usage: response.data.usage || null
+      usage: response.data.usage || null,
+      thinking: thinkingContent || null
     };
   } catch (error) {
     // Enhance error handling with specific error types
