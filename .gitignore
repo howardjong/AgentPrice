@@ -119,3 +119,16 @@ backups/
 
 # Misc JSON files
 curl-response.json
+
+# Text output files and logs
+*-validation-results.txt
+*validation-results.txt
+*-detailed-coverage.txt
+*-coverage.txt
+*-function-coverage.md
+
+# Error output JSONs
+*-error.json
+*-*-error.json
+*-*-*-error.json
+*-*-*-*-error.json
