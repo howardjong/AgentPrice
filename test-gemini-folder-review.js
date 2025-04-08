@@ -1,7 +1,7 @@
 
 import fs from 'fs';
 import path from 'path';
-import * as geminiService from './src/geminiService.js';
+import geminiService from './src/geminiService.js';
 
 async function testGeminiFolderReview() {
   try {
