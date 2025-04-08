@@ -1,306 +1,244 @@
 /**
- * Code Review Scorecard Utility
+ * CodeReviewScorecard
  * 
- * A specialized scorecard system for evaluating the effectiveness of different
+ * Utility for evaluating the quality and effectiveness of
  * code review prompts based on key metrics relevant to code quality improvement.
  */
 
 import fs from 'fs';
 import path from 'path';
-import logger from './logger';
+import logger from './logger.js';
 
 class CodeReviewScorecard {
-  constructor() {
-    this.metrics = {
-      codeQualityImprovement: 0,  // How well the prompt identifies quality issues
-      redundancyReduction: 0,     // How well it identifies redundant code
-      resourceOptimization: 0,    // Effectiveness at identifying performance issues
-      issueResolution: 0          // How well it addresses actual code problems
+  constructor(options = {}) {
+    this.options = {
+      verbose: options.verbose || false,
+      scoreRange: options.scoreRange || [0, 10],
+      metricsWeights: options.metricsWeights || {
+        bugIdentification: 1,
+        refactoringRecommendations: 1,
+        codeOrganization: 1,
+        securityAwareness: 1
+      }
     };
-    this.maxScore = 10;           // Each metric is scored from 0-10
-    this.comments = [];           // Detailed comments for each metric
-    this.promptDetails = {};      // Details about the prompt being evaluated
   }
 
   /**
-   * Rate a code review prompt based on the defined metrics
-   * @param {string} promptId - Identifier for the prompt
-   * @param {Object} scores - Scores for each metric (0-10)
-   * @param {Object} comments - Optional comments for each metric
-   * @param {Object} details - Additional details about the prompt
+   * Evaluate a code review text against key metrics
+   * @param {string} reviewText - The code review text to evaluate
+   * @returns {object} The evaluation results including scores and insights
    */
-  ratePrompt(promptId, scores, comments = {}, details = {}) {
-    // Validate scores
-    for (const [metric, score] of Object.entries(scores)) {
-      if (!this.metrics.hasOwnProperty(metric)) {
-        logger.warn(`Unknown metric: ${metric}`);
-        continue;
-      }
+  evaluate(reviewText) {
+    if (!reviewText || typeof reviewText !== 'string') {
+      throw new Error('Review text is required and must be a string');
+    }
 
-      if (score < 0 || score > this.maxScore) {
-        logger.warn(`Invalid score for ${metric}: ${score}. Must be between 0-${this.maxScore}`);
-        this.metrics[metric] = Math.max(0, Math.min(score, this.maxScore));
+    const scores = {
+      bugIdentification: this._evaluateBugIdentification(reviewText),
+      refactoringRecommendations: this._evaluateRefactoringRecommendations(reviewText),
+      codeOrganization: this._evaluateCodeOrganization(reviewText),
+      securityAwareness: this._evaluateSecurityAwareness(reviewText)
+    };
+
+    // Calculate overall score based on weights
+    const totalWeight = Object.values(this.options.metricsWeights).reduce((sum, weight) => sum + weight, 0);
+    const weightedSum = Object.entries(scores).reduce((sum, [metric, score]) => {
+      return sum + (score * (this.options.metricsWeights[metric] || 1));
+    }, 0);
+
+    const overallScore = totalWeight > 0 ? weightedSum / totalWeight : 0;
+
+    return {
+      scores,
+      overallScore,
+      insights: this._generateInsights(scores, reviewText)
+    };
+  }
+
+  /**
+   * Compare two code reviews and determine which one performs better
+   * @param {string} review1 - First code review text
+   * @param {string} review2 - Second code review text
+   * @returns {object} Comparison results
+   */
+  compareReviews(review1, review2) {
+    const evaluation1 = this.evaluate(review1);
+    const evaluation2 = this.evaluate(review2);
+
+    const comparison = {
+      review1: evaluation1,
+      review2: evaluation2,
+      differences: {}
+    };
+
+    // Calculate differences for each metric
+    Object.keys(evaluation1.scores).forEach(metric => {
+      const diff = evaluation2.scores[metric] - evaluation1.scores[metric];
+      comparison.differences[metric] = diff;
+    });
+
+    comparison.overallDifference = evaluation2.overallScore - evaluation1.overallScore;
+    comparison.winner = comparison.overallDifference > 0 ? 'review2' : 
+                       comparison.overallDifference < 0 ? 'review1' : 'tie';
+
+    return comparison;
+  }
+
+  /**
+   * Load reviews from files and compare them
+   * @param {string} filePath1 - Path to first review file
+   * @param {string} filePath2 - Path to second review file
+   * @returns {object} Comparison results
+   */
+  compareReviewFiles(filePath1, filePath2) {
+    try {
+      const review1 = fs.readFileSync(path.resolve(process.cwd(), filePath1), 'utf8');
+      const review2 = fs.readFileSync(path.resolve(process.cwd(), filePath2), 'utf8');
+      return this.compareReviews(review1, review2);
+    } catch (err) {
+      logger.error(`Error comparing review files: ${err.message}`);
+      throw err;
+    }
+  }
+
+  /**
+   * Generate a report from comparison results
+   * @param {object} comparison - The comparison results
+   * @param {boolean} verbose - Whether to include detailed information
+   * @returns {string} Formatted comparison report
+   */
+  generateComparisonReport(comparison, verbose = false) {
+    const { review1, review2, differences, overallDifference, winner } = comparison;
+
+    let report = `\n=== CODE REVIEW COMPARISON REPORT ===\n\n`;
+
+    // Overall comparison
+    report += `OVERALL SCORES:\n`;
+    report += `Review 1: ${review1.overallScore.toFixed(2)} / 10\n`;
+    report += `Review 2: ${review2.overallScore.toFixed(2)} / 10\n`;
+    report += `Difference: ${overallDifference.toFixed(2)} (${winner === 'tie' ? 'Tie' : `Review ${winner.slice(-1)} wins`})\n\n`;
+
+    // Metric by metric comparison
+    report += `METRICS COMPARISON:\n`;
+    Object.entries(differences).forEach(([metric, diff]) => {
+      const formattedMetric = metric.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+      report += `${formattedMetric}: ${diff.toFixed(2)} (`;
+
+      if (diff > 0) {
+        report += `Review 2 better`;
+      } else if (diff < 0) {
+        report += `Review 1 better`;
       } else {
-        this.metrics[metric] = score;
+        report += `Equal`;
       }
 
-      if (comments[metric]) {
-        this.comments.push({
-          metric,
-          comment: comments[metric]
-        });
-      }
+      report += `)\n`;
+    });
+
+    // Add insights if verbose
+    if (verbose) {
+      report += `\nINSIGHTS:\n`;
+      report += `Review 1:\n`;
+      review1.insights.forEach(insight => report += `- ${insight}\n`);
+
+      report += `\nReview 2:\n`;
+      review2.insights.forEach(insight => report += `- ${insight}\n`);
     }
 
-    this.promptDetails = {
-      id: promptId,
-      timestamp: new Date().toISOString(),
-      ...details
-    };
-
-    return this;
+    return report;
   }
 
-  /**
-   * Calculate the overall score across all metrics
-   * @returns {number} The average score across all metrics
-   */
-  getOverallScore() {
-    const metrics = Object.values(this.metrics);
-    return metrics.reduce((sum, score) => sum + score, 0) / metrics.length;
+  // Private methods for evaluating specific aspects
+
+  _evaluateBugIdentification(text) {
+    // Calculate a score based on bug identification mentions
+    const bugKeywords = [
+      'bug', 'error', 'issue', 'fix', 'incorrect', 'wrong', 'mistake', 
+      'exception', 'crash', 'failure', 'defect', 'undefined behavior'
+    ];
+
+    return this._calculateKeywordScore(text, bugKeywords);
   }
 
-  /**
-   * Get the best-performing metric
-   * @returns {Object} The metric name and score
-   */
-  getBestMetric() {
-    let bestMetric = null;
-    let bestScore = -1;
+  _evaluateRefactoringRecommendations(text) {
+    // Calculate a score based on refactoring recommendations
+    const refactoringKeywords = [
+      'refactor', 'restructure', 'simplify', 'improve', 'optimize', 'cleaner',
+      'more readable', 'maintainable', 'extract method', 'reuse', 'DRY'
+    ];
 
-    for (const [metric, score] of Object.entries(this.metrics)) {
-      if (score > bestScore) {
-        bestScore = score;
-        bestMetric = metric;
-      }
+    return this._calculateKeywordScore(text, refactoringKeywords);
+  }
+
+  _evaluateCodeOrganization(text) {
+    // Calculate a score based on code organization mentions
+    const organizationKeywords = [
+      'organization', 'structure', 'modular', 'separation of concerns', 
+      'cohesive', 'SOLID', 'architecture', 'design pattern', 'consistent'
+    ];
+
+    return this._calculateKeywordScore(text, organizationKeywords);
+  }
+
+  _evaluateSecurityAwareness(text) {
+    // Calculate a score based on security awareness
+    const securityKeywords = [
+      'security', 'vulnerability', 'injection', 'XSS', 'CSRF', 'validation',
+      'sanitize', 'escape', 'authorize', 'authenticate', 'encrypt', 'hash'
+    ];
+
+    return this._calculateKeywordScore(text, securityKeywords);
+  }
+
+  _calculateKeywordScore(text, keywords) {
+    // Count occurrences of keywords and calculate a score
+    const [min, max] = this.options.scoreRange;
+    const normalizedText = text.toLowerCase();
+
+    let count = 0;
+    keywords.forEach(keyword => {
+      const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+      const matches = normalizedText.match(regex);
+      if (matches) count += matches.length;
+    });
+
+    // Apply diminishing returns (log scale) and normalize to score range
+    const normalizedCount = count > 0 ? Math.log10(count + 1) : 0;
+    const maxPossible = Math.log10(30); // Assuming 30 is a reasonable max
+
+    return min + (normalizedCount / maxPossible) * (max - min);
+  }
+
+  _generateInsights(scores, text) {
+    const insights = [];
+
+    // General insights based on scores
+    if (scores.bugIdentification < 5) {
+      insights.push('Low bug identification score - could improve detection of coding errors');
     }
 
-    return { metric: bestMetric, score: bestScore };
-  }
-
-  /**
-   * Get the metric that needs the most improvement
-   * @returns {Object} The metric name and score
-   */
-  getWeakestMetric() {
-    let weakestMetric = null;
-    let lowestScore = Infinity;
-
-    for (const [metric, score] of Object.entries(this.metrics)) {
-      if (score < lowestScore) {
-        lowestScore = score;
-        weakestMetric = metric;
-      }
+    if (scores.refactoringRecommendations < 5) {
+      insights.push('Limited refactoring suggestions - more concrete examples would be beneficial');
     }
 
-    return { metric: weakestMetric, score: lowestScore };
-  }
-
-  /**
-   * Save the scorecard to a JSON file
-   * @param {string} outputPath - Path to save the scorecard
-   * @returns {boolean} Success status
-   */
-  saveToFile(outputPath) {
-    try {
-      const scorecardData = {
-        promptDetails: this.promptDetails,
-        metrics: this.metrics,
-        comments: this.comments,
-        overallScore: this.getOverallScore(),
-        bestMetric: this.getBestMetric(),
-        weakestMetric: this.getWeakestMetric(),
-        timestamp: new Date().toISOString()
-      };
-
-      const outputDir = path.dirname(outputPath);
-      if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-      }
-
-      fs.writeFileSync(outputPath, JSON.stringify(scorecardData, null, 2));
-      logger.info(`Saved code review scorecard to ${outputPath}`);
-      return true;
-    } catch (error) {
-      logger.error(`Failed to save code review scorecard: ${error.message}`);
-      return false;
+    if (scores.codeOrganization < 5) {
+      insights.push('Code organization feedback could be enhanced with more structure recommendations');
     }
-  }
 
-  /**
-   * Compare two code review scorecards
-   * @param {string} scorecard1Path - Path to first scorecard
-   * @param {string} scorecard2Path - Path to second scorecard
-   * @param {string} outputPath - Path to save comparison
-   * @returns {Object} Comparison results
-   */
-  static comparePromptsFromFiles(scorecard1Path, scorecard2Path, outputPath) {
-    try {
-      const scorecard1 = JSON.parse(fs.readFileSync(scorecard1Path, 'utf8'));
-      const scorecard2 = JSON.parse(fs.readFileSync(scorecard2Path, 'utf8'));
-
-      const comparison = {
-        prompt1: scorecard1.promptDetails,
-        prompt2: scorecard2.promptDetails,
-        metricComparisons: {},
-        overallComparison: {
-          prompt1Score: scorecard1.overallScore,
-          prompt2Score: scorecard2.overallScore,
-          difference: scorecard1.overallScore - scorecard2.overallScore,
-          betterPrompt: scorecard1.overallScore > scorecard2.overallScore ? 
-            scorecard1.promptDetails.id : scorecard2.promptDetails.id
-        },
-        timestamp: new Date().toISOString()
-      };
-
-      // Compare each metric
-      for (const metric of Object.keys(scorecard1.metrics)) {
-        const score1 = scorecard1.metrics[metric];
-        const score2 = scorecard2.metrics[metric];
-
-        comparison.metricComparisons[metric] = {
-          prompt1Score: score1,
-          prompt2Score: score2,
-          difference: score1 - score2,
-          betterPrompt: score1 > score2 ? scorecard1.promptDetails.id : 
-                        (score1 < score2 ? scorecard2.promptDetails.id : 'tie')
-        };
-      }
-
-      // Save comparison if outputPath provided
-      if (outputPath) {
-        const outputDir = path.dirname(outputPath);
-        if (!fs.existsSync(outputDir)) {
-          fs.mkdirSync(outputDir, { recursive: true });
-        }
-
-        fs.writeFileSync(outputPath, JSON.stringify(comparison, null, 2));
-        logger.info(`Saved code review comparison to ${outputPath}`);
-      }
-
-      return comparison;
-    } catch (error) {
-      logger.error(`Failed to compare code review scorecards: ${error.message}`);
-      throw error;
+    if (scores.securityAwareness < 5) {
+      insights.push('Security awareness is low - consider adding more security-focused feedback');
     }
-  }
 
-  /**
-   * Generate a markdown report from the comparison
-   * @param {Object} comparison - Comparison data
-   * @param {string} outputPath - Path to save markdown report
-   * @returns {string} Markdown content
-   */
-  static generateComparisonReport(comparison, outputPath) {
-    try {
-      const betterPrompt = comparison.overallComparison.betterPrompt;
-      const markdown = `
-# Code Review Prompt Comparison Report
-
-## Overview
-
-This report compares two code review prompts:
-- **Prompt 1**: ${comparison.prompt1.id}
-- **Prompt 2**: ${comparison.prompt2.id}
-
-## Overall Results
-
-Overall better performing prompt: **${betterPrompt}**
-
-| Metric | ${comparison.prompt1.id} | ${comparison.prompt2.id} | Difference | Better Prompt |
-|--------|---------|---------|------------|--------------|
-| Overall Score | ${comparison.overallComparison.prompt1Score.toFixed(2)} | ${comparison.overallComparison.prompt2Score.toFixed(2)} | ${comparison.overallComparison.difference.toFixed(2)} | ${comparison.overallComparison.betterPrompt} |
-
-## Metrics Breakdown
-
-${Object.entries(comparison.metricComparisons).map(([metric, data]) => `
-### ${metric.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-
-- **${comparison.prompt1.id}**: ${data.prompt1Score.toFixed(2)}
-- **${comparison.prompt2.id}**: ${data.prompt2Score.toFixed(2)}
-- **Difference**: ${data.difference.toFixed(2)}
-- **Better Prompt**: ${data.betterPrompt}
-`).join('\n')}
-
-## Summary
-
-${comparison.overallComparison.difference > 0 
-  ? `Prompt "${comparison.prompt1.id}" outperforms "${comparison.prompt2.id}" by ${Math.abs(comparison.overallComparison.difference).toFixed(2)} points overall.`
-  : comparison.overallComparison.difference < 0
-    ? `Prompt "${comparison.prompt2.id}" outperforms "${comparison.prompt1.id}" by ${Math.abs(comparison.overallComparison.difference).toFixed(2)} points overall.`
-    : `Both prompts perform equally overall.`
-}
-
-### Metric-by-Metric Analysis
-
-${Object.entries(comparison.metricComparisons)
-  .sort((a, b) => Math.abs(b[1].difference) - Math.abs(a[1].difference))
-  .map(([metric, data]) => {
-    const metricName = metric.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-    const better = data.betterPrompt === 'tie' 
-      ? 'Both prompts perform equally' 
-      : `"${data.betterPrompt}" performs better`;
-
-    return `- **${metricName}**: ${better} by ${Math.abs(data.difference).toFixed(2)} points.`;
-  })
-  .join('\n')}
-
-## Recommendations
-
-Based on this analysis, here are recommendations for prompt improvement:
-
-${comparison.overallComparison.difference !== 0 
-  ? `1. Use prompt "${comparison.overallComparison.betterPrompt}" as the baseline for future improvements.`
-  : `1. Both prompts perform equally overall. Consider their individual metric strengths.`
-}
-
-2. Areas for improvement in the better prompt:
-   - Focus on improving the ${Object.entries(comparison.metricComparisons)
-       .filter(([_, data]) => data.betterPrompt === comparison.overallComparison.betterPrompt)
-       .sort((a, b) => a[1][`${comparison.overallComparison.betterPrompt === comparison.prompt1.id ? 'prompt1' : 'prompt2'}Score`] - 
-                       b[1][`${comparison.overallComparison.betterPrompt === comparison.prompt1.id ? 'prompt1' : 'prompt2'}Score`])
-       .slice(0, 2)
-       .map(([metric, _]) => metric.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()))
-       .join(' and ')} metrics.
-
-3. Consider creating a hybrid prompt that combines:
-   ${Object.entries(comparison.metricComparisons)
-       .map(([metric, data]) => {
-         const betterPromptForMetric = data.betterPrompt === 'tie' 
-           ? 'Either prompt'
-           : `"${data.betterPrompt}"`;
-         return `   - ${betterPromptForMetric} for ${metric.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}`;
-       })
-       .join('\n')}
-
-Generated on: ${new Date().toISOString()}
-`;
-
-      if (outputPath) {
-        const outputDir = path.dirname(outputPath);
-        if (!fs.existsSync(outputDir)) {
-          fs.mkdirSync(outputDir, { recursive: true });
-        }
-
-        fs.writeFileSync(outputPath, markdown);
-        logger.info(`Saved code review comparison report to ${outputPath}`);
-      }
-
-      return markdown;
-    } catch (error) {
-      logger.error(`Failed to generate comparison report: ${error.message}`);
-      throw error;
+    // Content-based insights
+    if (text.length < 1000) {
+      insights.push('Review is relatively short - more detailed explanations could improve effectiveness');
     }
+
+    if (!text.includes('example') && !text.includes('Example')) {
+      insights.push('No explicit examples provided - adding code examples would make feedback more actionable');
+    }
+
+    return insights;
   }
 }
 
