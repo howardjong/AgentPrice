@@ -1,6 +1,7 @@
-const fs = require('fs');
-const path = require('path');
-const geminiService = require('./src/geminiService');
+
+import fs from 'fs';
+import path from 'path';
+import * as geminiService from './src/geminiService.js';
 
 async function testGeminiFolderReview() {
   try {
