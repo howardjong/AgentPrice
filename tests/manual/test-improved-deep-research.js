@@ -18,7 +18,7 @@ dotenv.config();
 const TEST_QUERY = process.argv[2] || 
   "What are the latest developments in AI alignment research and how are leading AI labs addressing safety concerns?";
 
-const OUTPUT_DIR = path.join('test-results', 'deep-research-tests');
+const OUTPUT_DIR = path.join('test-results', 'deep-research');
 
 // Make sure the output directory exists
 async function ensureOutputDir() {
