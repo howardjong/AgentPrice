@@ -1,4 +1,3 @@
-
 /**
  * Test Improved Deep Research Functionality
  * 
@@ -6,11 +5,13 @@
  * from sonar-deep-research to sonar-pro if needed.
  */
 
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import perplexityService from '../../services/perplexityService.js';
 import logger from '../../utils/logger.js';
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 import path from 'path';
+
+dotenv.config();
 
 // Configure test
 const TEST_QUERY = process.argv[2] || 
@@ -34,12 +35,12 @@ async function runDeepResearchTest() {
   console.log(`\n======================================`);
   console.log(`IMPROVED DEEP RESEARCH TEST #${testId}`);
   console.log(`======================================\n`);
-  
+
   console.log(`Query: "${TEST_QUERY.substring(0, 100)}${TEST_QUERY.length > 100 ? '...' : ''}"\n`);
-  
+
   try {
     console.log(`Testing performDeepResearch with sonar-deep-research (fallback to sonar-pro)...`);
-    
+
     const startTime = Date.now();
     const result = await perplexityService.performDeepResearch(TEST_QUERY, {
       model: 'sonar-deep-research',
@@ -47,19 +48,19 @@ async function runDeepResearchTest() {
       requestId: `test-${testId}`,
       saveResult: true
     });
-    
+
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     console.log(`\n✅ Deep research completed in ${duration} seconds`);
     console.log(`Model used: ${result.modelUsed || 'unknown'}`);
-    
+
     if (result.fallbackUsed) {
       console.log(`⚠️ Fallback was used: ${result.fallbackReason}`);
       console.log(`Model attempts: ${result.modelAttempts.join(' -> ')}`);
     }
-    
+
     console.log(`\nContent length: ${result.content?.length || 0} characters`);
     console.log(`Citations: ${result.citations?.length || 0}`);
-    
+
     // Save successful result
     const outputFile = path.join(OUTPUT_DIR, `deep-research-result-${testId}.json`);
     await fs.writeFile(outputFile, JSON.stringify({
@@ -72,14 +73,14 @@ async function runDeepResearchTest() {
         fallbackUsed: result.fallbackUsed || false
       }
     }, null, 2));
-    
+
     console.log(`\nSaved result to ${outputFile}`);
-    
+
     // Print first 500 characters of content
     if (result.content) {
       console.log(`\nContent preview:\n${'-'.repeat(40)}\n${result.content.substring(0, 500)}...\n${'-'.repeat(40)}`);
     }
-    
+
     // Print citations if available
     if (result.citations && result.citations.length > 0) {
       console.log(`\nCitations preview:`);
@@ -90,15 +91,15 @@ async function runDeepResearchTest() {
         console.log(`...and ${result.citations.length - 3} more citations`);
       }
     }
-    
+
   } catch (error) {
     console.error(`\n❌ Error testing deep research:`);
     console.error(`Error message: ${error.message}`);
-    
+
     if (error.stack) {
       console.error(`\nStack trace:\n${error.stack.split('\n').slice(0, 3).join('\n')}`);
     }
-    
+
     // Save error information
     const errorFile = path.join(OUTPUT_DIR, `deep-research-error-${testId}.json`);
     await fs.writeFile(errorFile, JSON.stringify({
@@ -111,7 +112,7 @@ async function runDeepResearchTest() {
         timestamp: new Date().toISOString()
       }
     }, null, 2));
-    
+
     console.error(`\nSaved error details to ${errorFile}`);
   } finally {
     console.log(`\n======================================`);
@@ -124,7 +125,7 @@ async function runDeepResearchTest() {
 async function main() {
   await ensureOutputDir();
   await runDeepResearchTest();
-  
+
   // Give time for logs to flush
   setTimeout(() => {
     process.exit(0);

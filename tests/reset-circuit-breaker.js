@@ -34,7 +34,7 @@ const claudeBreaker = new CircuitBreaker({
 
 // Reset specified circuit breaker
 if (serviceName === 'all' || serviceName === 'perplexity') {
-  perplexityBreaker.reset();
+  perplexityBreaker.resetBreaker(); // Updated method name
   logger.info('Reset perplexity-api circuit breaker');
 
   if (!skipTest) {
@@ -53,7 +53,7 @@ if (serviceName === 'all' || serviceName === 'perplexity') {
 }
 
 if (serviceName === 'all' || serviceName === 'claude') {
-  claudeBreaker.reset();
+  claudeBreaker.resetBreaker(); // Updated method name
   logger.info('Reset claude-api circuit breaker');
 
   if (!skipTest) {
