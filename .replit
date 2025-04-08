@@ -3175,3 +3175,21 @@ args = "node tests/reset-circuit-breaker.js perplexity"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node tests/manual/test-improved-deep-research.js"
+
+[[workflows.workflow]]
+name = "1. Reset Perplexity Circuit Breaker"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/reset-circuit-breaker.js perplexity"
+
+[[workflows.workflow]]
+name = "2. Run Deep Research Test"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "node tests/manual/test-improved-deep-research.js"
