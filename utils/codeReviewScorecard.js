@@ -1,4 +1,3 @@
-
 /**
  * Code Review Scorecard Utility
  * 
@@ -6,9 +5,9 @@
  * code review prompts based on key metrics relevant to code quality improvement.
  */
 
-const fs = require('fs');
-const path = require('path');
-const logger = require('./logger');
+import fs from 'fs';
+import path from 'path';
+import logger from './logger';
 
 class CodeReviewScorecard {
   constructor() {
@@ -37,14 +36,14 @@ class CodeReviewScorecard {
         logger.warn(`Unknown metric: ${metric}`);
         continue;
       }
-      
+
       if (score < 0 || score > this.maxScore) {
         logger.warn(`Invalid score for ${metric}: ${score}. Must be between 0-${this.maxScore}`);
         this.metrics[metric] = Math.max(0, Math.min(score, this.maxScore));
       } else {
         this.metrics[metric] = score;
       }
-      
+
       if (comments[metric]) {
         this.comments.push({
           metric,
@@ -52,16 +51,16 @@ class CodeReviewScorecard {
         });
       }
     }
-    
+
     this.promptDetails = {
       id: promptId,
       timestamp: new Date().toISOString(),
       ...details
     };
-    
+
     return this;
   }
-  
+
   /**
    * Calculate the overall score across all metrics
    * @returns {number} The average score across all metrics
@@ -70,7 +69,7 @@ class CodeReviewScorecard {
     const metrics = Object.values(this.metrics);
     return metrics.reduce((sum, score) => sum + score, 0) / metrics.length;
   }
-  
+
   /**
    * Get the best-performing metric
    * @returns {Object} The metric name and score
@@ -78,17 +77,17 @@ class CodeReviewScorecard {
   getBestMetric() {
     let bestMetric = null;
     let bestScore = -1;
-    
+
     for (const [metric, score] of Object.entries(this.metrics)) {
       if (score > bestScore) {
         bestScore = score;
         bestMetric = metric;
       }
     }
-    
+
     return { metric: bestMetric, score: bestScore };
   }
-  
+
   /**
    * Get the metric that needs the most improvement
    * @returns {Object} The metric name and score
@@ -96,17 +95,17 @@ class CodeReviewScorecard {
   getWeakestMetric() {
     let weakestMetric = null;
     let lowestScore = Infinity;
-    
+
     for (const [metric, score] of Object.entries(this.metrics)) {
       if (score < lowestScore) {
         lowestScore = score;
         weakestMetric = metric;
       }
     }
-    
+
     return { metric: weakestMetric, score: lowestScore };
   }
-  
+
   /**
    * Save the scorecard to a JSON file
    * @param {string} outputPath - Path to save the scorecard
@@ -123,12 +122,12 @@ class CodeReviewScorecard {
         weakestMetric: this.getWeakestMetric(),
         timestamp: new Date().toISOString()
       };
-      
+
       const outputDir = path.dirname(outputPath);
       if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
       }
-      
+
       fs.writeFileSync(outputPath, JSON.stringify(scorecardData, null, 2));
       logger.info(`Saved code review scorecard to ${outputPath}`);
       return true;
@@ -137,7 +136,7 @@ class CodeReviewScorecard {
       return false;
     }
   }
-  
+
   /**
    * Compare two code review scorecards
    * @param {string} scorecard1Path - Path to first scorecard
@@ -149,7 +148,7 @@ class CodeReviewScorecard {
     try {
       const scorecard1 = JSON.parse(fs.readFileSync(scorecard1Path, 'utf8'));
       const scorecard2 = JSON.parse(fs.readFileSync(scorecard2Path, 'utf8'));
-      
+
       const comparison = {
         prompt1: scorecard1.promptDetails,
         prompt2: scorecard2.promptDetails,
@@ -163,12 +162,12 @@ class CodeReviewScorecard {
         },
         timestamp: new Date().toISOString()
       };
-      
+
       // Compare each metric
       for (const metric of Object.keys(scorecard1.metrics)) {
         const score1 = scorecard1.metrics[metric];
         const score2 = scorecard2.metrics[metric];
-        
+
         comparison.metricComparisons[metric] = {
           prompt1Score: score1,
           prompt2Score: score2,
@@ -177,25 +176,25 @@ class CodeReviewScorecard {
                         (score1 < score2 ? scorecard2.promptDetails.id : 'tie')
         };
       }
-      
+
       // Save comparison if outputPath provided
       if (outputPath) {
         const outputDir = path.dirname(outputPath);
         if (!fs.existsSync(outputDir)) {
           fs.mkdirSync(outputDir, { recursive: true });
         }
-        
+
         fs.writeFileSync(outputPath, JSON.stringify(comparison, null, 2));
         logger.info(`Saved code review comparison to ${outputPath}`);
       }
-      
+
       return comparison;
     } catch (error) {
       logger.error(`Failed to compare code review scorecards: ${error.message}`);
       throw error;
     }
   }
-  
+
   /**
    * Generate a markdown report from the comparison
    * @param {Object} comparison - Comparison data
@@ -251,7 +250,7 @@ ${Object.entries(comparison.metricComparisons)
     const better = data.betterPrompt === 'tie' 
       ? 'Both prompts perform equally' 
       : `"${data.betterPrompt}" performs better`;
-    
+
     return `- **${metricName}**: ${better} by ${Math.abs(data.difference).toFixed(2)} points.`;
   })
   .join('\n')}
@@ -292,11 +291,11 @@ Generated on: ${new Date().toISOString()}
         if (!fs.existsSync(outputDir)) {
           fs.mkdirSync(outputDir, { recursive: true });
         }
-        
+
         fs.writeFileSync(outputPath, markdown);
         logger.info(`Saved code review comparison report to ${outputPath}`);
       }
-      
+
       return markdown;
     } catch (error) {
       logger.error(`Failed to generate comparison report: ${error.message}`);
@@ -305,4 +304,4 @@ Generated on: ${new Date().toISOString()}
   }
 }
 
-module.exports = CodeReviewScorecard;
+export default CodeReviewScorecard;
