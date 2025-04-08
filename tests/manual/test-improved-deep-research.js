@@ -97,7 +97,8 @@ async function runDeepResearchTest() {
     console.log(`Citations: ${result.citations?.length || 0}`);
 
     // Save successful result
-    const outputFile = path.join(OUTPUT_DIR, `deep-research-result-${testId}.json`);
+    const modelName = result.modelUsed || 'unknown';
+    const outputFile = path.join(OUTPUT_DIR, `deep-research-result-${modelName}-${testId}.json`);
     await fs.writeFile(outputFile, JSON.stringify({
       query: TEST_QUERY,
       result,
