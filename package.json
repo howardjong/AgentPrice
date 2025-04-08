@@ -2,6 +2,7 @@
   "name": "code-reviewer",
   "version": "1.0.0",
   "description": "A code reviewer app using Google's Gemini API",
+  "type": "module",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
