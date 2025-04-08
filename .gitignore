@@ -132,3 +132,7 @@ curl-response.json
 *-*-error.json
 *-*-*-error.json
 *-*-*-*-error.json
+
+# Replit specific configuration files
+.replit
+replit.nix
