@@ -5,9 +5,9 @@ import Redis from 'ioredis';
 let RedisMemoryServer;
 try {
   const module = await import('redis-memory-server');
-  RedisMemoryServer = module.default || module.RedisMemoryServer;
+  RedisMemoryServer = module.RedisMemoryServer;
 } catch (error) {
-  console.warn('Redis memory server not available, using standard Redis connection');
+  logger.warn('Redis memory server not available, using standard Redis connection');
 }
 
 // In-memory store for fallback mode
