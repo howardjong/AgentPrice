@@ -75,7 +75,7 @@ localPort = 45365
 externalPort = 8000
 
 [workflows]
-runButton = "Run Code Reviewer"
+runButton = "Run ESM Server"
 
 [[workflows.workflow]]
 name = "Project"
@@ -3153,3 +3153,12 @@ mode = "sequential"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "node test-gemini-folder-review.js src/geminiService gemini-2.5-pro-preview-03-25 prompts/gemini/versions/code_review_v2.txt"
+
+[[workflows.workflow]]
+name = "Run ESM Server"
+author = 35006224
+mode = "sequential"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=5001 node start.js"

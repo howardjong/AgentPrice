@@ -1,3 +1,4 @@
+
 /**
  * PostgreSQL Database Client
  * 
@@ -85,3 +86,5 @@ export const db = {
     return pool.end();
   }
 };
+
+export default db;
