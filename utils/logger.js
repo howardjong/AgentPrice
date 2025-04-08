@@ -1,3 +1,4 @@
+
 /**
  * Simple logger module
  */
