@@ -64,8 +64,21 @@ uploads/
 content-uploads/
 attached_assets/
 
+# Asset files
+**/assets/index-*.js
+**/assets/index-*.css
+reports/assets/
+tests/*/reports/assets/
+tests/*/services/reports/assets/
+tests/integration/services/reports/assets/
+tests/unit/services/reports/assets/
+tests/unit/reports/assets/
+tests/reports/assets/
+
 # Test results and generated data
 deep-research-*.log
+perplexity-*.log
+test-results/
 perplexity-*.log
 *.pid
 *-response-*.json
