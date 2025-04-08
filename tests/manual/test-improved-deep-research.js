@@ -62,11 +62,11 @@ async function runDeepResearchTest() {
     };
 
     // Enhanced think content watcher with raw data logging
-   const thinkContentWatcher = (content) => {
+    const thinkContentWatcher = (content) => {
       if (content) {
         // Log raw thinking data for debugging
         console.log('\n🔍 Raw thinking data type:', typeof content);
-        
+
         if (content !== thinkingContent) {
           stopThinkingIndicator();
           thinkingContent = content;

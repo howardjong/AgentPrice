@@ -368,13 +368,20 @@ async function pollForResults(pollUrl, requestId, maxAttempts = MAX_POLL_ATTEMPT
  */
 async function conductDeepResearch(query, options = {}) {
   const requestId = options.requestId || uuidv4();
+  const model = options.model || 'sonar-deep-research';
+  const maxTokens = options.maxTokens || 4000;
+  const temperature = options.temperature || 0.7;
+  const onThinking = options.onThinking || null;
+  const debugThinking = options.debugThinking || false;
 
   logger.info(`[${requestId}] Starting complete deep research process for query: "${query.substring(0, 50)}..."`);
 
   // Initiate the research
   const initiateResult = await initiateDeepResearch(query, {
     ...options,
-    requestId
+    requestId,
+    onThinking, // Pass onThinking callback to initiateDeepResearch
+    debugThinking // Pass debugThinking to initiateDeepResearch
   });
 
   if (!initiateResult.success) {
